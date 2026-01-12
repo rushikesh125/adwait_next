@@ -12,7 +12,6 @@ import { clearUser, setUser } from "@/store/authSlice";
 const AuthSetup = () => {
   const dispatch = useDispatch();
 
-  const user = useSelector((state) => state.user);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
