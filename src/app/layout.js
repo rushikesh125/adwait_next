@@ -1,15 +1,17 @@
-'use client';
-import Header from "@/components/Header";
+"use client";
+
+import ReduxProvider from "@/components/ReduxProvider";
 import "./globals.css";
-
-
-
+import { Toaster } from "react-hot-toast";
 
 export default function Layout({ children }) {
   return (
-    <div>
-      <Header />
-      <main>{children}</main>
-    </div>
+    <html lang="en">
+      <body className={` antialiased`}>
+        <ReduxProvider>{children}</ReduxProvider>
+
+        <Toaster />
+      </body>
+    </html>
   );
 }

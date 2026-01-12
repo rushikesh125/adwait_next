@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import './header.css';
 
 export default function Header() {
   const { user, logout } = useAuth();

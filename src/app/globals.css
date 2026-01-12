@@ -4,6 +4,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* theme colors */
+ --color-theme-primary: #7C3AED;   /* Violet */
+  --color-theme-secondary: #EC4899; /* Pink */
+  --color-theme-accent: #06B6D4;    /* Cyan Blue */
+  --color-theme-muted: #E9D5FF;     /* Light violet */
+  --color-theme-dark: #4C1D95;      /* Deep violet */
+  --color-theme-gradient-from: #7C3AED;
+  --color-theme-gradient-to: #EC4899;
+
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
