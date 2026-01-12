@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Mail, Lock, LogIn, Chrome, Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { auth } from "@/firebase/config";
 import { Google } from "@mui/icons-material";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -171,9 +172,9 @@ export default function LoginPage() {
         <CardFooter className="flex flex-col space-y-4 pb-8">
           <div className="text-sm text-center text-slate-500">
             New here?{" "}
-            <button className="font-bold text-theme-primary hover:underline transition-all">
+            <Link href={'/signup'} className="font-bold text-theme-primary hover:underline transition-all">
               Create an account
-            </button>
+            </Link>
           </div>
         </CardFooter>
       </Card>
