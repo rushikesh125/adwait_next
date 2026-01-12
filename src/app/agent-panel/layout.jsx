@@ -112,7 +112,7 @@ const AgentPanelLayout = ({ children }) => {
       </div>
 
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className={`hidden lg:block border-r border-slate-100 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
+      <aside className={`hidden lg:block border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
         <SidebarContent />
       </aside>
 
@@ -120,7 +120,7 @@ const AgentPanelLayout = ({ children }) => {
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* HEADER */}
-        <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-40">
+        <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center gap-2 lg:gap-4">
             {/* Mobile Menu Trigger */}
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
