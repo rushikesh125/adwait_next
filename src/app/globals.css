@@ -4,14 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* theme colors */
- --color-theme-primary: #7C3AED;   /* Violet */
-  --color-theme-secondary: #EC4899; /* Pink */
-  --color-theme-accent: #06B6D4;    /* Cyan Blue */
-  --color-theme-muted: #E9D5FF;     /* Light violet */
-  --color-theme-dark: #4C1D95;      /* Deep violet */
-  --color-theme-gradient-from: #7C3AED;
-  --color-theme-gradient-to: #EC4899;
+  --color-theme-primary: #1E88E5;        /* Bright blue */
+--color-theme-secondary: #1565C0;      /* Deep/strong blue */
+--color-theme-accent: #42A5F5;         /* Light friendly blue */
+--color-theme-muted: #E3F2FD;          /* Soft pale blue */
+--color-theme-dark: #0D47A1;           /* Navy/dark blue */
+--color-theme-gradient-from: #2196F3;  /* Gradient: Blue → Violet-Pink hint */
+--color-theme-gradient-to: #7C3AED;    /* Blue-violet (matches theme) */
 
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -127,8 +126,8 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
-

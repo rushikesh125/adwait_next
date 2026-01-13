@@ -177,7 +177,7 @@ export default function SignupPage() {
       <div className="absolute bottom-[-5%] right-[-5%] w-[350px] h-[350px] rounded-full bg-theme-secondary/10 blur-[100px]" />
 
       <Card className="w-full max-w-[480px] rounded-3xl border-slate-100 shadow-2xl bg-white/80 backdrop-blur-xl z-10 transition-all">
-        <CardHeader className="space-y-1 text-center pb-6">
+        <CardHeader className="space-y-1 text-center">
           <div className="mx-auto w-14 h-14 bg-gradient-to-br from-theme-gradient-from to-theme-gradient-to rounded-2xl flex items-center justify-center mb-2 -rotate-3 shadow-lg shadow-theme-primary/30">
             <UserPlus className="text-white w-7 h-7" />
           </div>
