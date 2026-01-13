@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
 import { signOut } from "firebase/auth";
 import toast from "react-hot-toast";
+import UserDropdown from "@/components/UserDropdown";
 
 const AdminPanelLayout = ({ children }) => {
   const { user, loading, initialized } = useSelector((state) => state.auth);
@@ -129,7 +130,7 @@ const AdminPanelLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
+            {/* <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-black text-slate-900">{user?.name || "Admin"}</p>
                 <p className="text-[9px] text-theme-secondary font-bold uppercase mt-1 tracking-widest text-right">System Controller</p>
@@ -137,12 +138,13 @@ const AdminPanelLayout = ({ children }) => {
               <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
                 {user?.name?.charAt(0) || "S"}
               </div>
-            </div>
+            </div> */}
+            <UserDropdown user={user}/>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-          <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
+        <main className="flex-1 overflow-y-auto p-2 md:p-4 lg:p-6">
+          <div className=" mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
             {children}
           </div>
         </main>

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { auth } from "@/firebase/config";
 import { signOut } from "firebase/auth";
 import toast from "react-hot-toast";
+import UserDropdown from "@/components/UserDropdown";
 
 const AgentPanelLayout = ({ children }) => {
   const { user, loading, initialized } = useSelector((state) => state.auth);
@@ -142,20 +143,21 @@ const AgentPanelLayout = ({ children }) => {
             </Button>
 
             <div className="flex items-center gap-2 lg:gap-3 pl-2 border-l border-slate-100">
-              <div className="text-right hidden md:block">
+              {/* <div className="text-right hidden md:block">
                 <p className="text-xs font-bold text-theme-dark leading-none">{user?.name}</p>
                 <p className="text-[9px] text-theme-primary font-black uppercase mt-1">Agent</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-theme-primary to-theme-secondary flex items-center justify-center text-white text-xs font-bold shadow-sm">
                 {user?.name?.charAt(0) || "A"}
-              </div>
+              </div> */}
+               <UserDropdown user={user}/>
             </div>
           </div>
         </header>
 
         {/* CONTENT */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 relative">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto relative p-2 md:p-4 lg:p-6 bg-slate-100">
+          <div className="mx-auto">
             {children}
           </div>
         </main>
