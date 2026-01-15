@@ -59,7 +59,7 @@ const AdminPanelLayout = ({ children }) => {
     <div className="flex flex-col h-full bg-[#0F172A] text-slate-300">
       <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="min-w-[36px] h-9 bg-gradient-to-tr from-theme-primary to-theme-secondary rounded-lg flex items-center justify-center">
+          <div className="min-w-[36px] h-9 bg-linear-to-tr from-theme-primary to-theme-secondary rounded-lg flex items-center justify-center">
             <Lock className="text-white w-4 h-4" />
           </div>
           {(isSidebarOpen || mobile) && (
