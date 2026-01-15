@@ -6,9 +6,17 @@ import Loading from "../loading";
 import Page403 from "@/components/Page403";
 
 // Icons
-import { 
-  LayoutDashboard, Map, Users, Settings, LogOut, 
-  Menu, X, Bell, Search, Briefcase 
+import {
+  LayoutDashboard,
+  Map,
+  Users,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  Bell,
+  Search,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +75,11 @@ const AgentPanelLayout = ({ children }) => {
           )}
         </div>
         {mobile && (
-          <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(false)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMobileOpen(false)}
+          >
             <X className="w-5 h-5 text-slate-500" />
           </Button>
         )}
@@ -82,10 +94,22 @@ const AgentPanelLayout = ({ children }) => {
               key={item.name}
               onClick={() => router.push(item.href)}
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group
-                ${isActive ? "bg-theme-muted/50 text-theme-primary font-bold" : "text-slate-500 hover:bg-slate-50"}`}
+                ${
+                  isActive
+                    ? "bg-theme-muted/50 text-theme-primary font-bold"
+                    : "text-slate-500 hover:bg-slate-50"
+                }`}
             >
-              <item.icon className={`w-5 h-5 ${isActive ? "text-theme-primary" : "group-hover:text-theme-primary"}`} />
-              {(isSidebarOpen || mobile) && <span className="text-sm font-medium">{item.name}</span>}
+              <item.icon
+                className={`w-5 h-5 ${
+                  isActive
+                    ? "text-theme-primary"
+                    : "group-hover:text-theme-primary"
+                }`}
+              />
+              {(isSidebarOpen || mobile) && (
+                <span className="text-sm font-medium">{item.name}</span>
+              )}
             </button>
           );
         })}
@@ -93,7 +117,10 @@ const AgentPanelLayout = ({ children }) => {
 
       {/* Logout */}
       <div className="p-4 border-t border-slate-50">
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 p-3 text-red-500 hover:bg-red-50 rounded-xl font-semibold transition-all">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 p-3 text-red-500 hover:bg-red-50 rounded-xl font-semibold transition-all"
+        >
           <LogOut className="w-5 h-5" />
           {(isSidebarOpen || mobile) && <span className="text-sm">Logout</span>}
         </button>
@@ -103,42 +130,71 @@ const AgentPanelLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-[#FDFCFE] flex overflow-hidden">
-      
       {/* --- MOBILE SIDEBAR (Overlay) --- */}
-      <div className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
-        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileOpen(false)} />
-        <div className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <div
+        className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${
+          isMobileOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+      >
+        <div
+          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+          onClick={() => setIsMobileOpen(false)}
+        />
+        <div
+          className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${
+            isMobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
           <SidebarContent mobile={true} />
         </div>
       </div>
 
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className={`hidden lg:block border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
+      <aside
+        className={`hidden lg:block border-r shadow-md border-slate-200 transition-all duration-300 ${
+          isSidebarOpen ? "w-64" : "w-20"
+        }`}
+      >
         <SidebarContent />
       </aside>
 
       {/* --- MAIN SECTION --- */}
       <div className="flex-1 flex flex-col min-w-0">
-        
         {/* HEADER */}
         <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center gap-2 lg:gap-4">
             {/* Mobile Menu Trigger */}
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setIsMobileOpen(true)}
+            >
               <Menu className="w-6 h-6 text-slate-600" />
             </Button>
             {/* Desktop Toggle */}
-            <Button variant="ghost" size="icon" className="hidden lg:flex text-slate-500" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:flex text-slate-500"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
               <Menu className="w-6 h-6" />
             </Button>
-            
+
             <h1 className="lg:hidden font-bold text-theme-dark text-sm truncate uppercase tracking-widest">
-              {navItems.find(i => i.href === pathname)?.name || "Agent Panel"}
+              {navItems.find((i) => i.href === pathname)?.name || "Agent Panel"}
             </h1>
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
-            <Button variant="ghost" size="icon" className="hidden sm:flex text-slate-500">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden sm:flex text-slate-500"
+            >
               <Bell className="w-5 h-5" />
             </Button>
 
@@ -150,14 +206,19 @@ const AgentPanelLayout = ({ children }) => {
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-theme-primary to-theme-secondary flex items-center justify-center text-white text-xs font-bold shadow-sm">
                 {user?.name?.charAt(0) || "A"}
               </div> */}
-               <UserDropdown user={user}/>
+              <UserDropdown user={user} />
             </div>
           </div>
         </header>
 
         {/* CONTENT */}
-        <main className="flex-1 overflow-y-auto relative p-2 md:p-4 lg:p-6 bg-slate-100">
-          <div className="mx-auto">
+        {/* <main className="flex-1 overflow-hidden relative p-2 md:p-4 lg:p-6 bg-slate-100">
+          <div className="mx-auto overflow-y-scroll">
+            {children}
+          </div>
+        </main> */}
+        <main className="flex-1 relative p-2 md:p-4 lg:p-6 bg-slate-100 overflow-hidden">
+          <div className="h-full max-h-[calc(100vh-80px)] overflow-y-auto pr-1">
             {children}
           </div>
         </main>
