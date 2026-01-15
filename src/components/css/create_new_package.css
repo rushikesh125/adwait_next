@@ -1,0 +1,855 @@
+/* General Body and Container Styles (kept for context, no changes from previous) */
+body {
+    font-family: "Segoe UI", 'Roboto', sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+.create_new_package {
+    margin: 30px auto;
+    padding: 40px;
+    border-radius: 15px;
+    max-width: 1200px;
+    background-color: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
+    transition: transform 0.3s ease;
+}
+
+.create_new_package:hover {
+    transform: translateY(-3px);
+}
+
+.create_new_package h2 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    margin-bottom: 25px;
+    color: #5b21b6;
+    text-align: center;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.create_new_package h2::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background-color: #7c3aed;
+    border-radius: 2px;
+}
+
+/* --- State Selection (no changes) --- */
+.state-select {
+    margin-bottom: 35px;
+    background-color: #f9f9fc;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+}
+
+.state-select label {
+    font-size: 1.15rem;
+    margin-right: 15px;
+    font-weight: 600;
+    color: #444;
+}
+
+.state-select select {
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: 1px solid #d0d0d0;
+    font-size: 1rem;
+    background-color: #ffffff;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%204%205%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M2%200L0%202h4zm0%205L0%203h4z%22%2F%3E%3C%2Fsvg%3E');
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 8px 10px;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+    cursor: pointer;
+}
+
+.state-select select:hover {
+    border-color: #a78bfa;
+}
+
+.state-select select:focus {
+    border-color: #7c3aed;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+/* --- Hotel Section (no changes) --- */
+.hotel-select h3 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #5b21b6;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.hotel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+/* City Group (no changes) */
+.hotel-group {
+    padding: 20px;
+    border-radius: 12px;
+    background-color: #f8f8fd;
+    border-left: 6px solid #7c3aed;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.hotel-group:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+}
+
+.hotel-group h4 {
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+    color: #444;
+    border-bottom: 1px dashed #e0e0e0;
+    padding-bottom: 8px;
+}
+
+/* Hotel Checkbox Items (no changes) */
+.hotel-item {
+    display: flex;
+    align-items: center;
+    margin: 8px 0;
+    padding: 5px 0;
+}
+
+.hotel-item input[type="checkbox"] {
+    margin-right: 12px;
+    transform: scale(1.3);
+    accent-color: #7c3aed;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.hotel-item label {
+    font-size: 1.05rem;
+    cursor: pointer;
+    color: #555;
+    transition: color 0.2s ease;
+}
+
+.hotel-item input[type="checkbox"]:checked + label {
+    color: #5b21b6;
+    font-weight: 500;
+}
+
+/* --- No Packages Message (no changes) --- */
+.no_packages {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    height: 150px;
+    width: 100%;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #888;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    border: 2px dashed #d0d0d0;
+    margin-top: 30px;
+    padding: 20px;
+}
+
+/* --- Date Inputs (no changes) --- */
+.date-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    margin-top: 35px;
+    padding: 20px;
+    background-color: #f9f9fc;
+    border-radius: 10px;
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
+}
+
+.date-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+    flex: 1;
+}
+
+.date-field label {
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #444;
+    font-size: 1.05rem;
+}
+
+.date-field input {
+    padding: 12px 15px;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    font-size: 1rem;
+    background-color: #ffffff;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.date-field input:hover {
+    border-color: #a78bfa;
+}
+
+.date-field input:focus {
+    border-color: #7c3aed;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+/* --- Room Pricing and Tables (no changes to table styles) --- */
+.room-pricing {
+    margin-top: 30px;
+    background-color: #ffffff;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.room-block {
+    margin-bottom: 30px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.room-block h4 {
+    font-size: 1.4rem;
+    color: #5b21b6;
+    padding: 15px;
+    background-color: #f3f0ff;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 0;
+}
+
+.room-block table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0;
+}
+
+.room-block th,
+.room-block td {
+    border: 1px solid #e0e0e0;
+    padding: 12px;
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+.room-block th {
+    background-color: #f8f8fd;
+    font-weight: 600;
+    color: #555;
+}
+
+.room-block tr:nth-child(even) {
+    background-color: #fefefe;
+}
+
+.room-block tr:hover {
+    background-color: #f5f0ff;
+}
+
+.pricing-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.pricing-table th,
+.pricing-table td {
+    border: 1px solid #e0e0e0;
+    padding: 12px;
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+.pricing-table th {
+    background-color: #f8f8fd;
+    font-weight: 600;
+    color: #555;
+}
+
+.pricing-table tr:nth-child(even) {
+    background-color: #fefefe;
+}
+
+.pricing-table tr:hover {
+    background-color: #f5f0ff;
+}
+
+
+/* --- BEGIN Button Enhancements --- */
+
+/* Room Tabs Buttons */
+.room-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.room-tabs button {
+    padding: 10px 20px;
+    border: none;
+    background-color: #a78bfa; /* Lighter violet */
+    color: white;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.3s ease; /* Smooth transition for all properties */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    position: relative; /* For the subtle border animation */
+    overflow: hidden; /* Ensures pseudo-elements stay within bounds */
+}
+
+.room-tabs button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 70%);
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.4s ease-out; /* Shine effect animation */
+}
+
+.room-tabs button:hover::before {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.room-tabs button:hover {
+    background-color: #8b5cf6; /* Slightly darker on hover */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.room-tabs button.active {
+    background-color: #7c3aed; /* Active button vibrant violet */
+    color: white;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+    border: 2px solid #fff; /* White border for active state */
+    outline: 2px solid #7c3aed; /* Outline for focus/active */
+    outline-offset: 2px;
+}
+
+/* Save Changes Button */
+.save-changes-container {
+    margin-top: 40px;
+    text-align: center;
+}
+
+.save-button {
+    background-image: linear-gradient(to right, #6a11cb 0%, #2575fc 100%); /* Gradient background */
+    width: 80%;
+    max-width: 400px;
+    color: white;
+    padding: 15px 30px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    position: relative;
+    overflow: hidden;
+    z-index: 1; /* Ensure text is above pseudo-element */
+}
+
+.save-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: all 0.6s cubic-bezier(0.165, 0.84, 0.44, 1); /* Slower, more elegant shine */
+    z-index: -1; /* Place behind text */
+}
+
+.save-button:hover::before {
+    left: 100%;
+}
+
+.save-button:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+    filter: brightness(1.1);
+}
+
+.save-button:active {
+    transform: translateY(0);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    filter: brightness(0.9);
+}
+
+/* Delete Hotel Button */
+.delete-hotel-button {
+    margin-top: 12px;
+    background-color: #ef4444; /* Brighter red */
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease-in-out;
+    align-self: flex-end;
+    position: relative;
+    overflow: hidden;
+}
+
+.delete-hotel-button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    opacity: 0;
+    transform: scale(1) translate(-50%, -50%);
+    transition: all 0.4s ease-out; /* Radial ripple effect */
+}
+
+.delete-hotel-button:hover {
+    background-color: #dc2626; /* Darker red on hover */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.delete-hotel-button:active::after {
+    transform: scale(20) translate(-50%, -50%);
+    opacity: 1;
+}
+
+
+/* Add Markup Button */
+.add-markup-btn {
+    padding: 10px 20px;
+    background-color: #7c3aed; /* Vibrant violet */
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+    letter-spacing: 0.2px;
+}
+
+.add-markup-btn::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, transparent 70%);
+    transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+    transform: scale(0);
+    opacity: 0;
+}
+
+.add-markup-btn:hover::before {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.add-markup-btn:hover {
+    background-color: #6d28d9; /* Darker on hover */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* --- END Button Enhancements --- */
+
+
+/* --- Kundali Summary (Renamed for clarity as it seems generic summary - no changes) --- */
+.kundali-summary {
+    border: 1px solid #d0d0d0;
+    border-radius: 12px;
+    padding: 18px;
+    margin: 25px 0;
+    background-color: #fdfefe;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.kundali-summary h4 {
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+    color: #5b21b6;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+/* --- General Summary Section (no changes) --- */
+.summary-section {
+    background-color: #f9f9fc;
+    border: 1px solid #e0e0e0;
+    padding: 25px;
+    margin-top: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    width: fit-content;
+    align-self: flex-start;
+}
+
+.summary-section h3 {
+    margin-bottom: 15px;
+    color: #5b21b6;
+    font-size: 1.8rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.summary-section ul {
+    list-style: none;
+    padding: 0;
+}
+
+.summary-section li {
+    margin: 8px 0;
+    font-size: 1.05rem;
+    color: #444;
+    padding-left: 10px;
+    position: relative;
+}
+
+.summary-section li::before {
+    content: '•';
+    color: #7c3aed;
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-weight: bold;
+}
+
+/* --- All Hotels Summary (no changes) --- */
+.all-hotels-summary {
+    margin-top: 2.5rem;
+    padding: 1.5rem;
+    background-color: #fefefe;
+    border: 2px dashed #a78bfa;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+/* --- Single Hotel Summary (no changes) --- */
+.single-hotel-summary {
+    margin-bottom: 1.2rem;
+    padding: 1.5rem;
+    border-left: 6px solid #7c3aed;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+}
+
+.single-hotel-summary:hover {
+    transform: translateX(5px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Saved Hotels Summary (no changes to list items beyond button) --- */
+.saved-hotels-summary {
+    margin: 30px 0;
+    padding: 20px;
+    background-color: #f0f0f5;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    max-width: 650px;
+    border: 1px solid #e0e0e0;
+}
+
+.saved-hotels-summary h3 {
+    margin-bottom: 20px;
+    color: #5b21b6;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 1.8rem;
+    text-align: center;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.saved-hotels-summary h3::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background-color: #7c3aed;
+    border-radius: 2px;
+}
+
+.saved-hotels-summary ol {
+    list-style-type: decimal;
+    list-style-position: inside;
+    padding-left: 0;
+    margin: 0;
+}
+
+.saved-hotels-summary li {
+    background: white;
+    margin-bottom: 15px;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: default;
+    font-family: 'Roboto', sans-serif;
+    color: #444;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    border: 1px solid #f0f0f0;
+}
+
+.saved-hotels-summary li:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    background-color: #f5faff;
+}
+
+.saved-hotels-summary li strong {
+    color: #007bff;
+    font-weight: 700;
+    font-size: 1.15em;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.saved-hotels-summary li span {
+    font-size: 0.95em;
+    color: #666;
+}
+
+.saved-hotels-summary li br {
+    margin-bottom: 6px;
+}
+
+/* --- Grand Total Section (no changes) --- */
+.grand-total-section {
+    margin-top: 50px;
+    padding: 30px;
+    border: 2px solid #28a745;
+    border-radius: 12px;
+    background-color: #e6ffe6;
+    box-shadow: 0px 8px 20px rgba(0, 128, 0, 0.1);
+    text-align: center;
+}
+
+.grand-total-section h3 {
+    color: #1e7e34;
+    font-size: 28px;
+    margin-bottom: 15px;
+    text-align: center;
+    border-bottom: 3px solid #28a745;
+    padding-bottom: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.grand-total-section p {
+    font-size: 18px;
+    margin: 8px 0;
+    font-weight: 500;
+    color: #333;
+}
+
+.grand-total-section h4 {
+    font-size: 26px;
+    color: #dc3545;
+    margin-top: 25px;
+    font-weight: bold;
+    text-align: center;
+    background-color: #fff0f0;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #f5c6cb;
+    display: inline-block;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+/* --- Markup Section (no changes to select/input) --- */
+.markup-section {
+    margin: 30px 0;
+    text-align: center;
+    background-color: #f9f9fc;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
+}
+
+.markup-options {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+}
+
+.markup-options select,
+.markup-options input {
+    margin: 0;
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid #d0d0d0;
+    font-size: 1rem;
+    background-color: #ffffff;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+    min-width: 150px;
+}
+
+.markup-options select:focus,
+.markup-options input:focus {
+    border-color: #7c3aed;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+/* --- Responsive Adjustments (no changes) --- */
+@media (max-width: 768px) {
+    .create_new_package {
+        padding: 25px;
+        margin: 20px auto;
+    }
+
+    .create_new_package h2 {
+        font-size: 2rem;
+    }
+
+    .state-select {
+        padding: 15px;
+    }
+
+    .state-select label,
+    .state-select select {
+        display: block;
+        width: calc(100% - 2px);
+        margin-bottom: 15px;
+        box-sizing: border-box;
+    }
+
+    .state-select select {
+        background-position: right 10px center;
+    }
+
+    .hotel-select h3 {
+        font-size: 1.6rem;
+    }
+
+    .hotel-group {
+        padding: 15px;
+    }
+
+    .hotel-group h4 {
+        font-size: 1.1rem;
+    }
+
+    .date-inputs {
+        flex-direction: column;
+        gap: 20px;
+        padding: 15px;
+    }
+
+    .date-field {
+        min-width: unset;
+        width: 100%;
+    }
+
+    .room-tabs {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .room-tabs button {
+        flex: 1 1 auto;
+        min-width: 120px;
+    }
+
+    .save-button {
+        width: 95%;
+        padding: 12px 20px;
+    }
+
+    .saved-hotels-summary {
+        padding: 15px;
+        margin: 20px auto;
+        max-width: 95%;
+    }
+
+    .saved-hotels-summary h3 {
+        font-size: 1.5rem;
+    }
+
+    .grand-total-section {
+        padding: 20px;
+    }
+
+    .grand-total-section h3 {
+        font-size: 22px;
+    }
+
+    .grand-total-section p {
+        font-size: 15px;
+    }
+
+    .grand-total-section h4 {
+        font-size: 20px;
+    }
+
+    .markup-options {
+        flex-direction: column;
+    }
+}
+
+/* Accessibility: Focus styles for keyboard navigation */
+*:focus-visible {
+    outline: 3px solid #8b5cf6;
+    outline-offset: 2px;
+    border-radius: 4px;
+}

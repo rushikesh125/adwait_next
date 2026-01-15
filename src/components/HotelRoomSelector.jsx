@@ -13,153 +13,235 @@ const HotelRoomSelector = ({
   setHotelTotal,
   setSelectedMealPlan,
   selectedMealPlan,
-  setSelectedRoomCategory,
-  selectedRoomCategory,
+  setSelectedRoomCategory, // <--- NEW PROP: Function to set the room category in parent
+  selectedRoomCategory, // <--- NEW PROP: Current room category from parent (for display/initialization)
 }) => {
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
+  const [selectedPlans, setSelectedPlans] = useState({});
+  const [perNightCost, setPerNightCost] = useState(0);
 
-  // --- Logic: Date to Season Mapper ---
+  const checkIn = new Date(checkInDate);
+  const checkOut = new Date(checkIn);
+  checkOut.setDate(checkOut.getDate() + (hotel.nights || 1));
+
+  const getNights = () => {
+    const timeDiff = checkOut - checkIn;
+    return Math.max(1, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
+  };
+
+  const nights = getNights();
+
   const getApplicableSeason = (seasons) => {
+    // Current date for comparison is checkInDate as per the logic
     const checkInDateObj = new Date(checkInDate);
+    // Adjust checkInDateObj to midnight to ensure correct comparison if season dates are midnight
     checkInDateObj.setHours(0, 0, 0, 0);
 
     return (
       seasons.find((season) => {
         const start = new Date(season.start);
         const end = new Date(season.end);
+        // Adjust season dates to midnight for consistent comparison
         start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
+        end.setHours(23, 59, 59, 999); // End of the day for the 'end' date
+
         return checkInDateObj >= start && checkInDateObj <= end;
       }) || null
     );
   };
 
-  const currentCategory = hotel.rooms[selectedCategoryIndex];
-  const applicableSeason = getApplicableSeason(currentCategory?.seasons || []);
-  const pricingData = applicableSeason?.pricing[selectedMealPlan.toLowerCase()] || null;
-
-  // Sync with Parent on Category Change
+  // Ensure initial selectedPlan is set correctly when category changes or component mounts
   useEffect(() => {
     if (currentCategory) {
+      // Set the initially selected meal plan in the parent state if it exists for this category
+      const initialPlan = selectedPlans[selectedCategoryIndex] || "";
+      setSelectedMealPlan(initialPlan);
+
+      // --- NEW LOGIC FOR ROOM CATEGORY ---
+      // Set the selected room category in the parent state when a category is chosen
       setSelectedRoomCategory(currentCategory.categoryName);
     }
-  }, [selectedCategoryIndex, currentCategory, setSelectedRoomCategory]);
+  }, [selectedCategoryIndex, selectedPlans, setSelectedMealPlan, setSelectedRoomCategory, hotel]); // Added setSelectedRoomCategory to dependencies
 
-  // Calculate Totals for the Template
+  const formatDate = (date) => {
+    const options = { day: "2-digit", month: "short", year: "numeric" };
+    return date.toLocaleDateString("en-GB", options).replace(/ /g, "-");
+  };
+
+  const currentCategory = hotel.rooms[selectedCategoryIndex];
+  const applicableSeason = getApplicableSeason(currentCategory?.seasons || []);
+  const localSelectedPlan = selectedPlans[selectedCategoryIndex] || ""; // Use a local variable
+  const pricingData = applicableSeason?.pricing[localSelectedPlan.toLowerCase()] || null;
+
+
+  const updateArrayState = (setter, index, value) => {
+    setter((prev) => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+  };
+
+  const calculateTotal = () => {
+    if (!pricingData) return 0;
+
+    const costPerNight =
+      (pricingData.double || 0) * (numDouble[0] || 0) +
+      (pricingData.extraAdult || 0) * (numExtraAdult[0] || 0) +
+      (pricingData.extraChild || 0) * (numExtraChild[0] || 0);
+
+    setPerNightCost(costPerNight);
+
+    const total = costPerNight * nights;
+    updateArrayState(setHotelTotal, 0, total);
+    return total;
+  };
+
+  // Recalculate total when relevant state changes
   useEffect(() => {
-    if (pricingData) {
-      const costPerNight =
-        (pricingData.double || 0) * (numDouble[0] || 1) +
-        (pricingData.extraAdult || 0) * (numExtraAdult[0] || 0) +
-        (pricingData.extraChild || 0) * (numExtraChild[0] || 0);
-      
-      // Update parent state (hotelTotal is an array per your logic)
-      const updatedTotal = [...hotelTotal];
-      updatedTotal[0] = costPerNight;
-      setHotelTotal(updatedTotal);
-    }
-  }, [pricingData, numDouble, numExtraAdult, numExtraChild]);
+    calculateTotal();
+  }, [numDouble[0], numExtraAdult[0], numExtraChild[0], localSelectedPlan, nights, pricingData]);
+
+
+  const renderPlanTable = () => {
+    if (!applicableSeason) return <p>No seasonal pricing available.</p>;
+
+    const planNames = ["EP", "CP", "MAP", "AP"];
+
+    return (
+      <table className="pricing-table">
+        <thead>
+          <tr>
+            <th>Select</th>
+            <th>Plan</th>
+            <th>Double</th>
+            <th>Extra Adult</th>
+            <th>Extra Child</th>
+          </tr>
+        </thead>
+        <tbody>
+          {planNames.map((plan) => {
+            const data = applicableSeason.pricing[plan.toLowerCase()];
+            const hasPricing = data && (data.double > 0 || data.extraAdult > 0 || data.extraChild > 0);
+
+            // Only render the row if pricing data exists and is not all zero.
+            return hasPricing ? (
+              <tr key={plan}>
+                <td>
+                  <input
+                    type="radio"
+                    name={`mealPlan-${selectedCategoryIndex}`}
+                    value={plan}
+                    checked={localSelectedPlan === plan} // Use local state for checking
+                    onChange={() => {
+                      setSelectedPlans((prev) => ({
+                        ...prev,
+                        [selectedCategoryIndex]: plan,
+                      }));
+                      setSelectedMealPlan(plan); // This is setting the parent's meal plan state
+                    }}
+                  />
+                </td>
+                <td>{plan}</td>
+                <td>₹{data.double || 0}</td>
+                <td>₹{data.extraAdult || 0}</td>
+                <td>₹{data.extraChild || 0}</td>
+              </tr>
+            ) : null;
+          })}
+        </tbody>
+      </table>
+    );
+  };
 
   return (
-    <div className="mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-      {/* Category Tabs */}
-      <div className="flex border-b bg-gray-50 overflow-x-auto">
+    <div className="room-selection">
+      <h3>Select Room Category</h3>
+      <div className="room-tabs">
         {hotel.rooms.map((room, index) => (
           <button
             key={index}
-            onClick={() => setSelectedCategoryIndex(index)}
-            className={`px-4 py-2 text-xs font-bold whitespace-nowrap transition-all ${
-              selectedCategoryIndex === index
-                ? "bg-white text-blue-600 border-b-2 border-blue-600"
-                : "text-gray-500 hover:bg-gray-100"
-            }`}
+            className={selectedCategoryIndex === index ? "active" : ""}
+            onClick={() => {
+              setSelectedCategoryIndex(index);
+              updateArrayState(setNumDouble, 0, 1);
+              updateArrayState(setNumExtraAdult, 0, 0);
+              updateArrayState(setNumExtraChild, 0, 0);
+              // When category changes, ensure the meal plan state in parent is updated
+              // If there's a pre-selected plan for this category, set it. Otherwise, clear it.
+              setSelectedMealPlan(selectedPlans[index] || "");
+
+              // --- NEW: Update parent's selectedRoomCategory when a tab is clicked ---
+              setSelectedRoomCategory(room.categoryName);
+            }}
           >
             {room.categoryName}
           </button>
         ))}
       </div>
 
-      <div className="p-4">
-        {/* Season Badge */}
-        <div className="flex justify-between items-center mb-4">
-          <span className="text-[10px] uppercase tracking-widest font-black px-2 py-1 bg-amber-100 text-amber-700 rounded">
-            Season: {applicableSeason ? applicableSeason.name : "Not Defined"}
-          </span>
-          <span className="text-xs font-bold text-gray-400">
-            Rating: {hotel.GoogleReviewRating || "N/A"} ⭐
-          </span>
-        </div>
+      {/* Display selected room category (optional, for debugging/user feedback) */}
+      {selectedRoomCategory && (
+        <p>
+          <strong>Current Room Category Selected:</strong> {selectedRoomCategory}
+        </p>
 
-        {/* Pricing Table */}
-        {applicableSeason ? (
-          <div className="overflow-hidden border rounded-lg">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 text-gray-600 uppercase">
-                <tr>
-                  <th className="px-3 py-2">Select</th>
-                  <th className="px-3 py-2">Plan</th>
-                  <th className="px-3 py-2">Double</th>
-                  <th className="px-3 py-2">Extra</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {["EP", "CP", "MAP", "AP"].map((plan) => {
-                  const data = applicableSeason.pricing[plan.toLowerCase()];
-                  if (!data || data.double <= 0) return null;
+      )}
 
-                  return (
-                    <tr key={plan} className={selectedMealPlan === plan ? "bg-blue-50" : ""}>
-                      <td className="px-3 py-2 text-center">
-                        <input
-                          type="radio"
-                          name={`plan-${hotel.id}`}
-                          checked={selectedMealPlan === plan}
-                          onChange={() => setSelectedMealPlan(plan)}
-                          className="w-4 h-4 text-blue-600"
-                        />
-                      </td>
-                      <td className="px-3 py-2 font-bold">{plan}</td>
-                      <td className="px-3 py-2 font-medium">₹{data.double}</td>
-                      <td className="px-3 py-2 text-gray-500">₹{data.extraAdult}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+      <div className="season-info">
+        <p>
+          <strong>Season:</strong>{" "}{applicableSeason ? applicableSeason.name : "N/A"}
+          <br />
+
+          <strong>Google Review Ratings</strong>{" "}{hotel.GoogleReviewRating || "N/A"}
+          <br />
+
+          <strong>Google Listing URL: </strong>
+      {hotel.GoogleListingURL ? (
+      <a
+        href={hotel.GoogleListingURL}
+        target="_blank"
+        rel="noopener noreferrer"
+        >
+        {hotel.GoogleListingURL}
+        </a>
         ) : (
-          <div className="p-4 text-center text-red-500 text-sm font-medium">
-            No seasonal pricing found for this date.
-          </div>
-        )}
+          "N/A"
+      )}
 
-        {/* Guest Input (Optional for Template, useful for Base Cost estimation) */}
-        <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-dashed">
-            <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase">Rooms</label>
-                <input 
-                    type="number" value={numDouble[0]} 
-                    onChange={(e) => setNumDouble([parseInt(e.target.value) || 0])}
-                    className="w-full p-1 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                />
-            </div>
-            <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase">Extra Adult</label>
-                <input 
-                    type="number" value={numExtraAdult[0]} 
-                    onChange={(e) => setNumExtraAdult([parseInt(e.target.value) || 0])}
-                    className="w-full p-1 border rounded text-sm"
-                />
-            </div>
-            <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase">Extra Child</label>
-                <input 
-                    type="number" value={numExtraChild[0]} 
-                    onChange={(e) => setNumExtraChild([parseInt(e.target.value) || 0])}
-                    className="w-full p-1 border rounded text-sm"
-                />
-            </div>
-        </div>
+        </p>
+        {renderPlanTable()}
+      </div>
+
+      <div className="room-inputs">
+        <h4>Enter number of guests for this hotel</h4>
+        <label>
+          Double Rooms:
+          <input
+            type="number"
+            min={0}
+            value={numDouble[0] || 0}
+            onChange={(e) => updateArrayState(setNumDouble, 0, parseInt(e.target.value))}
+          />
+        </label>
+        <label>
+          Extra Adults:
+          <input
+            type="number"
+            min={0}
+            value={numExtraAdult[0] || 0}
+            onChange={(e) => updateArrayState(setNumExtraAdult, 0, parseInt(e.target.value))}
+          />
+        </label>
+        <label>
+          Extra Children:
+          <input
+            type="number"
+            min={0}
+            value={numExtraChild[0] || 0}
+            onChange={(e) => updateArrayState(setNumExtraChild, 0, parseInt(e.target.value))}
+          />
+        </label>
       </div>
     </div>
   );

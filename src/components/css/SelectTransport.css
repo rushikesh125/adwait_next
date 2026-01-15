@@ -1,0 +1,64 @@
+.select-transport-container {
+  padding: 20px;
+  background-color: #fafafa;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #ccc;
+}
+
+.dropdown-wrapper {
+  margin-bottom: 20px;
+}
+
+select {
+  padding: 8px;
+  border-radius: 6px;
+  margin-left: 10px;
+}
+
+.packages-list {
+  margin-top: 20px;
+}
+
+.package-card {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background-color: #fff;
+}
+
+.select-package-btn {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: #008cff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.vehicle-selection {
+  margin-top: 20px;
+}
+
+.selected-package-summary {
+  margin-top: 20px;
+  background-color: #e6f7ff;
+  padding: 15px;
+  border-radius: 10px;
+}
+
+.deselect-btn, .done-btn {
+  margin-top: 10px;
+  margin-right: 10px;
+  padding: 8px 12px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.done-btn {
+  background-color: #4caf50;
+}
