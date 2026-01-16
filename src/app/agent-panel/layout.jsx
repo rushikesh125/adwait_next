@@ -217,8 +217,8 @@ const AgentPanelLayout = ({ children }) => {
             {children}
           </div>
         </main> */}
-        <main className="flex-1 relative p-2 md:p-4 lg:p-6 bg-slate-100 overflow-hidden">
-          <div className="h-full max-h-[calc(100vh-80px)] overflow-y-auto pr-1">
+        <main className="flex-1 relative bg-slate-100 overflow-hidden">
+          <div className="h-full overflow-y-hidden pr-1 w-full">
             {children}
           </div>
         </main>

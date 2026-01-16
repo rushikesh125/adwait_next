@@ -1,238 +1,208 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation"; // Next.js routing
-import { getFirestore, doc, getDoc } from "firebase/firestore";
-
-// Icons
+import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Loader2, 
+  CalendarPlus, 
   FileText, 
-  Plus, 
+  PackagePlus, 
   LayoutDashboard, 
-  LogOut 
-} from "lucide-react";
+  UserCircle,
+  LogOut
+} from 'lucide-react';
 
-// Components
-// Ensure these components are updated to accept props or work with Next.js
-// import Create_new_package from "./agent_pages/Create_new_package";
-// import MyQuotations from "./agent_pages/MyQuotations";
-import { useSelector } from "react-redux";
-import Create_new_package from "@/components/Create_new_package";
+// Shadcn UI Components
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Firebase Logic
+import { getUserData } from '@/firebase/users';
+
+// Custom Components
+import Create_new_package from '@/components/Create_new_package';
 
 const AgentDashboard = () => {
-  const { user,loading } = useSelector(state=>state.auth);
   const router = useRouter();
+  const { user, loading: authLoading } = useSelector(state => state.auth);
   
-  // const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
   const [activeTab, setActiveTab] = useState("create");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   
-  // Package State
-  const [checkInDate, setCheckInDate] = useState([]);
+  // Form State persistence (as per original logic)
   const [saveChanges, setSaveChanges] = useState(false);
+  const [checkInDate, setCheckInDate] = useState([]);
   const [checkOutDate, setCheckOutDate] = useState([]);
 
-  // --- Handlers ---
-
-  const handleTabChange = (tabName) => {
-    if (activeTab === "create" && !saveChanges && showCreateForm) {
-      const confirmChange = window.confirm(
-        "You have unsaved changes. Do you want to discard them?"
-      );
-      if (!confirmChange) return;
-    }
-
-    setActiveTab(tabName);
-    setShowCreateForm(false);
-    setCheckInDate([]);
-    setCheckOutDate([]);
-    setSaveChanges(false);
-  };
-
-  const handleCreateClick = () => {
-    setShowCreateForm(true);
-    setCheckInDate([]);
-    setSaveChanges(false);
-  };
-
-  // --- Effects ---
-
-  // useEffect(() => {
-  //   const fetchUserData = async () => {
-  //     if (!user) {
-  //       setLoading(false); // Stop loading so we can redirect
-  //       return;
-  //     }
-
-  //     try {
-  //       const db = getFirestore();
-  //       const userRef = doc(db, "users", user.uid);
-  //       const userDoc = await getDoc(userRef);
-
-  //       if (userDoc.exists()) {
-  //         setUserData(userDoc.data());
-  //       } else {
-  //         console.error("No user data found.");
-  //       }
-  //     } catch (error) {
-  //       console.error("Error fetching user data:", error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   fetchUserData();
-  // }, [user]);
-
-  // Handle Unsaved Changes Warning (Browser Level)
+  // Fetch User Data
   useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (!saveChanges) {
-        e.preventDefault();
-        e.returnValue = ''; // Required for Chrome
+    const initDashboard = async () => {
+      if (!authLoading && !user) {
+        router.push('/login');
+        return;
+      }
+
+      if (user) {
+        try {
+          const data = await getUserData(user.uid);
+          setUserData(data);
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setIsFetching(false);
+        }
       }
     };
 
+    initDashboard();
+  }, [user, authLoading, router]);
+
+  // Unsaved Changes Guard
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (showCreateForm && !saveChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [saveChanges]);
+  }, [saveChanges, showCreateForm]);
 
-  // --- Render Guards ---
+  const handleTabChange = (tabName) => {
+    if (activeTab === "create" && showCreateForm && !saveChanges) {
+      if (!window.confirm("You have unsaved changes. Discard them?")) return;
+    }
+    setActiveTab(tabName);
+    setShowCreateForm(false);
+  };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-theme-muted/20">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-12 w-12 animate-spin text-theme-primary" />
-          <p className="text-theme-secondary font-medium animate-pulse">Loading Dashboard...</p>
-        </div>
-      </div>
-    );
+  if (authLoading || isFetching) {
+    return <DashboardSkeleton />;
   }
-
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
-
-  // --- Main Render ---
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-theme-muted/30 to-gray-100 font-sans text-gray-800">
+    <div className="min-h-screen bg-slate-50/50 w-ful">
       
-      {/* Main Container */}
-      <main className="mx-auto max-w-6xl px-4 py-8 md:px-6 lg:py-10">
-        
-        {/* Glass Card Container */}
-        <div className="overflow-hidden rounded-3xl bg-white/80 shadow-2xl backdrop-blur-xl ring-1 ring-black/5">
+
+      <main className="w-full mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Header Section */}
-          <header className="relative overflow-hidden bg-gradient-to-r from-theme-gradient-from to-theme-gradient-to px-8 py-12 text-center text-white shadow-md">
-            {/* Decorative Background Circles */}
-            <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"></div>
-            <div className="absolute -right-10 bottom-0 h-40 w-40 rounded-full bg-theme-accent/20 blur-3xl"></div>
+     
 
-            <div className="relative z-10">
-              <h1 className="mb-3 text-4xl font-extrabold tracking-tight md:text-5xl">
-                Hello, {userData?.name || "Agent"}
-              </h1>
-              <p className="mx-auto max-w-2xl text-lg font-medium text-theme-muted opacity-90">
-                Explore. Connect. Create extraordinary travel experiences with Adwait Tours!
-              </p>
-            </div>
-          </header>
+          {/* Main Content Area */}
+          <div className="col-span-full">
+            <Tabs value={activeTab} className="w-full">
+              <TabsList className="lg:hidden grid grid-cols-2 mb-6">
+                <TabsTrigger value="create" onClick={() => handleTabChange("create")}>Create</TabsTrigger>
+                <TabsTrigger value="my-quotations" onClick={() => handleTabChange("my-quotations")}>History</TabsTrigger>
+              </TabsList>
 
-          {/* Navigation Tabs */}
-          <div className="flex justify-center border-b border-gray-100 bg-white/50 px-4 py-6">
-            <div className="inline-flex rounded-xl bg-gray-100/80 p-1.5 shadow-inner">
-              <button
-                onClick={() => handleTabChange("create")}
-                className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-300 ${
-                  activeTab === "create"
-                    ? "bg-white text-theme-primary shadow-sm ring-1 ring-black/5"
-                    : "text-gray-500 hover:text-theme-secondary"
-                }`}
-              >
-                <Plus className="h-4 w-4" />
-                Create Quotation
-              </button>
-              <button
-                onClick={() => handleTabChange("my-quotations")}
-                className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-300 ${
-                  activeTab === "my-quotations"
-                    ? "bg-white text-theme-primary shadow-sm ring-1 ring-black/5"
-                    : "text-gray-500 hover:text-theme-secondary"
-                }`}
-              >
-                <FileText className="h-4 w-4" />
-                My Quotations
-              </button>
-            </div>
-          </div>
-
-          {/* Tab Content Area */}
-          <div className="min-h-[400px] p-6 md:p-10">
-            
-            {/* --- CREATE TAB CONTENT --- */}
-            {activeTab === "create" && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {!showCreateForm ? (
-                  // Initial State: Prompt to create
-                  <div className="flex flex-col items-center justify-center space-y-6 py-10 text-center">
-                    <div className="rounded-full bg-theme-muted p-6 text-theme-primary">
-                      <LayoutDashboard className="h-12 w-12" />
+              <TabsContent value="create" className="mt-0 outline-none">
+                <Card className="border-none shadow-md overflow-hidden">
+                  <CardHeader className="border-b bg-white">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <CardTitle className="text-xl text-theme-dark">Package Builder</CardTitle>
+                        <CardDescription>Create a professional itinerary for your clients</CardDescription>
+                      </div>
+                      {!showCreateForm && (
+                        <Button 
+                          onClick={() => setShowCreateForm(true)}
+                          className="bg-theme-primary hover:bg-theme-secondary text-white shadow-md transition-all hover:scale-105"
+                        >
+                          <PackagePlus className="mr-2 h-4 w-4" /> New Package
+                        </Button>
+                      )}
                     </div>
-                    <div className="max-w-md space-y-2">
-                      <h2 className="text-2xl font-bold text-gray-900">Start a New Journey</h2>
-                      <p className="text-gray-500">
-                        Start building customized travel packages for your clients. 
-                        It's quick, easy, and completely flexible.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleCreateClick}
-                      className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-theme-primary px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-theme-primary/30 transition-all duration-300 hover:bg-theme-secondary hover:shadow-xl hover:scale-[1.02]"
-                    >
-                      <Plus className="h-5 w-5 transition-transform duration-300 group-hover:rotate-90" />
-                      Create New Package
-                    </button>
-                  </div>
-                ) : (
-                  // Form State: The Create Package Form
-                  <div className="w-full">
-                    <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4">
-                      <h3 className="text-xl font-bold text-theme-dark">New Quotation Details</h3>
-                      <button 
-                         onClick={() => handleTabChange("create")} // Resets via the logic in handleTabChange
-                         className="text-sm text-gray-400 hover:text-red-500"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    <Create_new_package
-                      user={user}
-                      userData={userData}
-                      checkInDate={checkInDate}
-                      setCheckInDate={setCheckInDate}
-                      saveChanges={saveChanges}
-                      setSaveChanges={setSaveChanges}
-                      checkOutDate={checkOutDate}
-                      setCheckOutDate={setCheckOutDate}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+                  </CardHeader>
+                  
+                  <CardContent className="p-0">
+                    <AnimatePresence mode="wait">
+                      {!showCreateForm ? (
+                        <motion.div 
+                          initial={{ opacity: 0 }} 
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="p-12 text-center"
+                        >
+                          <div className="bg-theme-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <PackagePlus className="w-8 h-8 text-theme-primary" />
+                          </div>
+                          <h3 className="text-lg font-medium text-slate-900">No active draft</h3>
+                          <p className="text-slate-500 max-w-xs mx-auto mt-2 mb-6">
+                            Click the button above to start building a new customized travel quotation.
+                          </p>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="p-6"
+                        >
+                          <Create_new_package
+                            user={user}
+                            userData={userData}
+                            checkInDate={checkInDate}
+                            setCheckInDate={setCheckInDate}
+                            saveChanges={saveChanges}
+                            setSaveChanges={setSaveChanges}
+                            checkOutDate={checkOutDate}
+                            setCheckOutDate={setCheckOutDate}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            {/* --- MY QUOTATIONS TAB CONTENT --- */}
-            
+              <TabsContent value="my-quotations" className="mt-0">
+                <Card className="border-none shadow-md">
+                  <CardHeader>
+                    <CardTitle>Your Quotations</CardTitle>
+                    <CardDescription>Manage and track your sent proposals</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {/* <MyQuotations /> */}
+                    <div className="py-12 text-center text-muted-foreground border-2 border-dashed rounded-lg">
+                      Quotation list feature coming soon...
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </main>
     </div>
   );
 };
+
+// Loading State Component
+const DashboardSkeleton = () => (
+  <div className="container mx-auto p-8 space-y-8">
+    <div className="flex justify-between items-center">
+      <Skeleton className="h-10 w-40" />
+      <Skeleton className="h-12 w-12 rounded-full" />
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="lg:col-span-3 space-y-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+      <div className="lg:col-span-9">
+        <Skeleton className="h-[500px] w-full" />
+      </div>
+    </div>
+  </div>
+);
 
 export default AgentDashboard;

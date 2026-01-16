@@ -7,8 +7,27 @@ import SelectActivities from "./SelectActivities";
 import jsPDF from "jspdf";
 import autoTable from 'jspdf-autotable';
 import "jspdf-autotable";
-
-
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Calendar, 
+  MapPin, 
+  Hotel, 
+  Car, 
+  Palmtree, 
+  Plus, 
+  Trash2, 
+  Edit3, 
+  Wallet, 
+  FileText, 
+  Copy, 
+  Info,
+  CheckCircle
+} from 'lucide-react';
 // Import your logo image
 
 import { db } from "@/firebase/config";
@@ -791,491 +810,450 @@ const Create_new_package = ({
       alert("Failed to save package: " + err.message);
     }
   };
+return (
+  <div className="min-h-screen pb-12 md:pb-16">
+    <div className=" mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col lg:flex-row lg:gap-8 xl:gap-10">
+        
+        {/* ─── LEFT COLUMN ─── Scrollable main content */}
+       <div className="flex-1 space-y-8 lg:space-y-10 lg:pr-4 xl:pr-6 pb-8 lg:pb-0
+                lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+          
+          {/* 1. Date and Duration */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 flex items-center gap-2" htmlFor="checkInDate">
+                <Calendar className="w-4 h-4 text-theme-primary" /> Check-in Date
+              </label>
+              <input
+                id="checkInDate"
+                type="date"
+                className="w-full p-2 border border-slate-200 rounded-md focus:ring-2 focus:ring-theme-primary outline-none"
+                value={checkInDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setCheckInDate(e.target.value)}
+              />
+            </div>
 
-  return (
-    <div className="create_new_package">
-      <div className="package-header">
-      </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700" htmlFor="nights">Number of Nights</label>
+              <input
+                id="nights"
+                type="number"
+                min={1}
+                className="w-full p-2 border border-slate-200 rounded-md focus:ring-2 focus:ring-theme-primary outline-none"
+                value={nights}
+                onChange={(e) => setNights(e.target.value)}
+              />
+            </div>
 
-      <div className="date-inputs">
-        <div className="date-field">
-          <label htmlFor="checkInDate">Check-in Date:</label>
-          <input
-            id="checkInDate"
-            type="date"
-            value={checkInDate}
-            min={new Date().toISOString().split("T")[0]}
-            onChange={(e) => setCheckInDate(e.target.value)}
-          />
-        </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700" htmlFor="checkOutDate">Check-out Date</label>
+              <input
+                id="checkOutDate"
+                type="date"
+                className="w-full p-2 border border-slate-200 rounded-md bg-slate-50 cursor-not-allowed"
+                value={checkOutDate}
+                min={checkInDate}
+                readOnly
+              />
+            </div>
+          </div>
 
-        <div className="date-field">
-          <label htmlFor="nights">Number of Nights:</label>
-          <input
-            id="nights"
-            type="number"
-            min={1}
-            value={nights}
-            onChange={(e) => setNights(e.target.value)}
-          />
-        </div>
+          {/* 2. State Selection */}
+          <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4 shadow-sm">
+            <label className="text-sm font-medium text-slate-700 flex items-center gap-2" htmlFor="stateSelect">
+              <MapPin className="w-4 h-4 text-theme-primary" /> Select Destination State
+            </label>
+            <select
+              id="stateSelect"
+              className="w-full p-2 border border-slate-200 rounded-md outline-none focus:ring-2 focus:ring-theme-primary"
+              value={selectedState}
+              onChange={(e) => {
+                setSelectedState(e.target.value);
+                setSelectedHotel(null);
+                setEditingIndex(null);
+                handleStateChange(e);
+              }}
+            >
+              <option value="">-- Select a State --</option>
+              {states.map((state) => (
+                <option key={state.id} value={state.name}>{state.name}</option>
+              ))}
+            </select>
+          </div>
 
-        <div className="date-field">
-          <label htmlFor="checkOutDate">Check-out Date:</label>
-          <input
-            id="checkOutDate"
-            type="date"
-            value={checkOutDate}
-            min={checkInDate}
-            readOnly
-          />
-        </div>
-      </div>
-
-      <div className="state-select">
-        <label htmlFor="stateSelect">Select State:</label>
-        <select
-          id="stateSelect"
-          value={selectedState}
-          onChange={(e) => {
-            setSelectedState(e.target.value);
-            setSelectedHotel(null); // Reset hotel selection when state changes
-            setEditingIndex(null); // Reset editing state
-            handleStateChange(e);
-          }}
-        >
-          <option value="">-- Select a State --</option>
-          {states.map((state) => (
-            <option key={state.id} value={state.name}>
-              {state.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {selectedState && (
-        <div className="hotel-select">
-          <h3>Hotels in {selectedState}</h3>
-          <div className="hotel-list">
-            {Object.keys(groupedHotels).map((city) => (
-              <div key={city} className="hotel-group">
-                <h4>{city}</h4>
-                {groupedHotels[city].map((hotel) => (
-                  <div key={hotel.id} className="hotel-item">
-                    <input
-                      type="radio"
-                      name="hotel"
-                      id={`hotel-${hotel.id}`}
-                      value={hotel.id}
-                      checked={selectedHotel === hotel.id}
-                      onChange={() => setSelectedHotel(hotel.id)}
-                    />
-                    <label htmlFor={`hotel-${hotel.id}`}>
-                      {hotel.name}, {hotel.city}, {hotel.state} ({hotel.GoogleReviewRating ? ` Rating - ${hotel.GoogleReviewRating}` : "Rating not available"})
-                    </label>
+          {/* 3. Hotel Selection */}
+          {selectedState && (
+            <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-lg font-semibold text-theme-dark mb-4 flex items-center gap-2">
+                <Hotel className="w-5 h-5" /> Hotels in {selectedState}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-64 overflow-y-auto p-1">
+                {Object.keys(groupedHotels).map((city) => (
+                  <div key={city} className="space-y-2">
+                    <h4 className="text-xs font-bold uppercase text-theme-secondary tracking-wider">{city}</h4>
+                    {groupedHotels[city].map((hotel) => (
+                      <div
+                        key={hotel.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                          selectedHotel === hotel.id
+                            ? 'bg-theme-muted border-theme-primary'
+                            : 'hover:bg-slate-50 border-slate-100'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="hotel"
+                          className="accent-theme-primary"
+                          id={`hotel-${hotel.id}`}
+                          value={hotel.id}
+                          checked={selectedHotel === hotel.id}
+                          onChange={() => setSelectedHotel(hotel.id)}
+                        />
+                        <label htmlFor={`hotel-${hotel.id}`} className="text-sm cursor-pointer flex-1">
+                          <span className="font-medium block">{hotel.name}</span>
+                          <span className="text-[10px] text-slate-500">
+                            {hotel.city} • Rating: {hotel.GoogleReviewRating || "N/A"}
+                          </span>
+                        </label>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {selectedHotel ? (
-        <>
-          {/* Hotel Room Selection Component */}
-          <HotelRoomSelector
-            hotel={hotels.find((h) => h.id === selectedHotel)}
-            checkInDate={checkInDate}
-            numDouble={numDouble}
-            setNumDouble={setNumDouble}
-            numExtraAdult={numExtraAdult}
-            setNumExtraAdult={setNumExtraAdult}
-            numExtraChild={numExtraChild}
-            setNumExtraChild={setNumExtraChild}
-            hotelTotal={hotelTotal}
-            setHotelTotal={setHotelTotal}
-            setSelectedMealPlan={setSelectedMealPlan}
-            selectedMealPlan={selectedMealPlan}
-            setSelectedRoomCategory={setSelectedRoomCategory}
-            selectedRoomCategory={selectedRoomCategory}
-          />
+          {/* 4. Room Selection + Actions */}
+          {selectedHotel ? (
+            <div className="space-y-6">
+              <div className="p-6 bg-white rounded-xl border border-theme-muted shadow-sm">
+                <HotelRoomSelector
+                  hotel={hotels.find((h) => h.id === selectedHotel)}
+                  checkInDate={checkInDate}
+                  numDouble={numDouble}
+                  setNumDouble={setNumDouble}
+                  numExtraAdult={numExtraAdult}
+                  setNumExtraAdult={setNumExtraAdult}
+                  numExtraChild={numExtraChild}
+                  setNumExtraChild={setNumExtraChild}
+                  hotelTotal={hotelTotal}
+                  setHotelTotal={setHotelTotal}
+                  setSelectedMealPlan={setSelectedMealPlan}
+                  selectedMealPlan={selectedMealPlan}
+                  setSelectedRoomCategory={setSelectedRoomCategory}
+                  selectedRoomCategory={selectedRoomCategory}
+                />
 
-          <div className="save-changes-container">
-            {/* Save/Update Hotel Button */}
-            <button
-              className="save-button"
-              onClick={() => {
+                <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-100">
+                  <button
+                    className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
+                    onClick={() => {
+                      const selectedHotelFullData = hotels.find((h) => h.id === selectedHotel);
+                      const currentHotelData = {
+                        checkInDate,
+                        nights,
+                        checkOutDate,
+                        state: selectedState,
+                        hotel: selectedHotelFullData?.name || "N/A",
+                        city: selectedHotelFullData?.city || "N/A",
+                        GoogleListingURL: selectedHotelFullData?.GoogleListingURL || null,
+                        numDouble: numDouble[0],
+                        numExtraAdult: numExtraAdult[0],
+                        numExtraChild: numExtraChild[0],
+                        hotelTotal: hotelTotal[0],
+                        selectedMealPlan: selectedMealPlan,
+                        selectedRoomCategory: selectedRoomCategory,
+                      };
 
-                const selectedHotelFullData = hotels.find((h) => h.id === selectedHotel);
-                const currentHotelData = {
-                  checkInDate,
-                  nights,
-                  checkOutDate,
-                  state: selectedState,
-                  hotel: selectedHotelFullData?.name || "N/A",
-                  city: selectedHotelFullData?.city || "N/A",
-                  GoogleListingURL: selectedHotelFullData?.GoogleListingURL || null,
-                  numDouble: numDouble[0],
-                  numExtraAdult: numExtraAdult[0],
-                  numExtraChild: numExtraChild[0],
-                  hotelTotal: hotelTotal[0],
-                  selectedMealPlan: selectedMealPlan,
-                  selectedRoomCategory: selectedRoomCategory,
-                };
+                      setHotelEntries((prev) => {
+                        if (editingIndex !== null) {
+                          const updated = [...prev];
+                          updated[editingIndex] = currentHotelData;
+                          return updated;
+                        }
+                        return [...prev, currentHotelData];
+                      });
 
-                setHotelEntries((prevEntries) => {
-                  if (editingIndex !== null) {
-                    // If editing, update the existing entry
-                    const updatedEntries = [...prevEntries];
-                    updatedEntries[editingIndex] = currentHotelData;
-                    return updatedEntries;
-                  } else {
-                    // Otherwise, add a new entry
-                    return [...prevEntries, currentHotelData];
-                  }
-                });
+                      setSaveChanges(true);
+                      setIsReadyToAddAnother(true);
+                      setEditingIndex(null);
+                    }}
+                  >
+                    {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
+                  </button>
 
-                setSaveChanges(true);
-                setIsReadyToAddAnother(true);
-                setEditingIndex(null); // Reset editing index after saving
-              }}
-            >
-              {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
-            </button>
+                  {isReadyToAddAnother && (
+                    <button
+                      className="px-6 py-2.5 border border-theme-primary text-theme-primary hover:bg-theme-muted rounded-md font-medium transition-all"
+                      onClick={() => {
+                        setCheckInDate(checkOutDate);
+                        setSelectedState("");
+                        setSelectedHotel(null);
+                        setNights(1);
+                        setSelectedRoomCategory(null);
+                        setSelectedMealPlan("");
+                        setApplicableSeason(null);
+                        setNumDouble([0]);
+                        setNumExtraAdult([0]);
+                        setNumExtraChild([0]);
+                        setHotelTotal([0]);
+                        setSaveChanges(false);
+                        setIsReadyToAddAnother(false);
+                        setEditingIndex(null);
+                      }}
+                    >
+                      ➕ Add Another Hotel
+                    </button>
+                  )}
+                </div>
+              </div>
 
-            {/* Add Another Hotel Button */}
-            {isReadyToAddAnother && (
+              {/* Current Selection Summary */}
+              {saveChanges && (
+                <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+                  <h3 className="text-md font-bold text-theme-dark mb-4">Current Selection Summary</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-3 gap-x-6 text-sm">
+                    <p><strong>Check-in:</strong> {formatDate(checkInDate)}</p>
+                    <p><strong>Nights:</strong> {nights}</p>
+                    <p><strong>Check-out:</strong> {formatDate(checkOutDate)}</p>
+                    <p><strong>Hotel:</strong> {hotels.find((h) => h.id === selectedHotel)?.name}</p>
+                    <p><strong>Meal Plan:</strong> {selectedMealPlan || "Not Selected"}</p>
+                    <p><strong>Total:</strong> ₹{(nights * hotelTotal[0]).toFixed(2)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-10 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 shadow-sm">
+              <p className="text-slate-500">Please select a hotel to proceed with room selection.</p>
+            </div>
+          )}
+
+          {/* 5. Saved Itinerary */}
+          {hotelEntries.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-theme-dark flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-500" /> Saved Hotel Itinerary
+              </h3>
+              <div className="grid grid-cols-1 gap-4">
+                {hotelEntries.map((entry, index) => (
+                  <div
+                    key={index}
+                    className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm flex justify-between items-center"
+                  >
+                    <div className="space-y-1">
+                      <p className="font-bold text-theme-dark">{entry.hotel}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatDate(entry.checkInDate)} to {formatDate(entry.checkOutDate)} • {entry.nights} Nights
+                      </p>
+                      <p className="text-xs font-medium text-theme-primary">
+                        ₹{(entry.nights * entry.hotelTotal).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditHotel(index)}
+                        className="p-2 text-slate-400 hover:text-theme-primary transition-colors"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteHotel(index)}
+                        className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 6. Transport */}
+          <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4 shadow-sm">
+            <h3 className="text-md font-bold flex items-center gap-2">
+              <Car className="w-4 h-4" /> Transport
+            </h3>
+            {!showTransportSection ? (
               <button
-                className="add-hotel-button"
-                onClick={() => {
-                  setCheckInDate(checkOutDate); // Auto-set next check-in to current check-out
-                  setSelectedState("");
-                  setSelectedHotel(null);
-                  setNights(1);
-                  setSelectedRoomCategory(null);
-                  setSelectedMealPlan("");
-                  setApplicableSeason(null); // Assuming this is no longer applicable or should be reset
-                  setNumDouble([0]);
-                  setNumExtraAdult([0]);
-                  setNumExtraChild([0]);
-                  setHotelTotal([0]);
-                  setSaveChanges(false);
-                  setIsReadyToAddAnother(false);
-                  setEditingIndex(null); // Ensure editing state is cleared
-                  //setShowTransportSection(false); // Optionally reset transport/activities when adding new hotel
-                  //setShowActivitiesSection(false);
-                }}
+                className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-all"
+                onClick={() => setShowTransportSection(true)}
               >
-                ➕ Add Another Hotel
+                Add Transport
               </button>
+            ) : (
+              <SelectTransport onTransportSelect={setSelectedTransport} />
             )}
           </div>
 
-          {/* Current Hotel Selection Summary (shown after saving/updating) */}
-          {saveChanges && (
-            <div className="summary-section">
-              <h3>Current Hotel Selection Summary</h3>
-              <ul>
-                <li>
-                  <strong>Check-in Date:</strong> {formatDate(checkInDate)}
-                </li>
-                <li>
-                  <strong>Number of Nights:</strong> {nights}
-                </li>
-                <li>
-                  <strong>Check-out Date:</strong> {formatDate(checkOutDate)}
-                </li>
-                <li>
-                  <strong>State:</strong> {selectedState}
-                </li>
-                <li>
-                  <strong>Hotel:</strong>{" "}
-                  {hotels.find((h) => h.id === selectedHotel)?.name || "N/A"}
-                </li>
-                <li>
-                  <strong>City:</strong>{" "}
-                  {hotels.find((h) => h.id === selectedHotel)?.city || "N/A"}
-                </li>
-                <li>
-                  <strong>Room Category:</strong>{" "}
-                  {selectedRoomCategory || "Not Selected"}{" "}
-                </li>
-                <li>
-                  <strong>Room Selection:</strong>
-                  <ul>
-                    <li>Double Rooms: {numDouble[0]}</li>
-                    <li>Extra Adults: {numExtraAdult[0]}</li>
-                    <li>Extra Children: {numExtraChild[0]}</li>
-                  </ul>
-                </li>
-                <li>
-                  <strong>Meal Plan:</strong> {selectedMealPlan || "Not Selected"}{" "}
-                </li>
-                <li>
-                  <strong>Total Hotel Cost (per night):</strong> ₹{hotelTotal[0]}
-                </li>
-                <li>
-                  <strong>Total Cost (Nights × Hotel Cost):</strong> ₹
-                  {nights && hotelTotal[0] ? (nights * hotelTotal[0]).toFixed(2) : 0}
-                </li>
-              </ul>
+          {/* 7. Activities */}
+          <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4 shadow-sm">
+            <h3 className="text-md font-bold flex items-center gap-2">
+              <Palmtree className="w-4 h-4" /> Activities
+            </h3>
+            <button
+              className="w-full py-2.5 bg-theme-dark text-white rounded-lg hover:bg-black transition-all"
+              onClick={() => setShowActivitiesSection(true)}
+            >
+              Add Activities
+            </button>
+            {showActivitiesSection && (
+              <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                <SelectActivities selectedState={selectedState} onDone={handleActivitiesDone} />
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* ─── RIGHT COLUMN ─── Sticky pricing panel */}
+        {(selectedActivities.length > 0 || hotelEntries.length > 0 || selectedTransport) && (
+          <div className="
+            lg:w-96 xl:w-[420px] lg:min-w-[360px]
+            lg:sticky lg:top-6 lg:self-start
+            space-y-6 lg:pt-0 pt-8
+          ">
+            {/* Markup Card */}
+            <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-md">
+              <h3 className="text-lg font-bold flex items-center gap-2 mb-5">
+                <Wallet className="w-5 h-5 text-theme-primary" /> Add Markup
+              </h3>
+
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="flex-1 min-w-[140px] space-y-1.5">
+                  <label className="text-xs font-medium text-slate-700">Amount / %</label>
+                  <input
+                    type="number"
+                    className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-theme-primary outline-none"
+                    value={markupAmount}
+                    onChange={(e) => setMarkupAmount(Number(e.target.value))}
+                  />
+                </div>
+
+                <select
+                  className="p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-theme-primary outline-none h-[42px]"
+                  value={markupType}
+                  onChange={(e) => setMarkupType(e.target.value)}
+                >
+                  <option value="lumpsum">Lumpsum (₹)</option>
+                  <option value="percentage">Percentage (%)</option>
+                </select>
+
+                <button
+                  className="bg-theme-secondary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-theme-secondary/90 transition-colors whitespace-nowrap"
+                  onClick={() => {
+                    const base = 
+                      hotelEntries.reduce((sum, e) => sum + e.nights * e.hotelTotal, 0) +
+                      (selectedTransport?.selectedVehicle?.price ? Number(selectedTransport.selectedVehicle.price) : 0) +
+                      activityTotalPrice;
+
+                    const markup = markupType === "percentage"
+                      ? (markupAmount / 100) * base
+                      : markupAmount;
+
+                    setConfirmedMarkup(markup);
+                  }}
+                >
+                  Apply
+                </button>
+              </div>
+
+              <p className="mt-4 text-sm font-bold text-theme-dark">
+                Confirmed Markup: ₹{confirmedMarkup.toFixed(2)}
+              </p>
             </div>
-          )}
-        </>
-      ) : (
-        <div className="no-hotel-selected">
-          <p>Please select a hotel to proceed with room selection.</p>
-        </div>
-      )}
 
-      {/* Saved Hotel Itinerary Section */}
-      {hotelEntries.length > 0 && (
-        <div className="saved-hotels-summary">
-          <h3>Saved Hotel Itinerary:</h3>
-          <ol>
-            {hotelEntries.map((entry, index) => (
-              <li key={index}>
-                <strong>{entry.hotel}</strong> in {entry.city},{" "}
-                {entry.state} <br /> {formatDate(entry.checkInDate)} to{" "}
-                {formatDate(entry.checkOutDate)} <br />
-                Nights: {entry.nights} <br />
-                <strong>Room Category:</strong>{" "}
-                {entry.selectedRoomCategory || "Not Selected"} <br />{" "}
-                Rooms: Double {entry.numDouble}, Extra Adults{" "}
-                {entry.numExtraAdult}, Extra Children {entry.numExtraChild}{" "}
-                <br />
-                <strong>Meal Plan:</strong> {entry.selectedMealPlan || "Not Selected"}{" "}
-                <br />
-                <strong>Total Cost (Nights × Hotel Cost):</strong> ₹
-                {(entry.nights * entry.hotelTotal).toFixed(2)}
-                <br />
-                {/* Edit Button */}
-                <button
-                  className="edit-hotel-button"
-                  onClick={() => handleEditHotel(index)}
-                >
-                  Edit
-                </button>
-                {/* Delete Button */}
-                <button
-                  className="delete-hotel-button"
-                  onClick={() => handleDeleteHotel(index)}
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+            {/* Grand Total Card */}
+            <div className="p-6 bg-theme-dark text-white rounded-xl shadow-xl space-y-6">
+              <h3 className="text-xl font-bold">Grand Total</h3>
 
-      {/* Transport Section */}
-      <div className="transport-section-wrapper">
-        {!showTransportSection && (
-          <button
-            className="add-transport-button"
-            onClick={() => setShowTransportSection(true)}
-          >
-            Add Transport
-          </button>
-        )}
+              <div className="space-y-3 text-sm opacity-90">
+                <div className="flex justify-between"><span>Hotels</span><span>₹{hotelTotalPrice.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Transport</span><span>₹{transportTotalPrice.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Activities</span><span>₹{activityTotalPrice.toFixed(2)}</span></div>
+                <div className="flex justify-between text-theme-accent font-medium">
+                  <span>Markup</span><span>₹{confirmedMarkup.toFixed(2)}</span>
+                </div>
+              </div>
 
-        {showTransportSection && (
-          <div className="transport-section">
-            <h3>Select Transport</h3>
-            <SelectTransport onTransportSelect={setSelectedTransport} />
+              <hr className="border-white/20 my-5" />
+
+              <div className="flex justify-between items-baseline">
+                <span className="font-bold text-lg">Total</span>
+                <span className="text-3xl font-black">₹{grandTotal.toFixed(2)}</span>
+              </div>
+
+              <button
+                className="w-full py-3.5 bg-theme-primary hover:bg-theme-secondary rounded-lg font-bold text-base transition-all mt-2 shadow-md"
+                onClick={() => setShowSaveModal(true)}
+              >
+                Save Package
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Activities Section */}
-      <button
-        className="add-activities-button px-2 bg-black  text-white rounded-3xl"
-        onClick={() => setShowActivitiesSection(true)}
-      >
-        Add Activities
-      </button>
+      {/* Export buttons – bottom of page */}
+      <div className="flex flex-wrap gap-4 pt-10 pb-6 border-t border-slate-100 mt-8">
+        <button
+          onClick={handleCopyToClipboard}
+          className="flex items-center gap-2 px-6 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-black transition-all shadow-sm"
+        >
+          <Copy className="w-4 h-4" /> Copy Summary
+        </button>
+        <button
+          onClick={handleExportToPDF}
+          className="flex items-center gap-2 px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-sm"
+        >
+          <FileText className="w-4 h-4" /> Export PDF
+        </button>
+      </div>
+    </div>
 
-      {showActivitiesSection && (
-        <div className="activities-section">
-          <h3>Select Activities</h3>
-          <SelectActivities
-            selectedState={selectedState}
-            onDone={handleActivitiesDone}
-          />
-        </div>
-      )}
-
-      {/* Selected Activities Summary */}
-      {selectedActivities.length > 0 && (
-        <div className="activities-summary">
-          <h4>Selected Activities:</h4>
-          <ul>
-            {selectedActivities.map((act, idx) => (
-              <li key={idx}>
-                <strong>Activity Name:</strong> {act.name} <br />
-                <strong>City:</strong> {act.city} <br />
-                <strong>No. of People:</strong> {act.participants} <br />
-                <strong>Total:</strong> ₹{act.totalPrice.toFixed(2)}
-                <hr />
-              </li>
-            ))}
-          </ul>
-          <p style={{ fontWeight: "bold", marginTop: "8px" }}>
-            Total Activity Price: ₹{activityTotalPrice.toFixed(2)}
-          </p>
-        </div>
-      )}
-
-      {/* Markup Section */}
-      {(selectedActivities.length > 0 ||
-        hotelEntries.length > 0 ||
-        selectedTransport) && (
-          <div className="markup-section">
-            <h3> Add Markup</h3>
-
-            <div className="flex-container">
-              <label htmlFor="markupInput">Markup (₹ or %):</label>
-              <input
-                id="markupInput"
-                type="number"
-                min="0"
-                placeholder="Enter amount or %"
-                value={markupAmount}
-                onChange={(e) => setMarkupAmount(Number(e.target.value))}
-              />
-              <select
-                value={markupType}
-                onChange={(e) => setMarkupType(e.target.value)}
-              >
-                <option value="lumpsum">Lumpsum (₹)</option>
-                <option value="percentage">Percentage (%)</option>
-              </select>
-
-              <button
-                onClick={() => {
-                  const baseTotal =
-                    hotelEntries.reduce(
-                      (acc, entry) => acc + entry.nights * entry.hotelTotal,
-                      0
-                    ) +
-                    (selectedTransport?.selectedVehicle?.price
-                      ? Number(selectedTransport.selectedVehicle.price)
-                      : 0) +
-                    activityTotalPrice;
-
-                  const calculatedMarkup =
-                    markupType === "percentage"
-                      ? (markupAmount / 100) * baseTotal
-                      : markupAmount;
-
-                  setConfirmedMarkup(calculatedMarkup);
-                }}
-              >
-                Apply Markup
-              </button>
-            </div>
-
-            <p style={{ marginTop: "10px", fontWeight: "bold" }}>
-              Confirmed Markup: ₹{confirmedMarkup.toFixed(2)}
-            </p>
-          </div>
-        )}
-      <button
-        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-        onClick={() => setShowSaveModal(true)}
-      >
-        Save Package
-      </button>
-
-
-
-      {/* Grand Total Section */}
-      {showSaveModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg w-[90%] max-w-md shadow-lg">
-            <h2 className="text-lg font-semibold mb-4">Enter Package Name</h2>
+    {/* Save Modal – remains fixed overlay */}
+    {showSaveModal && (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4">
+        <div className="bg-white p-8 rounded-xl w-full max-w-md shadow-2xl space-y-6">
+          <h2 className="text-xl font-bold text-theme-dark border-b pb-2">Finalize Package</h2>
+          <div className="space-y-4">
             <input
               type="text"
               value={packageName}
               onChange={(e) => setPackageName(e.target.value)}
-              placeholder="e.g., Goa Delight"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md mb-4"
+              placeholder="Package Name (e.g. Goa Delight)"
+              className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-theme-primary"
             />
-            <h2 className="text-lg font-semibold mb-4">Enter Customer Name</h2>
             <input
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="e.g., John Doe"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md mb-4"
+              placeholder="Customer Name"
+              className="w-full p-3 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-theme-primary"
             />
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={() => setShowSaveModal(false)}
-                className="bg-gray-300 px-4 py-2 rounded-md"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSavePackage}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
-              >
-                Save
-              </button>
-            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowSaveModal(false)}
+              className="px-6 py-2 bg-slate-100 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSavePackage}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+            >
+              Save Itinerary
+            </button>
           </div>
         </div>
-      )}
-
-      <div className="grand-total-section">
-        <h3> Grand Total</h3>
-
-        <p>
-          <strong>Total Hotel Price:</strong> ₹
-          {hotelTotalPrice.toFixed(2)}
-        </p>
-
-        <p>
-          <strong>Total Transport Price:</strong> ₹
-          {transportTotalPrice.toFixed(2)}
-        </p>
-
-        <p>
-          <strong>Total Activity Price:</strong> ₹
-          {activityTotalPrice.toFixed(2)}
-        </p>
-
-        <p>
-          <strong>Markup:</strong> ₹{confirmedMarkup.toFixed(2)}
-        </p>
-
-        <hr />
-
-        <h4>
-          <strong>Grand Total:</strong> ₹{grandTotal.toFixed(2)}
-        </h4>
       </div>
-
-      {/* New Buttons for Copy and PDF */}
-      <div className="flex-container">
-        <button
-          onClick={handleCopyToClipboard}
-          className="copy-button"
-        >
-          Copy Summary to Clipboard
-        </button>
-
-        <button
-          onClick={handleExportToPDF}
-          className="pdf-button"
-        >
-          Export Summary as PDF
-        </button>
-      </div>
-    </div>
-  );
+    )}
+  </div>
+);
 };
 
 export default Create_new_package;

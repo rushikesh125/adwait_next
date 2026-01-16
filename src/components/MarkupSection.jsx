@@ -1,83 +1,130 @@
 "use client";
-import React, { useState, useEffect } from "react";
+
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MinusCircle, Calculator } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { PlusCircle, XCircle, IndianRupee, Percent } from "lucide-react";
 
 const MarkupSection = ({ grandTotal, setMarkupAmount }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [type, setType] = useState("lumpsum"); // 'lumpsum' | 'percentage'
+  const [showOptions, setShowOptions] = useState(false);
+  const [type, setType] = useState("");
   const [value, setValue] = useState("");
 
-  // Recalculate whenever inputs change
-  useEffect(() => {
-    if (!value) {
-      setMarkupAmount(0);
-      return;
-    }
+  const handleMarkupChange = (selectedType) => {
+    setType(selectedType);
+    setValue(""); // reset value when type changes
+  };
 
-    const numVal = parseFloat(value);
-    if (isNaN(numVal)) return;
+  const calculateMarkup = () => {
+    let markup = 0;
+    const numValue = parseFloat(value) || 0;
 
     if (type === "lumpsum") {
-      setMarkupAmount(numVal);
-    } else {
-      // Percentage logic: (X% of GrandTotal)
-      const calculated = (numVal / 100) * grandTotal;
-      setMarkupAmount(calculated);
+      markup = numValue;
+    } else if (type === "percentage") {
+      markup = (numValue / 100) * grandTotal;
     }
-  }, [type, value, grandTotal, setMarkupAmount]);
+
+    setMarkupAmount(markup);
+  };
+
+  const getInputPlaceholder = () => {
+    return type === "lumpsum"
+      ? "Enter markup amount (₹)"
+      : "Enter percentage (%)";
+  };
+
+  const toggleOptions = () => setShowOptions((prev) => !prev);
 
   return (
-    <div className="relative">
-      {/* Toggle Button */}
-      {!isOpen ? (
-        <Button 
-          onClick={() => setIsOpen(true)}
-          variant="outline"
-          className="flex items-center gap-2 border-theme-primary text-theme-primary hover:bg-theme-muted"
-        >
-          <PlusCircle size={16} /> Add Markup
-        </Button>
-      ) : (
-        <div className="flex items-center gap-2 bg-white border border-theme-primary p-1 rounded-md shadow-lg animate-in fade-in zoom-in-95">
-           <Button 
-             variant="ghost" 
-             size="icon" 
-             className="h-8 w-8 text-gray-500 hover:text-red-500"
-             onClick={() => {
-               setIsOpen(false);
-               setValue(""); // Reset on close
-               setMarkupAmount(0);
-             }}
-           >
-             <MinusCircle size={16} />
-           </Button>
+    <div className="markup-section space-y-4 rounded-lg border bg-card p-5 shadow-sm">
+      <Button
+        variant={showOptions ? "outline" : "default"}
+        className={`w-full justify-between gap-2 font-medium transition-colors ${
+          showOptions
+            ? "border-theme-primary text-theme-primary hover:bg-theme-muted"
+            : "bg-theme-primary hover:bg-theme-secondary"
+        }`}
+        onClick={toggleOptions}
+      >
+        {showOptions ? (
+          <>
+            <span>Hide Markup Options</span>
+            <XCircle className="h-4 w-4" />
+          </>
+        ) : (
+          <>
+            <span>Add Markup</span>
+            <PlusCircle className="h-4 w-4" />
+          </>
+        )}
+      </Button>
 
-           <div className="h-4 w-px bg-gray-300 mx-1"></div>
+      {showOptions && (
+        <div className="markup-options space-y-5 animate-in fade-in-60 duration-200">
+          <div className="space-y-2">
+            <Label htmlFor="markup-type" className="text-sm font-medium">
+              Markup Type
+            </Label>
+            <Select value={type} onValueChange={handleMarkupChange}>
+              <SelectTrigger id="markup-type" className="border-theme-muted">
+                <SelectValue placeholder="Select markup type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lumpsum">
+                  <div className="flex items-center gap-2">
+                    <IndianRupee className="h-4 w-4 text-theme-primary" />
+                    <span>Lumpsum Amount</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="percentage">
+                  <div className="flex items-center gap-2">
+                    <Percent className="h-4 w-4 text-theme-primary" />
+                    <span>Percentage (%)</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-           <select 
-             className="text-sm border-none bg-transparent focus:ring-0 text-gray-700 font-medium cursor-pointer"
-             value={type}
-             onChange={(e) => setType(e.target.value)}
-           >
-             <option value="lumpsum">Flat (₹)</option>
-             <option value="percentage">% Rate</option>
-           </select>
-
-           <input 
-             type="number" 
-             placeholder={type === 'lumpsum' ? "Amount" : "%"}
-             className="w-20 p-1 text-sm border rounded bg-gray-50 focus:bg-white transition-colors"
-             value={value}
-             onChange={(e) => setValue(e.target.value)}
-             autoFocus
-           />
-           
-           {value && (
-             <div className="text-xs font-bold text-green-600 px-2 min-w-[60px] text-right">
-               + ₹{type === 'percentage' ? ((parseFloat(value)/100)*grandTotal).toFixed(0) : value}
-             </div>
-           )}
+          {type && (
+            <div className="space-y-2">
+              <Label htmlFor="markup-value" className="text-sm font-medium">
+                {type === "lumpsum" ? "Markup Amount (₹)" : "Percentage Value"}
+              </Label>
+              <div className="relative">
+                <Input
+                  id="markup-value"
+                  type="number"
+                  placeholder={getInputPlaceholder()}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  onBlur={calculateMarkup}
+                  className="border-theme-muted pl-9 focus-visible:ring-theme-primary"
+                />
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+                  {type === "lumpsum" ? (
+                    <IndianRupee className="h-4 w-4" />
+                  ) : (
+                    <Percent className="h-4 w-4" />
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {type === "percentage" &&
+                  value &&
+                  `≈ ₹${((parseFloat(value) / 100) * grandTotal).toFixed(2)}`}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
