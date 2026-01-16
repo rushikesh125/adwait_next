@@ -53,8 +53,8 @@ const AgentPanelLayout = ({ children }) => {
   };
 
   const navItems = [
-    { name: "Dashboard", href: "/agent-dashboard", icon: LayoutDashboard },
-    { name: "My Tours", href: "/agent-dashboard/tours", icon: Map },
+    { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
+    { name: "My Qutations", href: "/agent-panel/my-quatation", icon: Map },
     { name: "Customers", href: "/agent-dashboard/customers", icon: Users },
     { name: "Bookings", href: "/agent-dashboard/bookings", icon: Briefcase },
     { name: "Settings", href: "/agent-dashboard/settings", icon: Settings },
@@ -217,8 +217,8 @@ const AgentPanelLayout = ({ children }) => {
             {children}
           </div>
         </main> */}
-        <main className="flex-1 relative bg-slate-100 overflow-hidden">
-          <div className="h-full overflow-y-hidden pr-1 w-full">
+        <main className="flex-1 relative bg-slate-100 overflow-x-hidden">
+          <div className="h-full  pr-1 w-full">
             {children}
           </div>
         </main>

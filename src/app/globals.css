@@ -131,3 +131,539 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+/* GLOBAL RESETS FOR HTML/BODY HEIGHT (CRITICAL FOR FIXED POSITIONING AND VH UNITS) */
+html, body {
+    height: 100%; /* Ensure html and body take full viewport height */
+    margin: 0;   /* Remove default browser margins */
+    padding: 0;  /* Remove default browser padding */
+    /* No 'overflow: hidden' here, as requested, so page will scroll */
+}
+
+/* Ensure your main app container also spans full height if necessary */
+#root, #adwait-tours-app-container { /* Replace with your actual root app div ID */
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+/* General container for the main page content */
+.my-quotations-container {
+    width: 95%; /* Keep for larger screens */
+    margin: 20px auto;
+    overflow-x: auto;
+    flex-grow: 1;
+    padding: 0 10px; /* Add a small horizontal padding to ensure content isn't flush with edges */
+    box-sizing: border-box; /* Crucial to include padding within the width */
+}
+
+@media (max-width: 768px) {
+    .my-quotations-container {
+        width: 100%; /* Let it take full width on smaller screens */
+        padding: 0 15px; /* Add more padding on smaller screens for breathing room */
+    }
+}   
+
+/* Styling for the main quotations table */
+.quotations-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.quotations-table th, .quotations-table td {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.quotations-table th {
+    background-color: #f2f2f2;
+}
+
+.quotations-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* Action buttons in the main table */
+.action-buttons button {
+    margin-right: 8px;
+    padding: 5px 10px;
+    border: none;
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.action-buttons button:hover {
+    background-color: #0056b3;
+}
+
+.action-buttons .delete-button {
+    background-color: #dc3545;
+    color: white;
+    /* Remove display: inline-flex from here as parent flex will handle it */
+    /* display: inline-flex; */
+    align-items: center; /* Keep for icon alignment within the button */
+    gap: 4px; /* Keep for icon and text spacing */
+    padding: 8px 12px; /* Add some padding for better appearance */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.action-buttons .delete-button:hover {
+    background-color: #c82333;
+}
+
+/* Style for display-only price fields */
+.price-display {
+    padding: 8px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin: 0;
+}
+
+/* --- MODAL STYLES --- */
+
+/* Modal Overlay (transparent and ensures full screen) */
+.modal-overlay {
+    position: fixed; /* CRITICAL: Stays in place relative to the viewport */
+    top: 0;
+    left: 0;
+    width: 100vw;   /* CRITICAL: Explicitly 100% of viewport width */
+    height: 100vh;  /* CRITICAL: Explicitly 100% of viewport height */
+    background-color: transparent; /* NO BLACK SHADE */
+    display: flex; /* Enables flexbox for centering */
+    align-items: center; /* Vertically centers the modal-content */
+    justify-content: center; /* Horizontally centers the modal-content */
+    z-index: 9999; /* VERY HIGH Z-INDEX to ensure it's on top */
+    padding: 20px; /* Provides a buffer around the modal content */
+    pointer-events: auto; /* By default, allows interaction with modal content */
+
+    /* Add these for aggressive debugging if it's still not fixed */
+    /* background-color: rgba(0, 255, 0, 0.1) !important; /* Temporary green overlay to see its bounds */
+    /* border: 2px solid green !important; */
+}
+
+/* Modal Content (the actual white box) */
+/* Make the edit modal wider */
+.modal-content {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    
+    /* --- ADD THESE LINES --- */
+    width: 90%; /* Use a percentage of the screen width */
+    max-width: 1200px; /* But don't let it get wider than 1200px on large screens */
+    margin-right: 100px; /* Center the modal horizontally */
+    
+}
+
+/* Ensure no rogue margins push content out of modal's scrollable area */
+/* These rules prevent margins on first/last children from pushing content */
+.modal-content > *:first-child {
+    margin-top: 0 !important;
+}
+.modal-content > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* Removed .modal-body-scrollable styles as we are not using it for now */
+
+/* Adjust margins on specific elements within the form to prevent pushing */
+.modal-content h3 {
+    margin-top: 0;
+    margin-bottom: 25px; 
+    color: #333;
+    text-align: center;
+    font-size: 1.8em; 
+}
+
+.modal-content hr {
+    border: 0;
+    border-top: 1px solid #ddd;
+    margin: 25px 0; 
+}
+
+/* Styling for individual editable sections within the modal (hotel/transport) */
+.hotel-edit-entry, .transport-edit-entry {
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    margin: 20px 0; 
+    border-radius: 6px;
+    background-color: #fcfcfc;
+}
+
+.hotel-edit-entry h4 {
+    margin-top: 0;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+    color: #444;
+    font-size: 1.3em;
+}
+
+.price-cell {
+    text-align: right; /* Aligns currency to the right, which is standard */
+    padding-right: 20px !important; /* Adds significant space to the right */
+    font-weight: 500; /* Makes the price text slightly bolder */
+    min-width: 120px; /* Ensures the column has enough space */
+}
+
+/* Form group layout */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555;
+    font-size: 1em;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #b0b0b0;
+    border-radius: 5px;
+    box-sizing: border-box; 
+    font-size: 1.05rem;
+    line-height: 1.2;
+}
+
+/* Styles for action buttons at the bottom of the modal */
+.modal-actions {
+    margin-top: 30px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    padding-bottom: 10px;
+}
+
+.modal-actions button {
+    padding: 12px 25px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1.1em;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.modal-actions button:active {
+    transform: translateY(1px);
+}
+
+.modal-actions .save-btn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+}
+
+.modal-actions .save-new{
+    background-color: #46951e;
+    color: white;
+    border: none;
+}
+.modal-actions .save-new:hover {
+    background-color: #28aa44;
+}   
+
+.modal-actions .close-new {
+    background-color: #8f2934;
+    color: white;
+    border: none;
+}
+.modal-actions .close-new:hover {
+    background-color: #a02b36;
+}
+
+.modal-actions .save-btn:hover {
+    background-color: #218838;
+}
+
+.modal-actions .close-btn {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+}
+
+.modal-actions .close-btn:hover {
+    background-color: #5a6268;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    .modal-content {
+        padding: 20px;
+        max-width: 95%;
+    }
+    .modal-content h3 {
+        font-size: 1.5em;
+    }
+    .hotel-edit-entry, .transport-edit-entry {
+        padding: 15px;
+        margin: 15px 0;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+}
+
+@media (max-width: 500px) {
+    .modal-overlay {
+        padding: 10px;
+    }
+    .modal-content {
+        padding: 15px;
+        max-width: 100%;
+        border-radius: 0; 
+        /* max-height: calc(100vh - 20px); /* Removed if not scrolling */
+    }
+    .modal-content h3 {
+        font-size: 1.3em;
+        margin-bottom: 15px;
+    }
+    .hotel-edit-entry h4 {
+        font-size: 1.1em;
+        padding-bottom: 8px;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        font-size: 0.9em;
+        margin-bottom: 5px;
+    }
+    .form-group input, .form-group select {
+        padding: 10px;
+        font-size: 0.95rem;
+    }
+    .modal-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .modal-actions button {
+        width: 100%;
+        padding: 10px;
+        font-size: 1em;
+    }
+}
+/* --- TOGGLE SWITCH STYLES --- */
+.transport-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 25px; /* Added spacing */
+    font-weight: bold;
+    cursor: default;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+/* Make table rows clickable */
+.quotation-row-clickable {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.quotation-row-clickable:hover {
+    background-color: #e9ecef; /* A light grey hover effect */
+}
+
+/* Styles for the View Details Modal */
+.view-modal-section {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 20px;
+}
+.view-modal-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.view-modal-section h4 {
+    margin-top: 0;
+    color: #007bff;
+}
+
+.detail-item, .cost-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+.detail-item:last-child, .cost-item:last-child {
+    border-bottom: none;
+}
+
+.cost-summary {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+.cost-item span:first-child {
+    font-weight: bold;
+    color: #495057;
+}
+
+.grand-total {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #28a745;
+    margin-top: 10px;
+}
+
+/* Social Media Links Footer */
+.social-links-footer {
+    margin-top: 40px;
+    padding: 20px 0;
+    border-top: 2px solid #e9ecef;
+    text-align: center;
+}
+
+.social-links-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.social-links-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.social-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.google-link {
+    background-color: #4285f4;
+    color: white;
+}
+
+.google-link:hover {
+    background-color: #3367d6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+}
+
+.instagram-link {
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    color: white;
+}
+
+.instagram-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 39, 67, 0.3);
+}
+
+.social-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+    /* Debug: Add border to see if icon is rendering */
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.separator {
+    font-size: 18px;
+    font-weight: 600;
+    color: #6c757d;
+    margin: 0 5px;
+}
+
+/* Responsive design for social links */
+@media (max-width: 768px) {
+    .social-links-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .separator {
+        display: none;
+    }
+    
+    .social-link {
+        width: 200px;
+        justify-content: center;
+    }
+}

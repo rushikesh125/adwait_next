@@ -34,7 +34,6 @@ import { db } from "@/firebase/config";
 import { useSelector } from "react-redux";
 
 const Create_new_package = ({
-  user,
   userData,
   checkInDate,
   setCheckInDate,
@@ -73,6 +72,7 @@ const Create_new_package = ({
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [packageName, setPackageName] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const {user} = useSelector(state=>state.auth);
   // const agentRef = doc(db, "saved_packages_by_agents", agentId);
   // const packagesCollectionRef = collection(agentRef, "packages");
 
@@ -757,7 +757,7 @@ const Create_new_package = ({
     if (!customerName.trim()) return alert("Please enter a customer name.");
 
     try {
-      const {user} = useSelector(state=>state.auth);
+      
       const agentId = user?.uid;
       if (!agentId) throw new Error("Agent not logged in");
 
