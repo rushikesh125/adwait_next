@@ -8,7 +8,9 @@ import Page403 from "@/components/Page403";
 // Icons
 import { 
   LayoutDashboard, ShieldCheck, UserCog, Database, 
-  BarChart3, Settings, LogOut, Menu, X, Bell, Lock, Globe 
+  BarChart3, Settings, LogOut, Menu, X, Bell, Lock, Globe, 
+  TruckElectric,
+  ActivityIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -46,12 +48,12 @@ const AdminPanelLayout = ({ children }) => {
   };
 
   const adminNav = [
-    { name: "Overview", href: "/admin/dashboard", icon: LayoutDashboard },
-    { name: "Agent Approvals", href: "/admin/approvals", icon: ShieldCheck },
-    { name: "Manage Users", href: "/admin/users", icon: UserCog },
-    { name: "Tour Database", href: "/admin/data-entry", icon: Database },
-    { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-    { name: "Settings", href: "/admin/settings", icon: Settings },
+    { name: "Overview", href: "/admin-panel", icon: LayoutDashboard },
+    { name: "Accommodations", href: "/admin-panel/accommodations", icon: ShieldCheck },
+    { name: "Transports", href: "/admin-panel/transports", icon: TruckElectric },
+    { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
+    { name: "Analytics", href: "/admin-panel/analytics", icon: BarChart3 },
+    { name: "Settings", href: "/admin-panel/settings", icon: Settings },
   ];
 
   // --- FIXED: Added ({ mobile = false }) to the argument list ---
