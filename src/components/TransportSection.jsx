@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { fetchTransportPackages } from "@/firebase/resources";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch"; 
-
+import "@/components/css/SelectTransport.css"
 const TransportSection = ({ locations, onTransportSelect, selectedTransport }) => {
   const [selectedState, setSelectedState] = useState("");
   const [packages, setPackages] = useState([]);

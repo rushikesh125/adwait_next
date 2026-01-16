@@ -1091,7 +1091,7 @@ const Create_new_package = ({
 
       {/* Activities Section */}
       <button
-        className="add-activities-button"
+        className="add-activities-button px-2 bg-black  text-white rounded-3xl"
         onClick={() => setShowActivitiesSection(true)}
       >
         Add Activities
