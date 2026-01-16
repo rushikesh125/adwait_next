@@ -53,7 +53,7 @@ export default function LoginPage() {
     try {
       await signInWithPopup(auth, provider);
       toast.success("Signed in successfully");
-      router.push("/");
+      router.push("/admin-panel");
     } catch (error) {
       toast.error("Google sign-in failed");
     }
