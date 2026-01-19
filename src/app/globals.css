@@ -4,145 +4,158 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-theme-primary: #1E88E5;        /* Bright blue */
---color-theme-secondary: #1565C0;      /* Deep/strong blue */
---color-theme-accent: #42A5F5;         /* Light friendly blue */
---color-theme-muted: #E3F2FD;          /* Soft pale blue */
---color-theme-dark: #0D47A1;           /* Navy/dark blue */
---color-theme-gradient-from: #2196F3;  /* Gradient: Blue → Violet-Pink hint */
---color-theme-gradient-to: #7C3AED;    /* Blue-violet (matches theme) */
+    --color-theme-primary: #1E88E5;
+    /* Bright blue */
+    --color-theme-secondary: #1565C0;
+    /* Deep/strong blue */
+    --color-theme-accent: #42A5F5;
+    /* Light friendly blue */
+    --color-theme-muted: #E3F2FD;
+    /* Soft pale blue */
+    --color-theme-dark: #0D47A1;
+    /* Navy/dark blue */
+    --color-theme-gradient-from: #2196F3;
+    /* Gradient: Blue → Violet-Pink hint */
+    --color-theme-gradient-to: #7C3AED;
+    /* Blue-violet (matches theme) */
 
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --radius-2xl: calc(var(--radius) + 8px);
+    --radius-3xl: calc(var(--radius) + 12px);
+    --radius-4xl: calc(var(--radius) + 16px);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+    --radius: 0.625rem;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.646 0.222 41.116);
+    --chart-2: oklch(0.6 0.118 184.704);
+    --chart-3: oklch(0.398 0.07 227.392);
+    --chart-4: oklch(0.828 0.189 84.429);
+    --chart-5: oklch(0.769 0.188 70.08);
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
+    * {
+        @apply border-border outline-ring/50;
+    }
 
-  body {
-    @apply bg-background text-foreground;
-  }
+    body {
+        @apply bg-background text-foreground;
+    }
 }
 
 
 /* GLOBAL RESETS FOR HTML/BODY HEIGHT (CRITICAL FOR FIXED POSITIONING AND VH UNITS) */
-html, body {
-    height: 100%; /* Ensure html and body take full viewport height */
-    margin: 0;   /* Remove default browser margins */
-    padding: 0;  /* Remove default browser padding */
+html,
+body {
+    height: 100%;
+    /* Ensure html and body take full viewport height */
+    margin: 0;
+    /* Remove default browser margins */
+    padding: 0;
+    /* Remove default browser padding */
     /* No 'overflow: hidden' here, as requested, so page will scroll */
 }
 
 /* Ensure your main app container also spans full height if necessary */
-#root, #adwait-tours-app-container { /* Replace with your actual root app div ID */
+#root,
+#adwait-tours-app-container {
+    /* Replace with your actual root app div ID */
     min-height: 100%;
     display: flex;
     flex-direction: column;
@@ -151,20 +164,25 @@ html, body {
 
 /* General container for the main page content */
 .my-quotations-container {
-    width: 95%; /* Keep for larger screens */
+    width: 95%;
+    /* Keep for larger screens */
     margin: 20px auto;
     overflow-x: auto;
     flex-grow: 1;
-    padding: 0 10px; /* Add a small horizontal padding to ensure content isn't flush with edges */
-    box-sizing: border-box; /* Crucial to include padding within the width */
+    padding: 0 10px;
+    /* Add a small horizontal padding to ensure content isn't flush with edges */
+    box-sizing: border-box;
+    /* Crucial to include padding within the width */
 }
 
 @media (max-width: 768px) {
     .my-quotations-container {
-        width: 100%; /* Let it take full width on smaller screens */
-        padding: 0 15px; /* Add more padding on smaller screens for breathing room */
+        width: 100%;
+        /* Let it take full width on smaller screens */
+        padding: 0 15px;
+        /* Add more padding on smaller screens for breathing room */
     }
-}   
+}
 
 /* Styling for the main quotations table */
 .quotations-table {
@@ -173,7 +191,8 @@ html, body {
     margin-top: 20px;
 }
 
-.quotations-table th, .quotations-table td {
+.quotations-table th,
+.quotations-table td {
     padding: 8px 12px;
     border: 1px solid #ddd;
     text-align: left;
@@ -208,9 +227,12 @@ html, body {
     color: white;
     /* Remove display: inline-flex from here as parent flex will handle it */
     /* display: inline-flex; */
-    align-items: center; /* Keep for icon alignment within the button */
-    gap: 4px; /* Keep for icon and text spacing */
-    padding: 8px 12px; /* Add some padding for better appearance */
+    align-items: center;
+    /* Keep for icon alignment within the button */
+    gap: 4px;
+    /* Keep for icon and text spacing */
+    padding: 8px 12px;
+    /* Add some padding for better appearance */
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -233,18 +255,28 @@ html, body {
 
 /* Modal Overlay (transparent and ensures full screen) */
 .modal-overlay {
-    position: fixed; /* CRITICAL: Stays in place relative to the viewport */
+    position: fixed;
+    /* CRITICAL: Stays in place relative to the viewport */
     top: 0;
     left: 0;
-    width: 100vw;   /* CRITICAL: Explicitly 100% of viewport width */
-    height: 100vh;  /* CRITICAL: Explicitly 100% of viewport height */
-    background-color: transparent; /* NO BLACK SHADE */
-    display: flex; /* Enables flexbox for centering */
-    align-items: center; /* Vertically centers the modal-content */
-    justify-content: center; /* Horizontally centers the modal-content */
-    z-index: 9999; /* VERY HIGH Z-INDEX to ensure it's on top */
-    padding: 20px; /* Provides a buffer around the modal content */
-    pointer-events: auto; /* By default, allows interaction with modal content */
+    width: 100vw;
+    /* CRITICAL: Explicitly 100% of viewport width */
+    height: 100vh;
+    /* CRITICAL: Explicitly 100% of viewport height */
+    background-color: transparent;
+    /* NO BLACK SHADE */
+    display: flex;
+    /* Enables flexbox for centering */
+    align-items: center;
+    /* Vertically centers the modal-content */
+    justify-content: center;
+    /* Horizontally centers the modal-content */
+    z-index: 9999;
+    /* VERY HIGH Z-INDEX to ensure it's on top */
+    padding: 20px;
+    /* Provides a buffer around the modal content */
+    pointer-events: auto;
+    /* By default, allows interaction with modal content */
 
     /* Add these for aggressive debugging if it's still not fixed */
     /* background-color: rgba(0, 255, 0, 0.1) !important; /* Temporary green overlay to see its bounds */
@@ -258,20 +290,24 @@ html, body {
     padding: 25px;
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    
+
     /* --- ADD THESE LINES --- */
-    width: 90%; /* Use a percentage of the screen width */
-    max-width: 1200px; /* But don't let it get wider than 1200px on large screens */
-    margin-right: 100px; /* Center the modal horizontally */
-    
+    width: 90%;
+    /* Use a percentage of the screen width */
+    max-width: 1200px;
+    /* But don't let it get wider than 1200px on large screens */
+    margin-right: 100px;
+    /* Center the modal horizontally */
+
 }
 
 /* Ensure no rogue margins push content out of modal's scrollable area */
 /* These rules prevent margins on first/last children from pushing content */
-.modal-content > *:first-child {
+.modal-content>*:first-child {
     margin-top: 0 !important;
 }
-.modal-content > *:last-child {
+
+.modal-content>*:last-child {
     margin-bottom: 0 !important;
 }
 
@@ -280,23 +316,24 @@ html, body {
 /* Adjust margins on specific elements within the form to prevent pushing */
 .modal-content h3 {
     margin-top: 0;
-    margin-bottom: 25px; 
+    margin-bottom: 25px;
     color: #333;
     text-align: center;
-    font-size: 1.8em; 
+    font-size: 1.8em;
 }
 
 .modal-content hr {
     border: 0;
     border-top: 1px solid #ddd;
-    margin: 25px 0; 
+    margin: 25px 0;
 }
 
 /* Styling for individual editable sections within the modal (hotel/transport) */
-.hotel-edit-entry, .transport-edit-entry {
+.hotel-edit-entry,
+.transport-edit-entry {
     border: 1px solid #e0e0e0;
     padding: 20px;
-    margin: 20px 0; 
+    margin: 20px 0;
     border-radius: 6px;
     background-color: #fcfcfc;
 }
@@ -311,10 +348,14 @@ html, body {
 }
 
 .price-cell {
-    text-align: right; /* Aligns currency to the right, which is standard */
-    padding-right: 20px !important; /* Adds significant space to the right */
-    font-weight: 500; /* Makes the price text slightly bolder */
-    min-width: 120px; /* Ensures the column has enough space */
+    text-align: right;
+    /* Aligns currency to the right, which is standard */
+    padding-right: 20px !important;
+    /* Adds significant space to the right */
+    font-weight: 500;
+    /* Makes the price text slightly bolder */
+    min-width: 120px;
+    /* Ensures the column has enough space */
 }
 
 /* Form group layout */
@@ -330,12 +371,13 @@ html, body {
     font-size: 1em;
 }
 
-.form-group input, .form-group select {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 12px;
     border: 1px solid #b0b0b0;
     border-radius: 5px;
-    box-sizing: border-box; 
+    box-sizing: border-box;
     font-size: 1.05rem;
     line-height: 1.2;
 }
@@ -368,20 +410,22 @@ html, body {
     border: none;
 }
 
-.modal-actions .save-new{
+.modal-actions .save-new {
     background-color: #46951e;
     color: white;
     border: none;
 }
+
 .modal-actions .save-new:hover {
     background-color: #28aa44;
-}   
+}
 
 .modal-actions .close-new {
     background-color: #8f2934;
     color: white;
     border: none;
 }
+
 .modal-actions .close-new:hover {
     background-color: #a02b36;
 }
@@ -406,13 +450,17 @@ html, body {
         padding: 20px;
         max-width: 95%;
     }
+
     .modal-content h3 {
         font-size: 1.5em;
     }
-    .hotel-edit-entry, .transport-edit-entry {
+
+    .hotel-edit-entry,
+    .transport-edit-entry {
         padding: 15px;
         margin: 15px 0;
     }
+
     .form-group {
         margin-bottom: 15px;
     }
@@ -422,107 +470,118 @@ html, body {
     .modal-overlay {
         padding: 10px;
     }
+
     .modal-content {
         padding: 15px;
         max-width: 100%;
-        border-radius: 0; 
+        border-radius: 0;
         /* max-height: calc(100vh - 20px); /* Removed if not scrolling */
     }
+
     .modal-content h3 {
         font-size: 1.3em;
         margin-bottom: 15px;
     }
+
     .hotel-edit-entry h4 {
         font-size: 1.1em;
         padding-bottom: 8px;
         margin-bottom: 10px;
     }
+
     .form-group label {
         font-size: 0.9em;
         margin-bottom: 5px;
     }
-    .form-group input, .form-group select {
+
+    .form-group input,
+    .form-group select {
         padding: 10px;
         font-size: 0.95rem;
     }
+
     .modal-actions {
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
         margin-top: 20px;
     }
+
     .modal-actions button {
         width: 100%;
         padding: 10px;
         font-size: 1em;
     }
 }
+
 /* --- TOGGLE SWITCH STYLES --- */
 .transport-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 15px;
-    margin-bottom: 25px; /* Added spacing */
+    margin-bottom: 25px;
+    /* Added spacing */
     font-weight: bold;
     cursor: default;
 }
 
 .switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
 }
 
 .switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+    opacity: 0;
+    width: 0;
+    height: 0;
 }
 
 .slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
 }
 
 .slider:before {
-  position: absolute;
-  content: "";
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
 }
 
-input:checked + .slider {
-  background-color: #2196F3;
+input:checked+.slider {
+    background-color: #2196F3;
 }
 
-input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
+input:focus+.slider {
+    box-shadow: 0 0 1px #2196F3;
 }
 
-input:checked + .slider:before {
-  transform: translateX(26px);
+input:checked+.slider:before {
+    transform: translateX(26px);
 }
 
 /* Rounded sliders */
 .slider.round {
-  border-radius: 34px;
+    border-radius: 34px;
 }
 
 .slider.round:before {
-  border-radius: 50%;
+    border-radius: 50%;
 }
+
 /* Make table rows clickable */
 .quotation-row-clickable {
     cursor: pointer;
@@ -530,7 +589,8 @@ input:checked + .slider:before {
 }
 
 .quotation-row-clickable:hover {
-    background-color: #e9ecef; /* A light grey hover effect */
+    background-color: #e9ecef;
+    /* A light grey hover effect */
 }
 
 /* Styles for the View Details Modal */
@@ -539,6 +599,7 @@ input:checked + .slider:before {
     border-bottom: 1px solid #eee;
     padding-bottom: 20px;
 }
+
 .view-modal-section:last-child {
     border-bottom: none;
     margin-bottom: 0;
@@ -550,13 +611,16 @@ input:checked + .slider:before {
     color: #007bff;
 }
 
-.detail-item, .cost-item {
+.detail-item,
+.cost-item {
     display: flex;
     justify-content: space-between;
     padding: 8px 0;
     border-bottom: 1px solid #f5f5f5;
 }
-.detail-item:last-child, .cost-item:last-child {
+
+.detail-item:last-child,
+.cost-item:last-child {
     border-bottom: none;
 }
 
@@ -657,11 +721,11 @@ input:checked + .slider:before {
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .separator {
         display: none;
     }
-    
+
     .social-link {
         width: 200px;
         justify-content: center;
