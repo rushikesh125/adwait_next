@@ -78,6 +78,8 @@ const Createpackage = ({ onClose }) => {
         fetchStates();
     }, []);
 
+
+
     // Update pricing options when state changes
     useEffect(() => {
         if (selectedState) {
