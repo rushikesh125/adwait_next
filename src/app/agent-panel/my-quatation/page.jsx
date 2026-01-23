@@ -682,7 +682,7 @@ const MyQuotations = () => {
     const pageContentWidth = 180; // Usable width between margins (210 - 15*2 = 180)
 
     const img = new Image();
-    img.src = "./adwait-logo.jpg";
+    img.src = "/adwait-logo.jpg";
 
     img.onload = () => {
       // Inside your handleDownloadPDF function, locate the addHeader function
