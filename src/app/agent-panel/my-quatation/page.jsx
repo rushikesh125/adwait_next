@@ -2886,7 +2886,7 @@ const MyQuotations = () => {
 
       {/* ================== VIEW MODAL ================== */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="min-w-5xl max-h-[90vh] overflow-scroll">
           <DialogHeader>
             <DialogTitle className="text-2xl text-theme-primary">
               Quotation for {viewingQuotation?.customerName}
