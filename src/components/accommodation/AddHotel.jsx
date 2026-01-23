@@ -1,719 +1,744 @@
-"use client"
+"use client";
 import React, { useEffect, useState } from "react";
 import {
-    collection,
-    getDocs,
-    doc,
-    getDoc,
-    updateDoc,
-    arrayUnion,
-    addDoc
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  updateDoc,
+  arrayUnion,
+  addDoc
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { 
+  X, MapPin, Hotel, Calendar, BedDouble, Plus, Check, ChevronRight, Star,
+  ExternalLink
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
-    const [states, setStates] = useState([]);
+  const [states, setStates] = useState([]);
+  const [doneOnes, setDoneOnes] = useState(false);
+  const [selectedState, setSelectedState] = useState("");
+  const [cities, setCities] = useState([]);
+  const [cityInput, setCityInput] = useState("");
+  const [filteredCities, setFilteredCities] = useState([]);
+  const [selectedCity, setSelectedCity] = useState(null);
+  const [cityConfirmed, setCityConfirmed] = useState(false);
 
-    const [doneOnes,setdoneOnes]=useState(false);
-    // const [NagativePresent, setNagativePresent] = useState(false);
-    const [selectedState, setSelectedState] = useState("");
-    const [cities, setCities] = useState([]);
-    const [cityInput, setCityInput] = useState("");
-    const [filteredCities, setFilteredCities] = useState([]);
-    const [selectedCity, setSelectedCity] = useState(null);
-    const [cityConfirmed, setCityConfirmed] = useState(false);
-    const [hotelName, setHotelName] = useState("");
-    const [hotelRating, setHotelRating] = useState("");
+  const [hotelName, setHotelName] = useState("");
+  const [hotelRating, setHotelRating] = useState("");
+  const [GoogleListingURL, setGoogleListingURL] = useState("");
+  const [GoogleReviewRating, setGoogleReviewRating] = useState("");
 
-    const [GoogleListingURL, setGoogleListingURL] = useState("");
-    const [GoogleReviewRating, setGoogleReviewRating] = useState(null);
-    const [hotelCreated, setHotelCreated] = useState(false);
-    const [createdHotelId, setCreatedHotelId] = useState(null);
-    const [seasonCount, setSeasonCount] = useState(0);
-    const [seasons, setSeasons] = useState([]);
-    const [currentSeasonIndex, setCurrentSeasonIndex] = useState(0);
-    const [tempSeason, setTempSeason] = useState({ name: "", start: "", end: "" });
-    const [categoryName, setCategoryName] = useState("");
-    const [roomPricing, setRoomPricing] = useState([]);
-    const [roomAdded, setRoomAdded] = useState(false);
-    const [isAddingExtraSeason, setIsAddingExtraSeason] = useState(false);
+  const [hotelCreated, setHotelCreated] = useState(false);
+  const [createdHotelId, setCreatedHotelId] = useState(null);
 
-    // NEW STATE: To store the pricing of the last successfully added room category
-    const [lastSavedRoomPricing, setLastSavedRoomPricing] = useState([]);
+  // ── Season management ───────────────────────────────────────
+  const [seasonCount, setSeasonCount] = useState(0);
+  const [seasons, setSeasons] = useState([]);           // [{name, start, end}, ...]
+  const [currentSeasonIndex, setCurrentSeasonIndex] = useState(0);
+  const [tempSeason, setTempSeason] = useState({ name: "", start: "", end: "" });
+  const [isAddingExtraSeason, setIsAddingExtraSeason] = useState(false);
 
-    // Removed unused 'pricing' state
+  // ── Room category management ────────────────────────────────
+  const [roomCategories, setRoomCategories] = useState([]); // array of already saved categories (for display)
+  const [currentCategoryName, setCurrentCategoryName] = useState("");
+  const [currentPricing, setCurrentPricing] = useState([]); // pricing[seasonIndex][plan][type]
 
-    const editMode = !!editHotelId;
+  const editMode = !!editHotelId;
 
-    useEffect(() => {
-        const fetchStates = async () => {
-            const querySnapshot = await getDocs(collection(db, "locations"));
-            const stateList = querySnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setStates(stateList);
-        };
-        fetchStates();
-    }, []);
-
-    useEffect(() => {
-        if (!editMode) return;
-
-        const loadHotel = async () => {
-            const hotelRef = doc(db, "hotels", editHotelId);
-            const hotelSnap = await getDoc(hotelRef);
-            if (hotelSnap.exists()) {
-                const data = hotelSnap.data();
-                setHotelName(data.name);
-                setHotelRating(data.rating);
-                setSelectedState(data.state);
-                setCityInput(data.city);
-                setSelectedCity({ name: data.city });
-                setCityConfirmed(true);
-                setHotelCreated(true);
-                setCreatedHotelId(editHotelId);
-                // If editing, load existing room prices if available
-                if (data.rooms && data.rooms.length > 0) {
-                    const lastRoom = data.rooms[data.rooms.length - 1];
-                    const loadedPricing = lastRoom.seasons.map(s => s.pricing);
-                    setLastSavedRoomPricing(loadedPricing);
-                    setRoomPricing(loadedPricing); // Pre-fill current pricing with last room's pricing
-                    // Also set seasons and currentSeasonIndex based on loaded hotel data for edit mode
-                    setSeasons(lastRoom.seasons.map(s => ({ name: s.name, start: s.start, end: s.end })));
-                    setSeasonCount(lastRoom.seasons.length);
-                    setCurrentSeasonIndex(lastRoom.seasons.length); // All seasons are "saved"
-                }
-            }
-        };
-
-        loadHotel();
-    }, [editHotelId]);
-
-    useEffect(() => {
-        const fetchCitiesForState = async () => {
-            if (!selectedState) return;
-            const selectedDoc = states.find((s) => s.name === selectedState);
-            if (!selectedDoc) return;
-            const docSnap = await getDoc(doc(db, "locations", selectedDoc.id));
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                setCities(data.cities || []);
-            }
-        };
-        fetchCitiesForState();
-    }, [selectedState, states]);
-
-    useEffect(() => {
-        if (cityInput.trim() === "") {
-            setFilteredCities([]);
-            return;
-        }
-
-        const matchingCities = cities.filter(cityObj =>
-            cityObj.name.toLowerCase().includes(cityInput.toLowerCase())
-        );
-
-        const exactMatch = cities.some(
-            cityObj => cityObj.name.toLowerCase() === cityInput.toLowerCase()
-        );
-
-        const suggestions = [...matchingCities];
-        if (!exactMatch) suggestions.push("Other");
-
-        setFilteredCities(suggestions);
-    }, [cityInput, cities]);
-
-    const handleSelectCity = async (cityObj) => {
-        const selectedStateObj = states.find((s) => s.name === selectedState);
-        if (!selectedStateObj) return;
-
-        if (cityObj === "Other") {
-            const trimmedCity = cityInput.trim();
-            const cityExists = cities.some(
-                (c) => c.name.toLowerCase() === trimmedCity.toLowerCase()
-            );
-
-            if (cityExists) {
-                alert(`❌ The city "${trimmedCity}" already exists in ${selectedState}.`);
-                return;
-            }
-
-            const confirmed = window.confirm(`Do you want to add "${trimmedCity}" as a new city to ${selectedState}?`);
-            if (confirmed) {
-                const newCityObj = {
-                    name: trimmedCity,
-                    hotelIds: []
-                };
-                const stateRef = doc(db, "locations", selectedStateObj.id);
-                await updateDoc(stateRef, {
-                    cities: arrayUnion(newCityObj)
-                });
-
-                setCityInput(newCityObj.name);
-                setSelectedCity(newCityObj);
-                setCityConfirmed(true);
-            }
-        } else {
-            setCityInput(cityObj.name);
-            setSelectedCity(cityObj);
-            setCityConfirmed(true);
-        }
-
-        setFilteredCities([]);
+  // Fetch states
+  useEffect(() => {
+    const fetchStates = async () => {
+      const snap = await getDocs(collection(db, "locations"));
+      setStates(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     };
+    fetchStates();
+  }, []);
 
-    const handleCreateOrUpdateHotel = async () => {
-        console.log(hotelName, hotelRating, selectedCity, selectedState)
-        if (!hotelName || !hotelRating || !selectedCity || !selectedState) return;
-        if((!GoogleReviewRating || !GoogleListingURL) && !doneOnes) {
-            alert("⚠ As best practice kindly enter hotel's google rating and link for more details");
-            setdoneOnes(true);
-            return;
-        }else {
+  // Load hotel in edit mode
+  useEffect(() => {
+    if (!editMode) return;
 
-        try {
-            if (!editMode) {
-                const hotelSnapshot = await getDocs(collection(db, "hotels"));
-                const duplicate = hotelSnapshot.docs.find(doc => {
-                    const data = doc.data();
-                    return (
-                        data.name.trim().toLowerCase() === hotelName.trim().toLowerCase() &&
-                        data.city === selectedCity.name &&
-                        data.state === selectedState
-                    );
-                });
+    const loadHotel = async () => {
+      const hotelRef = doc(db, "hotels", editHotelId);
+      const snap = await getDoc(hotelRef);
+      if (!snap.exists()) return;
 
-                    if (duplicate) {
-                        alert(`❌ A hotel named "${hotelName}" already exists in ${selectedCity.name}, ${selectedState}.`);
-                        return;
-                    }
+      const data = snap.data();
+      setHotelName(data.name || "");
+      setHotelRating(data.rating || "");
+      setGoogleReviewRating(data.GoogleReviewRating || "");
+      setGoogleListingURL(data.GoogleListingURL || "");
+      setSelectedState(data.state || "");
+      setCityInput(data.city || "");
+      setSelectedCity({ name: data.city });
+      setCityConfirmed(true);
+      setHotelCreated(true);
+      setCreatedHotelId(editHotelId);
 
-                const hotelRef = await addDoc(collection(db, "hotels"), {
-                    name: hotelName,
-                    GoogleReviewRating: GoogleReviewRating,
-                    GoogleListingURL: GoogleListingURL,
-                    rating: hotelRating,
-                    state: selectedState,
-                    city: selectedCity.name,
-                    rooms: []
-                });
+      if (data.rooms?.length > 0) {
+        setRoomCategories(data.rooms);
 
-                const newHotelId = hotelRef.id;
-                console.log("New hotel created with ID:", newHotelId);
-                setCreatedHotelId(newHotelId);
-                setHotelCreated(true);
+        // Initialize pricing grid using last saved room (or empty)
+        const template = data.rooms[data.rooms.length - 1]?.seasons?.map(s => ({
+          ep: { double: 0, extraAdult: 0, extraChild: 0 },
+          cp: { double: 0, extraAdult: 0, extraChild: 0 },
+          map: { double: 0, extraAdult: 0, extraChild: 0 },
+          ap: { double: 0, extraAdult: 0, extraChild: 0 },
+          ...s.pricing
+        })) || [];
 
-                    const stateDoc = states.find((s) => s.name === selectedState);
-                    const stateRef = doc(db, "locations", stateDoc.id);
-                    const stateSnap = await getDoc(stateRef);
-                    if (!stateSnap.exists()) return;
+        setCurrentPricing(template);
+        setSeasons(data.rooms[data.rooms.length - 1]?.seasons?.map(s => ({
+          name: s.name,
+          start: s.start,
+          end: s.end
+        })) || []);
+        setSeasonCount(data.rooms[data.rooms.length - 1]?.seasons?.length || 0);
+      }
+    };
+    loadHotel();
+  }, [editMode, editHotelId]);
 
-                    const updatedCities = (stateSnap.data().cities || []).map((city) => {
-                        if (city.name.toLowerCase() === selectedCity.name.toLowerCase()) {
-                            return {
-                                ...city,
-                                hotelIds: [...(city.hotelIds || []), newHotelId]
-                            };
-                        }
-                        return city;
-                    });
-                await updateDoc(stateRef, { cities: updatedCities });
-                alert("Hotel created successfully!  You can now add room categories.");
-            } else {
-                const hotelRef = doc(db, "hotels", editHotelId);
-                await updateDoc(hotelRef, {
-                    name: hotelName,
-                    rating: hotelRating
-                });
-                alert("Hotel updated  You can now manage room categories.");
-                setHotelCreated(true);
-            }
-        } catch (error) {
-            console.error("Error saving hotel:", error);
-            alert("Failed to save hotel");
-        }
+  // Fetch cities when state changes
+  useEffect(() => {
+    if (!selectedState) return;
+    const stateDoc = states.find(s => s.name === selectedState);
+    if (!stateDoc) return;
+
+    const fetchCities = async () => {
+      const snap = await getDoc(doc(db, "locations", stateDoc.id));
+      if (snap.exists()) setCities(snap.data().cities || []);
+    };
+    fetchCities();
+  }, [selectedState, states]);
+
+  // City suggestions
+  useEffect(() => {
+    if (!cityInput.trim()) {
+      setFilteredCities([]);
+      return;
     }
-    };
+    const lower = cityInput.toLowerCase();
+    const matches = cities.filter(c => c.name.toLowerCase().includes(lower));
+    const exact = cities.some(c => c.name.toLowerCase() === lower);
+    const list = [...matches];
+    if (!exact) list.push("Other");
+    setFilteredCities(list);
+  }, [cityInput, cities]);
 
-    const handlePricingChange = (e, seasonIndex, plan, type) => {
-        let value = e.target.value;
+  const handleSelectCity = async (item) => {
+    if (item === "Other") {
+      const name = cityInput.trim();
+      if (!name) return;
+      if (cities.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+        alert(`City "${name}" already exists.`);
+        return;
+      }
+      if (!window.confirm(`Add city "${name}" to ${selectedState}?`)) return;
 
-        if (Number(value) < 0) {
-            alert("Price cannot be negative.");
-            e.target.value = "";
-            value = ""; // Use empty string for state update logic
-        }
+      const stateDoc = states.find(s => s.name === selectedState);
+      const newCity = { name, hotelIds: [] };
+      await updateDoc(doc(db, "locations", stateDoc.id), {
+        cities: arrayUnion(newCity)
+      });
 
-        setRoomPricing((prev) => {
-            const updated = [...prev];
+      setSelectedCity(newCity);
+      setCityInput(name);
+    } else {
+      setSelectedCity(item);
+      setCityInput(item.name);
+    }
+    setCityConfirmed(true);
+    setFilteredCities([]);
+  };
 
-            if (!updated[seasonIndex]) {
-                updated[seasonIndex] = {};
-            }
-            if (!updated[seasonIndex][plan]) {
-                updated[seasonIndex][plan] = {};
-            }
-            updated[seasonIndex][plan][type] = value === "" ? 0 : Number(value);
-            return updated;
+  const createOrUpdateHotel = async () => {
+    if (!hotelName.trim() || !hotelRating || !selectedCity || !selectedState) {
+      alert("Please fill hotel name, rating, state & city.");
+      return;
+    }
+
+    if ((!GoogleReviewRating || !GoogleListingURL) && !doneOnes) {
+      alert("⚠ Best practice: add Google rating & listing link");
+      setDoneOnes(true);
+      return;
+    }
+
+    try {
+      let hotelId = createdHotelId;
+
+      if (!editMode) {
+        // Check duplicate
+        const snap = await getDocs(collection(db, "hotels"));
+        const duplicate = snap.docs.some(d => {
+          const h = d.data();
+          return (
+            h.name?.trim().toLowerCase() === hotelName.trim().toLowerCase() &&
+            h.city?.toLowerCase() === selectedCity.name.toLowerCase() &&
+            h.state?.toLowerCase() === selectedState.toLowerCase()
+          );
         });
-    };
+        if (duplicate) {
+          alert(`Hotel "${hotelName}" already exists in this city.`);
+          return;
+        }
 
-    const handleRoomSubmit = async () => {
-        const hasAtLeastOnePrice = roomPricing.some(season =>
-            season && Object.values(season).some(plan =>
-                plan && Object.values(plan).some(price => price > 0)
-            )
+        const ref = await addDoc(collection(db, "hotels"), {
+          name: hotelName.trim(),
+          rating: hotelRating,
+          GoogleReviewRating: GoogleReviewRating || null,
+          GoogleListingURL: GoogleListingURL || null,
+          state: selectedState,
+          city: selectedCity.name,
+          rooms: []
+        });
+        hotelId = ref.id;
+        setCreatedHotelId(hotelId);
+        setHotelCreated(true);
+
+        // Update city hotelIds
+        const stateDoc = states.find(s => s.name === selectedState);
+        const citySnap = await getDoc(doc(db, "locations", stateDoc.id));
+        const cityList = citySnap.data().cities.map(c => 
+          c.name.toLowerCase() === selectedCity.name.toLowerCase()
+            ? { ...c, hotelIds: [...(c.hotelIds || []), hotelId] }
+            : c
         );
+        await updateDoc(doc(db, "locations", stateDoc.id), { cities: cityList });
 
-        if (!categoryName || !hasAtLeastOnePrice) {
-            alert("Please provide a category name and at least one price for any meal plan.");
-            return;
+        alert("Hotel created!");
+      } else {
+        await updateDoc(doc(db, "hotels", editHotelId), {
+          name: hotelName.trim(),
+          rating: hotelRating,
+          GoogleReviewRating: GoogleReviewRating || null,
+          GoogleListingURL: GoogleListingURL || null,
+        });
+        alert("Hotel updated!");
+        setHotelCreated(true);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error saving hotel");
+    }
+  };
+
+  const handlePricingChange = (seasonIdx, plan, type, value) => {
+    const num = value === "" ? 0 : Number(value);
+    if (num < 0) {
+      alert("Price cannot be negative");
+      return;
+    }
+
+    setCurrentPricing(prev => {
+      const copy = [...prev];
+      if (!copy[seasonIdx]) copy[seasonIdx] = {};
+      if (!copy[seasonIdx][plan]) copy[seasonIdx][plan] = {};
+      copy[seasonIdx][plan][type] = num;
+      return copy;
+    });
+  };
+
+  const saveRoomCategory = async () => {
+    if (!currentCategoryName.trim()) {
+      alert("Please enter room category name");
+      return;
+    }
+
+    const hasPrice = currentPricing.some(s => 
+      s && ["ep","cp","map","ap"].some(p => 
+        s[p] && Object.values(s[p]).some(v => v > 0)
+      )
+    );
+
+    if (!hasPrice) {
+      alert("Please set at least one positive price");
+      return;
+    }
+
+    const newRoom = {
+      categoryName: currentCategoryName.trim(),
+      seasons: seasons.map((s, i) => ({
+        name: s.name,
+        start: s.start,
+        end: s.end,
+        pricing: {
+          ep:   { double: 0, extraAdult: 0, extraChild: 0, ...(currentPricing[i]?.ep   || {}) },
+          cp:   { double: 0, extraAdult: 0, extraChild: 0, ...(currentPricing[i]?.cp   || {}) },
+          map:  { double: 0, extraAdult: 0, extraChild: 0, ...(currentPricing[i]?.map  || {}) },
+          ap:   { double: 0, extraAdult: 0, extraChild: 0, ...(currentPricing[i]?.ap   || {}) },
         }
-
-        const newRoom = {
-            categoryName,
-            seasons: seasons.map((s, index) => {
-                const seasonPricing = roomPricing[index] || {};
-                const completePricing = {
-                    ep: { double: 0, extraAdult: 0, extraChild: 0, ...(seasonPricing.ep || {}) },
-                    cp: { double: 0, extraAdult: 0, extraChild: 0, ...(seasonPricing.cp || {}) },
-                    map: { double: 0, extraAdult: 0, extraChild: 0, ...(seasonPricing.map || {}) },
-                    ap: { double: 0, extraAdult: 0, extraChild: 0, ...(seasonPricing.ap || {}) },
-                };
-                return {
-                    ...s,
-                    pricing: completePricing,
-                };
-            }),
-        };
-
-        try {
-            const hotelRef = doc(db, "hotels", createdHotelId);
-            await updateDoc(hotelRef, {
-                rooms: arrayUnion(newRoom),
-            });
-            alert("Room Category Saved 🎉");
-            setRoomAdded(true);
-            setLastSavedRoomPricing(roomPricing); // Store the current pricing for next category
-        } catch (error) {
-            console.error(error);
-            alert("Error saving room.");
-        }
+      }))
     };
 
+    try {
+      await updateDoc(doc(db, "hotels", createdHotelId), {
+        rooms: arrayUnion(newRoom)
+      });
 
-    return (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-start overflow-y-auto p-4">
-    <div className="w-full max-w-4xl bg-white rounded-xl shadow-lg border border-theme-primary/20 my-6">
-      
-      {/* Header */}
-      <div className="flex justify-between items-center px-6 py-4 border-b bg-theme-muted/40 sticky top-0 z-50">
-        <h2 className="text-xl font-semibold text-theme-dark">
-          {editMode ? "Edit Hotel" : "Add New Hotel"}
-        </h2>
-        <button
-          className="text-theme-primary hover:text-theme-secondary font-semibold text-lg"
-          onClick={onClose}
-        >
-          ✖
-        </button>
-      </div>
+      setRoomCategories(prev => [...prev, newRoom]);
+      setCurrentCategoryName("");
+      // Keep seasons & pricing grid for next category
+      alert("Room category saved ✓");
 
-      {/* Content Wrapper */}
-      <div className="p-6 space-y-8">
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save room category");
+    }
+  };
+
+  const resetForNewCategory = () => {
+    setCurrentCategoryName("");
+    setCurrentPricing(seasons.map(() => ({
+      ep:   { double: 0, extraAdult: 0, extraChild: 0 },
+      cp:   { double: 0, extraAdult: 0, extraChild: 0 },
+      map:  { double: 0, extraAdult: 0, extraChild: 0 },
+      ap:   { double: 0, extraAdult: 0, extraChild: 0 }
+    })));
+  };
+
+  // ────────────────────────────────────────────────────────────────
+  // RENDER
+  // ────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-start overflow-y-auto p-4 py-8">
+      <div className="w-full max-w-4xl min-h-[50vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
         
-        {/* --- STEP 1 --- */}
-        <div className="space-y-4">
-          {/* Select State */}
-          <div>
-            <label className="block text-sm font-medium text-theme-dark mb-1">
-              Select State
-            </label>
-            <select
-              value={selectedState}
-              onChange={(e) => {
-                setSelectedState(e.target.value);
-                setSelectedCity(null);
-                setCityInput("");
-                setCityConfirmed(false);
-              }}
-              className="w-full border border-theme-primary/30 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-theme-primary outline-none"
-            >
-              <option value="">-- Choose a state --</option>
-              {states.map((state) => (
-                <option key={state.id} value={state.name}>
-                  {state.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Search/Select City */}
-          {selectedState && (
-            <div>
-              <label className="block text-sm font-medium text-theme-dark mb-1">
-                Search or Select City
-              </label>
-              <input
-                value={cityInput}
-                onChange={(e) => setCityInput(e.target.value)}
-                className="w-full border border-theme-primary/30 rounded-md px-3 py-2"
-                placeholder="Start typing city name..."
-              />
-
-              {cityInput && filteredCities.length > 0 && (
-                <ul className="border border-gray-300 rounded-md mt-1 bg-white shadow-sm max-h-48 overflow-y-auto">
-                  {filteredCities.map((city, i) => (
-                    <li
-                      key={i}
-                      onClick={() => handleSelectCity(city)}
-                      className="px-3 py-2 hover:bg-theme-muted cursor-pointer text-sm"
-                    >
-                      {city === "Other"
-                        ? `➕ Add "${cityInput}"`
-                        : city.name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {selectedCity && (
-                <p className="text-sm text-theme-dark mt-1">
-                  Selected city: <strong>{selectedCity.name}</strong>
-                </p>
-              )}
+        {/* Header */}
+        <div className="flex justify-between items-center px-8 py-5 border-b bg-white sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <div className="bg-theme-muted p-2 rounded-lg">
+              <Hotel className="h-5 w-5 text-theme-primary" />
             </div>
-          )}
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">
+                {editMode ? "Edit Property" : "Register Property"}
+              </h2>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                Step {hotelCreated ? (seasons.length === 0 ? '2: Seasons' : '3: Rooms') : '1: Basic Info'}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full">
+            <X className="h-5 w-5 text-slate-400 hover:text-slate-700" />
+          </button>
+        </div>
 
-          {/* Hotel Info */}
-          {cityConfirmed && !hotelCreated && (
-            <div className="space-y-4 pt-2">
-              <div>
-                <label className="block text-sm font-medium text-theme-dark mb-1">
-                  Hotel Name
-                </label>
-                <input
-                  value={hotelName}
-                  onChange={(e) => setHotelName(e.target.value)}
-                  className="w-full border rounded-md px-3 py-2"
-                />
-              </div>
+        <div className="p-8 space-y-10">
 
-              <div>
-                <label className="block text-sm font-medium text-theme-dark mb-1">
-                  Google Review Rating (optional)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  value={GoogleReviewRating}
-                  onChange={(e) => setGoogleReviewRating(e.target.value)}
-                  className="w-full border rounded-md px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-theme-dark mb-1">
-                  Google Listing URL
-                </label>
-                <input
-                  type="text"
-                  value={GoogleListingURL}
-                  onChange={(e) => {
-                    const url = e.target.value.trim();
-                    if (url.startsWith("https://")) setGoogleListingURL(url);
-                    else setGoogleListingURL("");
-                  }}
-                  placeholder="https://maps.google.com/..."
-                  className="w-full border rounded-md px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-theme-dark mb-1">
-                  Hotel Rating
+          {/* ── 1. Basic Info ──────────────────────────────────────── */}
+          <div className={`space-y-6 ${hotelCreated ? 'opacity-50 pointer-events-none' : ''}`}>
+            {/* State + City */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> State / Region
                 </label>
                 <select
-                  value={hotelRating}
-                  onChange={(e) => setHotelRating(e.target.value)}
-                  className="w-full border rounded-md px-3 py-2"
+                  value={selectedState}
+                  onChange={e => {
+                    setSelectedState(e.target.value);
+                    setSelectedCity(null);
+                    setCityInput("");
+                    setCityConfirmed(false);
+                  }}
+                  className="w-full h-11 border border-slate-200 rounded-xl px-4 bg-slate-50 focus:bg-white focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/30 outline-none"
                 >
-                  <option value="">-- Choose Rating --</option>
-                  <option value="5-star">⭐ 5 Star</option>
-                  <option value="4-star">⭐ 4 Star</option>
-                  <option value="3-star">⭐ 3 Star</option>
-                  <option value="2-star">⭐ 2 Star</option>
-                  <option value="1-star">⭐ 1 Star</option>
+                  <option value="">Select state</option>
+                  {states.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
+                  ))}
                 </select>
               </div>
 
-              <button
-                onClick={handleCreateOrUpdateHotel}
-                className="bg-theme-primary hover:bg-theme-secondary text-white w-full py-2 rounded-lg font-medium shadow-sm"
-              >
-                {editMode ? "Update Hotel" : "+ Create Hotel"}
-              </button>
+              {selectedState && (
+                <div className="space-y-2 relative">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <ChevronRight className="h-4 w-4" /> City
+                  </label>
+                  <input
+                    value={cityInput}
+                    onChange={e => setCityInput(e.target.value)}
+                    placeholder="Start typing city name..."
+                    className="w-full h-11 border border-slate-200 rounded-xl px-4 bg-slate-50 focus:bg-white focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/30 outline-none"
+                  />
+                  {cityInput && filteredCities.length > 0 && (
+                    <div className="absolute w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto">
+                      {filteredCities.map((item, i) => (
+                        <div
+                          key={i}
+                          onClick={() => handleSelectCity(item)}
+                          className="px-4 py-3 hover:bg-slate-100 cursor-pointer text-sm flex justify-between items-center"
+                        >
+                          {item === "Other" ? (
+                            <span className="text-theme-primary flex items-center">
+                              <Plus className="h-4 w-4 mr-2" /> Add "{cityInput.trim()}"
+                            </span>
+                          ) : (
+                            item.name
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {cityConfirmed && selectedCity && (
+                    <div className="mt-2">
+                      <Badge variant="outline" className="bg-green-50 text-green-700">
+                        ✓ {selectedCity.name}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {cityConfirmed && !hotelCreated && (
+              <div className="pt-6 border-t space-y-6 animate-in slide-in-from-top">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Hotel Name</label>
+                    <input
+                      value={hotelName}
+                      onChange={e => setHotelName(e.target.value)}
+                      placeholder="e.g. Taj Lake Palace"
+                      className="w-full h-11 border rounded-xl px-4 focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Star Rating</label>
+                    <select
+                      value={hotelRating}
+                      onChange={e => setHotelRating(e.target.value)}
+                      className="w-full h-11 border rounded-xl px-4 focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 outline-none"
+                    >
+                      <option value="">Select rating</option>
+                      {[5,4,3,2,1].map(n => (
+                        <option key={n} value={`${n}-star`}>{"★".repeat(n)} {n} Star</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold flex items-center gap-1.5">
+                      <Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" /> Google Rating
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="5"
+                      value={GoogleReviewRating ?? ""}
+                      onChange={e => setGoogleReviewRating(e.target.value)}
+                      className="w-full h-11 border rounded-xl px-4 focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold flex items-center gap-1.5">
+                      <ExternalLink className="h-3.5 w-3.5" /> Google Maps / Listing URL
+                    </label>
+                    <input
+                      value={GoogleListingURL ?? ""}
+                      onChange={e => setGoogleListingURL(e.target.value)}
+                      placeholder="https://goo.gl/maps/..."
+                      className="w-full h-11 border rounded-xl px-4 focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={createOrUpdateHotel}
+                  className="w-full h-12 bg-theme-primary hover:bg-theme-primary/90 text-white font-bold rounded-xl shadow-lg transition-all"
+                >
+                  {editMode ? "Update Hotel" : "Create Hotel"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── 2. Seasons ─────────────────────────────────────────── */}
+          {hotelCreated && seasons.length === 0 && (
+            <div className="bg-slate-50 p-8 rounded-2xl border border-dashed text-center space-y-5">
+              <Calendar className="h-10 w-10 text-theme-primary mx-auto" />
+              <h3 className="text-xl font-bold">Define Pricing Seasons</h3>
+              <p className="text-slate-600">How many different price periods?</p>
+              <div className="flex justify-center items-center gap-4">
+                <input
+                  type="number"
+                  min="1"
+                  value={seasonCount}
+                  onChange={e => setSeasonCount(Number(e.target.value))}
+                  className="w-20 h-11 text-center border rounded-xl font-bold"
+                />
+                <button
+                  onClick={() => {
+                    if (seasonCount < 1) return;
+                    setSeasons(new Array(seasonCount).fill(null));
+                    setCurrentSeasonIndex(0);
+                    setCurrentPricing(new Array(seasonCount).fill(null).map(() => ({})));
+                  }}
+                  className="px-8 h-11 bg-theme-primary text-white rounded-xl font-semibold"
+                >
+                  Continue
+                </button>
+              </div>
             </div>
           )}
-        </div>
 
-        {/* ------- STEP 2: Seasons -------- */}
-        {hotelCreated && seasons.length === 0 && (
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-theme-dark">
-              How many seasons?
-            </label>
-            <input
-              type="number"
-              min={1}
-              className="w-32 border rounded px-2 py-1"
-              value={seasonCount}
-              onChange={(e) => setSeasonCount(parseInt(e.target.value))}
-            />
-            <button
-              onClick={() => {
-                if (seasonCount > 0) {
-                  setSeasons(new Array(seasonCount).fill(null));
-                  setCurrentSeasonIndex(0);
-                }
-              }}
-              className="bg-theme-primary hover:bg-theme-secondary text-white px-4 py-1 rounded"
-            >
-              Proceed
-            </button>
-          </div>
-        )}
+          {/* Seasons list + add more */}
+          {seasons.length > 0 && (
+            <div className="space-y-5">
+              <div className="flex justify-between items-center">
+                <h3 className="uppercase text-sm font-bold tracking-wide text-slate-700">Pricing Seasons</h3>
+                <Badge variant="outline">{seasons.filter(Boolean).length} defined</Badge>
+              </div>
 
-        {/* ------- Existing Seasons Table ------- */}
-        {seasons.some((s) => s !== null) && (
-          <div className="space-y-2">
-            <h3 className="font-semibold text-theme-dark">Seasons</h3>
-            <table className="w-full text-sm border border-theme-primary/20 rounded-md overflow-hidden">
-              <thead className="bg-theme-primary text-white">
-                <tr>
-                  <th className="px-3 py-2">#</th>
-                  <th className="px-3 py-2">Season</th>
-                  <th className="px-3 py-2">Start</th>
-                  <th className="px-3 py-2">End</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {seasons.map((season, index) =>
-                  season ? (
-                    <tr key={index} className="border-b last:border-none">
-                      <td className="px-3 py-2">{index + 1}</td>
-                      <td className="px-3 py-2">{season.name}</td>
-                      <td className="px-3 py-2">{season.start}</td>
-                      <td className="px-3 py-2">{season.end}</td>
-                      <td className="px-3 py-2">
-                        <button
-                          onClick={() => {
-                            setTempSeason(season);
-                            setCurrentSeasonIndex(index);
-                          }}
-                          className="text-theme-primary hover:text-theme-secondary mr-2"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => {
-                            const updated = seasons.filter((_, i) => i !== index);
-                            setSeasons(updated);
-                            setSeasonCount(updated.length);
-                          }}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          ❌ Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ) : null
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Add More Season */}
-        {seasons.length > 0 &&
-          currentSeasonIndex >= seasonCount &&
-          !isAddingExtraSeason && (
-            <button
-              className="bg-theme-accent text-white px-4 py-2 rounded shadow hover:bg-theme-secondary float-right"
-              onClick={() => setIsAddingExtraSeason(true)}
-            >
-              ➕ Add Another Season
-            </button>
-          )}
-
-        {isAddingExtraSeason && (
-          <div className="flex justify-end gap-2">
-            <button
-              className="px-3 py-1 rounded bg-theme-primary text-white"
-              onClick={() => {
-                setSeasonCount(seasonCount + 1);
-                setSeasons([...seasons, null]);
-                setCurrentSeasonIndex(seasonCount);
-                setIsAddingExtraSeason(false);
-              }}
-            >
-              Confirm
-            </button>
-            <button
-              className="px-3 py-1 rounded bg-gray-300"
-              onClick={() => setIsAddingExtraSeason(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-
-        {/* Season Input */}
-        {seasons.length > 0 && currentSeasonIndex < seasonCount && (
-          <div className="p-4 border rounded-md space-y-3 bg-theme-muted/20">
-            <h4 className="font-semibold text-theme-dark">
-              Season {currentSeasonIndex + 1}
-            </h4>
-
-            <input
-              value={tempSeason.name}
-              onChange={(e) => setTempSeason({ ...tempSeason, name: e.target.value })}
-              placeholder="Season name"
-              className="w-full border rounded px-3 py-2"
-            />
-
-            <input
-              type="date"
-              value={tempSeason.start}
-              onChange={(e) => setTempSeason({ ...tempSeason, start: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-            />
-
-            <input
-              type="date"
-              value={tempSeason.end}
-              onChange={(e) => setTempSeason({ ...tempSeason, end: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-            />
-
-            <button
-              className="bg-theme-primary hover:bg-theme-secondary text-white py-2 rounded w-full"
-              onClick={() => {
-                const updated = [...seasons];
-                updated[currentSeasonIndex] = tempSeason;
-                setSeasons(updated);
-                setTempSeason({ name: "", start: "", end: "" });
-                setCurrentSeasonIndex(currentSeasonIndex + 1);
-              }}
-            >
-              Save Season
-            </button>
-          </div>
-        )}
-
-        {/* -------- Add Room Category -------- */}
-        {seasons.length > 0 && currentSeasonIndex >= seasonCount && (
-          <div className="space-y-4">
-            <h3 className="font-semibold text-theme-dark">Add Room Category</h3>
-
-            <input
-              className="w-full border rounded px-3 py-2"
-              placeholder="Room Category Name"
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-            />
-
-            {seasons.map((season, seasonIndex) => (
-              <div key={seasonIndex} className="border rounded p-4 space-y-2 bg-white">
-                <h4 className="font-medium text-theme-dark">{season.name}</h4>
-                <table className="w-full text-sm border border-theme-primary/20 rounded-md overflow-hidden">
-                  <thead className="bg-theme-primary text-white">
-                    <tr>
-                      <th className="px-3 py-2">Meal Plan</th>
-                      <th className="px-3 py-2">Double</th>
-                      <th className="px-3 py-2">Extra Adult</th>
-                      <th className="px-3 py-2">Extra Child</th>
+              <div className="border rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-100">
+                    <tr className="text-slate-600">
+                      <th className="px-6 py-3 text-left font-medium">Season</th>
+                      <th className="px-6 py-3 text-left font-medium">From</th>
+                      <th className="px-6 py-3 text-left font-medium">To</th>
+                      <th className="px-6 py-3 text-right font-medium">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {["ep", "cp", "map", "ap"].map((plan) => (
-                      <tr key={plan} className="border-b last:border-none">
-                        <td className="px-3 py-2">{plan.toUpperCase()}</td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-full border rounded px-2 py-1"
-                            value={roomPricing[seasonIndex]?.[plan]?.double ?? 0}
-                            onChange={(e) => handlePricingChange(e, seasonIndex, plan, "double")}
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-full border rounded px-2 py-1"
-                            value={roomPricing[seasonIndex]?.[plan]?.extraAdult ?? 0}
-                            onChange={(e) => handlePricingChange(e, seasonIndex, plan, "extraAdult")}
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-full border rounded px-2 py-1"
-                            value={roomPricing[seasonIndex]?.[plan]?.extraChild ?? 0}
-                            onChange={(e) => handlePricingChange(e, seasonIndex, plan, "extraChild")}
-                          />
+                  <tbody className="divide-y">
+                    {seasons.map((s, i) => s && (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 font-medium">{s.name}</td>
+                        <td className="px-6 py-4 text-slate-600">{s.start}</td>
+                        <td className="px-6 py-4 text-slate-600">{s.end}</td>
+                        <td className="px-6 py-4 text-right space-x-3">
+                          <button
+                            onClick={() => {
+                              setTempSeason(s);
+                              setCurrentSeasonIndex(i);
+                            }}
+                            className="text-theme-primary hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              const updated = seasons.filter((_, idx) => idx !== i);
+                              setSeasons(updated);
+                              setCurrentPricing(prev => prev.filter((_, idx) => idx !== i));
+                            }}
+                            className="text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            ))}
 
-            <button
-              onClick={handleRoomSubmit}
-              className="bg-theme-primary hover:bg-theme-secondary text-white py-2 px-6 rounded-lg shadow-sm font-semibold w-full"
-            >
-              Save Room Category
-            </button>
-          </div>
-        )}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setIsAddingExtraSeason(true)}
+                  className="flex items-center gap-1.5 text-theme-primary font-medium hover:underline"
+                >
+                  <Plus className="h-4 w-4" /> Add season
+                </button>
+              </div>
+            </div>
+          )}
 
-        {/* -------- Add Another Category / Finish -------- */}
-        {roomAdded && (
-          <div className="border rounded p-6 bg-theme-muted/30 text-center space-y-4">
-            <p className="font-semibold text-theme-dark">🎉 Room Category Added!</p>
+          {/* Season editor */}
+          {(currentSeasonIndex < seasons.length || isAddingExtraSeason) && (
+            <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-5">
+              <h4 className="font-bold flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-theme-primary" />
+                {isAddingExtraSeason ? "New Season" : `Season ${currentSeasonIndex + 1}`}
+              </h4>
+              <div className="grid md:grid-cols-3 gap-4">
+                <input
+                  value={tempSeason.name || ""}
+                  onChange={e => setTempSeason(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Season name (e.g. Monsoon)"
+                  className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none"
+                />
+                <input
+                  type="date"
+                  value={tempSeason.start || ""}
+                  onChange={e => setTempSeason(p => ({ ...p, start: e.target.value }))}
+                  className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none"
+                />
+                <input
+                  type="date"
+                  value={tempSeason.end || ""}
+                  onChange={e => setTempSeason(p => ({ ...p, end: e.target.value }))}
+                  className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    if (!tempSeason.name || !tempSeason.start || !tempSeason.end) {
+                      alert("Fill all season fields");
+                      return;
+                    }
+                    if (isAddingExtraSeason) {
+                      setSeasons(prev => [...prev, tempSeason]);
+                      setCurrentPricing(prev => [...prev, {}]);
+                    } else {
+                      const updated = [...seasons];
+                      updated[currentSeasonIndex] = tempSeason;
+                      setSeasons(updated);
+                    }
+                    setTempSeason({ name: "", start: "", end: "" });
+                    setCurrentSeasonIndex(seasons.length);
+                    setIsAddingExtraSeason(false);
+                  }}
+                  className="flex-1 h-11 bg-theme-primary text-white rounded-xl font-medium"
+                >
+                  Save Season
+                </button>
+                <button
+                  onClick={() => {
+                    setTempSeason({ name: "", start: "", end: "" });
+                    setIsAddingExtraSeason(false);
+                  }}
+                  className="h-11 px-6 border rounded-xl hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
-            <button
-              onClick={() => {
-                setRoomAdded(false);
-                setCategoryName("");
-                setRoomPricing(JSON.parse(JSON.stringify(lastSavedRoomPricing)));
-              }}
-              className="bg-theme-primary hover:bg-theme-secondary text-white px-4 py-2 rounded"
-            >
-              ➕ Add Another Category
-            </button>
+          {/* ── 3. Room Categories & Pricing ───────────────────────── */}
+          {hotelCreated && seasons.length > 0 && currentSeasonIndex >= seasons.length && (
+            <div className="space-y-8 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <BedDouble className="h-6 w-6 text-theme-primary" />
+                  <h3 className="text-xl font-bold">Room Categories & Pricing</h3>
+                </div>
+                <input
+                  value={currentCategoryName}
+                  onChange={e => setCurrentCategoryName(e.target.value)}
+                  placeholder="e.g. Premium Deluxe • Suite • Executive"
+                  className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none sm:w-80"
+                />
+              </div>
 
-            <button
-              onClick={onClose}
-              className="bg-gray-300 hover:bg-gray-400 text-theme-dark px-4 py-2 rounded"
-            >
-              Done
-            </button>
-          </div>
-        )}
+              {/* Already saved categories (small preview) */}
+              {roomCategories.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-slate-600">Saved categories:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {roomCategories.map((r, i) => (
+                      <div key={i} className="bg-slate-100 px-3 py-1.5 rounded-lg text-sm">
+                        {r.categoryName}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pricing tables – one per season */}
+              <div className="space-y-6">
+                {seasons.map((season, idx) => (
+                  <div key={idx} className="border rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-slate-50 px-6 py-3 font-medium flex justify-between">
+                      <span>{season.name}</span>
+                      <span className="text-slate-500 text-sm">
+                        {season.start} → {season.end}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm min-w-[600px]">
+                        <thead className="bg-slate-50/70">
+                          <tr className="text-slate-600">
+                            <th className="px-6 py-3 text-left">Plan</th>
+                            <th className="px-6 py-3 text-left">Double</th>
+                            <th className="px-6 py-3 text-left">Extra Adult</th>
+                            <th className="px-6 py-3 text-left">Extra Child</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {["ep", "cp", "map", "ap"].map(plan => (
+                            <tr key={plan} className="hover:bg-slate-50/40">
+                              <td className="px-6 py-3 font-bold uppercase bg-slate-50/30">{plan}</td>
+                              {["double", "extraAdult", "extraChild"].map(key => (
+                                <td key={key} className="px-6 py-3">
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={currentPricing[idx]?.[plan]?.[key] ?? ""}
+                                      onChange={e => handlePricingChange(idx, plan, key, e.target.value)}
+                                      className="w-full h-9 pl-8 pr-3 border rounded border-slate-200 focus:border-theme-primary outline-none text-right"
+                                    />
+                                  </div>
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <button
+                  onClick={saveRoomCategory}
+                  className="flex-1 h-14 bg-slate-900 hover:bg-black text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Plus className="h-5 w-5" /> Save Room Category
+                </button>
+
+                {roomCategories.length > 0 && (
+                  <button
+                    onClick={onClose}
+                    className="h-14 px-8 border-2 border-slate-300 hover:bg-slate-50 rounded-xl font-bold"
+                  >
+                    Finish
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* After saving a category */}
+          {roomCategories.length > 0 && !currentCategoryName && (
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center space-y-5">
+              <Check className="h-12 w-12 text-green-600 mx-auto" />
+              <h3 className="text-2xl font-bold text-green-800">Category Added!</h3>
+              <p className="text-slate-700">Add another room type or finish setup.</p>
+              <div className="flex justify-center gap-4 pt-4">
+                <button
+                  onClick={resetForNewCategory}
+                  className="px-8 h-12 bg-theme-primary text-white rounded-xl font-bold shadow-md"
+                >
+                  + Add Another Room
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-8 h-12 border-2 border-slate-300 rounded-xl font-bold hover:bg-slate-50"
+                >
+                  Done for now
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default AddHotel;
