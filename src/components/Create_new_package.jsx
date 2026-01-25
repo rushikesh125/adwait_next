@@ -746,12 +746,12 @@ const Create_new_package = ({
 
   return (
     <div className="min-h-screen pb-12 md:pb-16">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:gap-8 xl:gap-10">
+      <div className="mx-auto p-0 md:px-4 lg:px-8">
+        <div className="flex flex-col p-0 lg:flex-row lg:gap-8 xl:gap-10">
           {/* LEFT COLUMN - Main Content */}
           <div className="flex-1 space-y-8 lg:space-y-10 lg:pr-4 xl:pr-6 pb-8 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
             {/* 1. Date and Duration */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-6 p-2 md:p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-slate-700 flex items-center gap-2" htmlFor="checkInDate">
                   <Calendar className="w-4 h-4 text-theme-primary" /> Check-in Date
@@ -820,7 +820,7 @@ const Create_new_package = ({
 
             {/* 3. Hotel Selection */}
             {selectedState && (
-              <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+              <div className="p-2 md:p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
                 <h3 className="text-lg font-semibold text-theme-dark mb-4 flex items-center gap-2">
                   <Hotel className="w-5 h-5" /> Hotels in {selectedState}
                 </h3>
@@ -876,7 +876,7 @@ const Create_new_package = ({
             {/* 4. Room Selection + Actions */}
             {selectedHotel ? (
               <div className="space-y-6">
-                <div className="p-6 bg-white rounded-xl border border-theme-muted shadow-sm">
+                <div className="p-2 md:p-6 bg-white rounded-xl border border-theme-muted shadow-sm">
                   <HotelRoomSelector
                     hotel={hotels.find((h) => h.id === selectedHotel)}
                     checkInDate={checkInDate}
@@ -896,7 +896,7 @@ const Create_new_package = ({
                   />
 
                   <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-100">
-                    <button
+                    {/* <button
                       className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
                       onClick={() => {
                         const selectedHotelFullData = hotels.find(
@@ -936,7 +936,7 @@ const Create_new_package = ({
                       }}
                     >
                       {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
-                    </button>
+                    </button> */}
 
                     {isReadyToAddAnother && (
                       <button
@@ -1016,14 +1016,14 @@ const Create_new_package = ({
                   {hotelEntries.map((entry, index) => (
                     <div
                       key={index}
-                      className="p-5 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+                      className="p-2 md:p-5 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="space-y-2 flex-1">
                           <p className="font-bold text-lg text-theme-dark">
                             {entry.hotel}
                           </p>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                          <div className="flex flex-col md:flex-row flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
                             <span className="flex items-center gap-1.5">
                               <Calendar className="h-4 w-4 text-theme-primary" />
                               {formatDate(entry.checkInDate)} –{" "}

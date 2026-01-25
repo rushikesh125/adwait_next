@@ -244,7 +244,7 @@ const HotelRoomSelector = ({
       <div className="flex flex-wrap gap-4 pt-6 border-t">
         <Button
           onClick={handleSaveHotel}
-          className="bg-primary hover:bg-primary/90 text-white px-8"
+          className="bg-theme-primary hover:bg-primary/90 text-white px-8"
           disabled={!currentPlan || !pricingData}
         >
           {editingIndex !== null ? "Update Hotel" : "Save & Add Hotel"}

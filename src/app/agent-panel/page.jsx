@@ -91,7 +91,7 @@ const AgentDashboard = () => {
     <div className="min-h-screen bg-slate-50/50 w-ful">
       
 
-      <main className="w-full mx-auto px-4 py-8">
+      <main className="w-full mx-auto p-1 md:px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
      
@@ -144,7 +144,7 @@ const AgentDashboard = () => {
                         <motion.div
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="p-6"
+                          className="p-2 md:p-6"
                         >
                           <Create_new_package
                             user={user}

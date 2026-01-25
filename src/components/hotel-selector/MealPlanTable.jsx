@@ -9,7 +9,7 @@ const MealPlanTable = ({ season, selectedPlan, onPlanChange }) => {
   }
 
   return (
-    <div className="overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm">
+    <div className="overflow-scroll border border-slate-200 rounded-xl bg-white shadow-sm">
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-slate-50 border-b border-slate-200">
