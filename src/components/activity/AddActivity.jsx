@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from "react";
 import {
     collection,
@@ -9,6 +10,19 @@ import {
     addDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { 
+    X, 
+    Plus, 
+    MapPin, 
+    Search, 
+    User, 
+    Users, 
+    Tag, 
+    CheckCircle2, 
+    Loader2, 
+    PlusCircle 
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 const AddActivity = ({ onClose }) => {
     const [states, setStates] = useState([]);
@@ -21,7 +35,7 @@ const AddActivity = ({ onClose }) => {
     const [activityName, setActivityName] = useState("");
     const [fitRatePerPerson, setFitRatePerPerson] = useState("");
     const [groupRatePerPerson, setGroupRatePerPerson] = useState("");
-    const [activityCreated, setActivityCreated] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         const fetchStates = async () => {
@@ -50,7 +64,7 @@ const AddActivity = ({ onClose }) => {
     }, [selectedState, states]);
 
     useEffect(() => {
-        if (cityInput.trim() === "") {
+        if (cityInput.trim() === "" || cityConfirmed) {
             setFilteredCities([]);
             return;
         }
@@ -64,10 +78,16 @@ const AddActivity = ({ onClose }) => {
         );
 
         const suggestions = [...matchingCities];
-        if (!exactMatch) suggestions.push("Other");
+        if (!exactMatch && cityInput.length > 1) suggestions.push("Other");
 
         setFilteredCities(suggestions);
-    }, [cityInput, cities]);
+    }, [cityInput, cities, cityConfirmed]);
+
+    const handleNumberChange = (setter) => (e) => {
+        const val = e.target.value;
+        const num = val === "" ? "" : Math.max(0, parseInt(val) || 0);
+        setter(num);
+    };
 
     const handleSelectCity = async (cityObj) => {
         const selectedStateObj = states.find((s) => s.name === selectedState);
@@ -75,55 +95,40 @@ const AddActivity = ({ onClose }) => {
 
         if (cityObj === "Other") {
             const trimmedCity = cityInput.trim();
-            const cityExists = cities.some(
-                (c) => c.name.toLowerCase() === trimmedCity.toLowerCase()
-            );
-
-            if (cityExists) {
-                alert(
-                    `The city "${trimmedCity}" already exists in ${selectedState}.`
-                );
-                return;
-            }
-
-            const confirmed = window.confirm(
-                `Do you want to add "${trimmedCity}" as a new city to ${selectedState}?`
-            );
+            const confirmed = window.confirm(`Add "${trimmedCity}" as a new city to ${selectedState}?`);
+            
             if (confirmed) {
-                const newCityObj = {
-                    name: trimmedCity,
-                    activityIds: [],
-                };
-                const stateRef = doc(db, "locations", selectedStateObj.id);
-                await updateDoc(stateRef, {
-                    cities: arrayUnion(newCityObj),
-                });
-
-                setCityInput(newCityObj.name);
-                setSelectedCity(newCityObj);
-                setCityConfirmed(true);
+                setIsSubmitting(true);
+                try {
+                    const newCityObj = { name: trimmedCity, activityIds: [] };
+                    const stateRef = doc(db, "locations", selectedStateObj.id);
+                    await updateDoc(stateRef, { cities: arrayUnion(newCityObj) });
+                    
+                    setCityInput(newCityObj.name);
+                    setSelectedCity(newCityObj);
+                    setCityConfirmed(true);
+                    toast.success(`City "${trimmedCity}" added!`);
+                } catch (err) {
+                    toast.error("Failed to add city");
+                } finally {
+                    setIsSubmitting(false);
+                }
             }
         } else {
             setCityInput(cityObj.name);
             setSelectedCity(cityObj);
             setCityConfirmed(true);
         }
-
         setFilteredCities([]);
     };
 
     const handleAddActivity = async () => {
-        if (
-            !selectedState ||
-            !selectedCity ||
-            !activityName ||
-            !fitRatePerPerson ||
-            !groupRatePerPerson
-        ) {
-            alert("Please fill in all the fields.");
+        if (!selectedState || !selectedCity || !activityName || !fitRatePerPerson || !groupRatePerPerson) {
+            toast.error("Please complete all fields");
             return;
         }
 
+        setIsSubmitting(true);
         try {
             const activityData = {
                 name: activityName.trim(),
@@ -133,184 +138,194 @@ const AddActivity = ({ onClose }) => {
                 groupRatePerPerson: Number(groupRatePerPerson),
             };
 
-            const activityRef = await addDoc(
-                collection(db, "activities"),
-                activityData
-            );
-
+            const activityRef = await addDoc(collection(db, "activities"), activityData);
             const newActivityId = activityRef.id;
-            setActivityCreated(true);
-            alert("Activity created successfully!");
 
             const stateDoc = states.find((s) => s.name === selectedState);
             const stateRef = doc(db, "locations", stateDoc.id);
             const stateSnap = await getDoc(stateRef);
-            if (!stateSnap.exists()) return;
+            
+            if (stateSnap.exists()) {
+                const updatedCities = (stateSnap.data().cities || []).map((city) => {
+                    if (city.name.toLowerCase() === selectedCity.name.toLowerCase()) {
+                        return {
+                            ...city,
+                            activityIds: [...(city.activityIds || []), newActivityId],
+                        };
+                    }
+                    return city;
+                });
+                await updateDoc(stateRef, { cities: updatedCities });
+            }
 
-            const updatedCities = (stateSnap.data().cities || []).map((city) => {
-                if (city.name.toLowerCase() === selectedCity.name.toLowerCase()) {
-                    return {
-                        ...city,
-                        activityIds: [...(city.activityIds || []), newActivityId],
-                    };
-                }
-                return city;
-            });
-
-            await updateDoc(stateRef, { cities: updatedCities });
-
-            onClose(); // Close the modal after successful creation
+            toast.success("Activity created successfully!");
+            onClose();
         } catch (error) {
-            console.error("Error adding activity:", error);
-            alert("Failed to add activity");
+            toast.error("Creation failed");
+        } finally {
+            setIsSubmitting(false);
         }
     };
-return (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-white w-full max-w-lg rounded-xl shadow-lg border border-theme-primary/20 overflow-y-auto max-h-[90vh]">
-      
-      {/* Header */}
-      <div className="flex justify-between items-center px-6 py-4 border-b bg-theme-muted/40">
-        <h2 className="text-xl font-semibold text-theme-dark">
-          ➕ Add Activity
-        </h2>
-        <button
-          className="text-theme-primary hover:text-theme-secondary font-semibold text-lg"
-          onClick={onClose}
-        >
-          ✖
-        </button>
-      </div>
 
-      {/* Body */}
-      <div className="p-6 space-y-5">
-        {/* Select State */}
-        <div>
-          <label className="block text-sm font-medium text-theme-dark mb-1">
-            Select State
-          </label>
-          <select
-            value={selectedState}
-            onChange={(e) => {
-              setSelectedState(e.target.value);
-              setSelectedCity(null);
-              setCityInput("");
-              setCityConfirmed(false);
-            }}
-            className="w-full border border-theme-primary/30 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-theme-primary outline-none"
-          >
-            <option value="">-- Choose a state --</option>
-            {states.map((state) => (
-              <option key={state.id} value={state.name}>
-                {state.name}
-              </option>
-            ))}
-          </select>
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+            <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden border border-slate-200">
+                
+                {/* Header */}
+                <div className="flex justify-between items-center px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-theme-primary/10 rounded-xl text-theme-primary">
+                            <PlusCircle className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-900 leading-none">New Experience</h2>
+                            <p className="text-xs text-slate-500 mt-1.5">Add a new activity to your catalog</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="p-8 space-y-6  max-h-[85vh] overflow-y-auto custom-scrollbar">
+                    
+                    {/* Step 1: Location */}
+                    <div className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                                <MapPin className="w-3 h-3" /> 1. Select State
+                            </label>
+                            <select
+                                value={selectedState}
+                                onChange={(e) => {
+                                    setSelectedState(e.target.value);
+                                    setSelectedCity(null);
+                                    setCityInput("");
+                                    setCityConfirmed(false);
+                                }}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all cursor-pointer"
+                            >
+                                <option value="">Where is this located?</option>
+                                {states.map((state) => (
+                                    <option key={state.id} value={state.name}>{state.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {selectedState && (
+                            <div className="space-y-1.5 relative">
+                                <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                                    <Search className="w-3 h-3" /> 2. {cityConfirmed ? "Confirmed City" : "Find or Add City"}
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={cityInput}
+                                        onChange={(e) => {
+                                            setCityInput(e.target.value);
+                                            setCityConfirmed(false);
+                                        }}
+                                        disabled={isSubmitting}
+                                        placeholder="Type city name..."
+                                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all ${cityConfirmed ? 'border-green-200 ring-4 ring-green-50' : 'border-slate-200'}`}
+                                    />
+                                    {cityConfirmed && <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />}
+                                </div>
+
+                                {filteredCities.length > 0 && (
+                                    <ul className="absolute z-10 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-48 overflow-y-auto p-2 animate-in slide-in-from-top-2">
+                                        {filteredCities.map((city, i) => (
+                                            <li
+                                                key={i}
+                                                className={`px-4 py-2.5 rounded-lg cursor-pointer text-sm font-medium transition-colors ${
+                                                    city === "Other" 
+                                                    ? "text-theme-primary bg-theme-primary/5 hover:bg-theme-primary/10 border border-dashed border-theme-primary/30 mt-1" 
+                                                    : "hover:bg-slate-50 text-slate-700"
+                                                }`}
+                                                onClick={() => handleSelectCity(city)}
+                                            >
+                                                {city === "Other" ? (
+                                                    <span className="flex items-center gap-2 italic">
+                                                        <Plus className="w-4 h-4" /> Add "{cityInput}" as new city
+                                                    </span>
+                                                ) : city.name}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Step 2: Details */}
+                    {cityConfirmed && (
+                        <div className="space-y-5 pt-4 border-t border-slate-50 animate-in fade-in slide-in-from-top-4 duration-500">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                                    <Tag className="w-3 h-3" /> Experience Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={activityName}
+                                    onChange={(e) => setActivityName(e.target.value)}
+                                    placeholder="e.g., Shikara Ride at Dal Lake"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all font-semibold"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                                        <User className="w-3 h-3" /> FIT Rate (₹)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={fitRatePerPerson}
+                                        onChange={handleNumberChange(setFitRatePerPerson)}
+                                        placeholder="0"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                                        <Users className="w-3 h-3" /> Group Rate (₹)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={groupRatePerPerson}
+                                        onChange={handleNumberChange(setGroupRatePerPerson)}
+                                        placeholder="0"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Actions */}
+                <div className="p-8 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-3">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-3 rounded-xl text-slate-500 hover:bg-slate-200 transition-all text-sm font-bold"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleAddActivity}
+                        disabled={isSubmitting || !cityConfirmed}
+                        className="flex items-center gap-2 bg-theme-primary hover:bg-theme-secondary text-white px-8 py-3 rounded-xl shadow-xl shadow-theme-primary/20 transition-all active:scale-95 text-sm font-bold disabled:opacity-50 disabled:grayscale"
+                    >
+                        {isSubmitting ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <><CheckCircle2 className="w-4 h-4" /> Create Activity</>
+                        )}
+                    </button>
+                </div>
+            </div>
         </div>
-
-        {/* City Search */}
-        {selectedState && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-theme-dark">
-              Search or Select City
-            </label>
-
-            <input
-              type="text"
-              value={cityInput}
-              onChange={(e) => setCityInput(e.target.value)}
-              placeholder="Start typing city name..."
-              className="w-full border border-theme-primary/30 rounded-md px-3 py-2"
-            />
-
-            {cityInput && filteredCities.length > 0 && (
-              <ul className="bg-white border border-theme-primary/20 rounded-md shadow-sm max-h-40 overflow-y-auto">
-                {filteredCities.map((city, i) => (
-                  <li
-                    key={i}
-                    className={`px-3 py-2 cursor-pointer hover:bg-theme-muted/50 ${
-                      city === "Other" ? "text-theme-primary font-medium" : ""
-                    }`}
-                    onClick={() => handleSelectCity(city)}
-                  >
-                    {city === "Other"
-                      ? `➕ Add "${cityInput}" as new city`
-                      : city.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {selectedCity && (
-              <p className="text-sm text-theme-primary">
-                Selected City: <strong>{selectedCity.name}</strong>
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Activity Inputs */}
-        {cityConfirmed && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-theme-dark mb-1">
-                Activity Name
-              </label>
-              <input
-                type="text"
-                value={activityName}
-                onChange={(e) => setActivityName(e.target.value)}
-                className="w-full border border-theme-primary/30 rounded-md px-3 py-2"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-dark mb-1">
-                FIT Rate Per Person (₹)
-              </label>
-              <input
-                type="number"
-                value={fitRatePerPerson}
-                onChange={(e) => setFitRatePerPerson(e.target.value)}
-                className="w-full border border-theme-primary/30 rounded-md px-3 py-2"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-dark mb-1">
-                Group Rate Per Person (10+ Pax) (₹)
-              </label>
-              <input
-                type="number"
-                value={groupRatePerPerson}
-                onChange={(e) => setGroupRatePerPerson(e.target.value)}
-                className="w-full border border-theme-primary/30 rounded-md px-3 py-2"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-between gap-2 pt-4 border-t">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-theme-dark"
-              >
-                ❌ Cancel
-              </button>
-              <button
-                onClick={handleAddActivity}
-                className="px-5 py-2 rounded bg-theme-primary hover:bg-theme-secondary text-white"
-              >
-                ✔ Create Activity
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-);
-
-
+    );
 };
 
 export default AddActivity;
