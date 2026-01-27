@@ -56,7 +56,6 @@ const AdminPanelLayout = ({ children }) => {
     { name: "Settings", href: "/admin-panel/settings", icon: Settings },
   ];
 
-  // --- FIXED: Added ({ mobile = false }) to the argument list ---
   const SidebarContent = ({ mobile = false }) => (
     <div className="flex flex-col h-full bg-[#0F172A] text-slate-300">
       <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
@@ -77,7 +76,7 @@ const AdminPanelLayout = ({ children }) => {
         )}
       </div>
 
-      <nav className="flex-1 px-4 py-8 space-y-2">
+      <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
         {adminNav.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -104,7 +103,7 @@ const AdminPanelLayout = ({ children }) => {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex overflow-hidden">
+    <div className="h-screen bg-[#F8FAFC] flex overflow-hidden">
       
       {/* MOBILE DRAWER */}
       <div className={`fixed inset-0 z-100 lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
@@ -114,14 +113,14 @@ const AdminPanelLayout = ({ children }) => {
         </div>
       </div>
 
-      {/* DESKTOP SIDEBAR */}
-      <aside className={`hidden lg:block border-r border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
+      {/* DESKTOP SIDEBAR - Fixed position */}
+      <aside className={`hidden lg:flex flex-col border-r border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}>
         <SidebarContent mobile={false} />
       </aside>
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 lg:h-20 bg-white border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-40">
+      {/* MAIN CONTENT - Scrollable area */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <header className="h-16 lg:h-20 bg-white border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
               <Menu className="w-6 h-6 text-slate-600" />
@@ -132,21 +131,12 @@ const AdminPanelLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-black text-slate-900">{user?.name || "Admin"}</p>
-                <p className="text-[9px] text-theme-secondary font-bold uppercase mt-1 tracking-widest text-right">System Controller</p>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
-                {user?.name?.charAt(0) || "S"}
-              </div>
-            </div> */}
             <UserDropdown user={user}/>
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-2 md:p-4 lg:p-6">
-          <div className=" mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
+          <div className="mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
             {children}
           </div>
         </main>

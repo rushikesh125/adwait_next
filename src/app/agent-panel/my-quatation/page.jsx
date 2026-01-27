@@ -22,7 +22,63 @@ import "@/app/globals.css"
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useDispatch, useSelector } from "react-redux";
 import { setLoading } from "@/store/authSlice";
-
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Search,
+  Download,
+  Edit,
+  Trash2,
+  Copy,
+  Plus,
+  FileText,
+  Calendar,
+  MapPin,
+  Users,
+  IndianRupee,
+  Hotel,
+  Car,
+  ActivitySquare,
+  X,
+} from "lucide-react";
 const MyQuotations = () => {
   // --- 1. STATE HOOKS ---
   const [quotations, setQuotations] = useState([]);
@@ -626,7 +682,7 @@ const MyQuotations = () => {
     const pageContentWidth = 180; // Usable width between margins (210 - 15*2 = 180)
 
     const img = new Image();
-    img.src = "./adwait-logo.jpg";
+    img.src = "/adwait-logo.jpg";
 
     img.onload = () => {
       // Inside your handleDownloadPDF function, locate the addHeader function
@@ -1963,887 +2019,1053 @@ const MyQuotations = () => {
 
   // --- 6. JSX ---
   return (
-    <div className="my-quotations-container">
-      {/* --- Search and Filter Section --- */}
-      <div className="filter-container">
-        <input
-          type="text"
-          placeholder="Search by Customer or Package..."
-          className="search-input"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <div className="filter-controls">
-          <select
-            value={filterDestination}
-            onChange={(e) => setFilterDestination(e.target.value)}
-          >
-            <option value="">All Destinations</option>
-            {[...new Set(quotations.map((q) => getDestinationOfpkg(q)))].map(
-              (dest) => (
-                <option key={dest} value={dest}>
-                  {dest}
-                </option>
-              )
-            )}
-          </select>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-          <button
-            onClick={() => {
-              setSearchTerm("");
-              setFilterDestination("");
-              setStartDate("");
-              setEndDate("");
-            }}
-          >
-            Clear
-          </button>
+    <div className="container mx-auto py-8 px-4 max-w-7xl">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-theme-primary">My Quotations</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage and edit your travel quotations
+          </p>
         </div>
       </div>
-      <table className="quotations-table">
-        <thead>
-          <tr>
-            <th>Quote No.</th>
-            <th>Customer Name</th>
-            <th>Package Name</th>
-            <th>Destination</th>
-            <th>Created Date</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredQuotations.map((q, index) => (
-            <tr
-              key={q.id}
-              className="quotation-row-clickable"
-              onClick={() => handleViewClick(q)}
-            >
-              <td>{`Quote ${q.quoteNumber}`}</td>
-              <td>{q.customerName || "N/A"}</td>
-              <td>{q.packageName || "N/A"}</td>
-              <td style={{ whiteSpace: "pre-wrap" }}>
-                {getDestinationOfpkg(q)}
-              </td>
-              <td>
-                {q.createdAt
-                  ? new Date(q.createdAt.seconds * 1000).toLocaleDateString(
-                      "en-GB"
-                    )
-                  : "N/A"}
-              </td>
-              <td>{q.status || "Draft"}</td>
-              <td
-                className="action-buttons"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button onClick={() => handleEditClick(q)}>Edit</button>
-                <button
-                  onClick={() => handleDownloadPDF(q)}
-                  className="download-pdf-button"
-                >
-                  Download PDF
-                </button>
-                <button
-                  onClick={() => handleDeleteQuotation(q.id)}
-                  className="delete-button"
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={() => handleCopyToClipboard(q)} // Now calls generatePackageSummary with viewingQuotation
-                  className="copy-button"
-                >
-                  Copy Summary to Clipboard
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
 
-      {isEditModalOpen && editingQuotation && (
-        <div
-          className="modal-overlay"
-          onClick={() => setIsEditModalOpen(false)}
-        >
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Edit Quotation</h3>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSaveChanges();
+      {/* Filters */}
+      <Card className="mb-8 border-theme-muted shadow-sm">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search by customer or package name..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="destination">Destination</Label>
+              <Select value={filterDestination} onValueChange={setFilterDestination}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Destinations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All Destinations">All Destinations</SelectItem>
+                  {[...new Set(quotations.map(q => getDestinationOfpkg(q)))].map(dest => (
+                    <SelectItem key={dest} value={dest}>
+                      {dest}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 flex-1">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">From Date</Label>
+                <Input
+                  type="date"
+                  id="startDate"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">To Date</Label>
+                <Input
+                  type="date"
+                  id="endDate"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchTerm("");
+                setFilterDestination("");
+                setStartDate("");
+                setEndDate("");
               }}
+              className="h-10"
             >
-              <div className="form-group">
-                <label htmlFor="customerName">Customer Name:</label>
-                <input
-                  type="text"
-                  id="customerName"
-                  name="customerName"
-                  value={editingQuotation.customerName || ""}
-                  onChange={handleEditChange}
-                />
-              </div>
-              <hr />
-              <h3>Hotel Details</h3>
-              {Array.isArray(editingQuotation.hotelSummary) &&
-              editingQuotation.hotelSummary.length > 0 ? (
-                <table className="details-table">
-                  <thead>
-                    <tr>
-                      <th>Hotel</th>
-                      <th>Room Category</th>
-                      <th>Nights</th>
-                      <th>Rooms</th>
-                      <th>Adults</th>
-                      <th>Children</th>
-                      <th>Meal Plan</th>
-                      <th>Price</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {editingQuotation.hotelSummary.map((hotel, index) => {
-                      const availableHotelsInState = allHotels.filter(
-                        (h) => h.state === hotel.state
-                      );
-                      const currentHotelData = allHotels.find(
-                        (h) => h.name === hotel.hotel && h.state === hotel.state
-                      );
-                      const currentHotelId = currentHotelData
-                        ? currentHotelData.id
-                        : "";
+              Clear Filters
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-                      return (
-                        <tr key={index}>
-                          <td>
-                            <select
-                              value={currentHotelId}
-                              onChange={(e) =>
-                                handleHotelChange(index, e.target.value)
-                              }
-                              className="table-select"
-                            >
-                              {availableHotelsInState.map((h) => (
-                                <option key={h.id} value={h.id}>
-                                  {h.name} ({h.city})
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          <td>
-                            <select
-                              value={hotel.selectedRoomCategory || ""}
-                              onChange={(e) =>
-                                handleHotelSummaryChange(
-                                  index,
-                                  "selectedRoomCategory",
-                                  e.target.value
-                                )
-                              }
-                              className="table-select"
-                            >
-                              {currentHotelData?.rooms?.map((room) => (
-                                <option
-                                  key={room.categoryName}
-                                  value={room.categoryName}
-                                >
-                                  {room.categoryName}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          <td>
-                            <input
-                              type="number"
-                              min="1"
-                              value={hotel.nights || 1}
-                              onChange={(e) =>
-                                handleHotelSummaryChange(
-                                  index,
-                                  "nights",
-                                  parseInt(e.target.value, 10)
-                                )
-                              }
-                              className="table-input-number"
-                            />
-                          </td>
-
-                          <td>
-                            <input
-                              type="number"
-                              min="0"
-                              value={hotel.numDouble || 0}
-                              onChange={(e) =>
-                                handleHotelSummaryChange(
-                                  index,
-                                  "numDouble",
-                                  parseInt(e.target.value, 10)
-                                )
-                              }
-                              className="table-input-number"
-                            />
-                          </td>
-
-                          <td>
-                            <input
-                              type="number"
-                              min="0"
-                              value={hotel.numExtraAdult || 0}
-                              onChange={(e) =>
-                                handleHotelSummaryChange(
-                                  index,
-                                  "numExtraAdult",
-                                  parseInt(e.target.value, 10)
-                                )
-                              }
-                              className="table-input-number"
-                            />
-                          </td>
-
-                          <td>
-                            <input
-                              type="number"
-                              min="0"
-                              value={hotel.numExtraChild || 0}
-                              onChange={(e) =>
-                                handleHotelSummaryChange(
-                                  index,
-                                  "numExtraChild",
-                                  parseInt(e.target.value, 10)
-                                )
-                              }
-                              className="table-input-number"
-                            />
-                          </td>
-
-                          <td>
-                            <select
-                              value={hotel.selectedMealPlan || "EP"}
-                              onChange={(e) =>
-                                handleHotelSummaryChange(
-                                  index,
-                                  "selectedMealPlan",
-                                  e.target.value
-                                )
-                              }
-                              className="table-select"
-                            >
-                              {getAvailableMealPlans(hotel).map((plan) => (
-                                <option key={plan} value={plan}>
-                                  {plan}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          <td className="price-cell">
-                            ₹{hotel.hotelTotal?.toFixed(2) || "0.00"}
-                          </td>
-
-                          <td>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveHotel(index)}
-                              className="remove-btn-table"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              ) : (
-                <p>No hotel details to edit.</p>
-              )}
-              <hr />
-              <div className="form-group">
-                <label htmlFor="selectStateForAdding">
-                  Select State for Adding Hotels:
-                </label>
-                <select
-                  id="selectStateForAdding"
-                  value={SelectedDestination}
-                  onChange={(e) => setSelectedDestination(e.target.value)}
-                  className="select-state-filter"
-                >
-                  <option value="">Select a State</option>
-                  {AllDestinations.map((state) => (
-                    <option key={state.name} value={state.name}>
-                      {state.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="add-activity-section">
-                <h4>Add a New Hotel</h4>
-                <div className="form-group-inline">
-                  <select
-                    value={selectedHotelToAdd}
-                    onChange={(e) => setSelectedHotelToAdd(e.target.value)}
+      {/* Quotations Table */}
+      <Card className="border-theme-muted shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl text-theme-primary">All Quotations</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-theme-muted/30 hover:bg-theme-muted/50">
+                  <TableHead className="w-24">Quote No.</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Package</TableHead>
+                  <TableHead>Destination</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredQuotations.map((q) => (
+                  <TableRow
+                    key={q.id}
+                    className="cursor-pointer hover:bg-theme-muted/20 transition-colors"
+                    onClick={() => handleViewClick(q)}
                   >
-                    <option value="" disabled>
-                      Select a hotel to add...
-                    </option>
-                    {allHotels
-                      .filter((h) => h.state === SelectedDestination)
-                      .map((h) => (
-                        <option key={h.id} value={h.id}>
-                          {h.name} ({h.city})
-                        </option>
-                      ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleAddHotel}
-                    className="add-btn"
-                    disabled={!selectedHotelToAdd}
-                  >
-                    Add Hotel
-                  </button>
-                </div>
-              </div>
-              <hr />
-              <h3>Transportation Details</h3>
-              Custom Transport{" "}
-              <label className="switch">
-                <input
-                  type="checkbox"
-                  checked={toggleValue}
-                  onChange={handleToggle}
-                />
-                <span className="slider round"></span>
-              </label>{" "}
-              Package Service
-              {editingQuotation.transportSummary ? (
-                <div className="transport-edit-entry">
-                  {!toggleValue ? (
-                    <>
-                      <div className="form-group">
-                        <label htmlFor="transportVehicle">Vehicle Name:</label>
-                        <input
-                          type="text"
-                          id="transportVehicle"
-                          value={
-                            editingQuotation.transportSummary.vehicleName || ""
-                          }
-                          onChange={(e) =>
-                            handleTransportSummaryChange(
-                              "vehicleName",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor="transportPrice">Price (₹):</label>
-                        <input
-                          type="number"
-                          min="0"
-                          id="transportPrice"
-                          value={editingQuotation.transportSummary.price || 0}
-                          onChange={(e) =>
-                            handleTransportSummaryChange(
-                              "price",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={!!editingQuotation.transportSummary.ac}
-                            onChange={(e) =>
-                              handleTransportSummaryChange(
-                                "ac",
-                                e.target.checked
-                              )
-                            }
-                          />{" "}
-                          AC
-                        </label>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="form-group">
-                        <label htmlFor="selectTransportState">
-                          Select Transport State:
-                        </label>
-                        <select
-                          id="selectTransportState"
-                          value={selectedTransportStateId}
-                          onChange={(e) =>
-                            setSelectedTransportStateId(e.target.value)
-                          }
-                          className="select-state-filter"
-                        >
-                          <option value="">Select a State</option>
-                          {transportStates.map((state) => (
-                            <option key={state.id} value={state.id}>
-                              {toTitleCase(state.id)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {selectedTransportStateId && (
-                        <>
-                          <p>
-                            <strong>Current Package:</strong>{" "}
-                            {editingQuotation.transportSummary.packageName ||
-                              "N/A"}
-                          </p>
-
-                          <div className="form-group">
-                            <label htmlFor="packageSelect">
-                              Change Package:
-                            </label>
-                            <select
-                              id="packageSelect"
-                              value={editingQuotation.transportSummary.id || ""}
-                              onChange={handlePackageChange}
-                            >
-                              <option value="" disabled>
-                                Select a package
-                              </option>
-                              {availableTransportPackagesForSelectedState.map(
-                                (pkg) => (
-                                  <option key={pkg.id} value={pkg.id}>
-                                    {pkg.packageName || pkg.name || pkg.id}
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          </div>
-                          {editingQuotation.transportSummary.vehicles &&
-                            editingQuotation.transportSummary.vehicles.length >
-                              0 && (
-                              <div className="form-group">
-                                <label htmlFor="vehicleSelect">
-                                  Select Vehicle:
-                                </label>
-                                <select
-                                  id="vehicleSelect"
-                                  value={
-                                    editingQuotation.transportSummary
-                                      .selectedVehicle?.type || ""
-                                  }
-                                  onChange={(e) => {
-                                    const selectedVehicleType = e.target.value;
-                                    const selectedVehicle =
-                                      editingQuotation.transportSummary.vehicles.find(
-                                        (v) => v.type === selectedVehicleType
-                                      );
-                                    if (selectedVehicle) {
-                                      handleVehicleChange(selectedVehicle);
-                                    }
-                                  }}
-                                >
-                                  <option value="" disabled>
-                                    Select a vehicle
-                                  </option>
-                                  {editingQuotation.transportSummary.vehicles.map(
-                                    (vehicle, index) => (
-                                      <option key={index} value={vehicle.type}>
-                                        {vehicle.type} - ₹
-                                        {vehicle.price ?? vehicle.perKmprice}{" "}
-                                        {vehicle.ac ? "(AC)" : "(Non-AC)"}
-                                      </option>
-                                    )
-                                  )}
-                                </select>
-                              </div>
-                            )}
-                          <div className="form-group">
-                            <label>AC Status:</label>
-                            <p>
-                              {editingQuotation.transportSummary.ac
-                                ? "Available "
-                                : "Not Available"}
-                            </p>
-                          </div>
-                          <div className="form-group">
-                            <label>Vehicle Cost (Current):</label>
-                            <p>
-                              ₹{editingQuotation.transportSummary.totalPrice}
-                            </p>
-                          </div>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <p>No transport details to edit.</p>
-              )}
-              <hr />
-              <h3>Activity Details</h3>
-              <div className="form-group">
-                <label htmlFor="selectStateForAdding">
-                  Select State for Adding Hotels:
-                </label>
-                <select
-                  id="selectStateForAdding"
-                  value={SelectedDestination}
-                  onChange={(e) => setSelectedDestination(e.target.value)}
-                  className="select-state-filter"
-                >
-                  <option value="">Select a State</option>
-                  {AllDestinations.map((state) => (
-                    <option key={state.name} value={state.name}>
-                      {state.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {Array.isArray(editingQuotation.activitySummary) &&
-              editingQuotation.activitySummary.length > 0 ? (
-                <table className="details-table">
-                  <thead>
-                    <tr>
-                      <th>Activity Name</th>
-                      <th>Participants</th>
-                      <th>Total Price</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {editingQuotation.activitySummary.map((activity, index) => (
-                      <tr key={activity.id || index}>
-                        <td>
-                          {activity.name} ({activity.city})
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min="1"
-                            value={activity.participants || 1}
-                            onChange={(e) =>
-                              handleActivitySummaryChange(
-                                index,
-                                "participants",
-                                e.target.value
-                              )
-                            }
-                            className="table-input-number"
-                          />
-                        </td>
-                        <td className="price-cell">
-                          ₹{activity.totalPrice?.toFixed(2) || "0.00"}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveActivity(index)}
-                            className="remove-btn-table"
+                    <TableCell className="font-medium">Quote {q.quoteNumber}</TableCell>
+                    <TableCell>{q.customerName || "—"}</TableCell>
+                    <TableCell>{q.packageName || "—"}</TableCell>
+                    <TableCell className="whitespace-pre-line max-w-xs">
+                      {getDestinationOfpkg(q)}
+                    </TableCell>
+                    <TableCell>
+                      {q.createdAt
+                        ? new Date(q.createdAt.seconds * 1000).toLocaleDateString("en-GB")
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          q.status === "Accepted" ? "success" :
+                          q.status === "Sent" ? "default" :
+                          q.status === "Rejected" ? "destructive" : "secondary"
+                        }
+                      >
+                        {q.status || "Draft"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditClick(q)}
+                        title="Edit Quotation"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDownloadPDF(q)}
+                        title="Download PDF"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive/90"
+                            title="Delete Quotation"
                           >
-                            <DeleteIcon fontSize="small" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p>No activities added to this quotation yet.</p>
-              )}
-              <div className="add-activity-section">
-                <hr />
-                <h4>Add a New Activity</h4>
-                {isFetchingActivities ? (
-                  <p>Loading available activities...</p>
-                ) : (
-                  <div className="form-group-inline">
-                    <select
-                      value={selectedActivityToAdd}
-                      onChange={(e) => setSelectedActivityToAdd(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Select an activity...
-                      </option>
-                      {availableActivities.map((act) => (
-                        <option key={act.name} value={act.name}>
-                          {act.name} ({act.city}) - ₹
-                          {act.fitRatePerPerson || act.groupRatePerPerson}
-                          /person
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={handleAddActivity}
-                      className="add-btn"
-                      disabled={!selectedActivityToAdd}
-                    >
-                      Add Activity
-                    </button>
-                  </div>
-                )}
-              </div>
-              <hr />
-              <div className="totals-section">
-                <h3>Pricing</h3>
-                <div className="form-group">
-                  <label htmlFor="markup">Add Markup (₹)</label>
-                  <input
-                    id="markup"
-                    type="number"
-                    placeholder="e.g., 5000"
-                    value={editingQuotation.markup}
-                    onChange={(e) => handleMarkupInputChange(e.target.value)}
-                    className="markup-input"
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete the quotation for "{q.customerName}".
+                              This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteQuotation(q.id)}
+                              className="bg-destructive hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleCopyToClipboard(q)}
+                        title="Copy Summary"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ================== EDIT MODAL ================== */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="min-w-6xl max-h-[90vh] overflow-scroll flex flex-col">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="text-2xl text-theme-primary">
+              Edit Quotation
+            </DialogTitle>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 pr-4 -mr-4">
+            <div className="space-y-8 py-6">
+              {/* Customer Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="customerName">Customer Name</Label>
+                  <Input
+                    id="customerName"
+                    name="customerName"
+                    value={editingQuotation?.customerName || ""}
+                    onChange={handleEditChange}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    name="status"
+                    value={editingQuotation?.status || "Draft"}
+                    onValueChange={(value) =>
+                      handleEditChange({ target: { name: "status", value } })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Draft">Draft</SelectItem>
+                      <SelectItem value="Sent">Sent</SelectItem>
+                      <SelectItem value="Accepted">Accepted</SelectItem>
+                      <SelectItem value="Rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <p>
-                <strong>Grand Total:</strong> ₹
-                {editingQuotation.grandTotal?.toFixed(2) || 0}
-              </p>
-              <div className="form-group">
-                <label htmlFor="status">Status:</label>
-                <select
-                  id="status"
-                  name="status"
-                  value={editingQuotation.status || "Draft"}
-                  onChange={handleEditChange}
-                >
-                  <option value="Draft">Draft</option>
-                  <option value="Sent">Sent</option>
-                  <option value="Accepted">Accepted</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-              </div>
-              <div className="modal-actions">
-                <button type="submit" className="save-btn">
-                  Save Changes
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveAs}
-                  className="save-as-btn"
-                >
-                  Save As New
-                </button>
-                <button
-                  type="button"
-                  className="close-btn"
-                  onClick={() => setIsEditModalOpen(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {showSaveAsModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowSaveAsModal(false)}
-        >
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Save Quotation As New</h3>
-            <div className="form-group">
-              <label htmlFor="newPackageName">New Package Name:</label>
-              <input
-                type="text"
+
+              <Tabs defaultValue="hotels" className="space-y-6">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="hotels" className="gap-2">
+                    <Hotel className="h-4 w-4" />
+                    Hotels
+                  </TabsTrigger>
+                  <TabsTrigger value="transport" className="gap-2">
+                    <Car className="h-4 w-4" />
+                    Transport
+                  </TabsTrigger>
+                  <TabsTrigger value="activities" className="gap-2">
+                    <ActivitySquare className="h-4 w-4" />
+                    Activities
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* HOTELS TAB */}
+                <TabsContent value="hotels" className="space-y-6">
+                  {/* Add Hotel */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Add New Hotel</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Select State</Label>
+                          <Select
+                            value={SelectedDestination}
+                            onValueChange={setSelectedDestination}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {AllDestinations.map((state) => (
+                                <SelectItem key={state.name} value={state.name}>
+                                  {state.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Select Hotel</Label>
+                          <div className="flex gap-3">
+                            <Select
+                              value={selectedHotelToAdd}
+                              onValueChange={setSelectedHotelToAdd}
+                              disabled={!SelectedDestination}
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Choose hotel..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {allHotels
+                                  .filter((h) => h.state === SelectedDestination)
+                                  .map((h) => (
+                                    <SelectItem key={h.id} value={h.id}>
+                                      {h.name} ({h.city})
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              onClick={handleAddHotel}
+                              disabled={!selectedHotelToAdd}
+                              className="bg-theme-primary hover:bg-theme-secondary"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Hotels Table */}
+                  {editingQuotation?.hotelSummary?.length > 0 ? (
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Hotel</TableHead>
+                            <TableHead>Room Type</TableHead>
+                            <TableHead>Nights</TableHead>
+                            <TableHead>Rooms</TableHead>
+                            <TableHead>Adults</TableHead>
+                            <TableHead>Children</TableHead>
+                            <TableHead>Meal Plan</TableHead>
+                            <TableHead className="text-right">Price</TableHead>
+                            <TableHead className="w-16"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {editingQuotation.hotelSummary.map((hotel, index) => {
+                            const currentHotelData = allHotels.find(
+                              (h) => h.name === hotel.hotel && h.state === hotel.state
+                            );
+                            return (
+                              <TableRow key={index}>
+                                <TableCell className="font-medium">
+                                  <Select
+                                    value={
+                                      allHotels.find(
+                                        (h) =>
+                                          h.name === hotel.hotel &&
+                                          h.state === hotel.state
+                                      )?.id || ""
+                                    }
+                                    onValueChange={(val) => handleHotelChange(index, val)}
+                                  >
+                                    <SelectTrigger className="w-[220px]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {allHotels
+                                        .filter((h) => h.state === hotel.state)
+                                        .map((h) => (
+                                          <SelectItem key={h.id} value={h.id}>
+                                            {h.name} ({h.city})
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+
+                                <TableCell>
+                                  <Select
+                                    value={hotel.selectedRoomCategory || ""}
+                                    onValueChange={(val) =>
+                                      handleHotelSummaryChange(index, "selectedRoomCategory", val)
+                                    }
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {currentHotelData?.rooms?.map((room) => (
+                                        <SelectItem key={room.categoryName} value={room.categoryName}>
+                                          {room.categoryName}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={hotel.nights || 1}
+                                    onChange={(e) =>
+                                      handleHotelSummaryChange(index, "nights", e.target.value)
+                                    }
+                                    className="w-20"
+                                  />
+                                </TableCell>
+
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={hotel.numDouble || 0}
+                                    onChange={(e) =>
+                                      handleHotelSummaryChange(index, "numDouble", e.target.value)
+                                    }
+                                    className="w-20"
+                                  />
+                                </TableCell>
+
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={hotel.numExtraAdult || 0}
+                                    onChange={(e) =>
+                                      handleHotelSummaryChange(index, "numExtraAdult", e.target.value)
+                                    }
+                                    className="w-20"
+                                  />
+                                </TableCell>
+
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={hotel.numExtraChild || 0}
+                                    onChange={(e) =>
+                                      handleHotelSummaryChange(index, "numExtraChild", e.target.value)
+                                    }
+                                    className="w-20"
+                                  />
+                                </TableCell>
+
+                                <TableCell>
+                                  <Select
+                                    value={hotel.selectedMealPlan || "EP"}
+                                    onValueChange={(val) =>
+                                      handleHotelSummaryChange(index, "selectedMealPlan", val)
+                                    }
+                                  >
+                                    <SelectTrigger className="w-32">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {getAvailableMealPlans(hotel).map((plan) => (
+                                        <SelectItem key={plan} value={plan}>
+                                          {plan}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+
+                                <TableCell className="text-right font-medium">
+                                  ₹{(hotel.hotelTotal || 0).toFixed(0)}
+                                </TableCell>
+
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRemoveHotel(index)}
+                                    disabled={editingQuotation.hotelSummary.length <= 1}
+                                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      No hotels added yet. Add your first hotel above.
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* TRANSPORT TAB */}
+                <TabsContent value="transport" className="space-y-6">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Transportation</CardTitle>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium">Custom</span>
+                          <Switch
+                            checked={toggleValue}
+                            onCheckedChange={handleToggle}
+                          />
+                          <span className="text-sm font-medium">Package</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-6">
+                      {!toggleValue ? (
+                        // Custom Transport
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="space-y-2">
+                            <Label>Vehicle Name</Label>
+                            <Input
+                              value={editingQuotation?.transportSummary?.vehicleName || ""}
+                              onChange={(e) =>
+                                handleTransportSummaryChange("vehicleName", e.target.value)
+                              }
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Price (₹)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={editingQuotation?.transportSummary?.price || 0}
+                              onChange={(e) =>
+                                handleTransportSummaryChange("price", parseFloat(e.target.value) || 0)
+                              }
+                            />
+                          </div>
+
+                          <div className="flex items-end">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="ac"
+                                checked={!!editingQuotation?.transportSummary?.ac}
+                                onChange={(e) =>
+                                  handleTransportSummaryChange("ac", e.target.checked)
+                                }
+                                className="h-4 w-4 rounded border-gray-300 text-theme-primary focus:ring-theme-primary"
+                              />
+                              <Label htmlFor="ac" className="text-sm font-medium">
+                                AC Vehicle
+                              </Label>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Package Transport
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <Label>Select State</Label>
+                              <Select
+                                value={selectedTransportStateId}
+                                onValueChange={setSelectedTransportStateId}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select transport state" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {transportStates.map((state) => (
+                                    <SelectItem key={state.id} value={state.id}>
+                                      {toTitleCase(state.id)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {selectedTransportStateId && (
+                              <div className="space-y-2">
+                                <Label>Change Package</Label>
+                                <Select
+                                  value={editingQuotation?.transportSummary?.id || ""}
+                                  onValueChange={(val) => {
+                                    const e = { target: { value: val } };
+                                    handlePackageChange(e);
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select package" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableTransportPackagesForSelectedState.map((pkg) => (
+                                      <SelectItem key={pkg.id} value={pkg.id}>
+                                        {pkg.name || pkg.packageName || pkg.id}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+
+                          {editingQuotation?.transportSummary?.vehicles?.length > 0 && (
+                            <div className="space-y-2">
+                              <Label>Select Vehicle</Label>
+                              <Select
+                                value={editingQuotation?.transportSummary?.selectedVehicle?.type || ""}
+                                onValueChange={(val) => {
+                                  const vehicle = editingQuotation.transportSummary.vehicles.find(
+                                    (v) => v.type === val
+                                  );
+                                  if (vehicle) handleVehicleChange(vehicle);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select vehicle" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {editingQuotation.transportSummary.vehicles.map((v, i) => (
+                                    <SelectItem key={i} value={v.type}>
+                                      {v.type} - ₹{v.price ?? v.perKmprice}{" "}
+                                      {v.ac ? "(AC)" : "(Non-AC)"}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {selectedTransportStateId && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
+                              <div>
+                                <Label className="text-sm text-muted-foreground">Current Package</Label>
+                                <p className="font-medium mt-1">
+                                  {editingQuotation?.transportSummary?.packageName || "—"}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-sm text-muted-foreground">AC Status</Label>
+                                <p className="font-medium mt-1">
+                                  {editingQuotation?.transportSummary?.ac ? "Available" : "Not Available"}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-sm text-muted-foreground">Vehicle Cost</Label>
+                                <p className="font-medium text-theme-primary mt-1">
+                                  ₹{editingQuotation?.transportSummary?.totalPrice || 0}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* ACTIVITIES TAB */}
+                <TabsContent value="activities" className="space-y-6">
+                  {/* Add Activity */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Add New Activity</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label>Select State</Label>
+                          <Select
+                            value={SelectedDestination}
+                            onValueChange={setSelectedDestination}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {AllDestinations.map((state) => (
+                                <SelectItem key={state.name} value={state.name}>
+                                  {state.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Select Activity</Label>
+                          <div className="flex gap-3">
+                            <Select
+                              value={selectedActivityToAdd}
+                              onValueChange={setSelectedActivityToAdd}
+                              disabled={!SelectedDestination || isFetchingActivities}
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder={
+                                  isFetchingActivities ? "Loading..." : "Choose activity..."
+                                } />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableActivities.map((act) => (
+                                  <SelectItem key={act.name} value={act.name}>
+                                    {act.name} ({act.city}) - ₹
+                                    {act.fitRatePerPerson || act.groupRatePerPerson}/person
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            <Button
+                              onClick={handleAddActivity}
+                              disabled={!selectedActivityToAdd}
+                              className="bg-theme-primary hover:bg-theme-secondary"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Activities Table */}
+                  {editingQuotation?.activitySummary?.length > 0 ? (
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Activity</TableHead>
+                            <TableHead>Participants</TableHead>
+                            <TableHead className="text-right">Total Price</TableHead>
+                            <TableHead className="w-16"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {editingQuotation.activitySummary.map((activity, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">
+                                {activity.name} <span className="text-muted-foreground">({activity.city})</span>
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={activity.participants || 1}
+                                  onChange={(e) =>
+                                    handleActivitySummaryChange(index, "participants", e.target.value)
+                                  }
+                                  className="w-24"
+                                />
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                ₹{(activity.totalPrice || 0).toFixed(0)}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoveActivity(index)}
+                                  className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      No activities added yet.
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+
+              {/* Pricing & Grand Total */}
+              <Card className="bg-theme-muted/30">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Pricing Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <Label htmlFor="markup">Add Markup (₹)</Label>
+                      <Input
+                        id="markup"
+                        type="number"
+                        placeholder="e.g. 5000"
+                        value={editingQuotation?.markup || 0}
+                        onChange={(e) => handleMarkupInputChange(e.target.value)}
+                        className="text-lg"
+                      />
+                    </div>
+
+                    <div className="flex flex-col justify-center items-end">
+                      <p className="text-sm text-muted-foreground">Grand Total</p>
+                      <p className="text-3xl font-bold text-theme-primary mt-1">
+                        ₹{(editingQuotation?.grandTotal || 0).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="pt-6 border-t mt-4">
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSaveAs}
+              className="border-theme-primary text-theme-primary hover:bg-theme-primary/10"
+            >
+              Save As New
+            </Button>
+            <Button
+              onClick={handleUpdateQuotation}
+              className="bg-theme-primary hover:bg-theme-secondary"
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ================== SAVE AS NEW MODAL ================== */}
+      <Dialog open={showSaveAsModal} onOpenChange={setShowSaveAsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-theme-primary">
+              Save as New Quotation
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPackageName">New Package Name</Label>
+              <Input
                 id="newPackageName"
                 value={newPackageName}
                 onChange={(e) => setNewPackageName(e.target.value)}
+                placeholder="Summer Special Goa 2025"
               />
             </div>
-            <div className="form-group">
-              <label htmlFor="newCustomerName">New Customer Name:</label>
-              <input
-                type="text"
+
+            <div className="space-y-2">
+              <Label htmlFor="newCustomerName">New Customer Name</Label>
+              <Input
                 id="newCustomerName"
                 value={newCustomerName}
                 onChange={(e) => setNewCustomerName(e.target.value)}
+                placeholder="John Doe"
               />
             </div>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="close-new"
-                onClick={() => setShowSaveAsModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="save-new"
-                onClick={handleConfirmSaveAs}
-              >
-                Save As New
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-      {/* --- NEW View Details Modal --- */}
-      {isViewModalOpen && viewingQuotation && (
-        <div
-          className="modal-overlay"
-          onClick={() => setIsViewModalOpen(false)}
-        >
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Quotation for {viewingQuotation.customerName}</h3>
 
-            {/* Hotel Details */}
-            <div className="view-modal-section">
-              <h4>Hotel Details</h4>
-              {viewingQuotation.hotelSummary?.map((hotel, index) => (
-                <div key={index} className="detail-item">
-                  <span>
-                    {hotel.hotel} ({hotel.nights}N) {hotel.selectedRoomCategory}{" "}
-                    [{hotel.numDouble}D,{hotel.numExtraAdult}A,
-                    {hotel.numExtraChild}C]
-                  </span>
-                  <span>{hotel.selectedMealPlan}</span>
-                </div>
-              ))}
-            </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveAsModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmSaveAs}
+              className="bg-theme-primary hover:bg-theme-secondary"
+            >
+              Save New Quotation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            {/* Transport Details */}
-            <div className="view-modal-section">
-              <h4>Transport Details</h4>
-              <div className="detail-item">
-                <span>Vehicle</span>
-                <span>
-                  {viewingQuotation.transportSummary?.vehicleName || "N/A"}
-                  {viewingQuotation.transportSummary?.ac ? "(AC)" : "(Non-AC)"}
-                </span>
+      {/* ================== VIEW MODAL ================== */}
+      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <DialogContent className="min-w-5xl max-h-[90vh] overflow-scroll">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-theme-primary">
+              Quotation for {viewingQuotation?.customerName}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-8 py-6">
+            {/* Hotels */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Hotel className="h-5 w-5 text-theme-primary" />
+                Hotel Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {viewingQuotation?.hotelSummary?.map((hotel, i) => (
+                  <Card key={i} className="border-theme-muted">
+                    <CardContent className="pt-6">
+                      <h4 className="font-medium">{hotel.hotel}</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {hotel.city}, {hotel.state}
+                      </p>
+                      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Nights:</span>
+                          <p className="font-medium">{hotel.nights}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Room:</span>
+                          <p className="font-medium">{hotel.selectedRoomCategory}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Meal Plan:</span>
+                          <p className="font-medium">{hotel.selectedMealPlan}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Guests:</span>
+                          <p className="font-medium">
+                            {hotel.numDouble}D, {hotel.numExtraAdult}A, {hotel.numExtraChild}C
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
 
-            {/* Activity Details */}
-            <div className="view-modal-section">
-              <h4>Activity Details</h4>
-              {viewingQuotation.activitySummary?.map((activity, index) => (
-                <div key={index} className="detail-item">
-                  <span>{activity.name}</span>
-                  <span>{activity.participants} Person(s)</span>
-                </div>
-              ))}
+            {/* Transport & Activities */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Transport */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Car className="h-5 w-5 text-theme-primary" />
+                  Transport
+                </h3>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Vehicle:</span>
+                        <span className="font-medium">
+                          {viewingQuotation?.transportSummary?.vehicleName || "—"}
+                          {viewingQuotation?.transportSummary?.ac && " (AC)"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Cost:</span>
+                        <span className="font-medium text-theme-primary">
+                          ₹
+                          {viewingQuotation?.transportSummary?.pricingType === "perKm"
+                            ? (
+                                (viewingQuotation.transportSummary?.perKmprice || 0) *
+                                (viewingQuotation.transportSummary?.kms || 0)
+                              ).toFixed(0)
+                            : (viewingQuotation?.transportSummary?.price || 0).toFixed(0)}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Activities */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <ActivitySquare className="h-5 w-5 text-theme-primary" />
+                  Activities
+                </h3>
+                {viewingQuotation?.activitySummary?.length > 0 ? (
+                  <Card>
+                    <CardContent className="pt-6 space-y-4">
+                      {viewingQuotation.activitySummary.map((act, i) => (
+                        <div key={i} className="flex justify-between items-center">
+                          <div>
+                            <p className="font-medium">{act.name}</p>
+                            <p className="text-sm text-muted-foreground">{act.city}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{act.participants} Person(s)</p>
+                            <p className="text-sm text-theme-primary">
+                              ₹{act.totalPrice?.toFixed(0)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <p className="text-muted-foreground text-center py-6">
+                    No activities added
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Cost Summary */}
-            <div className="view-modal-section">
-              <h4>Cost Summary</h4>
-              <div className="cost-summary">
-                <div className="cost-item">
-                  <span>Hotel Total:</span>
-                  <span>
-                    ₹
-                    {viewingQuotation.hotelSummary
-                      ?.reduce((sum, hotel) => sum + (hotel.hotelTotal || 0), 0)
-                      ?.toFixed(2) || "0.00"}
-                  </span>
-                </div>
-                <div className="cost-item">
-                  <span>Transport Total:</span>
-                  {viewingQuotation.transportSummary?.pricingType ===
-                  "perKm" ? (
+            <Card className="bg-theme-muted/30 border-theme-primary/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <IndianRupee className="h-5 w-5 text-theme-primary" />
+                  Cost Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span>Hotel Total:</span>
                     <span>
                       ₹
-                      {(
-                        viewingQuotation.transportSummary?.perKmprice *
-                        viewingQuotation.transportSummary?.kms
-                      )?.toFixed(2) || "0.00"}
+                      {viewingQuotation?.hotelSummary
+                        ?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0)
+                        ?.toFixed(0) || "0"}
                     </span>
-                  ) : (
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Transport Total:</span>
                     <span>
                       ₹
-                      {viewingQuotation.transportSummary?.price?.toFixed(2) ||
-                        "0.00"}
+                      {viewingQuotation?.transportSummary?.pricingType === "perKm"
+                        ? (
+                            (viewingQuotation.transportSummary?.perKmprice || 0) *
+                            (viewingQuotation.transportSummary?.kms || 0)
+                          ).toFixed(0)
+                        : (viewingQuotation?.transportSummary?.price || 0).toFixed(0)}
                     </span>
-                  )}
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Activity Total:</span>
+                    <span>
+                      ₹
+                      {viewingQuotation?.activitySummary
+                        ?.reduce((sum, a) => sum + (a.totalPrice || 0), 0)
+                        ?.toFixed(0) || "0"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Markup:</span>
+                    <span>₹{viewingQuotation?.markup?.toFixed(0) || "0"}</span>
+                  </div>
                 </div>
-                <div className="cost-item">
-                  <span>Activity Total:</span>
-                  <span>
-                    ₹
-                    {viewingQuotation.activitySummary
-                      ?.reduce((sum, act) => sum + act.totalPrice, 0)
-                      ?.toFixed(2) || "0.00"}
-                  </span>
+                <div className="pt-4 border-t">
+                  <div className="flex justify-between items-center text-lg font-bold">
+                    <span className="text-theme-primary">Grand Total:</span>
+                    <span className="text-2xl text-theme-primary">
+                      ₹{(viewingQuotation?.grandTotal || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
                 </div>
-                <div className="cost-item">
-                  <span>Markup:</span>
-                  <span>{viewingQuotation.markup || "N/A"}</span>
-                </div>
-                <div className="cost-item grand-total">
-                  <span>Grand Total:</span>
-                  <span>
-                    ₹{viewingQuotation.grandTotal?.toFixed(2) || "0.00"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="close-btn"
-                onClick={() => setIsViewModalOpen(false)}
-              >
-                Close
-              </button>
-            </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      )}
 
-      {/* --- Social Media Links Footer --- */}
-      <div className="social-links-footer">
-        <div className="social-links-container">
-          <span className="social-links-text">For Reviews:</span>
-          <a
-            href="https://share.google/gpnOuOQxhD49T77Yw"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="social-link google-link"
-          >
-            <FontAwesomeIcon
-              icon={faGoogle}
-              className="social-icon"
-              size="lg"
-            />
-            <span>Google</span>
-          </a>
-          <span className="social-links-text">| Follow Us: </span>
-          <a
-            href="https://www.instagram.com/adwaittours?igsh=MW11cGRldWR4aGJxdQ=="
-            target="_blank"
-            rel="noopener noreferrer"
-            className="social-link instagram-link"
-          >
-            <FontAwesomeIcon
-              icon={faInstagram}
-              className="social-icon"
-              size="lg"
-            />
-            <span>Instagram</span>
-          </a>
-        </div>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
