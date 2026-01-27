@@ -154,7 +154,7 @@ const SelectActivities = ({ onDone }) => {
       <CardHeader className="bg-theme-muted/40">
         <div className="flex justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center md:gap-2">
               <MapPin className="h-5 w-5 text-theme-primary" />
               Activities & Sightseeing
             </CardTitle>
@@ -219,7 +219,7 @@ const SelectActivities = ({ onDone }) => {
                     : act.groupRatePerPerson;
 
                 return (
-                  <div key={act.name} className="p-4 border rounded-xl mb-3">
+                  <div key={act.name} className="p-2 md:p-4 border rounded-xl mb-3">
                     <h4 className="font-semibold">{act.name}</h4>
                     <p className="text-sm text-slate-500">{act.city}</p>
 

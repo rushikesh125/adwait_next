@@ -120,9 +120,14 @@ const Create_new_package = ({
           rooms: doc.data().rooms || [],
         }));
 
-        const uniqueHotels = [...new Map(
-          hotelList.map((h) => [`${h.name?.toLowerCase()}-${h.state?.toLowerCase()}-${h.city?.toLowerCase()}`, h])
-        ).values()];
+        const uniqueHotels = [
+          ...new Map(
+            hotelList.map((h) => [
+              `${h.name?.toLowerCase()}-${h.state?.toLowerCase()}-${h.city?.toLowerCase()}`,
+              h,
+            ]),
+          ).values(),
+        ];
 
         setHotels(uniqueHotels);
       } catch (error) {
@@ -132,10 +137,12 @@ const Create_new_package = ({
 
     const fetchStates = async () => {
       const querySnapshot = await getDocs(collection(db, "locations"));
-      setStates(querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })));
+      setStates(
+        querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })),
+      );
     };
 
     fetchHotels();
@@ -157,19 +164,23 @@ const Create_new_package = ({
   // ── FIXED Calculations ────────────────────────────────────────────
   const hotelTotalPrice = hotelEntries.reduce(
     (acc, entry) => acc + (Number(entry.hotelTotal) || 0),
-    0
+    0,
   );
 
   const transportTotalPrice = selectedTransport?.selectedVehicle?.price
     ? Number(selectedTransport.selectedVehicle.price)
     : 0;
 
-  const grandTotal = hotelTotalPrice + transportTotalPrice + activityTotalPrice + confirmedMarkup;
+  const grandTotal =
+    hotelTotalPrice +
+    transportTotalPrice +
+    activityTotalPrice +
+    confirmedMarkup;
 
   // ── Group hotels by city (this fixes "groupedHotels is not defined") ──
   const filteredHotels = useMemo(() => {
     return hotels.filter(
-      (hotel) => hotel.state?.toLowerCase() === selectedState.toLowerCase()
+      (hotel) => hotel.state?.toLowerCase() === selectedState.toLowerCase(),
     );
   }, [hotels, selectedState]);
 
@@ -193,11 +204,15 @@ const Create_new_package = ({
 
   const formatDate = (dateStr) => {
     const date = new Date(dateStr);
-    return isNaN(date) ? "—" : date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).replace(/ /g, "-");
+    return isNaN(date)
+      ? "—"
+      : date
+          .toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+          .replace(/ /g, "-");
   };
 
   const calculateHotelTotalPriceForAllNights = (entries) => {
@@ -245,7 +260,11 @@ const Create_new_package = ({
   // ── PDF / Clipboard / Save logic ─────────────────────────────────
   // (your original implementations - kept as-is)
   const generatePackageSummary = (quotationData, allHotelsData) => {
-    if (!quotationData || !quotationData.hotelEntries || quotationData.hotelEntries.length === 0) {
+    if (
+      !quotationData ||
+      !quotationData.hotelEntries ||
+      quotationData.hotelEntries.length === 0
+    ) {
       return "Hotel details not available.";
     }
 
@@ -273,7 +292,7 @@ const Create_new_package = ({
         (h) =>
           h.name === entry.hotel &&
           h.city === entry.city &&
-          h.state === entry.state
+          h.state === entry.state,
       );
 
       const hotelCheckIn = formatDateForSummary(entry.checkInDate);
@@ -299,7 +318,7 @@ const Create_new_package = ({
     });
 
     const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(
-      quotationData.hotelEntries
+      quotationData.hotelEntries,
     );
 
     summary += `*TOTAL TOUR COST = ₹${quotationData.grandTotal.toLocaleString("en-IN")}/-*\n\n`;
@@ -307,8 +326,8 @@ const Create_new_package = ({
     summary += `*INCLUDED*\n`;
 
     if (totalBreakfasts > 0) summary += `✅ ${totalBreakfasts} Breakfast(s)\n`;
-    if (totalLunches > 0)   summary += `✅ ${totalLunches} Lunch(es)\n`;
-    if (totalDinners > 0)   summary += `✅ ${totalDinners} Dinner(s)\n`;
+    if (totalLunches > 0) summary += `✅ ${totalLunches} Lunch(es)\n`;
+    if (totalDinners > 0) summary += `✅ ${totalDinners} Dinner(s)\n`;
     if (totalBreakfasts === 0 && totalLunches === 0 && totalDinners === 0) {
       summary += `✅ No meals included (EP Plan for all hotels or unspecified)\n`;
     }
@@ -384,7 +403,9 @@ const Create_new_package = ({
 
   const handleExportToPDF = () => {
     if (!hotelEntries || hotelEntries.length === 0) {
-      alert("Cannot generate PDF: Please add at least one hotel to the package.");
+      alert(
+        "Cannot generate PDF: Please add at least one hotel to the package.",
+      );
       return;
     }
 
@@ -525,13 +546,15 @@ const Create_new_package = ({
 
       autoTable(doc, {
         startY: currentY + 5,
-        head: [["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan"]],
+        head: [
+          ["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan"],
+        ],
         body: currentQuotationDataForPdf.hotelSummary.map((h) => {
           const fullHotelData = hotels.find(
             (hotel) =>
               hotel.name === h.hotel &&
               hotel.city === h.city &&
-              hotel.state === h.state
+              hotel.state === h.state,
           );
           return [
             { content: h.hotel, _fullData: fullHotelData },
@@ -566,7 +589,7 @@ const Create_new_package = ({
                 data.cell.y,
                 data.cell.width,
                 data.cell.height,
-                { url: fullHotelData.GoogleListingURL }
+                { url: fullHotelData.GoogleListingURL },
               );
             }
           }
@@ -628,7 +651,7 @@ const Create_new_package = ({
         currentQuotationDataForPdf.hotelSummary.length > 0
       ) {
         includedItems.push(
-          "• No meals included (EP Plan for all hotels or unspecified)"
+          "• No meals included (EP Plan for all hotels or unspecified)",
         );
       }
 
@@ -639,10 +662,10 @@ const Create_new_package = ({
           "• All transfers and sightseeing by private " +
             (vehicle.name || vehicle.type) +
             (vehicle.ac ? " (AC)" : "") +
-            " vehicle."
+            " vehicle.",
         );
         includedItems.push(
-          "• Toll, parking fees, driver allowance, and permits."
+          "• Toll, parking fees, driver allowance, and permits.",
         );
       }
 
@@ -652,7 +675,7 @@ const Create_new_package = ({
       ) {
         for (const activity of currentQuotationDataForPdf.activitySummary) {
           includedItems.push(
-            `• ${activity.name} for ${activity.participants} participants.`
+            `• ${activity.name} for ${activity.participants} participants.`,
           );
         }
       }
@@ -664,16 +687,16 @@ const Create_new_package = ({
       ];
 
       const wrappedIncluded = includedItems.map((item) =>
-        doc.splitTextToSize(item, columnWidth)
+        doc.splitTextToSize(item, columnWidth),
       );
       const wrappedExcluded = excludedItems.map((item) =>
-        doc.splitTextToSize(item, columnWidth)
+        doc.splitTextToSize(item, columnWidth),
       );
 
       const body = [];
       const maxLength = Math.max(
         wrappedIncluded.length,
-        wrappedExcluded.length
+        wrappedExcluded.length,
       );
       for (let i = 0; i < maxLength; i++) {
         body.push([wrappedIncluded[i] || "", wrappedExcluded[i] || ""]);
@@ -719,17 +742,19 @@ const Create_new_package = ({
         grandTotal: grandTotal || 0,
         hotelSummary: hotelEntries,
         activitySummary: selectedActivities,
-        transportSummary: selectedTransport ? {
-          vehicles: selectedTransport.vehicles || [],
-          allPkgs: selectedTransport.allPkgs || [],
-          packageName: selectedTransport.name || "Custom",
-          vehicleName: selectedTransport.selectedVehicle?.type || "",
-          seats: selectedTransport.selectedVehicle?.seating || "",
-          price: selectedTransport.selectedVehicle?.price || 0,
-          ac: selectedTransport.selectedVehicle?.ac || false,
-          isCustom: selectedTransport.selectedVehicle?.isCustom || false,
-          perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0
-        } : null,
+        transportSummary: selectedTransport
+          ? {
+              vehicles: selectedTransport.vehicles || [],
+              allPkgs: selectedTransport.allPkgs || [],
+              packageName: selectedTransport.name || "Custom",
+              vehicleName: selectedTransport.selectedVehicle?.type || "",
+              seats: selectedTransport.selectedVehicle?.seating || "",
+              price: selectedTransport.selectedVehicle?.price || 0,
+              ac: selectedTransport.selectedVehicle?.ac || false,
+              isCustom: selectedTransport.selectedVehicle?.isCustom || false,
+              perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
+            }
+          : null,
       };
 
       await addDoc(packagesCollectionRef, packageData);
@@ -751,10 +776,14 @@ const Create_new_package = ({
           {/* LEFT COLUMN - Main Content */}
           <div className="flex-1 space-y-8 lg:space-y-10 lg:pr-4 xl:pr-6 pb-8 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
             {/* 1. Date and Duration */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-6 p-2 md:p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-6 p-2 md:p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700 flex items-center gap-2" htmlFor="checkInDate">
-                  <Calendar className="w-4 h-4 text-theme-primary" /> Check-in Date
+                <Label
+                  className="text-sm font-medium text-slate-700 flex items-center gap-2"
+                  htmlFor="checkInDate"
+                >
+                  <Calendar className="w-4 h-4 text-theme-primary" /> Check-in
+                  Date
                 </Label>
                 <Input
                   id="checkInDate"
@@ -767,7 +796,12 @@ const Create_new_package = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700" htmlFor="nights">Nights</Label>
+                <Label
+                  className="text-sm font-medium text-slate-700"
+                  htmlFor="nights"
+                >
+                  Nights
+                </Label>
                 <Input
                   id="nights"
                   type="number"
@@ -779,7 +813,12 @@ const Create_new_package = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-700" htmlFor="checkOutDate">Check-out Date</Label>
+                <Label
+                  className="text-sm font-medium text-slate-700"
+                  htmlFor="checkOutDate"
+                >
+                  Check-out Date
+                </Label>
                 <Input
                   id="checkOutDate"
                   type="date"
@@ -789,34 +828,37 @@ const Create_new_package = ({
                   className="bg-slate-50 cursor-not-allowed focus:ring-theme-primary"
                 />
               </div>
+              <div className="space-y-2">
+                {/* 2. State Selection */}
+                <label
+                  className="text-sm font-medium text-slate-700 flex items-center gap-2"
+                  htmlFor="stateSelect"
+                >
+                  <MapPin className="w-4 h-4 text-theme-primary" /> Select
+                  Destination State
+                </label>
+                <select
+                  id="stateSelect"
+                  className="w-full p-2 border border-slate-200 rounded-md outline-none focus:ring-2 focus:ring-theme-primary"
+                  value={selectedState}
+                  onChange={(e) => {
+                    setSelectedState(e.target.value);
+                    setSelectedHotel(null);
+                    setEditingIndex(null);
+                  }}
+                >
+                  <option value="">-- Select a State --</option>
+                  {states.map((state) => (
+                    <option key={state.id} value={state.name}>
+                      {state.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* 2. State Selection */}
-            <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4 shadow-sm">
-              <label
-                className="text-sm font-medium text-slate-700 flex items-center gap-2"
-                htmlFor="stateSelect"
-              >
-                <MapPin className="w-4 h-4 text-theme-primary" /> Select Destination State
-              </label>
-              <select
-                id="stateSelect"
-                className="w-full p-2 border border-slate-200 rounded-md outline-none focus:ring-2 focus:ring-theme-primary"
-                value={selectedState}
-                onChange={(e) => {
-                  setSelectedState(e.target.value);
-                  setSelectedHotel(null);
-                  setEditingIndex(null);
-                }}
-              >
-                <option value="">-- Select a State --</option>
-                {states.map((state) => (
-                  <option key={state.id} value={state.name}>
-                    {state.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4 shadow-sm"></div> */}
 
             {/* 3. Hotel Selection */}
             {selectedState && (
@@ -829,7 +871,7 @@ const Create_new_package = ({
                     No hotels found in {selectedState}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-64 overflow-y-auto p-1">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto p-1">
                     {Object.keys(groupedHotels).map((city) => (
                       <div key={city} className="space-y-2">
                         <h4 className="text-xs font-bold uppercase text-theme-secondary tracking-wider">
@@ -861,7 +903,8 @@ const Create_new_package = ({
                                 {hotel.name}
                               </span>
                               <span className="text-[10px] text-slate-500">
-                                {hotel.city} • Rating: {hotel.GoogleReviewRating || "N/A"}
+                                {hotel.city} • Rating:{" "}
+                                {hotel.GoogleReviewRating || "N/A"}
                               </span>
                             </label>
                           </div>
@@ -1060,7 +1103,7 @@ const Create_new_package = ({
                                 "en-IN",
                                 {
                                   maximumFractionDigits: 0,
-                                }
+                                },
                               )}
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
@@ -1115,7 +1158,7 @@ const Create_new_package = ({
             </div>
 
             {/* 7. Activities */}
-            <div className="p-6 bg-white rounded-xl border border-slate-200 space-y-4 shadow-sm">
+            <div className="p-2 md:p-6 bg-white rounded-xl border border-slate-200 space-y-4 shadow-sm">
               <h3 className="text-md font-bold flex items-center gap-2">
                 <Palmtree className="w-4 h-4" /> Activities
               </h3>
@@ -1126,7 +1169,7 @@ const Create_new_package = ({
                 Add Activities
               </button>
               {showActivitiesSection && (
-                <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="mt-4 md:p-4 bg-slate-50 rounded-lg border border-slate-100">
                   <SelectActivities
                     selectedState={selectedState}
                     onDone={handleActivitiesDone}
@@ -1149,7 +1192,9 @@ const Create_new_package = ({
 
                 <div className="flex flex-wrap gap-3 items-end">
                   <div className="flex-1 min-w-[140px] space-y-1.5">
-                    <Label className="text-xs font-medium text-slate-700">Amount / %</Label>
+                    <Label className="text-xs font-medium text-slate-700">
+                      Amount / %
+                    </Label>
                     <Input
                       type="number"
                       className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-theme-primary outline-none"
@@ -1177,9 +1222,10 @@ const Create_new_package = ({
                           : 0) +
                         activityTotalPrice;
 
-                      const markup = markupType === "percentage"
-                        ? (markupAmount / 100) * base
-                        : markupAmount;
+                      const markup =
+                        markupType === "percentage"
+                          ? (markupAmount / 100) * base
+                          : markupAmount;
 
                       dispatch(setConfirmedMarkup(markup));
                     }}
@@ -1189,7 +1235,10 @@ const Create_new_package = ({
                 </div>
 
                 <p className="mt-4 text-sm font-bold text-theme-dark">
-                  Confirmed Markup: ₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  Confirmed Markup: ₹
+                  {confirmedMarkup.toLocaleString("en-IN", {
+                    maximumFractionDigits: 0,
+                  })}
                 </p>
               </div>
 
@@ -1204,28 +1253,40 @@ const Create_new_package = ({
                   <div className="flex justify-between items-center">
                     <span>Hotels</span>
                     <span className="font-medium">
-                      ₹{hotelTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      ₹
+                      {hotelTotalPrice.toLocaleString("en-IN", {
+                        maximumFractionDigits: 0,
+                      })}
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center">
                     <span>Transport</span>
                     <span className="font-medium">
-                      ₹{transportTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      ₹
+                      {transportTotalPrice.toLocaleString("en-IN", {
+                        maximumFractionDigits: 0,
+                      })}
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center">
                     <span>Activities</span>
                     <span className="font-medium">
-                      ₹{activityTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      ₹
+                      {activityTotalPrice.toLocaleString("en-IN", {
+                        maximumFractionDigits: 0,
+                      })}
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center text-theme-accent font-medium">
                     <span>Markup</span>
                     <span>
-                      ₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      ₹
+                      {confirmedMarkup.toLocaleString("en-IN", {
+                        maximumFractionDigits: 0,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -1235,7 +1296,10 @@ const Create_new_package = ({
                 <div className="flex justify-between items-baseline">
                   <span className="font-bold text-lg">Final Total</span>
                   <span className="text-3xl font-black">
-                    ₹{grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    ₹
+                    {grandTotal.toLocaleString("en-IN", {
+                      maximumFractionDigits: 0,
+                    })}
                   </span>
                 </div>
 
