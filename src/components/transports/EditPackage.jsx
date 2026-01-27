@@ -74,15 +74,20 @@ const EditPackage = ({
     }
   }, [originalPackage, stateId, packageId, onClose]);
 
-  const handleVehicleChange = (index, field, value) => {
+ const handleVehicleChange = (index, key, value) => {
+    // Correctly access vehicles from formData
     const updatedVehicles = [...formData.vehicles];
     
-    // Type conversion for numeric fields
-    const formattedValue = (field === "price" || field === "perKmprice" || field === "seating") 
-      ? parseInt(value) || 0 
-      : value;
-
-    updatedVehicles[index][field] = formattedValue;
+    if (key === 'price' || key === 'seating' || key === 'perKmprice') {
+      // Convert to number and ensure it's at least 0
+      // We use value === "" check to allow users to clear the input
+      const numValue = value === "" ? 0 : parseInt(value);
+      updatedVehicles[index][key] = Math.max(0, numValue || 0);
+    } else {
+      updatedVehicles[index][key] = value;
+    }
+    
+    // Correctly update the formData state
     setFormData({ ...formData, vehicles: updatedVehicles });
   };
 
@@ -108,6 +113,16 @@ const EditPackage = ({
     if (formData.vehicles.length === 0) {
       toast.error("Please add at least one vehicle");
       return;
+    }
+    const hasNegativeValues = formData.vehicles.some(v => 
+        (v.price !== null && v.price < 0) || 
+        (v.perKmprice !== null && v.perKmprice < 0) || 
+        (v.seating !== null && v.seating < 0)
+    );
+
+    if (hasNegativeValues) {
+        toast.error("Pricing and seating values cannot be negative.");
+        return;
     }
 
     setIsSubmitting(true);
