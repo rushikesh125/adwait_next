@@ -1,8 +1,38 @@
-"use client"
+"use client";
 import React, { useEffect, useState } from 'react';
 import { db } from '@/firebase/config';
-import { collection, getDocs, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore'; // Included setDoc for subcollection
+import { collection, getDocs, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
+import toast from "react-hot-toast";
+
+// shadcn/ui components
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+// Icons
+import { 
+  Plus, 
+  ChevronRight, 
+  ChevronLeft, 
+  Car, 
+  Trash2, 
+  CheckCircle2, 
+  Info,
+  Loader2,
+  X
+} from "lucide-react";
 
 const defaultVehicles = [
     { type: "Sedan", price: null, seating: null, ac: true, perKmprice: null },
@@ -27,18 +57,7 @@ const Createpackage = ({ onClose }) => {
     const [nights, setNights] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Ensure fixed seating for Innova 7 and Crysta 7
-    useEffect(() => {
-        setVehicles(prevVehicles =>
-            prevVehicles.map(vehicle =>
-                (vehicle.type === 'Innova 7 Seater' || vehicle.type === 'Crysta 7 Seater')
-                    ? { ...vehicle, seating: 7 }
-                    : vehicle
-            )
-        );
-    }, []);
-
-    // Fetch states from Firestore
+    // Fetch states
     useEffect(() => {
         const fetchStates = async () => {
             try {
@@ -47,135 +66,64 @@ const Createpackage = ({ onClose }) => {
                     id: doc.id,
                     ...doc.data()
                 }));
-
-                // Auto-update any state missing pricing field (good for migration/initial setup)
-                fetchedStates.forEach(async (state) => {
-                    const stateDocRef = doc(db, 'transport', state.id);
-                    // Check if 'pricing' or 'packages' fields are missing and add them
-                    const updateData = {};
-                    if (!state.pricing) {
-                        updateData.pricing = {};
-                    }
-                    if (!state.packages) { // Ensure packages array exists
-                        updateData.packages = [];
-                    }
-
-                    if (Object.keys(updateData).length > 0) {
-                        try {
-                            await updateDoc(stateDocRef, updateData);
-                            console.log(`Updated missing fields for ${state.stateName}`);
-                        } catch (error) {
-                            console.error("Error updating state document with initial fields:", error);
-                        }
-                    }
-                });
-
                 setStates(fetchedStates);
             } catch (error) {
-                console.error("Error fetching states:", error);
+                toast.error("Error fetching states");
             }
         };
         fetchStates();
     }, []);
 
-
-
-    // Update pricing options when state changes
+    // Update pricing options
     useEffect(() => {
         if (selectedState) {
             const stateData = states.find(state => state.stateName === selectedState);
-            if (stateData?.pricing) {
-                setPricingOptions(Object.keys(stateData.pricing));
-            } else {
-                setPricingOptions([]);
-            }
-        } else {
-            setPricingOptions([]);
+            if (stateData?.pricing) setPricingOptions(Object.keys(stateData.pricing));
+            else setPricingOptions([]);
         }
     }, [selectedState, states]);
 
     const handleVehicleChange = (index, key, value) => {
         const updatedVehicles = [...vehicles];
         updatedVehicles[index][key] = (key === 'price' || key === 'seating' || key === 'perKmprice')
-            ? parseInt(value)
+            ? parseInt(value) || 0
             : value;
         setVehicles(updatedVehicles);
     };
 
-    const toggleAC = (index) => {
-        const updatedVehicles = [...vehicles];
-        updatedVehicles[index].ac = !updatedVehicles[index].ac;
-        setVehicles(updatedVehicles);
+    const addCustomVehicle = () => {
+        setVehicles([...vehicles, { type: "New Vehicle", price: null, seating: null, ac: true, perKmprice: null }]);
+        toast.success("New vehicle row added");
+    };
+
+    const removeVehicle = (index) => {
+        setVehicles(vehicles.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async () => {
         const stateDoc = states.find((s) => s.stateName === selectedState);
         if (!stateDoc || !selectedPricingType || (selectedPricingType === 'lumpsum' && !packageName.trim())) {
-            alert("Please complete all required fields.");
+            toast.error("Missing required fields");
             return;
         }
 
         setLoading(true);
-
         try {
-            // Validate Nights for lumpsum
-            if (selectedPricingType === 'lumpsum' && (!nights || isNaN(nights) || parseInt(nights) < 1)) {
-                alert("Please enter a valid number of nights (at least 1).");
-                setLoading(false);
-                return;
-            }
-
             const stateDocRef = doc(db, 'transport', stateDoc.id);
             const stateSnapshot = await getDoc(stateDocRef);
-            const existingPackagesArray = stateSnapshot.data()?.packages || []; // Get the existing packages array
+            const existingPackagesArray = stateSnapshot.data()?.packages || [];
 
-            // Check for existing package name only for 'lumpsum' type (checking the array field)
             if (selectedPricingType === 'lumpsum' && existingPackagesArray.some(pkg => pkg.name === packageName.trim())) {
-                alert(`A package named "${packageName}" already exists in the package list. Please choose a different name.`);
+                toast.error("Package name already exists");
                 setLoading(false);
                 return;
             }
-
-            const isAnyVehicleInvalid = vehicles.some(vehicle => {
-                const isLumpsumType = selectedPricingType === 'lumpsum';
-                const isFixedSeater = vehicle.type === 'Innova 7 Seater' || vehicle.type === 'Crysta 7 Seater';
-
-                if (isFixedSeater) {
-                    return isLumpsumType ? isNaN(vehicle.price) : isNaN(vehicle.perKmprice);
-                } else {
-                    return isNaN(vehicle.seating) || (isLumpsumType ? isNaN(vehicle.price) : isNaN(vehicle.perKmprice));
-                }
-            });
-
-            if (isAnyVehicleInvalid) {
-                alert("Please ensure all vehicle seating and pricing fields are filled with valid numbers.");
-                setLoading(false);
-                return;
-            }
-
-            const updatedVehicles = vehicles.map(vehicle => {
-                if (selectedPricingType === 'lumpsum') {
-                    return {
-                        type: vehicle.type,
-                        price: isNaN(vehicle.price) ? null : vehicle.price,
-                        seating: isNaN(vehicle.seating) ? null : vehicle.seating,
-                        ac: vehicle.ac
-                    };
-                } else {
-                    return {
-                        type: vehicle.type,
-                        perKmprice: isNaN(vehicle.perKmprice) ? null : vehicle.perKmprice,
-                        seating: isNaN(vehicle.seating) ? null : vehicle.seating,
-                        ac: vehicle.ac
-                    };
-                }
-            });
 
             const newPackage = {
                 id: uuidv4(),
                 pricingType: selectedPricingType,
-                vehicles: updatedVehicles,
-                createdAt: new Date().toISOString(), // Storing as a standard ISO string
+                vehicles: vehicles,
+                createdAt: new Date().toISOString(),
                 ...(selectedPricingType === 'lumpsum' && {
                     name: packageName.trim(),
                     description: packageDescription.trim(),
@@ -184,259 +132,245 @@ const Createpackage = ({ onClose }) => {
                 }),
             };
 
-            // --- START: Storing in BOTH subcollection and array field ---
+            await setDoc(doc(collection(db, 'transport', stateDoc.id, 'packages'), newPackage.id), newPackage);
+            await updateDoc(stateDocRef, { packages: [...existingPackagesArray, newPackage] });
 
-            // 1. Store as a document in the 'packages' subcollection
-            const packagesSubcollectionRef = collection(db, 'transport', stateDoc.id, 'packages');
-            await setDoc(doc(packagesSubcollectionRef, newPackage.id), newPackage);
-            console.log(`Package added to subcollection: ${newPackage.id}`);
-
-
-            // 2. Store as an item in the 'packages' array field of the state document
-            const finalPackagesArray = [...existingPackagesArray, newPackage];
-            await updateDoc(stateDocRef, { packages: finalPackagesArray });
-            console.log(`Package added to array field for state: ${stateDoc.stateName}`);
-
-            // --- END: Storing in BOTH subcollection and array field ---
-
-            alert("Package created successfully!");
+            toast.success("Package created successfully!");
             onClose();
         } catch (error) {
-            console.error("Error creating package:", error);
-            alert("Failed to create package. Please try again. Check console for details.");
+            toast.error("Database error. Try again.");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-theme-primary/20">
-      {/* HEADER */}
-      <div className="flex justify-between items-center px-6 py-4 border-b bg-theme-muted/40">
-        <h2 className="text-xl font-semibold text-theme-dark">Create Transport Package</h2>
-        <button
-          onClick={onClose}
-          className="text-theme-primary hover:text-theme-secondary text-lg font-semibold"
-        >
-          ✖
-        </button>
-      </div>
-
-      {/* CONTENT */}
-      <div className="p-6 space-y-6">
-        {/* STEP 1 */}
-        {step === 1 && (
-          <div className="space-y-5">
-            {/* State */}
-            <div>
-              <label className="block text-sm font-medium text-theme-dark mb-1">
-                Select State
-              </label>
-              <select
-                className="w-full border border-theme-primary/30 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                value={selectedState}
-                onChange={(e) => {
-                  setSelectedState(e.target.value);
-                  setSelectedPricingType('');
-                  setPackageName('');
-                  setPackageDescription('');
-                }}
-              >
-                <option value="">-- Select State --</option>
-                {states.map((state) => (
-                  <option key={state.id} value={state.stateName}>
-                    {state.stateName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Pricing */}
-            {pricingOptions.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-theme-dark mb-1">
-                  Select Pricing Type
-                </label>
-                <select
-                  className="w-full border border-theme-primary/30 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                  value={selectedPricingType}
-                  onChange={(e) => setSelectedPricingType(e.target.value)}
-                >
-                  <option value="">-- Select Pricing Type --</option>
-                  {pricingOptions.map((option, idx) => (
-                    <option key={idx} value={option}>
-                      {option.charAt(0).toUpperCase() + option.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Lump Sum Fields */}
-            {selectedPricingType === 'lumpsum' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-theme-dark mb-1">
-                    Package Name
-                  </label>
-                  <input
-                    className="w-full border border-theme-primary/30 rounded-md px-3 py-2"
-                    value={packageName}
-                    onChange={(e) => setPackageName(e.target.value)}
-                  />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-4xl max-h-[92vh] overflow-hidden border-none shadow-2xl flex flex-col bg-white">
+                
+                {/* MODERN HEADER */}
+                <div className="flex justify-between items-center px-6 py-5 border-b bg-slate-50">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-theme-primary/10 flex items-center justify-center">
+                            <Plus className="text-theme-primary w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-theme-dark">Create Package</h2>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <Badge className={step === 1 ? "bg-theme-primary" : "bg-slate-300"}>1. Details</Badge>
+                                <ChevronRight className="w-3 h-3 text-slate-400" />
+                                <Badge className={step === 2 ? "bg-theme-primary" : "bg-slate-300"}>2. Pricing</Badge>
+                            </div>
+                        </div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
+                        <X className="w-5 h-5" />
+                    </Button>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-theme-dark mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="w-full border border-theme-primary/30 rounded-md px-3 py-2"
-                    value={packageDescription}
-                    onChange={(e) => setPackageDescription(e.target.value)}
-                  />
+                <div className="flex-1 overflow-y-auto p-6">
+                    {step === 1 ? (
+                        <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-theme-dark font-semibold">Destination State</Label>
+                                    <Select value={selectedState} onValueChange={setSelectedState}>
+                                        <SelectTrigger className="border-slate-200 focus:ring-theme-primary">
+                                            <SelectValue placeholder="Select location..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {states.map(s => <SelectItem key={s.id} value={s.stateName}>{s.stateName}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-theme-dark font-semibold">Pricing Structure</Label>
+                                    <Select 
+                                        value={selectedPricingType} 
+                                        onValueChange={setSelectedPricingType}
+                                        disabled={!selectedState}
+                                    >
+                                        <SelectTrigger className="border-slate-200 focus:ring-theme-primary">
+                                            <SelectValue placeholder="Select type..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {pricingOptions.map(opt => (
+                                                <SelectItem key={opt} value={opt}>
+                                                    {opt === 'lumpsum' ? 'Fixed Package (Lumpsum)' : 'Distance Based (Per Km)'}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {selectedPricingType === 'lumpsum' && (
+                                <div className="space-y-5 p-5 bg-theme-muted/30 rounded-xl border border-theme-primary/10">
+                                    <div className="space-y-2">
+                                        <Label className="text-theme-dark font-semibold">Package Display Name</Label>
+                                        <Input 
+                                            value={packageName} 
+                                            onChange={e => setPackageName(e.target.value)} 
+                                            placeholder="e.g. Kerala Backwater Special"
+                                            className="bg-white border-slate-200"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-theme-dark font-semibold">Description</Label>
+                                        <Textarea 
+                                            value={packageDescription} 
+                                            onChange={e => setPackageDescription(e.target.value)}
+                                            placeholder="Include tour highlights..."
+                                            className="bg-white border-slate-200 resize-none"
+                                        />
+                                    </div>
+                                    <div className="w-1/2 space-y-2">
+                                        <Label className="text-theme-dark font-semibold">Duration (Nights)</Label>
+                                        <div className="flex items-center gap-3">
+                                            <Input 
+                                                type="number" 
+                                                value={nights} 
+                                                onChange={e => setNights(e.target.value)}
+                                                className="bg-white border-slate-200"
+                                            />
+                                            <span className="text-sm text-slate-500 whitespace-nowrap">
+                                                = {nights ? parseInt(nights) + 1 : '0'} Days
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {!selectedPricingType && (
+                                <div className="flex flex-col items-center justify-center py-10 text-slate-400 italic text-sm">
+                                    <Info className="w-8 h-8 mb-2 opacity-20" />
+                                    Select a state and pricing type to continue
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <h3 className="font-bold text-theme-dark">Vehicle List & Rates</h3>
+                                    <p className="text-xs text-slate-500">Specify rates for each vehicle type in this package.</p>
+                                </div>
+                                <Button 
+                                    onClick={addCustomVehicle} 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="border-theme-primary text-theme-primary hover:bg-theme-primary hover:text-white"
+                                >
+                                    <Plus className="w-4 h-4 mr-1" /> Add Custom Row
+                                </Button>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left font-semibold">Vehicle Type</th>
+                                            <th className="px-4 py-3 text-left font-semibold w-24">Seats</th>
+                                            <th className="px-4 py-3 text-center font-semibold w-20">AC</th>
+                                            <th className="px-4 py-3 text-left font-semibold">Rate (₹)</th>
+                                            <th className="px-4 py-3 text-center font-semibold w-16"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {vehicles.map((v, i) => (
+                                            <tr key={i} className="hover:bg-theme-muted/10 transition-colors group">
+                                                <td className="px-4 py-2">
+                                                    <Input 
+                                                        value={v.type} 
+                                                        onChange={e => handleVehicleChange(i, 'type', e.target.value)}
+                                                        className="h-9 bg-transparent border-transparent group-hover:border-slate-200 focus:border-theme-primary transition-all"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <Input 
+                                                        type="number" 
+                                                        value={v.seating ?? ''} 
+                                                        onChange={e => handleVehicleChange(i, 'seating', e.target.value)}
+                                                        className="h-9"
+                                                        disabled={['Innova 7 Seater', 'Crysta 7 Seater'].includes(v.type)}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2 text-center">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={v.ac} 
+                                                        onChange={() => {
+                                                            const up = [...vehicles];
+                                                            up[i].ac = !up[i].ac;
+                                                            setVehicles(up);
+                                                        }}
+                                                        className="w-4 h-4 accent-theme-primary cursor-pointer"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <Input 
+                                                        type="number" 
+                                                        placeholder={selectedPricingType === 'lumpsum' ? "Total price" : "Per km"}
+                                                        value={selectedPricingType === 'lumpsum' ? (v.price ?? '') : (v.perKmprice ?? '')}
+                                                        onChange={e => handleVehicleChange(i, selectedPricingType === 'lumpsum' ? 'price' : 'perKmprice', e.target.value)}
+                                                        className="h-9 font-medium text-theme-primary"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2 text-center">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-8 w-8 text-slate-400 hover:text-red-500"
+                                                        onClick={() => removeVehicle(i)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-theme-dark mb-1">
-                    Number of Nights
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="w-full border border-theme-primary/30 rounded-md px-3 py-2"
-                    value={nights}
-                    onChange={(e) => setNights(e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
-                  <p className="text-xs text-theme-dark/60 mt-1">
-                    Total Days: {nights ? parseInt(nights) + 1 : '-'}
-                  </p>
+                {/* FOOTER ACTIONS */}
+                <div className="px-6 py-4 border-t bg-slate-50 flex justify-between items-center">
+                    <Button 
+                        variant="ghost" 
+                        onClick={step === 1 ? onClose : () => setStep(1)}
+                        className="text-slate-600"
+                    >
+                        {step === 1 ? 'Cancel' : <><ChevronLeft className="w-4 h-4 mr-1" /> Back</>}
+                    </Button>
+
+                    {step === 1 ? (
+                        <Button 
+                            disabled={!selectedPricingType}
+                            onClick={() => setStep(2)}
+                            className="bg-theme-primary hover:bg-theme-secondary text-white px-8"
+                        >
+                            Next <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                    ) : (
+                        <Button 
+                            disabled={loading}
+                            onClick={handleSubmit}
+                            className="bg-theme-primary hover:bg-theme-secondary text-white px-8 shadow-lg shadow-theme-primary/20"
+                        >
+                            {loading ? (
+                                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving...</>
+                            ) : (
+                                <><CheckCircle2 className="w-4 h-4 mr-2" /> Create Package</>
+                            )}
+                        </Button>
+                    )}
                 </div>
-              </div>
-            )}
-
-            {/* Next Button */}
-            {selectedPricingType && (
-              <button
-                onClick={() => setStep(2)}
-                className="bg-theme-primary hover:bg-theme-secondary text-white py-2 px-6 rounded-lg font-medium w-full"
-              >
-                Next ➡
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* STEP 2 */}
-        {step === 2 && (
-          <div className="space-y-5">
-            <h3 className="font-semibold text-theme-dark">
-              Customize Vehicle Pricing
-            </h3>
-
-            <div className="overflow-x-auto">
-              <table className="w-full border border-theme-primary/20 rounded-lg overflow-hidden text-sm">
-                <thead className="bg-theme-primary text-white">
-                  <tr>
-                    <th className="px-3 py-2">Vehicle</th>
-                    <th className="px-3 py-2">Seating</th>
-                    <th className="px-3 py-2">AC</th>
-                    <th className="px-3 py-2">
-                      {selectedPricingType === 'lumpsum'
-                        ? 'Price'
-                        : 'Per Km Price'}
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {vehicles.map((v, i) => {
-                    const fixed = ['Innova 7 Seater', 'Crysta 7 Seater'].includes(
-                      v.type
-                    );
-                    const lump = selectedPricingType === 'lumpsum';
-
-                    return (
-                      <tr key={i} className="border-b last:border-none">
-                        <td className="px-3 py-2">{v.type}</td>
-
-                        <td className="px-3 py-2">
-                          {fixed ? (
-                            <input
-                              readOnly
-                              className="w-full border rounded px-2 py-1 bg-gray-50"
-                              value="7"
-                            />
-                          ) : (
-                            <input
-                              type="number"
-                              className="w-full border rounded px-2 py-1"
-                              value={v.seating ?? ''}
-                              onChange={(e) =>
-                                handleVehicleChange(i, 'seating', e.target.value)
-                              }
-                            />
-                          )}
-                        </td>
-
-                        <td className="px-3 py-2 text-center">
-                          <input
-                            type="checkbox"
-                            checked={v.ac}
-                            onChange={() => toggleAC(i)}
-                            className="h-4 w-4 accent-theme-primary"
-                          />
-                        </td>
-
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            className="w-full border rounded px-2 py-1"
-                            value={
-                              lump ? v.price ?? '' : v.perKmprice ?? ''
-                            }
-                            onChange={(e) =>
-                              handleVehicleChange(
-                                i,
-                                lump ? 'price' : 'perKmprice',
-                                e.target.value
-                              )
-                            }
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex justify-between gap-3">
-              <button
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-theme-dark"
-                onClick={() => setStep(1)}
-              >
-                ⬅ Back
-              </button>
-
-              <button
-                disabled={loading}
-                onClick={handleSubmit}
-                className="bg-theme-primary hover:bg-theme-secondary text-white px-6 py-2 rounded font-medium disabled:opacity-60"
-              >
-                {loading ? 'Saving...' : 'Save Package'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-);
+            </Card>
+        </div>
+    );
 };
 
 export default Createpackage;

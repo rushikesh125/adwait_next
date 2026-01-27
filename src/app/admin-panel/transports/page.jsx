@@ -2,17 +2,26 @@
 import React, { useState, useEffect } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import toast from "react-hot-toast";
 
-// import Createpackage from "./transportscreen/Createpackage";
-// import EditPackage from "./transportscreen/EditPackage";
-
-// shadcn/ui
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// shadcn/ui components
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Search, 
+  Plus, 
+  Pencil, 
+  MapPin, 
+  Car, 
+  Users, 
+  Snowflake, 
+  FlameKindling, 
+  Loader2 
+} from "lucide-react";
 
-// icons
-import { Plus, Pencil, MapPin } from "lucide-react";
 import Createpackage from "@/components/transports/CreatePackage";
 import EditPackage from "@/components/transports/EditPackage";
 
@@ -22,7 +31,6 @@ const Transport = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingData, setEditingData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [noResultsFound, setNoResultsFound] = useState(false);
 
   const fetchTransportData = async () => {
     setLoading(true);
@@ -39,6 +47,7 @@ const Transport = () => {
       setPackagesByState(stateData);
     } catch (err) {
       console.error("Error fetching:", err);
+      toast.error("Failed to load transport data");
     } finally {
       setLoading(false);
     }
@@ -48,133 +57,156 @@ const Transport = () => {
     fetchTransportData();
   }, [showModal]);
 
-  const handleSearch = (e) => {
-    const term = e.target.value.toLowerCase();
-    setSearchTerm(term);
-
-    const matches = packagesByState.some(
-      (state) =>
-        state.stateName.toLowerCase().includes(term) ||
-        state.packages.some((p) => p.name?.toLowerCase().includes(term))
+  const filteredData = packagesByState.map(state => {
+    const isStateMatch = state.stateName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchedPackages = state.packages.filter(pkg => 
+      pkg.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pkg.description?.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    setNoResultsFound(!matches);
-  };
+
+    if (isStateMatch) return state; 
+    if (matchedPackages.length > 0) return { ...state, packages: matchedPackages };
+    return null;
+  }).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-theme-muted/40 px-4 md:px-10 py-8">
-      {/* --- HEADER --- */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-theme-dark">
-          Adwait Tours - Transport Management
-        </h1>
-        <p className="text-theme-dark/60 text-sm mt-1">
-          Manage travel packages, pricing & vehicles across India.
-        </p>
-      </div>
-
-      {/* --- ACTIONBAR --- */}
-      <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-6">
-        <Button
-          className="bg-theme-primary hover:bg-theme-secondary"
-          onClick={() => setShowModal(true)}
-        >
-          <Plus className="w-4 h-4 mr-1" /> Create New Package
-        </Button>
-
-        <Input
-          type="text"
-          className="max-w-sm bg-white"
-          placeholder="Search packages or states..."
-          value={searchTerm}
-          onChange={handleSearch}
-        />
-      </div>
-
-      {/* --- LOADER --- */}
-      {loading ? (
-        <div className="flex flex-col items-center py-20 text-theme-dark">
-          <div className="animate-spin border-4 border-theme-primary/40 border-t-theme-primary rounded-full w-10 h-10"></div>
-          <p className="mt-3 text-sm">Loading transport packages...</p>
+    <div className="min-h-screen bg-slate-50/50 pb-20">
+      {/* --- STICKY HEADER --- */}
+      <div className=" z-10 bg-white/80 backdrop-blur-md border-b border-theme-muted mb-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-10 py-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-theme-dark tracking-tight">
+                Transport Management
+              </h1>
+              <p className="text-slate-500 text-sm flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Live Fleet & Package Overview
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  className="pl-9 bg-white border-slate-200 focus-visible:ring-theme-primary"
+                  placeholder="Search regions or cars..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Button
+                className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 transition-all active:scale-95"
+                onClick={() => setShowModal(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" /> Create
+              </Button>
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          {noResultsFound ? (
-            <p className="text-center text-theme-dark/60 mt-10">
-              No results found for <strong>"{searchTerm}"</strong>
-            </p>
-          ) : (
-            packagesByState.map((state) => {
-              const stateMatches = state.stateName
-                .toLowerCase()
-                .includes(searchTerm);
-              const filteredPackages = state.packages.filter((pkg) =>
-                pkg.name?.toLowerCase().includes(searchTerm)
-              );
+      </div>
 
-              if (!stateMatches && filteredPackages.length === 0) return null;
-              const listToShow = stateMatches
-                ? state.packages
-                : filteredPackages;
-
-              return (
-                <div key={state.id} className="mb-10">
-                  <h2 className="flex items-center gap-2 mb-3 text-xl font-semibold text-theme-dark">
-                    <MapPin className="w-5 h-5 text-theme-primary" />
-                    {state.stateName}
-                  </h2>
-
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {listToShow.map((pkg, idx) => (
-                      <Card
-                        key={idx}
-                        className="border border-theme-primary/20 shadow-sm hover:shadow-md transition bg-white"
-                      >
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-theme-dark text-lg">
-                            {pkg.pricingType !== "perKm" && pkg.name}
-                          </CardTitle>
-                          <p className="text-sm text-theme-dark/60">
-                            {pkg.description || "No description"} | Pricing:{" "}
-                            {pkg.pricingType}
-                          </p>
-                        </CardHeader>
-
-                        <CardContent className="space-y-2">
-                          {pkg.vehicles.map((v, vIdx) => (
-                            <div
-                              key={vIdx}
-                              className="text-sm border-b pb-1 last:border-none"
-                            >
-                              <strong>{v.type}</strong> — ₹
-                              {pkg.pricingType === "lumpsum"
-                                ? v.price ?? "N/A"
-                                : v.perKmprice ?? "N/A"}
-                              {pkg.pricingType === "perKm" && " /km"},{" "}
-                              {v.seating} Seater, {v.ac ? "AC" : "Non-AC"}
-                            </div>
-                          ))}
-
-                          <Button
-                            variant="outline"
-                            className="w-full border-theme-primary text-theme-primary hover:bg-theme-muted"
-                            onClick={() =>
-                              setEditingData({ pkg, stateId: state.id })
-                            }
-                          >
-                            <Pencil className="w-4 h-4 mr-1" /> Edit
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+      <main className="max-w-7xl mx-auto px-4 md:px-10">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-32 text-theme-dark/50">
+            <Loader2 className="w-10 h-10 animate-spin text-theme-primary mb-4" />
+            <p className="font-medium">Syncing database...</p>
+          </div>
+        ) : filteredData.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
+            <div className="bg-theme-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="text-theme-primary w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-semibold text-theme-dark">No packages found</h3>
+            <p className="text-slate-500">Try adjusting your search or filters.</p>
+          </div>
+        ) : (
+          filteredData.map((state) => (
+            <section key={state.id} className="mb-12">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-theme-primary text-white">
+                  <MapPin className="w-5 h-5" />
                 </div>
-              );
-            })
-          )}
-        </>
-      )}
+                <h2 className="text-xl font-bold text-theme-dark uppercase tracking-wide">
+                  {state.stateName}
+                </h2>
+                <Badge variant="secondary" className="bg-theme-muted text-theme-dark border-none">
+                  {state.packages.length} Packages
+                </Badge>
+                <Separator className="flex-1" />
+              </div>
 
-      {/* --- MODALS PRESERVED --- */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {state.packages.map((pkg, idx) => (
+                  <Card key={idx} className="group overflow-hidden border-none shadow-sm hover:shadow-xl transition-all duration-300 ring-1 ring-slate-200">
+                    <div className="h-2 bg-gradient-to-r from-theme-gradient-from to-theme-gradient-to" />
+                    <CardHeader className="space-y-1">
+                      <div className="flex justify-between items-start">
+                        <Badge variant="outline" className="capitalize text-[10px] font-bold border-theme-primary/30 text-theme-primary">
+                          {pkg.pricingType}
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-theme-dark group-hover:text-theme-primary transition-colors">
+                        {pkg.pricingType === "perKm" ? "Standard Fleet Rates" : pkg.name}
+                      </CardTitle>
+                      <CardDescription className="line-clamp-2">
+                        {pkg.description || "Comprehensive travel solution with premium vehicle options."}
+                      </CardDescription>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {pkg.vehicles.map((v, vIdx) => (
+                          <div key={vIdx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 hover:bg-theme-muted/50 transition-colors border border-transparent hover:border-theme-muted">
+                            <div className="flex items-center gap-3">
+                              <div className="p-1.5 bg-white rounded border border-slate-100 shadow-sm">
+                                <Car className="w-3.5 h-3.5 text-theme-dark" />
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-slate-700">{v.type}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] flex items-center text-slate-500">
+                                    <Users className="w-3 h-3 mr-1" /> {v.seating}
+                                  </span>
+                                  <span className="text-[10px] flex items-center text-slate-500">
+                                    {v.ac ? (
+                                      <Snowflake className="w-3 h-3 mr-1 text-blue-400" />
+                                    ) : (
+                                      <FlameKindling className="w-3 h-3 mr-1 text-orange-400" />
+                                    )}
+                                    {v.ac ? "AC" : "Non-AC"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-theme-primary">
+                                ₹{pkg.pricingType === "lumpsum" ? v.price : v.perKmprice}
+                                {pkg.pricingType === "perKm" && <span className="text-[10px] font-normal text-slate-400">/km</span>}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        className="w-full bg-slate-50 text-theme-dark hover:bg-theme-primary hover:text-white group"
+                        onClick={() => setEditingData({ pkg, stateId: state.id })}
+                      >
+                        <Pencil className="w-3.5 h-3.5 mr-2 opacity-50 group-hover:opacity-100" />
+                        Modify Package
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+      </main>
+
+      {/* --- MODALS --- */}
       {showModal && <Createpackage onClose={() => setShowModal(false)} />}
 
       {editingData && (
@@ -184,7 +216,10 @@ const Transport = () => {
           packageId={editingData.pkg.id}
           pricingType={editingData.pkg.pricingType}
           onClose={() => setEditingData(null)}
-          onSuccess={fetchTransportData}
+          onSuccess={() => {
+            fetchTransportData();
+            toast.success("Package updated successfully");
+          }}
         />
       )}
     </div>
