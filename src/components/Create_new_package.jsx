@@ -939,7 +939,7 @@ const Create_new_package = ({
                   />
 
                   <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-100">
-                    {/* <button
+                    <button
                       className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
                       onClick={() => {
                         const selectedHotelFullData = hotels.find(
@@ -979,7 +979,7 @@ const Create_new_package = ({
                       }}
                     >
                       {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
-                    </button> */}
+                    </button>
 
                     {isReadyToAddAnother && (
                       <button
