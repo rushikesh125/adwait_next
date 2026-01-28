@@ -1,4 +1,3 @@
-// src/components/SelectActivities.jsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -8,16 +7,15 @@ import {
   MapPin,
   ChevronRight,
   Loader2,
-  ShoppingCart,
   Trash2,
   Pencil,
+  Badge,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -80,7 +78,9 @@ const SelectActivities = ({ onDone }) => {
     const isFit = type === "fit";
     const setter = isFit ? setSelectedActivitiesFit : setSelectedActivitiesGroup;
     const min = isFit ? 1 : 10;
-    const safeValue = Math.max(min, Number(value) || min);
+    
+    // Allow empty string while typing, but default to min on blur/finalize logic
+    const safeValue = value === "" ? "" : Math.max(min, Number(value));
 
     setter((prev) =>
       prev.map((a) =>
@@ -91,12 +91,12 @@ const SelectActivities = ({ onDone }) => {
 
   /* ---------------- Totals ---------------- */
   const totalFIT = selectedActivitiesFit.reduce(
-    (sum, a) => sum + a.participants * Number(a.fitRatePerPerson || 0),
+    (sum, a) => sum + (Number(a.participants || 0) * Number(a.fitRatePerPerson || 0)),
     0
   );
 
   const totalGroup = selectedActivitiesGroup.reduce(
-    (sum, a) => sum + Number(a.groupRatePerPerson || 0),
+    (sum, a) => sum + (Number(a.participants || 0) * Number(a.groupRatePerPerson || 0)),
     0
   );
 
@@ -108,12 +108,14 @@ const SelectActivities = ({ onDone }) => {
       ...selectedActivitiesFit.map((a) => ({
         ...a,
         type: "fit",
-        totalPrice: a.participants * a.fitRatePerPerson,
+        participants: Number(a.participants) || 1,
+        totalPrice: (Number(a.participants) || 1) * a.fitRatePerPerson,
       })),
       ...selectedActivitiesGroup.map((a) => ({
         ...a,
         type: "group",
-        totalPrice: a.groupRatePerPerson, // ✅ FIXED
+        participants: Number(a.participants) || 10,
+        totalPrice: (Number(a.participants) || 10) * a.groupRatePerPerson,
       })),
     ];
 
@@ -126,7 +128,6 @@ const SelectActivities = ({ onDone }) => {
     setSelectedActivitiesGroup([]);
   };
 
-  /* ---------------- Closed State ---------------- */
   if (!showDropdown) {
     return (
       <div className="flex gap-4">
@@ -148,129 +149,138 @@ const SelectActivities = ({ onDone }) => {
     );
   }
 
-  /* ---------------- UI ---------------- */
   return (
     <Card className="border-theme-muted shadow-sm">
       <CardHeader className="bg-theme-muted/40">
-        <div className="flex justify-between">
+        <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="flex items-center md:gap-2">
+            <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-theme-primary" />
               Activities & Sightseeing
             </CardTitle>
-            <CardDescription>Select experiences by group size</CardDescription>
+            <CardDescription>Select experiences and adjust quantities</CardDescription>
           </div>
 
           {(selectedActivitiesFit.length + selectedActivitiesGroup.length > 0) && (
-            <Button variant="ghost" onClick={handleClearAll} className="text-red-600">
+            <Button variant="ghost" onClick={handleClearAll} className="text-red-600 hover:bg-red-50">
               <Trash2 className="h-4 w-4 mr-1" />
-              Clear All
+              Clear
             </Button>
           )}
         </div>
       </CardHeader>
 
-      <CardContent>
-        {/* Destination */}
+      <CardContent className="pt-6">
         <Select value={selectedState} onValueChange={setSelectedState}>
-          <SelectTrigger>
-            {loading ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <SelectValue placeholder="Select State" />
-            )}
+          <SelectTrigger className="w-full">
+            {loading ? <Loader2 className="animate-spin h-4 w-4" /> : <SelectValue placeholder="Choose Destination State" />}
           </SelectTrigger>
           <SelectContent>
             {states.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
+              <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        {/* Activities */}
         {selectedState && (
           <>
             <Tabs value={pricingType} onValueChange={setPricingType} className="mt-6">
-              <TabsList className="grid grid-cols-2">
-                <TabsTrigger value="fit">
-                  <User className="mr-2 h-4 w-4" />
-                  FIT
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="fit" className="relative">
+                  <User className="mr-2 h-4 w-4" /> FIT 
+                  {selectedActivitiesFit.length > 0 && <span className="ml-2 bg-theme-primary text-white text-[10px] rounded-full px-1.5">{selectedActivitiesFit.length}</span>}
                 </TabsTrigger>
-                <TabsTrigger value="group">
-                  <Users className="mr-2 h-4 w-4" />
-                  GROUP
+                <TabsTrigger value="group" className="relative">
+                  <Users className="mr-2 h-4 w-4" /> GROUP
+                  {selectedActivitiesGroup.length > 0 && <span className="ml-2 bg-theme-primary text-white text-[10px] rounded-full px-1.5">{selectedActivitiesGroup.length}</span>}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
-            <ScrollArea className="h-[420px] mt-4 pr-4">
-              {activities.map((act) => {
-                const list =
-                  pricingType === "fit"
-                    ? selectedActivitiesFit
-                    : selectedActivitiesGroup;
+            {activityLoading ? (
+              <div className="h-[420px] flex items-center justify-center">
+                <Loader2 className="animate-spin text-theme-primary" />
+              </div>
+            ) : (
+              <ScrollArea className="h-[420px] mt-4 pr-4">
+                {activities.map((act) => {
+                  const isFit = pricingType === "fit";
+                  const list = isFit ? selectedActivitiesFit : selectedActivitiesGroup;
+                  const selected = list.find((a) => a.name === act.name);
+                  const rate = isFit ? act.fitRatePerPerson : act.groupRatePerPerson;
 
-                const selected = list.find((a) => a.name === act.name);
-                const rate =
-                  pricingType === "fit"
-                    ? act.fitRatePerPerson
-                    : act.groupRatePerPerson;
+                  return (
+                    <div key={act.name} className={`p-4 border rounded-xl mb-3 transition-colors ${selected ? 'border-theme-primary bg-theme-primary/5' : 'bg-white'}`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-semibold text-slate-800">{act.name}</h4>
+                          <p className="text-xs text-slate-500 uppercase tracking-wide">{act.city}</p>
+                        </div>
+                        <Badge variant="outline" className="text-theme-primary border-theme-primary/30">
+                          ₹{rate.toLocaleString()} / pax
+                        </Badge>
+                      </div>
 
-                return (
-                  <div key={act.name} className="p-2 md:p-4 border rounded-xl mb-3">
-                    <h4 className="font-semibold">{act.name}</h4>
-                    <p className="text-sm text-slate-500">{act.city}</p>
+                      <div className="flex justify-between items-center mt-4">
+                        <div className="flex items-center gap-2">
+                          {selected ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-slate-600">Participants:</span>
+                              <Input
+                                type="number"
+                                min={isFit ? 1 : 10}
+                                value={selected.participants}
+                                onChange={(e) => handleQtyChange(act.name, e.target.value, pricingType)}
+                                className="w-20 h-8 border-theme-primary"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">Not selected</span>
+                          )}
+                        </div>
 
-                    <div className="flex justify-between items-center mt-3">
-                      <span className="text-theme-primary font-medium">
-                        ₹{rate.toLocaleString()}
-                        {pricingType === "fit" && " / person"}
-                      </span>
-
+                        <Button
+                          size="sm"
+                          variant={selected ? "destructive" : "outline"}
+                          onClick={() => handleToggle(act, pricingType)}
+                          className="h-8"
+                        >
+                          {selected ? "Remove" : "Add to List"}
+                        </Button>
+                      </div>
+                      
                       {selected && (
-                        <Input
-                          type="number"
-                          min={pricingType === "fit" ? 1 : 10}
-                          value={selected.participants}
-                          onChange={(e) =>
-                            handleQtyChange(act.name, e.target.value, pricingType)
-                          }
-                          className="w-20"
-                        />
+                        <div className="mt-2 text-right">
+                          <p className="text-[10px] text-slate-500">
+                            Subtotal: ₹{(selected.participants * rate).toLocaleString("en-IN")}
+                          </p>
+                        </div>
                       )}
-
-                      <Button
-                        size="sm"
-                        variant={selected ? "destructive" : "outline"}
-                        onClick={() => handleToggle(act, pricingType)}
-                      >
-                        {selected ? "Remove" : "Select"}
-                      </Button>
                     </div>
-                  </div>
-                );
-              })}
-            </ScrollArea>
+                  );
+                })}
+              </ScrollArea>
+            )}
 
-            {/* Summary */}
-            <div className="mt-6 border-t pt-6">
-              <div className="flex justify-between text-lg font-semibold">
-                <span>Total</span>
-                <span className="text-theme-primary">
+            <div className="mt-6 border-t pt-4 bg-white">
+              <div className="flex justify-between items-end mb-4">
+                <div className="text-xs text-slate-500 uppercase font-bold tracking-widest">Estimated Total</div>
+                <div className="text-2xl font-black text-theme-primary italic">
                   ₹{totalOverall.toLocaleString("en-IN")}
-                </span>
+                </div>
               </div>
 
-              <Button
-                className="w-full mt-4 bg-theme-primary text-white py-6"
-                disabled={totalOverall === 0}
-                onClick={handleFinalize}
-              >
-                Confirm & Add to Package
-                <ChevronRight className="ml-2 h-5 w-5" />
-              </Button>
+              <div className="flex gap-3">
+                <Button variant="ghost" onClick={() => setShowDropdown(false)} className="flex-1">Cancel</Button>
+                <Button
+                  className="flex-[2] bg-theme-primary text-white"
+                  disabled={totalOverall === 0}
+                  onClick={handleFinalize}
+                >
+                  Confirm Selection
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </>
         )}
