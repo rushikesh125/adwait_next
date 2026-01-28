@@ -23,10 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Plus, MapPin, Star, Filter, ArrowUpDown, Building, MoreHorizontal } from "lucide-react";
+import { Search, Plus, MapPin, Star, ArrowUpDown, Building, MoreHorizontal, Globe } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 const Accommodation = () => {
@@ -36,7 +36,6 @@ const Accommodation = () => {
   const [stateFilter, setStateFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name");
 
-  // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -51,25 +50,30 @@ const Accommodation = () => {
       const snap = await getDocs(collection(db, "hotels"));
       setHotels(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (err) {
-      toast.error("Failed to sync with inventory");
+      toast.error("Failed to sync inventory");
     } finally {
       setLoading(false);
     }
   };
 
-  // 1. Get Unique States for Filter Dropdown
   const uniqueStates = useMemo(() => {
     const states = new Set(hotels.map(h => h.state).filter(Boolean));
     return Array.from(states).sort();
   }, [hotels]);
 
-  // 2. Filter and Sort Logic
+  // Updated Filter Logic: Search checks Name, City, and State
   const processedHotels = useMemo(() => {
     return hotels
       .filter(h => {
-        const matchesSearch = (h.name || "").toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesState = stateFilter === "all" || h.state === stateFilter;
-        return matchesSearch && matchesState;
+        const query = searchQuery.toLowerCase().trim();
+        const matchesSearch = 
+          (h.name || "").toLowerCase().includes(query) ||
+          (h.city || "").toLowerCase().includes(query) ||
+          (h.state || "").toLowerCase().includes(query);
+          
+        const matchesStateDropdown = stateFilter === "all" || h.state === stateFilter;
+        
+        return matchesSearch && matchesStateDropdown;
       })
       .sort((a, b) => {
         if (sortBy === "rating") return (b.rating || 0) - (a.rating || 0);
@@ -81,134 +85,140 @@ const Accommodation = () => {
   const toTitleCase = (str) => (str || "").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <div className="p-1 md:p-6 space-y-6">
+    <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
       <Toaster />
 
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-xl border shadow-sm">
+      {/* Modern Dashboard Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Accommodation Library</h1>
-          <p className="text-slate-500 text-sm">Manage {hotels.length} properties across {uniqueStates.length} regions.</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Accommodations</h1>
+          <p className="text-slate-500 font-medium">Manage property details, ratings, and room inventory.</p>
         </div>
         <Button 
           onClick={() => setShowAddModal(true)}
-          className="bg-theme-primary hover:bg-theme-secondary text-white px-6"
+          className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 h-11 px-6"
         >
-          <Plus className="mr-2 h-4 w-4" /> Add New Property
+          <Plus className="mr-2 h-5 w-5" /> Add Property
         </Button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input 
-            placeholder="Search property name..." 
-            className="pl-9 bg-white"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      {/* Advanced Filter Toolbar */}
+      <Card className="p-2 border-slate-200 bg-white/50 backdrop-blur-md">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[300px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input 
+              placeholder="Search by hotel, city, or state..." 
+              className="pl-10 bg-white border-slate-200 focus-visible:ring-theme-primary h-11"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Select value={stateFilter} onValueChange={setStateFilter}>
+              <SelectTrigger className="w-[160px] bg-white h-11 border-slate-200">
+                <Globe className="h-4 w-4 mr-2 text-slate-400" />
+                <SelectValue placeholder="Region" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Regions</SelectItem>
+                {uniqueStates.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[160px] bg-white h-11 border-slate-200">
+                <ArrowUpDown className="h-4 w-4 mr-2 text-slate-400" />
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Alphabetical</SelectItem>
+                <SelectItem value="rating">Top Rated</SelectItem>
+                <SelectItem value="location">By Location</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-
-        <Select value={stateFilter} onValueChange={setStateFilter}>
-          <SelectTrigger className="w-[180px] bg-white">
-            <MapPin className="h-4 w-4 mr-2 text-slate-400" />
-            <SelectValue placeholder="All States" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Regions</SelectItem>
-            {uniqueStates.map(s => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-[180px] bg-white">
-            <ArrowUpDown className="h-4 w-4 mr-2 text-slate-400" />
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="name">Sort by Name</SelectItem>
-            <SelectItem value="rating">Top Rated</SelectItem>
-            <SelectItem value="location">By Location</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      </Card>
 
       {/* Table Section */}
-      <Card className="shadow-sm overflow-hidden border-slate-200">
+      <Card className="shadow-xl shadow-slate-200/50 overflow-hidden border-slate-200 bg-white">
         <Table>
-          <TableHeader className="bg-slate-50/50">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[400px]">Property & Location</TableHead>
-              <TableHead>Rooms</TableHead>
-              <TableHead className="text-center">Rating</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+          <TableHeader className="bg-slate-50 border-b border-slate-200">
+            <TableRow className="hover:bg-transparent uppercase tracking-wider">
+              <TableHead className="w-[45%] text-[11px] font-bold text-slate-500 py-4">Property Information</TableHead>
+              <TableHead className="text-[11px] font-bold text-slate-500">Categories</TableHead>
+              <TableHead className="text-center text-[11px] font-bold text-slate-500">Quality Score</TableHead>
+              <TableHead className="text-right text-[11px] font-bold text-slate-500 pr-6">Manage</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               [...Array(5)].map((_, i) => (
-                <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-12 w-full" /></TableCell></TableRow>
+                <TableRow key={i}><TableCell colSpan={4} className="p-4"><Skeleton className="h-14 w-full rounded-lg" /></TableCell></TableRow>
               ))
             ) : processedHotels.length > 0 ? (
               processedHotels.map((hotel, index) => {
-                // Show location header only if it's different from the previous hotel when sorted by location
                 const showLocationHeader = sortBy === "location" && 
                   (index === 0 || hotel.city !== processedHotels[index-1].city);
 
                 return (
                   <React.Fragment key={hotel.id}>
                     {showLocationHeader && (
-                      <TableRow className="bg-slate-100/50 hover:bg-slate-100/50 border-y border-slate-200">
-                        <TableCell colSpan={4} className="py-2 px-4 font-bold text-[11px] uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                          <MapPin className="h-3 w-3" /> {hotel.city}, {hotel.state}
+                      <TableRow className="bg-slate-50/80 hover:bg-slate-50/80 border-y border-slate-100">
+                        <TableCell colSpan={4} className="py-2.5 px-6">
+                           <div className="flex items-center gap-2 text-theme-primary font-bold text-xs uppercase tracking-widest">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {hotel.city}, {hotel.state}
+                           </div>
                         </TableCell>
                       </TableRow>
                     )}
-                    <TableRow className="group transition-colors hover:bg-slate-50/80">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-theme-muted flex items-center justify-center text-theme-primary">
-                            <Building className="h-5 w-5" />
+                    <TableRow className="group border-b border-slate-50 hover:bg-theme-muted/10 transition-all cursor-pointer" onClick={() => { setSelectedHotel(hotel); setIsEditModalOpen(true); }}>
+                      <TableCell className="py-4 px-6">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-theme-primary/10 group-hover:text-theme-primary transition-colors border border-slate-200/50">
+                            <Building className="h-6 w-6" />
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-slate-900 leading-none mb-1">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-bold text-slate-900 text-base">
                               {toTitleCase(hotel.name)}
                             </span>
-                            <span className="text-xs text-slate-500">
+                            <div className="flex items-center text-slate-500 text-xs font-medium">
+                              <MapPin className="h-3 w-3 mr-1" />
                               {hotel.city}, {hotel.state}
-                            </span>
+                            </div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {hotel.rooms?.slice(0, 2).map((r, i) => (
-                            <Badge key={i} variant="secondary" className="bg-white border text-[10px] font-medium">
+                            <Badge key={i} variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 text-[10px] py-0.5 px-2 rounded-md font-semibold">
                               {r.categoryName}
                             </Badge>
                           ))}
                           {hotel.rooms?.length > 2 && (
-                            <span className="text-[10px] text-slate-400 font-medium">+{hotel.rooms.length - 2} more</span>
+                            <Badge variant="ghost" className="text-[10px] text-slate-400 font-bold">+ {hotel.rooms.length - 2}</Badge>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          <span className="text-xs font-bold">{hotel.rating || "N/A"}</span>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/50 shadow-sm">
+                          <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                          <span className="text-sm font-black">{hotel.rating || "N/A"}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right pr-6">
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="hover:text-theme-primary transition-colors"
-                          onClick={() => { setSelectedHotel(hotel); setIsEditModalOpen(true); }}
+                          variant="secondary" 
+                          size="sm" 
+                          className="opacity-0 group-hover:opacity-100 transition-all bg-white border border-slate-200 text-slate-600 hover:text-theme-primary h-8"
                         >
-                          <MoreHorizontal className="h-5 w-5" />
+                          Details
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -217,8 +227,14 @@ const Accommodation = () => {
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center text-slate-500">
-                  No properties match your current filters.
+                <TableCell colSpan={4} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="p-4 bg-slate-50 rounded-full">
+                      <Search className="h-8 w-8 text-slate-300" />
+                    </div>
+                    <p className="text-slate-500 font-medium">No results found for "{searchQuery}"</p>
+                    <Button variant="link" onClick={() => {setSearchQuery(""); setStateFilter("all");}} className="text-theme-primary font-bold">Clear all filters</Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
@@ -227,9 +243,7 @@ const Accommodation = () => {
       </Card>
 
       {/* Modals remain the same... */}
-      {showAddModal && (
-        <AddHotel onClose={() => { setShowAddModal(false); fetchHotels(); }} />
-      )}
+      {showAddModal && <AddHotel onClose={() => { setShowAddModal(false); fetchHotels(); }} />}
       {isEditModalOpen && selectedHotel && (
         <EditHotel 
           hotel={selectedHotel} 
