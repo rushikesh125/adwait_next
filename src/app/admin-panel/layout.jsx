@@ -52,8 +52,8 @@ const AdminPanelLayout = ({ children }) => {
     { name: "Accommodations", href: "/admin-panel/accommodations", icon: ShieldCheck },
     { name: "Transports", href: "/admin-panel/transports", icon: TruckElectric },
     { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
-    { name: "Analytics", href: "/admin-panel/analytics", icon: BarChart3 },
-    { name: "Settings", href: "/admin-panel/settings", icon: Settings },
+    // { name: "Analytics", href: "/admin-panel/analytics", icon: BarChart3 },
+    // { name: "Settings", href: "/admin-panel/settings", icon: Settings },
   ];
 
   const SidebarContent = ({ mobile = false }) => (

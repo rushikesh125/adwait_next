@@ -56,8 +56,8 @@ const AgentPanelLayout = ({ children }) => {
     { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
     { name: "My Qutations", href: "/agent-panel/my-quatation", icon: Map },
     { name: "Customers", href: "/agent-dashboard/customers", icon: Users },
-    { name: "Bookings", href: "/agent-dashboard/bookings", icon: Briefcase },
-    { name: "Settings", href: "/agent-dashboard/settings", icon: Settings },
+    // { name: "Bookings", href: "/agent-dashboard/bookings", icon: Briefcase },
+    // { name: "Settings", href: "/agent-dashboard/settings", icon: Settings },
   ];
 
   const SidebarContent = ({ mobile = false }) => (

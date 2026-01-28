@@ -1143,7 +1143,7 @@ const Create_new_package = ({
               </h3>
               {!showTransportSection ? (
                 <button
-                  className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-all"
+                  className="w-full py-2.5 bg-theme-primary  rounded-lg hover:bg-theme-dark text-white "
                   onClick={() => setShowTransportSection(true)}
                 >
                   Add Transport
@@ -1163,7 +1163,7 @@ const Create_new_package = ({
                 <Palmtree className="w-4 h-4" /> Activities
               </h3>
               <button
-                className="w-full py-2.5 bg-theme-dark text-white rounded-lg hover:bg-black transition-all"
+                className="w-full py-2.5 bg-theme-primary text-white rounded-lg hover:bg-theme-dark transition-all"
                 onClick={() => setShowActivitiesSection(true)}
               >
                 Add Activities

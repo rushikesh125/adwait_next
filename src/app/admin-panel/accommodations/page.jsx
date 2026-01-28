@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { collection, deleteDoc, doc, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import AddHotel from "@/components/accommodation/AddHotel";
@@ -16,21 +16,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-
-import { Plus, MapPin, Search, Edit, Star, Hotel, Building2, ArrowRight } from "lucide-react";
+import { Search, Plus, MapPin, Star, Filter, ArrowUpDown, Building, MoreHorizontal } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 const Accommodation = () => {
   const [hotels, setHotels] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showAddHotelModal, setShowAddHotelModal] = useState(false);
+  const [stateFilter, setStateFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
+
+  // Modal States
+  const [showAddModal, setShowAddModal] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchHotels();
@@ -39,268 +48,194 @@ const Accommodation = () => {
   const fetchHotels = async () => {
     try {
       setLoading(true);
-      const querySnapshot = await getDocs(collection(db, "hotels"));
-
-      const hotelList = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          rooms: data.rooms || [],
-        };
-      });
-
-      const uniqueHotelsMap = new Map();
-      hotelList.forEach((hotel) => {
-        const key = `${(hotel.name || "").toLowerCase()}-${(hotel.state || "").toLowerCase()}-${(hotel.city || "").toLowerCase()}`;
-        if (!uniqueHotelsMap.has(key)) {
-          uniqueHotelsMap.set(key, hotel);
-        }
-      });
-
-      setHotels(Array.from(uniqueHotelsMap.values()));
-    } catch (error) {
-      console.error("Error fetching hotels:", error);
-      toast.error("Failed to load hotels");
+      const snap = await getDocs(collection(db, "hotels"));
+      setHotels(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      toast.error("Failed to sync with inventory");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredHotels = hotels.filter((hotel) => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      (hotel.name || "").toLowerCase().includes(q) ||
-      (hotel.city || "").toLowerCase().includes(q) ||
-      (hotel.state || "").toLowerCase().includes(q)
-    );
-  });
+  // 1. Get Unique States for Filter Dropdown
+  const uniqueStates = useMemo(() => {
+    const states = new Set(hotels.map(h => h.state).filter(Boolean));
+    return Array.from(states).sort();
+  }, [hotels]);
 
-  const groupedHotels = filteredHotels.reduce((acc, hotel) => {
-    const key = `${hotel.state || "Unknown"}-${hotel.city || "Unknown"}`;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(hotel);
-    return acc;
-  }, {});
+  // 2. Filter and Sort Logic
+  const processedHotels = useMemo(() => {
+    return hotels
+      .filter(h => {
+        const matchesSearch = (h.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesState = stateFilter === "all" || h.state === stateFilter;
+        return matchesSearch && matchesState;
+      })
+      .sort((a, b) => {
+        if (sortBy === "rating") return (b.rating || 0) - (a.rating || 0);
+        if (sortBy === "location") return `${a.state}${a.city}`.localeCompare(`${b.state}${b.city}`);
+        return (a.name || "").localeCompare(b.name || "");
+      });
+  }, [hotels, searchQuery, stateFilter, sortBy]);
 
-  const handleEditHotel = (hotel) => {
-    setSelectedHotel(hotel);
-    setIsEditModalOpen(true);
-  };
-
-  const handleSaveHotel = async (updatedHotel) => {
-    try {
-      await updateDoc(doc(db, "hotels", updatedHotel.id), updatedHotel);
-      toast.success("Hotel updated successfully");
-      fetchHotels();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to update hotel");
-    }
-  };
-
-  const handleDeleteHotel = async (hotelId) => {
-    if (!window.confirm("Are you sure you want to delete this hotel?")) return;
-
-    try {
-      await deleteDoc(doc(db, "hotels", hotelId));
-      toast.success("Hotel removed from inventory");
-      fetchHotels();
-      setIsEditModalOpen(false);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete hotel");
-    }
-  };
-
-  // Helper for Title Case
-  const toTitleCase = (str) => {
-    return (str || "Unnamed").toLowerCase().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-  };
+  const toTitleCase = (str) => (str || "").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-12">
-      <Toaster position="top-right" />
+    <div className="p-1 md:p-6 space-y-6">
+      <Toaster />
 
-      {/* Hero Header Section */}
-      <div className="bg-white border-b mb-8">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-2">
-              <Badge variant="outline" className="text-theme-primary border-theme-primary/30 bg-theme-muted/50 px-3 py-1">
-                Inventory Dashboard
-              </Badge>
-              <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
-                Accommodation <span className="text-theme-primary">Management</span>
-              </h1>
-              <p className="text-slate-500 max-w-md">
-                Easily organize properties, monitor room categories, and maintain quality ratings across your global locations.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative w-full sm:w-72">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Search properties..."
-                  className="pl-9 bg-slate-50 border-slate-200 focus:ring-theme-primary"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <Button 
-                onClick={() => setShowAddHotelModal(true)}
-                className="w-full sm:w-auto bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 transition-all active:scale-95"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add New Property
-              </Button>
-            </div>
-          </div>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-xl border shadow-sm">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Accommodation Library</h1>
+          <p className="text-slate-500 text-sm">Manage {hotels.length} properties across {uniqueStates.length} regions.</p>
         </div>
+        <Button 
+          onClick={() => setShowAddModal(true)}
+          className="bg-theme-primary hover:bg-theme-secondary text-white px-6"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Add New Property
+        </Button>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 space-y-10">
-        {loading ? (
-          <div className="grid gap-6">
-            {[1, 2].map((i) => (
-              <Skeleton key={i} className="h-[300px] w-full rounded-xl" />
+      {/* Filter Bar */}
+      <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input 
+            placeholder="Search property name..." 
+            className="pl-9 bg-white"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <Select value={stateFilter} onValueChange={setStateFilter}>
+          <SelectTrigger className="w-[180px] bg-white">
+            <MapPin className="h-4 w-4 mr-2 text-slate-400" />
+            <SelectValue placeholder="All States" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Regions</SelectItem>
+            {uniqueStates.map(s => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
-          </div>
-        ) : Object.keys(groupedHotels).length === 0 ? (
-          <Card className="border-dashed border-2 bg-transparent py-20 text-center">
-            <CardContent className="flex flex-col items-center">
-              <div className="bg-slate-100 p-4 rounded-full mb-4">
-                <Hotel className="h-10 w-10 text-slate-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900">No properties found</h3>
-              <p className="text-slate-500 mt-2">Try adjusting your filters or add a new listing.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          Object.entries(groupedHotels).map(([locationKey, hotelsInGroup]) => {
-            const [state, city] = locationKey.split("-");
-            return (
-              <section key={locationKey} className="space-y-4">
-                <div className="flex items-center gap-3 px-1">
-                  <div className="p-2 rounded-lg bg-theme-primary text-white shadow-md shadow-theme-primary/30">
-                    <MapPin className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-800 uppercase tracking-wide">{city}</h2>
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-widest">{state}</p>
-                  </div>
-                  <div className="flex-1 border-b border-slate-200 ml-4"></div>
-                </div>
+          </SelectContent>
+        </Select>
 
-                <div className="grid grid-cols-1 gap-4">
-                  <Card className="border-none shadow-sm overflow-hidden bg-white">
-                    <Table>
-                      <TableHeader className="bg-slate-50/50">
-                        <TableRow className="hover:bg-transparent border-b-slate-100">
-                          <TableHead className="font-semibold text-slate-700">Property Details</TableHead>
-                          <TableHead className="font-semibold text-slate-700">Room Availability</TableHead>
-                          <TableHead className="font-semibold text-slate-700 text-center">Standard</TableHead>
-                          <TableHead className="text-right"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {hotelsInGroup.map((hotel) => (
-                          <TableRow
-                            key={hotel.id}
-                            className="group cursor-pointer hover:bg-theme-muted/30 transition-all border-b-slate-50"
-                            onClick={() => handleEditHotel(hotel)}
-                          >
-                            <TableCell>
-                              <div className="flex flex-col">
-                                <span className="font-bold text-slate-900 group-hover:text-theme-dark transition-colors">
-                                  {toTitleCase(hotel.name)}
-                                </span>
-                                <span className="text-xs text-slate-500 flex items-center mt-1">
-                                  <Building2 className="h-3 w-3 mr-1" /> ID: {hotel.id.slice(0, 8)}
-                                </span>
-                              </div>
-                            </TableCell>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[180px] bg-white">
+            <ArrowUpDown className="h-4 w-4 mr-2 text-slate-400" />
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Sort by Name</SelectItem>
+            <SelectItem value="rating">Top Rated</SelectItem>
+            <SelectItem value="location">By Location</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1.5">
-                                {hotel.rooms?.length ? (
-                                  hotel.rooms.slice(0, 3).map((r, i) => (
-                                    <Badge key={i} variant="secondary" className="bg-white border-slate-200 text-slate-600 font-normal">
-                                      {r.categoryName}
-                                    </Badge>
-                                  ))
-                                ) : (
-                                  <span className="text-slate-400 text-sm italic">No rooms configured</span>
-                                )}
-                                {hotel.rooms?.length > 3 && (
-                                  <Badge variant="secondary" className="bg-slate-100 text-slate-500">
-                                    +{hotel.rooms.length - 3} more
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
+      {/* Table Section */}
+      <Card className="shadow-sm overflow-hidden border-slate-200">
+        <Table>
+          <TableHeader className="bg-slate-50/50">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[400px]">Property & Location</TableHead>
+              <TableHead>Rooms</TableHead>
+              <TableHead className="text-center">Rating</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              [...Array(5)].map((_, i) => (
+                <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-12 w-full" /></TableCell></TableRow>
+              ))
+            ) : processedHotels.length > 0 ? (
+              processedHotels.map((hotel, index) => {
+                // Show location header only if it's different from the previous hotel when sorted by location
+                const showLocationHeader = sortBy === "location" && 
+                  (index === 0 || hotel.city !== processedHotels[index-1].city);
 
-                            <TableCell>
-                              <div className="flex items-center justify-center">
-                                <div className="flex items-center gap-1.5 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
-                                  <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                                  <span className="text-sm font-bold text-amber-700">{hotel.rating ?? "N/A"}</span>
-                                </div>
-                              </div>
-                            </TableCell>
+                return (
+                  <React.Fragment key={hotel.id}>
+                    {showLocationHeader && (
+                      <TableRow className="bg-slate-100/50 hover:bg-slate-100/50 border-y border-slate-200">
+                        <TableCell colSpan={4} className="py-2 px-4 font-bold text-[11px] uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                          <MapPin className="h-3 w-3" /> {hotel.city}, {hotel.state}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow className="group transition-colors hover:bg-slate-50/80">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-theme-muted flex items-center justify-center text-theme-primary">
+                            <Building className="h-5 w-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-slate-900 leading-none mb-1">
+                              {toTitleCase(hotel.name)}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {hotel.city}, {hotel.state}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {hotel.rooms?.slice(0, 2).map((r, i) => (
+                            <Badge key={i} variant="secondary" className="bg-white border text-[10px] font-medium">
+                              {r.categoryName}
+                            </Badge>
+                          ))}
+                          {hotel.rooms?.length > 2 && (
+                            <span className="text-[10px] text-slate-400 font-medium">+{hotel.rooms.length - 2} more</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                          <span className="text-xs font-bold">{hotel.rating || "N/A"}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="hover:text-theme-primary transition-colors"
+                          onClick={() => { setSelectedHotel(hotel); setIsEditModalOpen(true); }}
+                        >
+                          <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                );
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="h-32 text-center text-slate-500">
+                  No properties match your current filters.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
 
-                            <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity text-theme-primary hover:text-theme-secondary hover:bg-theme-muted"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditHotel(hotel);
-                                }}
-                              >
-                                <span className="mr-2 hidden sm:inline text-xs font-semibold uppercase">Manage</span>
-                                <ArrowRight className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </Card>
-                </div>
-              </section>
-            );
-          })
-        )}
-      </main>
-
-      {/* Modals */}
-      {showAddHotelModal && (
-        <AddHotel
-          onClose={() => {
-            setShowAddHotelModal(false);
-            fetchHotels();
-          }}
-          hotelToEdit={null}
-        />
+      {/* Modals remain the same... */}
+      {showAddModal && (
+        <AddHotel onClose={() => { setShowAddModal(false); fetchHotels(); }} />
       )}
-
       {isEditModalOpen && selectedHotel && (
-        <>
-          <div
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity"
-            onClick={() => setIsEditModalOpen(false)}
-          />
-          <EditHotel
-            hotel={selectedHotel}
-            onClose={() => setIsEditModalOpen(false)}
-            onSave={handleSaveHotel}
-            onDelete={handleDeleteHotel}
-          />
-        </>
+        <EditHotel 
+          hotel={selectedHotel} 
+          onClose={() => setIsEditModalOpen(false)} 
+          onSave={() => { fetchHotels(); setIsEditModalOpen(false); }}
+        />
       )}
     </div>
   );

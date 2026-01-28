@@ -74,14 +74,6 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Quick Stats bar */}
-          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-200">
-            <StatItem label="Pending" value={stats.pendingBookings} color="text-orange-600" />
-            <Separator orientation="vertical" className="h-10 mx-1" />
-            <StatItem label="Completed" value={stats.completedTrips} color="text-emerald-600" />
-            <Separator orientation="vertical" className="h-10 mx-1" />
-            <StatItem label="Active" value={stats.activeCustomers} color="text-blue-600" />
-          </div>
         </header>
 
         {/* Main Content Grid */}
@@ -91,17 +83,16 @@ const Dashboard = () => {
             title="Accommodation"
             description="Control hotel partnerships, room inventory, and meal preferences."
             icon={<BedDouble className="w-6 h-6" />}
-            footerText="5 bookings today"
-            footerIcon={<Clock className="text-orange-500" />}
-            onClick={() => navigate("accomodations", "Accommodations")}
+          
+            onClick={() => navigate("accommodations", "accommodations")}
           />
 
           <ActionCard 
             title="Transport"
             description="Monitor vehicle availability, driver routes, and fleet maintenance."
             icon={<Car className="w-6 h-6" />}
-            footerText="3 drivers active"
-            footerIcon={<CheckCircle className="text-emerald-500" />}
+
+
             onClick={() => navigate("transports", "Transport")}
           />
 
@@ -109,8 +100,7 @@ const Dashboard = () => {
             title="Activities"
             description="Schedule tour events, manage local guides, and guest itineraries."
             icon={<Mountain className="w-6 h-6" />}
-            footerText="2 events upcoming"
-            footerIcon={<ArrowRight className="text-blue-500" />}
+     
             onClick={() => navigate("activities", "Activities")}
           />
 
@@ -144,16 +134,16 @@ const ActionCard = ({ title, description, icon, footerText, footerIcon, onClick 
     </CardHeader>
     
     <CardContent>
-      <div className="flex items-center gap-2 text-sm font-medium text-slate-600 bg-slate-50 p-3 rounded-lg mb-4">
+      {/* <div className="flex items-center gap-2 text-sm font-medium text-slate-600 bg-slate-50 p-3 rounded-lg mb-4">
         <span className="w-4 h-4">{footerIcon}</span>
         {footerText}
-      </div>
+      </div> */}
       
       <Button 
         onClick={onClick}
         className="w-full justify-between bg-slate-900 hover:bg-theme-primary text-white font-semibold py-6"
       >
-        Access Management
+        View & Manage
         <ChevronRight className="w-4 h-4" />
       </Button>
     </CardContent>
