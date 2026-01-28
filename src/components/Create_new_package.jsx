@@ -939,7 +939,7 @@ const Create_new_package = ({
                   />
 
                   <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-100">
-                    {/* <button
+                    <button
                       className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
                       onClick={() => {
                         const selectedHotelFullData = hotels.find(
@@ -979,7 +979,7 @@ const Create_new_package = ({
                       }}
                     >
                       {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
-                    </button> */}
+                    </button>
 
                     {isReadyToAddAnother && (
                       <button
@@ -1143,7 +1143,7 @@ const Create_new_package = ({
               </h3>
               {!showTransportSection ? (
                 <button
-                  className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-all"
+                  className="w-full py-2.5 bg-theme-primary  rounded-lg hover:bg-theme-dark text-white "
                   onClick={() => setShowTransportSection(true)}
                 >
                   Add Transport
@@ -1163,7 +1163,7 @@ const Create_new_package = ({
                 <Palmtree className="w-4 h-4" /> Activities
               </h3>
               <button
-                className="w-full py-2.5 bg-theme-dark text-white rounded-lg hover:bg-black transition-all"
+                className="w-full py-2.5 bg-theme-primary text-white rounded-lg hover:bg-theme-dark transition-all"
                 onClick={() => setShowActivitiesSection(true)}
               >
                 Add Activities

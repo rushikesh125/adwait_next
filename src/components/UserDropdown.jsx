@@ -76,7 +76,7 @@ const UserDropdown = ({ user }) => {
               <p className="text-[12px] text-gray-500">Role:{role}</p>
             </div>
 
-            <div className="py-2">
+            {/* <div className="py-2">
               <Link
                 href={`/dashboard`}
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
@@ -96,7 +96,7 @@ const UserDropdown = ({ user }) => {
                 <HelpCircle className="w-4 h-4" />
                 Help Center
               </button>
-            </div>
+            </div> */}
 
             <div className="border-t border-gray-100 py-2">
               <Button
