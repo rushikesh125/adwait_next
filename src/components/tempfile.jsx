@@ -725,7 +725,8 @@ function CreateNewPackage({
 
       const packageData = {
         packageName,
-        customerName,
+        customerId: customerId || null, 
+      customerName: customerName,    
         status: "Draft",
         createdAt: serverTimestamp(),
         markup: confirmedMarkup || 0,

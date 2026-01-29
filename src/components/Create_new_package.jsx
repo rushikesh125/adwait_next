@@ -3,10 +3,12 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   collection,
   getDocs,
+  getDoc,
   addDoc,
   serverTimestamp,
   doc,
 } from "firebase/firestore";
+import { useSearchParams } from "next/navigation";
 import "@/components/css/create_new_package.css";
 import HotelRoomSelector from "./HotelRoomSelector";
 import SelectTransport from "./TransportSelector";
@@ -88,7 +90,8 @@ const Create_new_package = ({
   const [editingIndex, setEditingIndex] = useState(null);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [packages, setPackages] = useState([]);
-
+  const [customerName, setCustomerName] = useState("");
+  
   const { user } = useSelector((state) => state.auth);
 
   const checkInDate = propCheckInDate;
@@ -98,6 +101,8 @@ const Create_new_package = ({
   const saveChanges = propSaveChanges;
   const setSaveChanges = propSetSaveChanges;
 
+
+
   const dispatch = useDispatch();
   const {
     hotelEntries,
@@ -106,8 +111,36 @@ const Create_new_package = ({
     activityTotalPrice,
     confirmedMarkup,
     packageName,
-    customerName,
+   customerName: reduxCustomerName,
   } = useSelector((state) => state.package);
+
+    useEffect(() => {
+  if (reduxCustomerName && !customerName) {
+    setCustomerName(reduxCustomerName);
+  }
+}, [reduxCustomerName]);
+
+const searchParams = useSearchParams();
+const customerId =
+  searchParams.get("customerId") ||
+  searchParams.get("customerid");
+
+useEffect(() => {
+  if (!customerId) return;
+
+  const fetchCustomer = async () => {
+    const snap = await getDoc(doc(db, "customers", customerId));
+    if (snap.exists()) {
+  console.log("Customer doc:", snap.data());
+  setCustomerName(snap.data().name);
+}
+  };
+  console.log("Customer ID:", customerId);
+  fetchCustomer();
+}, [customerId]);
+    useEffect(() => {
+  console.log("Customer Name:", customerName);
+}, [customerName]);
 
   // ── Fetch Data ────────────────────────────────────────────────────
   useEffect(() => {
@@ -762,7 +795,6 @@ const Create_new_package = ({
       alert("Package saved successfully!");
       setShowSaveModal(false);
       dispatch(setPackageName(""));
-      dispatch(setCustomerName(""));
     } catch (err) {
       console.error("Error saving package:", err);
       alert("Failed to save package: " + err.message);
@@ -1348,12 +1380,15 @@ const Create_new_package = ({
                 placeholder="Package Name (e.g. Goa Delight)"
                 className="focus:ring-theme-primary"
               />
-              <Input
-                value={customerName}
-                onChange={(e) => dispatch(setCustomerName(e.target.value))}
-                placeholder="Customer Name"
-                className="focus:ring-theme-primary"
-              />
+              <input
+              type="text"
+              value={customerName}
+               onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Customer Name"
+              disabled={!!customerId}
+              className={`w-full p-3 border border-slate-200 rounded-lg 
+                ${customerId ? "bg-slate-100 cursor-not-allowed" : ""}`}
+            />
             </div>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowSaveModal(false)}>

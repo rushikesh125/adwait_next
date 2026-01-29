@@ -13,7 +13,7 @@ export default function Header() {
   
   const handleHomeClick = () => {
     if (user?.role === 'admin') router.push('/data-entry');
-    else if (user?.role === 'agent') router.push('/agent-dashboard');
+    else if (user?.role === 'agent') router.push('/agent-panel');
   };
 
   const handleProfileClick = () => {
