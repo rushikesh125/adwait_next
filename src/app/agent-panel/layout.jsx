@@ -56,7 +56,7 @@ const AgentPanelLayout = ({ children }) => {
     { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
     { name: "My Qutations", href: "/agent-panel/my-quatation", icon: Map },
       { name: "Customers", href: "/agent-panel/customers", icon: Users },
-    // { name: "Bookings", href: "/agent-dashboard/bookings", icon: Briefcase },
+     { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
     // { name: "Settings", href: "/agent-dashboard/settings", icon: Settings },
   ];
 

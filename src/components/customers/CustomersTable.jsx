@@ -46,15 +46,15 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
       ) : (
         <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
           <Table>
-            <TableHeader className="bg-slate-50/50">
+            <TableHeader className="bg-slate-50/50 ">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="py-4 font-bold text-slate-600 uppercase text-[11px] tracking-wider">
+                <TableHead className="py-4 font-bold text-center text-slate-600 uppercase text-[11px] tracking-wider">
                   Customer Info
                 </TableHead>
-                <TableHead className="py-4 font-bold text-slate-600 uppercase text-[11px] tracking-wider">
+                <TableHead className="py-4 font-bold text-center text-slate-600  uppercase text-[11px] tracking-wider">
                   Location
                 </TableHead>
-                <TableHead className="py-4 font-bold text-slate-600 uppercase text-[11px] tracking-wider text-right">
+                <TableHead className="py-4 font-bold  text-center text-slate-600   uppercase text-[11px] tracking-wider text-right">
                   Actions
                 </TableHead>
               </TableRow>
@@ -68,7 +68,7 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
                   {/* Customer Main Info */}
                   <TableCell className="py-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-theme-muted flex items-center justify-center text-theme-primary font-bold text-sm">
+                      <div className="h-10 w-10 rounded-full bg-theme-muted  flex items-center justify-center text-theme-primary font-bold text-sm">
                         {c.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex flex-col">
