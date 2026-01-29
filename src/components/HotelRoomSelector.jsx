@@ -241,7 +241,7 @@ const HotelRoomSelector = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex flex-wrap gap-4 pt-6 border-t">
+      {/* <div className="flex flex-wrap gap-4 pt-6 border-t">
         <Button
           onClick={handleSaveHotel}
           className="bg-theme-primary hover:bg-primary/90 text-white px-8"
@@ -253,7 +253,7 @@ const HotelRoomSelector = ({
         <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
           Cancel
         </Button>
-      </div>
+      </div> */}
     </div>
   );
 };
