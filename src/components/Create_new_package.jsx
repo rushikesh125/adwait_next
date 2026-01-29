@@ -100,9 +100,7 @@ const Create_new_package = ({
   const setCheckOutDate = propSetCheckOutDate;
   const saveChanges = propSaveChanges;
   const setSaveChanges = propSetSaveChanges;
-
-
-
+  // let customerId = undefined;
   const dispatch = useDispatch();
   const {
     hotelEntries,
@@ -111,36 +109,35 @@ const Create_new_package = ({
     activityTotalPrice,
     confirmedMarkup,
     packageName,
-   customerName: reduxCustomerName,
+    customerName: reduxCustomerName,
   } = useSelector((state) => state.package);
 
-    useEffect(() => {
-  if (reduxCustomerName && !customerName) {
-    setCustomerName(reduxCustomerName);
-  }
-}, [reduxCustomerName]);
+  useEffect(() => {
+    if (reduxCustomerName && !customerName) {
+      setCustomerName(reduxCustomerName);
+    }
+  }, [reduxCustomerName]);
 
-const searchParams = useSearchParams();
-const customerId =
-  searchParams.get("customerId") ||
-  searchParams.get("customerid");
+  const searchParams = useSearchParams();
+  const customerId =
+    searchParams.get("customerId") || searchParams.get("customerid");
 
-useEffect(() => {
-  if (!customerId) return;
+  useEffect(() => {
+    if (!customerId) return;
 
-  const fetchCustomer = async () => {
-    const snap = await getDoc(doc(db, "customers", customerId));
-    if (snap.exists()) {
-  console.log("Customer doc:", snap.data());
-  setCustomerName(snap.data().name);
-}
-  };
-  console.log("Customer ID:", customerId);
-  fetchCustomer();
-}, [customerId]);
-    useEffect(() => {
-  console.log("Customer Name:", customerName);
-}, [customerName]);
+    const fetchCustomer = async () => {
+      const snap = await getDoc(doc(db, "customers", customerId));
+      if (snap.exists()) {
+        console.log("Customer doc:", snap.data());
+        setCustomerName(snap.data().name);
+      }
+    };
+    console.log("Customer ID:", customerId);
+    fetchCustomer();
+  }, [customerId]);
+  useEffect(() => {
+    console.log("Customer Name:", customerName);
+  }, [customerName]);
 
   // ── Fetch Data ────────────────────────────────────────────────────
   useEffect(() => {
@@ -769,6 +766,7 @@ useEffect(() => {
       const packageData = {
         packageName,
         customerName,
+        customerId,
         status: "Draft",
         createdAt: serverTimestamp(),
         markup: confirmedMarkup || 0,
@@ -975,7 +973,7 @@ useEffect(() => {
                       className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
                       onClick={() => {
                         const selectedHotelFullData = hotels.find(
-                          (h) => h.id === selectedHotel
+                          (h) => h.id === selectedHotel,
                         );
                         const currentHotelData = {
                           checkInDate,
@@ -999,7 +997,7 @@ useEffect(() => {
                             updateHotelEntry({
                               index: editingIndex,
                               data: currentHotelData,
-                            })
+                            }),
                           );
                         } else {
                           dispatch(addHotelEntry(currentHotelData));
@@ -1381,14 +1379,14 @@ useEffect(() => {
                 className="focus:ring-theme-primary"
               />
               <input
-              type="text"
-              value={customerName}
-               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Customer Name"
-              disabled={!!customerId}
-              className={`w-full p-3 border border-slate-200 rounded-lg 
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Customer Name"
+                disabled={!!customerId}
+                className={`w-full p-3 border border-slate-200 rounded-lg 
                 ${customerId ? "bg-slate-100 cursor-not-allowed" : ""}`}
-            />
+              />
             </div>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowSaveModal(false)}>
