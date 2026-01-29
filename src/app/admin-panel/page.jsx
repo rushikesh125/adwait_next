@@ -58,13 +58,13 @@ const Dashboard = () => {
         <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 py-1">
+              {/* <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 py-1">
                 <span className="h-2 w-2 rounded-full bg-green-500 mr-2 animate-pulse" />
                 System Live
               </Badge>
               <span className="text-slate-400 text-sm flex items-center gap-1">
                 <Phone className="w-3.5 h-3.5" /> {phoneNumber}
-              </span>
+              </span> */}
             </div>
             <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
               Welcome back, <span className="text-theme-primary">{user?.name}</span>
