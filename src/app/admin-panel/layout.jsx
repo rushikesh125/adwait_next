@@ -10,7 +10,8 @@ import {
   LayoutDashboard, ShieldCheck, UserCog, Database, 
   BarChart3, Settings, LogOut, Menu, X, Bell, Lock, Globe, 
   TruckElectric,
-  ActivityIcon
+  ActivityIcon,
+  HardDriveUpload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -52,7 +53,7 @@ const AdminPanelLayout = ({ children }) => {
     { name: "Accommodations", href: "/admin-panel/accommodations", icon: ShieldCheck },
     { name: "Transports", href: "/admin-panel/transports", icon: TruckElectric },
     { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
-    // { name: "Analytics", href: "/admin-panel/analytics", icon: BarChart3 },
+    { name: "Bulk Hotels Upload", href: "/admin-panel/hotels-builk-upload", icon: HardDriveUpload },
     // { name: "Settings", href: "/admin-panel/settings", icon: Settings },
   ];
 
