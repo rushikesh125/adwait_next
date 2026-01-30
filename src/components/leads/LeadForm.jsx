@@ -1,17 +1,17 @@
 "use client";
 
 import React from "react";
-import { 
-  User, 
-  MapPin, 
-  Calendar, 
-  Clock, 
-  Users, 
-  Hotel, 
-  Plane, 
-  Wallet, 
+import {
+  User,
+  MapPin,
+  Calendar,
+  Clock,
+  Users,
+  Hotel,
+  Plane,
+  Wallet,
   FileText,
-  Send
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +26,11 @@ export default function LeadForm({ form, onChange, onSubmit }) {
         <div className="space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
             <Calendar className="h-5 w-5 text-theme-primary" />
-            <h4 className="text-sm font-bold text-theme-dark uppercase tracking-wider">Trip Details</h4>
+            <h4 className="text-sm font-bold text-theme-dark uppercase tracking-wider">
+              Trip Details
+            </h4>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
@@ -49,8 +51,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
                 <MapPin className="h-4 w-4 text-theme-primary/60" /> Travel To
               </Label>
               <Input
-                name="Destination"
-                value={form.Destination}
+                name="destination" // Changed from "Destination" to "destination"
+                value={form.destination} // Changed from form.Destination to form.destination
                 placeholder="City or Country"
                 onChange={onChange}
                 className="h-11 border-slate-200 focus-visible:ring-theme-primary"
@@ -60,7 +62,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Calendar className="h-4 w-4 text-theme-primary/60" /> Travel Date
+                <Calendar className="h-4 w-4 text-theme-primary/60" /> Travel
+                Date
               </Label>
               <Input
                 type="date"
@@ -74,7 +77,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Clock className="h-4 w-4 text-theme-primary/60" /> Number of Days
+                <Clock className="h-4 w-4 text-theme-primary/60" /> Number of
+                Days
               </Label>
               <Input
                 type="number"
@@ -93,7 +97,9 @@ export default function LeadForm({ form, onChange, onSubmit }) {
         <div className="space-y-4 pt-2">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
             <Hotel className="h-5 w-5 text-theme-primary" />
-            <h4 className="text-sm font-bold text-theme-dark uppercase tracking-wider">Preferences</h4>
+            <h4 className="text-sm font-bold text-theme-dark uppercase tracking-wider">
+              Preferences
+            </h4>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -114,7 +120,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Wallet className="h-4 w-4 text-theme-primary/60" /> Budget (approx)
+                <Wallet className="h-4 w-4 text-theme-primary/60" /> Budget
+                (approx)
               </Label>
               <Input
                 type="number"
@@ -128,7 +135,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Hotel className="h-4 w-4 text-theme-primary/60" /> Hotel Preference
+                <Hotel className="h-4 w-4 text-theme-primary/60" /> Hotel
+                Preference
               </Label>
               <Input
                 name="hotelPreference"
@@ -141,7 +149,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Plane className="h-4 w-4 text-theme-primary/60" /> Transport Preference
+                <Plane className="h-4 w-4 text-theme-primary/60" /> Transport
+                Preference
               </Label>
               <Input
                 name="transportPreference"
@@ -157,7 +166,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
         {/* --- Section 3: Notes --- */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2 text-slate-700 font-medium">
-            <FileText className="h-4 w-4 text-theme-primary/60" /> Additional Requirements
+            <FileText className="h-4 w-4 text-theme-primary/60" /> Additional
+            Requirements
           </Label>
           <Textarea
             name="notes"
@@ -171,8 +181,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
         {/* Footer Submit */}
         <div className="pt-6 flex justify-end">
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             type="submit"
             className="bg-theme-primary hover:bg-theme-secondary text-white px-10 shadow-lg shadow-theme-primary/20 rounded-xl"
           >

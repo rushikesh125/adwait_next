@@ -57,10 +57,10 @@ export default function LeadsPage() {
     e.preventDefault();
     
     // Simple validation check
-    if (!form.name || !form.destination) {
-      toast.error("Please fill in basic details (Name & Destination)");
-      return;
-    }
+    if (!form.name.trim() || !form.destination.trim()) {
+    toast.error("Please fill in basic details (Name & Destination)");
+    return;
+  }
 
     const toastId = toast.loading("Creating lead...");
     try {
