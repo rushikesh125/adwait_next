@@ -2,15 +2,15 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { 
-  FilePlus2, 
-  Eye, 
-  Pencil, 
-  MapPin, 
-  Mail, 
-  Phone, 
+import {
+  FilePlus2,
+  Eye,
+  Pencil,
+  MapPin,
+  Mail,
+  Phone,
   User,
-  MoreHorizontal
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,8 +61,8 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
             </TableHeader>
             <TableBody>
               {customers.map((c, i) => (
-                <TableRow 
-                  key={c.id || i} 
+                <TableRow
+                  key={c.id || i}
                   className="group transition-colors hover:bg-theme-muted/20"
                 >
                   {/* Customer Main Info */}
@@ -112,10 +112,14 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
                             <Button
                               size="sm"
                               className="bg-theme-primary hover:bg-theme-secondary text-white h-9 px-4 rounded-lg shadow-sm"
-                              onClick={() => router.push(`/agent-panel?customerId=${c.id}`)}
+                              onClick={() =>
+                                router.push(`/agent-panel?customerId=${c.id}`)
+                              }
                             >
                               <FilePlus2 className="h-4 w-4 mr-2" />
-                              <span className="hidden sm:inline">Quotation</span>
+                              <span className="hidden sm:inline">
+                                Quotation
+                              </span>
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Generate new package</TooltipContent>
@@ -124,9 +128,12 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
                         {/* View Action */}
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
+                            <Button
+                              onClick={() =>
+                                router.push(`./customers/${c.id}`)
+                              }
+                              size="icon"
+                              variant="ghost"
                               className="h-9 w-9 text-slate-500 hover:text-theme-primary hover:bg-theme-muted"
                             >
                               <Eye className="h-4 w-4" />
@@ -138,9 +145,9 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
                         {/* Edit Action */}
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               className="h-9 w-9 text-slate-500 hover:text-theme-primary hover:bg-theme-muted"
                               onClick={() => onEdit(c)}
                             >
