@@ -135,7 +135,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
                       <Button
                         size="sm"
                         className="bg-theme-primary hover:bg-theme-secondary text-white shadow-sm"
-                        onClick={() => onCreateQuotation(lead)}
+                        onClick={() => router.push(`/agent-panel?leadId=${lead.id}`)}
                       >
                         <FileText className="h-3.5 w-3.5 mr-2" />
                         Quotation
