@@ -21,10 +21,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
 
 export default function LeadsTable({ leads, onStatusChange, onCreateQuotation }) {
   const [searchTerm, setSearchTerm] = useState("");
-
+  const router = useRouter();
   // Filter Logic: Name or Destination
   const filteredLeads = leads.filter((lead) => {
     const name = lead.name?.toLowerCase() || "";
@@ -96,7 +97,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
               filteredLeads.map((lead, index) => (
                 <TableRow key={lead.id} className="group hover:bg-theme-muted/10 transition-colors">
                   <TableCell className="font-mono text-xs text-slate-400">
-                    #{(index + 1).toString().padStart(3, '0')}
+                    {lead?.id?.slice(0,6)}
                   </TableCell>
                   
                   <TableCell>
@@ -143,7 +144,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-slate-400 hover:text-theme-primary hover:bg-theme-muted rounded-full"
-                        onClick={() => alert("Viewing: " + lead.name)}
+                        onClick={()=>router.push(`./leads/${lead.id}`)}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>

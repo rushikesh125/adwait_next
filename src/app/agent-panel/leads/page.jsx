@@ -45,6 +45,7 @@ export default function LeadsPage() {
       setLoading(true);
       const data = await getAllLeads();
       setLeads(data);
+      console.log(data)
     } catch (error) {
       toast.error("Failed to fetch leads");
     } finally {

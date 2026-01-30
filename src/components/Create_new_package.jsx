@@ -91,7 +91,7 @@ const Create_new_package = ({
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [packages, setPackages] = useState([]);
   const [customerName, setCustomerName] = useState("");
-  
+
   const { user } = useSelector((state) => state.auth);
 
   const checkInDate = propCheckInDate;
@@ -121,7 +121,7 @@ const Create_new_package = ({
   const searchParams = useSearchParams();
   const customerId =
     searchParams.get("customerId") || searchParams.get("customerid");
-
+  const leadId = searchParams.get("leadId");
   useEffect(() => {
     if (!customerId) return;
 
@@ -135,6 +135,20 @@ const Create_new_package = ({
     console.log("Customer ID:", customerId);
     fetchCustomer();
   }, [customerId]);
+
+  useEffect(() => {
+    if (!leadId) return;
+    const fetchLead = async () => {
+      const snap = await getDoc(doc(db, "leads", leadId));
+      if (snap.exists()) {
+        console.log("lead doc:", snap.data());
+        setCustomerName(snap.data().name);
+      }
+    };
+    console.log("Customer ID:", customerId);
+    fetchLead();
+  }, [leadId]);
+
   useEffect(() => {
     console.log("Customer Name:", customerName);
   }, [customerName]);
@@ -763,10 +777,17 @@ const Create_new_package = ({
       const agentRef = doc(db, "saved_packages_by_agents", agentId);
       const packagesCollectionRef = collection(agentRef, "packages");
 
+      const c_data = {
+        ...(customerId
+          ? { customerId, customerName }
+          : leadId
+            ? { leadId, leadName: customerName }
+            : { customerName }),
+      };
+
       const packageData = {
         packageName,
-        customerName,
-        customerId,
+        ...c_data,
         status: "Draft",
         createdAt: serverTimestamp(),
         markup: confirmedMarkup || 0,

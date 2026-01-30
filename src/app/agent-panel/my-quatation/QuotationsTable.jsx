@@ -179,7 +179,7 @@ const QuotationsTable = ({
                     <TableCell className="font-medium">
                       Quote {q.quoteNumber}
                     </TableCell>
-                    <TableCell>{q.customerName || "—"}</TableCell>
+                    <TableCell>{q.customerName || q.leadName || "—"}</TableCell>
                     <TableCell>{q.packageName || "—"}</TableCell>
                     <TableCell className="whitespace-pre-line max-w-xs">
                       {getDestinationOfpkg(q)}
