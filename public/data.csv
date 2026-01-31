@@ -1,0 +1,61 @@
+Location,Hotel Name,Google Ratings,Hotel Link,Star,Season Name,Season Start,Season End,Category Type,Room/Item Name,Meal Plan,Price
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Room,Luxury Sea View,CP,12000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Room,Luxury Sea View,MAP,14000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Room,Luxury Sea View,AP,16000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Room,Premium Suite Room,CP,18000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Room,Premium Suite Room,MAP,20000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Room,Premium Suite Room,AP,22000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Adult),CP,3000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Adult),MAP,4500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Adult),AP,5500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Child),CP,2000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Child),MAP,3500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Child),AP,4500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Child without Bed (CNB),CP,1000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Child without Bed (CNB),MAP,2500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,Sales,01-Jan-26,07-07-2026,Extra,Child without Bed (CNB),AP,3500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Room,Luxury Sea View,CP,13000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Room,Luxury Sea View,MAP,15000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Room,Luxury Sea View,AP,17000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Room,Premium Suite Room,CP,19500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Room,Premium Suite Room,MAP,21500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Room,Premium Suite Room,AP,23500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Adult),CP,3500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Adult),MAP,5000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Adult),AP,6000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Child),CP,2500
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Child),MAP,4000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Child),AP,5000
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Child without Bed (CNB),CP,1200
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Child without Bed (CNB),MAP,2700
+Mumbai,Hotel Taj Mumbai,4.9,https://www.google.com/t,5,OCP,08-07-2026,31-12-2026,Extra,Child without Bed (CNB),AP,3700
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Room,Deluxe Room,CP,8500
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Room,Deluxe Room,MAP,10000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Room,Deluxe Room,AP,12000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Room,Executive Suite,CP,15000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Room,Executive Suite,MAP,17000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Room,Executive Suite,AP,19000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Adult),CP,2500
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Adult),MAP,3500
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Adult),AP,4500
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Child),CP,1500
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Child),MAP,2500
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Extra Bed (Child),AP,3500
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Child without Bed (CNB),CP,800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Child without Bed (CNB),MAP,1800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,Sales,01-Jan-26,07-07-2026,Extra,Child without Bed (CNB),AP,2800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Room,Deluxe Room,CP,9500
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Room,Deluxe Room,MAP,11000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Room,Deluxe Room,AP,13000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Room,Executive Suite,CP,16000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Room,Executive Suite,MAP,18000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Room,Executive Suite,AP,20000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Adult),CP,2800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Adult),MAP,3800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Adult),AP,4800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Child),CP,1800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Child),MAP,2800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Extra Bed (Child),AP,3800
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Child without Bed (CNB),CP,1000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Child without Bed (CNB),MAP,2000
+Lonavala,Fariyas Resort,4.2,https://www.google.com/t,4,OCP,08-07-2026,31-12-2026,Extra,Child without Bed (CNB),AP,3000
