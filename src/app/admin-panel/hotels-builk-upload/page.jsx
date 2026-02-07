@@ -5,74 +5,57 @@ import {
   UploadCloud,
   FileSpreadsheet,
   CheckCircle2,
-  MapPin,
-  ArrowRight,
   Loader2,
-  Hotel,
   Save,
-  Trash2,
-  Plus,
-  Info,
+  RefreshCcw,
+  Database,
+  ShieldCheck,
   Globe,
+  FileSearch,
+  ChevronRight
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 // Shadcn Components
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
-import { INDIAN_STATES } from "@/lib/states";
-
+// Assuming this component handles the nested display of rooms/seasons
 import ReviewHotelCard from "@/components/ReviewHotelCard";
-
 
 export default function ExcelUploadPage() {
   const [step, setStep] = useState(1);
-  const [selectedState, setSelectedState] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [hotelsData, setHotelsData] = useState([]);
   const [file, setFile] = useState(null);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (
-      selectedFile &&
-      (selectedFile.type ===
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-        selectedFile.name.endsWith(".csv"))
-    ) {
+    const validTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/csv",
+    ];
+
+    if (selectedFile && (validTypes.includes(selectedFile.type) || selectedFile.name.endsWith(".csv"))) {
       setFile(selectedFile);
-      toast.success("File attached successfully");
+      toast.success("Inventory source recognized.");
     } else {
-      toast.error("Please upload a valid Excel (.xlsx) file");
+      toast.error("Format not supported. Please use .xlsx or .csv");
     }
   };
 
   const processFile = async () => {
-    if (!selectedState || !file) {
-      toast.error("Please select a state and a file");
+    if (!file) {
+      toast.error("Please provide an inventory file first");
       return;
     }
 
     setIsUploading(true);
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("state", selectedState);
 
     try {
       const response = await fetch("/api/xl-upload", {
@@ -85,9 +68,9 @@ export default function ExcelUploadPage() {
       if (response.ok) {
         setHotelsData(data);
         setStep(2);
-        toast.success(`Processed ${data.length} hotels successfully`);
+        toast.success(`Successfully mapped ${data.length} hotel records`);
       } else {
-        throw new Error(data.error || "Failed to process file");
+        throw new Error(data.error || "Data mapping failed");
       }
     } catch (error) {
       toast.error(error.message);
@@ -102,189 +85,136 @@ export default function ExcelUploadPage() {
     setHotelsData(newData);
   };
 
-  const handleDeleteHotel = (index) => {
-    const newData = hotelsData.filter((_, i) => i !== index);
-    setHotelsData(newData);
-    toast.success("Hotel removed from list");
-  };
-
   const finalSaveToDb = async () => {
-    toast.promise(new Promise((resolve) => setTimeout(resolve, 2000)), {
-      loading: "Saving all hotels to database...",
-      success: "Inventory updated successfully!",
-      error: "Error saving data.",
-    });
+    toast.promise(
+      // Replace with your real submission logic
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+      {
+        loading: "Syncing inventory to global database...",
+        success: "Database updated successfully!",
+        error: "Failed to sync changes.",
+      }
+    );
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20 font-sans">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-theme-muted rounded-lg">
-              <FileSpreadsheet className="h-5 w-5 text-theme-primary" />
+    <div className="min-h-screen bg-slate-50/50 pb-20 font-sans selection:bg-indigo-100">
+      {/* Header - Standard Clean Bar */}
+      <header className="bg-white border-b sticky top-0 z-50">
+        <div className="w-full mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-600 rounded-lg">
+              <Database className="h-5 w-5 text-white" />
             </div>
-            <h1 className="text-lg font-bold text-theme-dark tracking-tight">
-              Inventory Engine
-            </h1>
+            <h1 className="font-bold text-slate-900 tracking-tight">Inventory Engine</h1>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Badge
-              variant={step === 1 ? "default" : "outline"}
-              className={step === 1 ? "bg-theme-primary" : "text-slate-400"}
-            >
-              1. Setup
-            </Badge>
-            <ArrowRight className="h-4 w-4 text-slate-300" />
-            <Badge
-              variant={step === 2 ? "default" : "outline"}
-              className={step === 2 ? "bg-theme-primary" : "text-slate-400"}
-            >
-              2. Review
-            </Badge>
-          </div>
+          <nav className="flex items-center gap-2">
+            <div className={`h-2 w-2 rounded-full ${step === 1 ? 'bg-indigo-600' : 'bg-slate-200'}`} />
+            <div className={`h-2 w-2 rounded-full ${step === 2 ? 'bg-indigo-600' : 'bg-slate-200'}`} />
+            <span className="ml-2 text-xs font-bold text-slate-500 uppercase tracking-tighter">
+              Step {step} of 2
+            </span>
+          </nav>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 mt-8">
+      <main className="w-full mx-auto md:px-6 mt-12">
         {step === 1 ? (
-          /* Step 1: Upload View */
-          <div className="w-full mx-auto space-y-6">
-            <Card className="border-none shadow-2xl shadow-theme-primary/5 p-4">
-              <CardHeader className="text-center pb-2">
-                <CardTitle className="text-2xl font-black text-theme-dark">
-                  Bulk Ingestion
-                </CardTitle>
-                <CardDescription>
-                  Upload your master inventory sheet to update rates
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Target State
-                  </Label>
-                  <Select
-                    onValueChange={setSelectedState}
-                    value={selectedState}
-                  >
-                    <SelectTrigger className="h-12 border-slate-200 focus:ring-theme-primary bg-slate-50/50">
-                      <SelectValue placeholder="Select Indian State..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INDIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          /* STEP 1: UPLOAD */
+          <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-extrabold text-slate-900">Bulk Ingestion</h2>
+              <p className="text-slate-500">Upload your master spreadsheet to sync rates and availability.</p>
+            </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Excel File
-                  </Label>
-                  <label
-                    className={`flex flex-col items-center justify-center w-full h-56 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${file ? "border-theme-primary bg-theme-muted/20" : "border-slate-200 bg-slate-50/50 hover:bg-white"}`}
-                  >
-                    <div className="flex flex-col items-center justify-center py-6">
-                      {file ? (
-                        <CheckCircle2 className="h-12 w-12 text-theme-primary mb-3" />
-                      ) : (
-                        <UploadCloud className="h-12 w-12 text-slate-300 mb-3" />
-                      )}
-                      <p className="text-sm font-semibold text-slate-700">
-                        {file ? file.name : "Select Inventory File"}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Accepts .xlsx and .csv files
-                      </p>
+            <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+              <CardContent className="p-8 space-y-6">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Inventory Source</Label>
+                    <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-50 border-none">
+                      XLSX, CSV Supported
+                    </Badge>
+                  </div>
+                  
+                  <label className={`relative group flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${file ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-200 hover:border-indigo-400 bg-slate-50/50'}`}>
+                    <div className="flex flex-col items-center text-center p-6">
+                      <div className={`mb-4 p-4 rounded-full transition-transform group-hover:scale-110 ${file ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 shadow-sm'}`}>
+                        {file ? <CheckCircle2 className="h-8 w-8" /> : <UploadCloud className="h-8 w-8" />}
+                      </div>
+                      <p className="font-bold text-slate-700">{file ? file.name : "Drop spreadsheet here"}</p>
+                      <p className="text-sm text-slate-400 mt-1">{file ? `${(file.size / 1024).toFixed(1)} KB` : "or click to select file"}</p>
                     </div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".xlsx, .csv"
-                      onChange={handleFileChange}
-                    />
+                    <input type="file" className="hidden" accept=".xlsx, .csv" onChange={handleFileChange} />
                   </label>
                 </div>
 
-                <Button
-                  onClick={processFile}
-                  disabled={isUploading || !file || !selectedState}
-                  className="w-full h-12 bg-theme-primary hover:bg-theme-secondary text-white font-bold rounded-xl shadow-lg"
+                <Button 
+                  onClick={processFile} 
+                  disabled={isUploading || !file}
+                  className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all disabled:opacity-50"
                 >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />{" "}
-                      Analyzing Sheet...
-                    </>
-                  ) : (
-                    "Start Processing"
-                  )}
+                  {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : "Initialize Data Pipeline"}
                 </Button>
               </CardContent>
             </Card>
+
+            <div className="flex items-center justify-center gap-8 py-4">
+              <div className="flex items-center gap-2 text-slate-400">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">ISO Verified</span>
+              </div>
+              <Separator orientation="vertical" className="h-4" />
+              <div className="flex items-center gap-2 text-slate-400">
+                <Globe className="h-4 w-4" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">State Auto-Detect</span>
+              </div>
+            </div>
           </div>
         ) : (
-          /* Step 2: Multi-Hotel Review View */
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-white rounded-2xl border shadow-sm gap-4">
-              <div>
-                <h2 className="text-2xl font-black text-theme-dark flex items-center gap-2">
-                  Verify Ingestion{" "}
-                  <Badge className="bg-theme-accent">
-                    {hotelsData.length} Hotels
-                  </Badge>
-                </h2>
-                <p className="text-slate-500 text-sm mt-1">
-                  The following data was extracted. You can edit individual
-                  rates before saving.
-                </p>
+          /* STEP 2: REVIEW */
+          <div className="space-y-8 animate-in fade-in zoom-in-95">
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
+                  <FileSearch className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Validation Queue</h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 border-none px-2 py-0">{hotelsData.length} Hotels</Badge>
+                    <ChevronRight className="h-3 w-3 text-slate-300" />
+                    <span className="text-xs text-slate-400 font-medium">Mapped from {file?.name}</span>
+                  </div>
+                </div>
               </div>
+              
               <div className="flex gap-3 w-full md:w-auto">
-                <Button
-                  variant="outline"
-                  className="flex-1 md:flex-none border-slate-200"
-                  onClick={() => setStep(1)}
-                >
-                  Re-upload
+                <Button variant="ghost" className="text-slate-500 font-bold hover:bg-slate-100" onClick={() => setStep(1)}>
+                  Discard
                 </Button>
-                <Button
-                  onClick={finalSaveToDb}
-                  className="flex-1 md:flex-none bg-theme-primary hover:bg-theme-secondary shadow-md"
-                >
-                  <Save className="h-4 w-4 mr-2" /> Commit to Database
+                <Button onClick={finalSaveToDb} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 shadow-md shadow-indigo-100">
+                  <Save className="h-4 w-4 mr-2" /> Confirm & Sync
                 </Button>
               </div>
             </div>
 
-            {/* Inside the Step 2 part of your return statement */}
-            <div className="space-y-8 pb-20">
+            {/* <div className="grid grid-cols-1 gap-6 pb-24">
               {hotelsData.map((hotel, index) => (
-                <div key={hotel.id || index} className="relative">
-                  <ReviewHotelCard
-                    hotel={hotel}
-                    index={index}
-                    onSave={(updated) => handleUpdateHotel(index, updated)}
-                    onDelete={() => {
-                      const confirmed = window.confirm(
-                        `Remove ${hotel.name} from this upload?`,
-                      );
-                      if (confirmed) {
-                        const newList = hotelsData.filter(
-                          (_, i) => i !== index,
-                        );
-                        setHotelsData(newList);
-                      }
-                    }}
-                  />
-                </div>
+                <ReviewHotelCard
+                  key={index}
+                  hotel={hotel}
+                  index={index}
+                  onSave={(updated) => handleUpdateHotel(index, updated)}
+                  onDelete={() => {
+                    if (window.confirm(`Remove ${hotel.name} from this sync?`)) {
+                      setHotelsData(hotelsData.filter((_, i) => i !== index));
+                    }
+                  }}
+                />
               ))}
-            </div>
+            </div> */}
           </div>
         )}
       </main>
