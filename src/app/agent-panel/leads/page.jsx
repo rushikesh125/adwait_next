@@ -40,21 +40,20 @@ export default function LeadsPage() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-  name: "",
-  travelDate: "",
-  days: "",
-  destination: "",
-  adults: "",
-  children:"",
-  hotelPreference: "",
-  transportPreference: "",
-  budget: "",
-  notes: "",
-  mealPlan: "",
-  hotelCategory: "",
-  bookingHelp: [], 
-});
-
+    name: "",
+    travelDate: "",
+    days: "",
+    destination: "",
+    adults: "",
+    children: "",
+    hotelPreference: "",
+    transportPreference: "",
+    budget: "",
+    notes: "",
+    mealPlan: "",
+    hotelCategory: "",
+    bookingHelp: [],
+  });
 
   // You can add this ref if you later want more precise positioning
   const nameInputRef = useRef(null);
@@ -95,7 +94,7 @@ export default function LeadsPage() {
 
     if (value.length > 1) {
       const filtered = customers.filter((cust) =>
-        cust.name.toLowerCase().includes(value.toLowerCase())
+        cust.name.toLowerCase().includes(value.toLowerCase()),
       );
       setFilteredCustomers(filtered);
       setShowSuggestions(true);
@@ -114,37 +113,30 @@ export default function LeadsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-<<<<<<< HEAD
-      if (!form.name?.trim()) {
-  toast.error("Please enter Lead Name");
-  return;
-}
-
-if (!form.destination?.trim()) {
-  toast.error("Please enter Destination");
-  return;
-}
-
-if (!form.travelDate) {
-  toast.error("Please select Travel Date");
-  return;
-}
-
-if (!form.days) {
-  toast.error("Please enter Number of Days");
-  return;
-}
-
-if (!form.adults) {
-  toast.error("Please enter Number of Adults");
-  return;
-}
-=======
-    if (!form.name.trim() || !form.destination.trim()) {
-      toast.error("Please fill in basic details (Name & Destination)");
+    if (!form.name?.trim()) {
+      toast.error("Please enter Lead Name");
       return;
     }
->>>>>>> 27f1f49b7ce30853be7efd9f16a81123dcef21b7
+
+    if (!form.destination?.trim()) {
+      toast.error("Please enter Destination");
+      return;
+    }
+
+    if (!form.travelDate) {
+      toast.error("Please select Travel Date");
+      return;
+    }
+
+    if (!form.days) {
+      toast.error("Please enter Number of Days");
+      return;
+    }
+
+    if (!form.adults) {
+      toast.error("Please enter Number of Adults");
+      return;
+    }
 
     const toastId = toast.loading("Creating lead...");
     try {
@@ -157,20 +149,20 @@ if (!form.adults) {
       toast.success("Lead added successfully", { id: toastId });
       setShowAddLead(false);
       setForm({
-  name: "",
-  travelDate: "",
-  days: "",
-  destination: "",
-  adults: "",
-  children: "",
-  hotelPreference: "",
-  transportPreference: "",
-  budget: "",
-  notes: "",
-  mealPlan: "",
-  hotelCategory: "",
-  bookingHelp: [],
-});
+        name: "",
+        travelDate: "",
+        days: "",
+        destination: "",
+        adults: "",
+        children: "",
+        hotelPreference: "",
+        transportPreference: "",
+        budget: "",
+        notes: "",
+        mealPlan: "",
+        hotelCategory: "",
+        bookingHelp: [],
+      });
 
       loadLeads();
     } catch (error) {
@@ -190,7 +182,7 @@ if (!form.adults) {
 
   const handleCreateQuotation = (lead) => {
     router.push(
-      `/agent-panel?leadId=${lead.id}&leadName=${encodeURIComponent(lead.name)}`
+      `/agent-panel?leadId=${lead.id}&leadName=${encodeURIComponent(lead.name)}`,
     );
   };
 
@@ -344,13 +336,8 @@ if (!form.adults) {
               />
               Refresh
             </Button>
-<<<<<<< HEAD
-            <Button 
-              className= " cursor-pointer bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 px-6" 
-=======
             <Button
-              className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 px-6"
->>>>>>> 27f1f49b7ce30853be7efd9f16a81123dcef21b7
+              className=" cursor-pointer bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 px-6"
               onClick={() => setShowAddLead(true)}
             >
               <Plus className="h-5 w-5 mr-2" />
@@ -360,23 +347,6 @@ if (!form.adults) {
         </div>
 
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-2xl overflow-hidden">
-<<<<<<< HEAD
-        
-
-=======
-          <CardHeader className="bg-white border-b border-slate-50 px-8 py-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-theme-muted rounded-full text-theme-primary text-xs font-bold uppercase tracking-wider">
-                <Clock className="h-3.5 w-3.5" />
-                Active Pipeline
-              </div>
-              <div className="h-4 w-[1px] bg-slate-200" />
-              <span className="text-sm text-slate-500 font-medium">
-                Total {leads.length} inquiries found
-              </span>
-            </div>
-          </CardHeader>
->>>>>>> 27f1f49b7ce30853be7efd9f16a81123dcef21b7
           <CardContent className="p-0">
             <div className="min-h-[400px]">
               <LeadsTable

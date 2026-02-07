@@ -99,28 +99,11 @@ export default function LeadsTable({
         )}
       </div>
 
-<<<<<<< HEAD
       {/* Table Container */}
       <div className="rounded-md border bg-white overflow-hidden">
         <div className="overflow-x-auto">
           <Table className="min-w-[1000px]">
             <TableHeader className="bg-slate-50">
-=======
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader className="bg-slate-50/50">
-            <TableRow>
-              <TableHead className="w-[80px] font-bold text-slate-600">Sr. No.</TableHead>
-              <TableHead className="font-bold text-slate-600">Lead Details</TableHead>
-              <TableHead className="font-bold text-slate-600">Travel Date</TableHead>
-              <TableHead className="font-bold text-slate-600">Status</TableHead>
-              <TableHead className="text-right font-bold text-slate-600 px-6">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {filteredLeads.length === 0 ? (
->>>>>>> 27f1f49b7ce30853be7efd9f16a81123dcef21b7
               <TableRow>
                 <TableHead className="w-[80px] text-center">S.No</TableHead>
                 <TableHead className="text-left pl-6">Lead Name</TableHead>
@@ -132,26 +115,7 @@ export default function LeadsTable({
                   Actions
                 </TableHead>
               </TableRow>
-<<<<<<< HEAD
             </TableHeader>
-=======
-            ) : (
-              filteredLeads.map((lead, index) => (
-                <TableRow key={lead.id} className="group hover:bg-theme-muted/10 transition-colors">
-                  <TableCell className="font-mono text-xs text-slate-400">
-                    {index+1}
-                  </TableCell>
-                  
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-slate-900">{lead.name}</span>
-                      <span className="flex items-center text-xs text-slate-500 mt-1">
-                        <MapPin className="h-3 w-3 mr-1 text-theme-primary" />
-                        {lead.Destination || lead.destination || "Not specified"}
-                      </span>
-                    </div>
-                  </TableCell>
->>>>>>> 27f1f49b7ce30853be7efd9f16a81123dcef21b7
 
             <TableBody>
               {filteredLeads.length === 0 ? (
