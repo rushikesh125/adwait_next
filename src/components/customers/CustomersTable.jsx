@@ -54,7 +54,7 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
                 <TableHead className="py-4 font-bold text-center text-slate-600  uppercase text-[11px] tracking-wider">
                   Location
                 </TableHead>
-                <TableHead className=" text-center py-4 font-bold  text-center text-slate-600   uppercase text-[11px] tracking-wider text-right">
+                <TableHead className=" text-center py-4 font-bold  text-center text-slate-600   uppercase text-[11px] tracking-wider ">
                   Actions
                 </TableHead>
               </TableRow>

@@ -15,15 +15,16 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/config";
 import { Button } from "./ui/button";
 
-
 const UserDropdown = ({ user }) => {
-  const { name, email,role, uid, photoURL, } = user;
+  if (!user) {
+    return null; // or a loader / skeleton
+  }
+
+  const { name, email, role, uid, photoURL } = user;
   const [imgSrc, setImgSrc] = useState(photoURL ?? "/profile.png");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
