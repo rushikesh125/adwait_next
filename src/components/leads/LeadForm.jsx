@@ -70,7 +70,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Calendar className="h-4 w-4 text-theme-primary/60" /> Travel Date
+                <Calendar className="h-4 w-4 text-theme-primary/60" /> Travel
+                Date
               </Label>
               <Input
                 type="date"
@@ -84,7 +85,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Clock className="h-4 w-4 text-theme-primary/60" /> Number of Days
+                <Clock className="h-4 w-4 text-theme-primary/60" /> Number of
+                Days
               </Label>
               <Input
                 type="text"
@@ -124,24 +126,24 @@ export default function LeadForm({ form, onChange, onSubmit }) {
               />
             </div>
 
-                <div className="space-y-2">
-  <Label className="flex items-center gap-2 text-slate-700 font-medium">
-    <Users className="h-4 w-4 text-theme-primary/60" /> Children
-  </Label>
-  <Input
-    type="number"
-    name="children"
-    value={form.children}
-    placeholder="Number of children"
-    onChange={onChange}
-    className="h-11 border-slate-200 focus-visible:ring-theme-primary"
-  />
-</div>
-   
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-slate-700 font-medium">
+                <Users className="h-4 w-4 text-theme-primary/60" /> Children
+              </Label>
+              <Input
+                type="number"
+                name="children"
+                value={form.children}
+                placeholder="Number of children"
+                onChange={onChange}
+                className="h-11 border-slate-200 focus-visible:ring-theme-primary"
+              />
+            </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Wallet className="h-4 w-4 text-theme-primary/60" /> Budget (approx)
+                <Wallet className="h-4 w-4 text-theme-primary/60" /> Budget
+                (approx)
               </Label>
               <Input
                 type="number"
@@ -152,14 +154,18 @@ export default function LeadForm({ form, onChange, onSubmit }) {
                 className="h-11 border-slate-200 focus-visible:ring-theme-primary"
               />
             </div>
-                        <div className="space-y-2">
+            <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Hotel className="h-4 w-4 text-theme-primary/60" /> Hotel Preference
+                <Hotel className="h-4 w-4 text-theme-primary/60" /> Hotel
+                Preference
               </Label>
 
               <div className="flex flex-wrap gap-4">
                 {["3 Star", "4 Star", "5 Star"].map((category) => (
-                  <label key={category} className="flex items-center gap-2 text-sm">
+                  <label
+                    key={category}
+                    className="flex items-center gap-2 text-sm"
+                  >
                     <input
                       type="radio"
                       name="hotelPreference"
@@ -173,85 +179,76 @@ export default function LeadForm({ form, onChange, onSubmit }) {
               </div>
             </div>
 
-
-
-            <div className="space-y-2">
-  <Label className="flex items-center gap-2 text-slate-700 font-medium">
-    <Utensils className="h-4 w-4 text-theme-primary/60" />
-    Meal Plan
-  </Label>
-
-  <div className="flex flex-wrap gap-4">
-    <label className="flex items-center gap-2 text-sm">
-      <input
-        type="radio"
-        name="mealPlan"
-        value="CP"
-        checked={form.mealPlan === "CP"}
-        onChange={onChange}
-      />
-      CP
-    </label>
-
-    <label className="flex items-center gap-2 text-sm">
-      <input
-        type="radio"
-        name="mealPlan"
-        value="MAP"
-        checked={form.mealPlan === "MAP"}
-        onChange={onChange}
-      />
-      MAP
-    </label>
-
-    <label className="flex items-center gap-2 text-sm">
-      <input
-        type="radio"
-        name="mealPlan"
-        value="AP"
-        checked={form.mealPlan === "AP"}
-        onChange={onChange}
-      />
-      AP
-    </label>
-  </div>
-</div>
-
-
-
-              
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-<<<<<<< HEAD
-                 <Plane className="h-4 w-4 text-theme-primary/60" /> 
-               Transport Preference
-=======
-                <Plane className="h-4 w-4 text-theme-primary/60" /> Transport Preference
->>>>>>> 27f1f49b7ce30853be7efd9f16a81123dcef21b7
+                <Utensils className="h-4 w-4 text-theme-primary/60" />
+                Meal Plan
               </Label>
-               <div className="flex flex-wrap gap-4">
-    {["Bus", "Flight", "Train", "NA"].map((item) => (
-      <label key={item} className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={form.bookingHelp.includes(item)}
-          onChange={(e) => {
-            const updated = e.target.checked
-              ? [...form.bookingHelp, item]
-              : form.bookingHelp.filter((v) => v !== item);
 
-            onChange({
-              target: {
-                name: "bookingHelp",
-                value: updated,
-              },
-            });
-          }}
-        />
-        {item}
-      </label>
-    ))}
-  </div>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="mealPlan"
+                    value="CP"
+                    checked={form.mealPlan === "CP"}
+                    onChange={onChange}
+                  />
+                  CP
+                </label>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="mealPlan"
+                    value="MAP"
+                    checked={form.mealPlan === "MAP"}
+                    onChange={onChange}
+                  />
+                  MAP
+                </label>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="mealPlan"
+                    value="AP"
+                    checked={form.mealPlan === "AP"}
+                    onChange={onChange}
+                  />
+                  AP
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-slate-700 font-medium">
+                <Plane className="h-4 w-4 text-theme-primary/60" />
+                Transport Preference
+              </Label>
+              <div className="flex flex-wrap gap-4">
+                {["Bus", "Flight", "Train", "NA"].map((item) => (
+                  <label key={item} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.bookingHelp.includes(item)}
+                      onChange={(e) => {
+                        const updated = e.target.checked
+                          ? [...form.bookingHelp, item]
+                          : form.bookingHelp.filter((v) => v !== item);
+
+                        onChange({
+                          target: {
+                            name: "bookingHelp",
+                            value: updated,
+                          },
+                        });
+                      }}
+                    />
+                    {item}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -259,7 +256,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
         {/* --- Section 3: Notes --- */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2 text-slate-700 font-medium">
-            <FileText className="h-4 w-4 text-theme-primary/60" /> Additional Requirements
+            <FileText className="h-4 w-4 text-theme-primary/60" /> Additional
+            Requirements
           </Label>
           <Textarea
             name="notes"
@@ -276,16 +274,9 @@ export default function LeadForm({ form, onChange, onSubmit }) {
           <Button
             size="lg"
             type="submit"
-<<<<<<< HEAD
             className=" cursor-pointer bg-theme-primary hover:bg-theme-secondary text-white px-10 shadow-lg shadow-theme-primary/20 rounded-xl"
           >
-            Save Lead  
-=======
-            className="bg-theme-primary hover:bg-theme-secondary text-white px-10 shadow-lg shadow-theme-primary/20 rounded-xl active:scale-95 transition-all"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            Save Lead 
->>>>>>> 27f1f49b7ce30853be7efd9f16a81123dcef21b7
+            Save Lead
           </Button>
         </div>
       </form>
