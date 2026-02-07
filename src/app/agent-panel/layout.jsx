@@ -21,6 +21,7 @@ import { auth } from "@/firebase/config";
 import { signOut } from "firebase/auth";
 import toast from "react-hot-toast";
 import UserDropdown from "@/components/UserDropdown";
+import { PlusOneOutlined } from "@mui/icons-material";
 
 const AgentPanelLayout = ({ children }) => {
   const { user, loading, initialized } = useSelector((state) => state.auth);
@@ -53,6 +54,7 @@ const AgentPanelLayout = ({ children }) => {
     { name: "My Qutations", href: "/agent-panel/my-quatation", icon: Map },
     { name: "Customers", href: "/agent-panel/customers", icon: Users },
     { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
+
   ];
 
   const SidebarContent = ({ mobile = false }) => (

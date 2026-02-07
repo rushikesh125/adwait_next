@@ -88,7 +88,7 @@ const QuotationModals = ({
     <>
       {/* ================== VIEW MODAL ================== */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="lg:min-w-5xl max-h-[90vh] overflow-scroll">
+        <DialogContent className=" lg:min-w-5xl max-h-[90vh] overflow-scroll">
           <DialogHeader>
             <DialogTitle className="text-2xl text-theme-primary">
               Quotation for {viewingQuotation?.customerName}
