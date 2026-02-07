@@ -4,10 +4,12 @@ import React, { useEffect, useState, use } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { 
-  Mail, Phone, MapPin, ArrowLeft, Plus, Calendar, Wallet, FileText, 
+  Mail, Phone, MapPin, ArrowLeft, Plus, Calendar, Wallet, FileText, Pencil,
   MessageSquare, Send, Clock, Loader2, Trash2, Edit3, Info, 
-  ExternalLink, Users, Hotel, Train, ClipboardList, TrendingUp, Car, Map, Tag, User
+  ExternalLink, Users, Hotel, Train, ClipboardList, TrendingUp, Car, Map, Tag, User,
+  Star
 } from "lucide-react";
+import QuotationModals from "@/app/agent-panel/my-quatation/QuotationModals";
 import { 
   Dialog, 
   DialogContent, 
@@ -15,6 +17,7 @@ import {
   DialogTitle, 
   DialogDescription 
 } from "@/components/ui/dialog";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +28,9 @@ import {
   deleteLeadNote, updateLeadNote, getAgentQuotationsForLead 
 } from "@/firebase/leadsService";
 import toast, { Toaster } from "react-hot-toast";
+import { icon } from "@fortawesome/fontawesome-svg-core";
+import {
+  Tooltip,TooltipContent,TooltipProvider,TooltipTrigger,} from "@/components/ui/tooltip";
 
 export default function LeadProfilePage({ params }) {
   const { lid } = use(params);
@@ -35,8 +41,8 @@ export default function LeadProfilePage({ params }) {
   const [quotations, setQuotations] = useState([]);
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
-  const [editingNoteId, setEditingNoteId] = useState(null);
-  const [editValue, setEditValue] = useState("");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+const [editingQuotation, setEditingQuotation] = useState(null);
   const [loading, setLoading] = useState(true);
   
   // Modal States
@@ -64,7 +70,26 @@ export default function LeadProfilePage({ params }) {
       setLoading(false);
     }
   };
+    const formatDate = (value) => {
+  if (!value) return "-";
 
+  let date;
+
+  // Firestore Timestamp
+  if (value?.seconds) {
+    date = new Date(value.seconds * 1000);
+  } else {
+    date = new Date(value);
+  }
+
+  if (isNaN(date)) return "-";
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+};
   const handleAddNote = async (e) => {
     e.preventDefault();
     if (!newNote.trim()) return;
@@ -76,6 +101,17 @@ export default function LeadProfilePage({ params }) {
     } catch (error) { toast.error("Failed to add note"); }
   };
 
+    const handleOpenDetails = (quote) => {
+    setSelectedQuote(quote);
+    setIsModalOpen(true);
+  };
+
+  const handleEditQuotation = (quote) => {
+  // deep copy to avoid mutating original data
+  const deepCopy = JSON.parse(JSON.stringify(quote));
+  setEditingQuotation(deepCopy);
+  setIsEditModalOpen(true);
+};
   const handleDeleteNote = async (noteId) => {
     if (!confirm("Delete this note?")) return;
     await deleteLeadNote(lid, noteId);
@@ -83,6 +119,14 @@ export default function LeadProfilePage({ params }) {
     toast.success("Note removed");
   };
 
+const handleEditChange = (e) => {
+  const { name, value } = e.target;
+
+  setEditingQuotation((prev) => ({
+    ...prev,
+    [name]: value,
+  }));
+};
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-theme-primary" /></div>;
 
   return (
@@ -97,11 +141,29 @@ export default function LeadProfilePage({ params }) {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <div className="flex items-center gap-3">
+           
                 <h1 className="text-2xl font-bold text-slate-900 capitalize">{lead?.name}</h1>
-                <Badge className="bg-orange-50 text-orange-600 border-none px-3">{lead?.status}</Badge>
-              </div>
-              <p className="text-sm text-slate-500">Inquiry ID: {lid}</p>
+                <div className="flex items-center gap-4 pb-4 flex-nowrap">
+  {/* STATUS */}
+                <div className="flex items-center gap-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Status:
+                  </p>
+                  <Badge className="bg-blue-50 text-theme-primary border-none lowercase text-xs">
+                    {lead?.status|| "new"}
+                  </Badge>
+                </div>
+
+                {/* CREATED ON */}
+                <div className="flex items-center gap-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Created On:
+                  </p>
+                  <p className="text-sm font-semibold text-slate-700">
+                {formatDate(lead?.createdAt)}
+                  </p>
+                </div>
+              </div>        
             </div>
           </div>
           <Button onClick={() => router.push(`/agent-panel?leadId=${lid}`)} className="bg-theme-primary text-white px-6 rounded-xl">
@@ -116,47 +178,47 @@ export default function LeadProfilePage({ params }) {
           {/* LEFT: TRIP REQUIREMENTS */}
           <div className="lg:col-span-4 space-y-6">
             <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-              <CardHeader className="border-b border-slate-50 pb-4">
-                <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-600">
-                  <ClipboardList className="h-4 w-4 text-theme-primary" /> Trip Requirements
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100">
-                    <p className="text-[10px] font-bold text-blue-400 uppercase">Destination</p>
-                    <p className="text-lg font-bold text-slate-800 capitalize">{lead?.destination || lead?.Destination}</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-green-50/50 border border-green-100">
-                    <p className="text-[10px] font-bold text-green-400 uppercase">Budget</p>
-                    <p className="text-lg font-bold text-slate-800">₹{lead?.budget}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 pt-2">
+              <CardHeader className="border-b border-slate-50 ">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-600">
+                <ClipboardList className="h-4 w-4 text-theme-primary" />Trip Requirements</CardTitle>
+            </CardHeader>
+            <CardContent className=" space-y-4">
+              <div className="space-y-4">
                   {[
-                    { icon: Calendar, label: "Travel Date", value: lead?.travelDate },
-                    { icon: Clock, label: "Duration", value: `${lead?.days} Days` },
-                    { icon: Users, label: "Passengers", value: `${lead?.adults} Adults` },
-                    { icon: Hotel, label: "Hotel Stars", value: `${lead?.hotelPreference} Star` },
-                    { icon: Train, label: "Preference", value: lead?.transportPreference },
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between group">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-slate-50 text-slate-400 group-hover:text-theme-primary transition-colors">
-                          <item.icon className="h-4 w-4" />
-                        </div>
-                        <span className="text-xs font-semibold text-slate-500">{item.label}</span>
+                    {icon: MapPin, label:"Destination",   value: lead?.destination || "-"},
+                  { icon: Calendar, label: "Travel Date", value: formatDate(lead?.travelDate) },
+                  { icon: Clock, label: "Duration", value: lead?.days ? `${lead.days} Days` : "-" },
+                  { icon: Users, label: "Adults", value: lead?.adults ? `${lead.adults}` : "-" },
+                  { icon: Users, label: "Children", value: lead?.children ? `${lead.children}` : "0" },
+                  { icon: Hotel, label: "Hotel", value: lead?.hotelPreference || "-" },
+                  {  icon: Train,  label: "Transport Preference", value: Array.isArray(lead?.bookingHelp) && lead.bookingHelp.length > 0
+                ? lead.bookingHelp.join(", "): "-"}
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between group">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-slate-50 text-slate-400 group-hover:text-theme-primary transition-colors">
+                        <item.icon className="h-4 w-4" />
                       </div>
-                      <span className="text-sm font-bold text-slate-700">{item.value}</span>
+                      <span className="text-xs font-semibold text-slate-500">
+                        {item.label}
+                      </span>
                     </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-100">
-                  <p className="text-[10px] font-bold text-amber-600 uppercase mb-1">User Message</p>
-                  <p className="text-sm text-amber-900 italic leading-relaxed">"{lead?.extra_notes}"</p>
-                </div>
+                    <span className="text-sm font-bold text-slate-700">
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
+                          {lead?.notes && (
+            <div className="pt-4 border-t">
+              <p className="text-xs font-semibold text-slate-500 mb-1">
+                Additional Requirements
+              </p>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {lead.notes}
+              </p>
+            </div>
+          )}
+                </div>              
               </CardContent>
             </Card>
 
@@ -164,7 +226,7 @@ export default function LeadProfilePage({ params }) {
             <Card className="border-none shadow-sm rounded-2xl flex flex-col h-[450px] bg-white">
               <CardHeader className="border-b border-slate-50 py-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-theme-primary" /> Internal Logs
+                  <MessageSquare className="h-4 w-4 text-theme-primary" />  Notes
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -175,12 +237,12 @@ export default function LeadProfilePage({ params }) {
                       <button onClick={() => handleDeleteNote(note.id)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
                         <Trash2 className="h-3 w-3" />
                       </button>
+                      </div>
+                      <p className="text-sm text-slate-600">{note.text}</p>
+                      <p className="text-[9px] text-slate-400 mt-2 flex items-center gap-1">
+                        <Clock className="h-2 w-2" /> {note.createdAt?.toDate().toLocaleString("en-GB")}
+                      </p>
                     </div>
-                    <p className="text-sm text-slate-600">{note.text}</p>
-                    <p className="text-[9px] text-slate-400 mt-2 flex items-center gap-1">
-                      <Clock className="h-2 w-2" /> {note.createdAt?.toDate().toLocaleString()}
-                    </p>
-                  </div>
                 ))}
               </CardContent>
               <div className="p-4 border-t">
@@ -207,14 +269,49 @@ export default function LeadProfilePage({ params }) {
                       <div className="space-y-1">
                         <h4 className="font-bold text-slate-800 text-lg">{quote.packageName}</h4>
                         <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
-                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {quote.createdAt?.toDate().toLocaleDateString()}</span>
+                        <span className="flex items-center gap-1">
+                   <Calendar className="h-3 w-3" />{formatDate(quote.createdAt)}</span>
                           <span className="flex items-center gap-1 text-slate-900 font-bold"><Wallet className="h-3 w-3" /> ₹{quote.grandTotal}</span>
                         </div>
                       </div>
+                      </div>
+
+                        <TooltipProvider>
+          <div className="flex items-center gap-1">
+            {/* View Quotation */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-lg hover:bg-theme-primary hover:text-white"
+                    onClick={() => handleOpenDetails(quote)} >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      View Quotation
+                    </TooltipContent>
+                  </Tooltip>
+                      {/* Edit Quotation */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="rounded-lg hover:bg-theme-primary hover:text-white"
+                            onClick={() => handleEditQuotation(quote)}   
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Edit Quotation
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
-                    <Button variant="ghost" className="hover:bg-theme-primary hover:text-white rounded-xl" onClick={() => { setSelectedQuote(quote); setIsModalOpen(true); }}>
-                      View Details <ExternalLink className="ml-2 h-4 w-4" />
-                    </Button>
+                  </TooltipProvider>
+                     
                   </div>
                 )) : (
                   <div className="p-20 text-center space-y-4">
@@ -229,101 +326,59 @@ export default function LeadProfilePage({ params }) {
           </div>
         </div>
       </main>
+   <QuotationModals
+  /* VIEW MODE */
+  isViewModalOpen={isModalOpen}
+  setIsViewModalOpen={setIsModalOpen}
+  viewingQuotation={selectedQuote}
 
-      {/* QUOTATION DETAILS DIALOG */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-4xl md:max-w-5xl lg:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-3xl border-none shadow-2xl">
-          <DialogHeader className="bg-theme-primary p-8 text-white relative">
-            <div className="space-y-2">
-              <Badge className="bg-white/20 text-white hover:bg-white/30 border-none mb-2">Quote ID: {selectedQuote?.id?.slice(-8)}</Badge>
-              <DialogTitle className="text-3xl font-bold">{selectedQuote?.packageName}</DialogTitle>
-              <DialogDescription className="text-blue-50 flex items-center gap-4">
-                <span className="flex items-center gap-1"><User className="h-4 w-4" /> {selectedQuote?.customerName}</span>
-                <span className="flex items-center gap-1"><Tag className="h-4 w-4" /> Status: {selectedQuote?.status}</span>
-              </DialogDescription>
-            </div>
-            <div className="absolute top-8 right-8 text-right">
-                <p className="text-sm font-medium text-blue-100">Grand Total</p>
-                <p className="text-4xl font-black">₹{selectedQuote?.grandTotal?.toLocaleString()}</p>
-            </div>
-          </DialogHeader>
+  /* EDIT MODE */
+  isEditModalOpen={isEditModalOpen}
+  setIsEditModalOpen={setIsEditModalOpen}
+  editingQuotation={editingQuotation}
+  handleEditChange={handleEditChange}
 
-          <ScrollArea className="flex-1 p-8 bg-slate-50">
-            <div className="space-y-8">
-              
-              {/* HOTELS SECTION */}
-              <section className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Hotel className="h-4 w-4 text-theme-primary" /> Accommodation
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedQuote?.hotelSummary?.map((hotel, idx) => (
-                    <Card key={idx} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-                      <CardContent className="p-5 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-slate-800">{hotel.hotel}</h4>
-                          <Badge className="bg-slate-100 text-slate-600 border-none">{hotel.selectedRoomCategory}</Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500">
-                          <p>In: <b>{hotel.checkInDate}</b></p>
-                          <p>Out: <b>{hotel.checkOutDate}</b></p>
-                          <p>Meal: <b>{hotel.selectedMealPlan}</b></p>
-                          <p>Nights: <b>{hotel.nights}</b></p>
-                        </div>
-                        <div className="pt-2 border-t flex justify-between items-center">
-                           <span className="text-[10px] text-slate-400">Hotel Total</span>
-                           <span className="text-sm font-bold text-slate-700">₹{hotel.hotelTotal}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </section>
+  /* keep rest as-is */
+  AllDestinations={[]}
+  SelectedDestination={null}
+  setSelectedDestination={() => {}}
+  selectedHotelToAdd={null}
+  setSelectedHotelToAdd={() => {}}
+  allHotels={[]}
+  handleAddHotel={() => {}}
+  handleRemoveHotel={() => {}}
+  handleHotelChange={() => {}}
+  handleHotelSummaryChange={() => {}}
+  getAvailableMealPlans={() => []}
+  toggleValue={false}
+  handleToggle={() => {}}
+  handleTransportSummaryChange={() => {}}
+  selectedTransportStateId={null}
+  setSelectedTransportStateId={() => {}}
+  transportStates={[]}
+  toTitleCase={(v) => v}
+  handlePackageChange={() => {}}
+  availableTransportPackagesForSelectedState={[]}
+  handleVehicleChange={() => {}}
+  isFetchingActivities={false}
+  selectedActivityToAdd={null}
+  setSelectedActivityToAdd={() => {}}
+  availableActivities={[]}
+  handleAddActivity={() => {}}
+  handleRemoveActivity={() => {}}
+  handleActivitySummaryChange={() => {}}
+  handleMarkupInputChange={() => {}}
+  handleUpdateQuotation={() => {}}
+  handleSaveAs={() => {}}
+  showSaveAsModal={false}
+  setShowSaveAsModal={() => {}}
+  newPackageName=""
+  setNewPackageName={() => {}}
+  newCustomerName=""
+  setNewCustomerName={() => {}}
+  handleConfirmSaveAs={() => {}}
+/>
 
-              {/* TRANSPORT & ACTIVITIES */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Transport */}
-                <section className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Car className="h-4 w-4 text-theme-primary" /> Transport
-                  </h3>
-                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                    <p className="font-bold text-slate-800 mb-1">{selectedQuote?.transportSummary?.vehicleName}</p>
-                    <div className="flex gap-3 text-xs text-slate-500">
-                        <Badge variant="outline" className="font-normal">{selectedQuote?.transportSummary?.ac ? "AC" : "Non-AC"}</Badge>
-                        <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {selectedQuote?.transportSummary?.seats} Seats</span>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Activities */}
-                <section className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Map className="h-4 w-4 text-theme-primary" /> Activities
-                  </h3>
-                  <div className="space-y-3">
-                    {selectedQuote?.activitySummary?.map((act, idx) => (
-                      <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm flex justify-between items-center border border-slate-100">
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm">{act.name}</p>
-                          <p className="text-[10px] text-slate-400 capitalize">{act.city} • {act.type}</p>
-                        </div>
-                        <p className="font-bold text-slate-700">₹{act.totalPrice}</p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </div>
-            </div>
-          </ScrollArea>
-          
-          <div className="p-6 bg-white border-t flex justify-end">
-            <Button className="bg-theme-primary rounded-xl px-8" onClick={() => setIsModalOpen(false)}>
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+      </div>
   );
 }

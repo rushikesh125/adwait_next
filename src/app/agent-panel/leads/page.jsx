@@ -25,16 +25,21 @@ export default function LeadsPage() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-    name: "",
-    travelDate: "",
-    days: "",
-    destination: "",
-    adults: "",
-    hotelPreference: "",
-    transportPreference: "",
-    budget: "",
-    notes: "",
-  });
+  name: "",
+  travelDate: "",
+  days: "",
+  destination: "",
+  adults: "",
+  children:"",
+  hotelPreference: "",
+  transportPreference: "",
+  budget: "",
+  notes: "",
+  mealPlan: "",
+  hotelCategory: "",
+  bookingHelp: [], 
+});
+
 
   useEffect(() => {
     loadLeads();
@@ -55,12 +60,30 @@ export default function LeadsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Simple validation check
-    if (!form.name.trim() || !form.destination.trim()) {
-    toast.error("Please fill in basic details (Name & Destination)");
-    return;
-  }
+      if (!form.name?.trim()) {
+  toast.error("Please enter Lead Name");
+  return;
+}
+
+if (!form.destination?.trim()) {
+  toast.error("Please enter Destination");
+  return;
+}
+
+if (!form.travelDate) {
+  toast.error("Please select Travel Date");
+  return;
+}
+
+if (!form.days) {
+  toast.error("Please enter Number of Days");
+  return;
+}
+
+if (!form.adults) {
+  toast.error("Please enter Number of Adults");
+  return;
+}
 
     const toastId = toast.loading("Creating lead...");
     try {
@@ -73,16 +96,21 @@ export default function LeadsPage() {
       toast.success("Lead added successfully", { id: toastId });
       setShowAddLead(false);
       setForm({
-        name: "",
-        travelDate: "",
-        days: "",
-        destination: "",
-        adults: "",
-        hotelPreference: "",
-        transportPreference: "",
-        budget: "",
-        notes: "",
-      });
+  name: "",
+  travelDate: "",
+  days: "",
+  destination: "",
+  adults: "",
+  children: "",
+  hotelPreference: "",
+  transportPreference: "",
+  budget: "",
+  notes: "",
+  mealPlan: "",
+  hotelCategory: "",
+  bookingHelp: [],
+});
+
       loadLeads();
     } catch (error) {
       toast.error("Error creating lead", { id: toastId });
@@ -170,7 +198,7 @@ export default function LeadsPage() {
               Refresh
             </Button>
             <Button 
-              className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 px-6" 
+              className= " cursor-pointer bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 px-6" 
               onClick={() => setShowAddLead(true)}
             >
               <Plus className="h-5 w-5 mr-2" />
@@ -181,18 +209,7 @@ export default function LeadsPage() {
 
         {/* Dashboard Content */}
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-2xl overflow-hidden">
-          <CardHeader className="bg-white border-b border-slate-50 px-8 py-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-theme-muted rounded-full text-theme-primary text-xs font-bold uppercase tracking-wider">
-                <Clock className="h-3.5 w-3.5" />
-                Active Pipeline
-              </div>
-              <div className="h-4 w-[1px] bg-slate-200" />
-              <span className="text-sm text-slate-500 font-medium">
-                Total {leads.length} inquiries found
-              </span>
-            </div>
-          </CardHeader>
+        
 
           <CardContent className="p-0">
             <div className="min-h-[400px]">

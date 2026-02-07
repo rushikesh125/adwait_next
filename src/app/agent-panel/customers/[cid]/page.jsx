@@ -3,6 +3,8 @@
 import React, { useEffect, useState, use } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
+import QuotationModals from "@/app/agent-panel/my-quatation/QuotationModals";
+
 import { 
   Mail, Phone, MapPin, ArrowLeft, Plus, Calendar, Wallet, FileText, 
   MessageSquare, Send, Clock, Loader2, Trash2, Edit3, Info, 
@@ -86,6 +88,27 @@ export default function CustomerProfilePage({ params }) {
       toast.success("Note deleted");
     } catch (error) { toast.error("Delete failed"); }
   };
+  const formatDate = (value) => {
+  if (!value) return "-";
+
+  let date;
+
+  // Firestore Timestamp
+  if (value?.seconds) {
+    date = new Date(value.seconds * 1000);
+  } else {
+    date = new Date(value);
+  }
+
+  if (isNaN(date)) return "-";
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+};
+
 
   const startEditing = (note) => {
     setEditingNoteId(note.id);
@@ -134,7 +157,7 @@ export default function CustomerProfilePage({ params }) {
                </CardHeader>
                <CardContent className="space-y-2 pt-4">
                  <h1 className="text-2xl font-bold text-slate-900 capitalize">{customer?.name}</h1>
-                 <p className="text-sm text-slate-500 mb-4">Customer ID: {cid}</p>
+               
                  <div className="grid grid-cols-2 gap-4 pb-4">
                    <div className="space-y-1">
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</p>
@@ -142,7 +165,7 @@ export default function CustomerProfilePage({ params }) {
                    </div>
                    <div className="space-y-1">
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Created On</p>
-                     <p className="text-sm font-semibold text-slate-700">{customer?.date}</p>
+                     <p className="text-sm font-semibold text-slate-700">{customer?.createdAt.toDate().toLocaleDateString("en-GB")}</p>
                    </div>
                  </div>
                  <div className="space-y-4 pt-2">
@@ -163,7 +186,7 @@ export default function CustomerProfilePage({ params }) {
              <Card className="border-none shadow-sm rounded-2xl flex flex-col h-[500px] bg-white">
                 <CardHeader className="border-b border-slate-50 py-4">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-theme-primary" /> Internal Logs
+                    <MessageSquare className="h-4 w-4 text-theme-primary" /> Notes
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -238,113 +261,57 @@ export default function CustomerProfilePage({ params }) {
         </div>
       </main>
 
-      {/* QUOTATION DETAILS DIALOG */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-4xl md:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-3xl border-none shadow-2xl">
-          <DialogHeader className="bg-theme-primary p-8 text-white relative">
-            <div className="space-y-2">
-              <Badge className="bg-white/20 text-white hover:bg-white/30 border-none mb-2">Quote ID: {selectedQuote?.id?.slice(-8)}</Badge>
-              <DialogTitle className="text-3xl font-bold">{selectedQuote?.packageName}</DialogTitle>
-              <DialogDescription className="text-blue-50 flex items-center gap-4">
-                <span className="flex items-center gap-1"><User className="h-4 w-4" /> {selectedQuote?.customerName}</span>
-                <span className="flex items-center gap-1"><Tag className="h-4 w-4" /> Status: {selectedQuote?.status}</span>
-              </DialogDescription>
-            </div>
-            <div className="absolute top-8 right-8 text-right">
-                <p className="text-sm font-medium text-blue-100">Grand Total</p>
-                <p className="text-4xl font-black">₹{selectedQuote?.grandTotal?.toLocaleString()}</p>
-            </div>
-          </DialogHeader>
+                    <QuotationModals
+  isViewModalOpen={isModalOpen}
+  setIsViewModalOpen={setIsModalOpen}
+  viewingQuotation={selectedQuote}
 
-          <ScrollArea className="flex-1 p-8 bg-slate-50">
-            <div className="space-y-8">
-              
-              {/* HOTELS SECTION */}
-              <section className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Hotel className="h-4 w-4 text-theme-primary" /> Accommodation details
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedQuote?.hotelSummary?.map((hotel, idx) => (
-                    <Card key={idx} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-                      <CardContent className="p-5 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-slate-800">{hotel.hotel}</h4>
-                          <Badge className="bg-slate-100 text-slate-600 border-none">{hotel.selectedRoomCategory}</Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                          <p>In: <b>{hotel.checkInDate}</b></p>
-                          <p>Out: <b>{hotel.checkOutDate}</b></p>
-                          <p>Nights: <b>{hotel.nights}</b></p>
-                          <p>Meal: <b>{hotel.selectedMealPlan}</b></p>
-                        </div>
-                        <Separator className="bg-slate-50" />
-                        <div className="flex justify-between items-center text-xs">
-                           <span className="text-slate-400">Total Price</span>
-                           <span className="font-bold text-slate-700">₹{hotel.hotelTotal}</span>
-                        </div>
-                        {hotel.GoogleListingURL && (
-                          <Button variant="link" className="p-0 h-auto text-xs text-theme-primary" onClick={() => window.open(hotel.GoogleListingURL, '_blank')}>
-                            View on Google Maps <ExternalLink className="ml-1 h-3 w-3" />
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </section>
+  /* below props are not needed for VIEW mode,
+     but component expects them, so pass safe defaults */
+  isEditModalOpen={false}
+  setIsEditModalOpen={() => {}}
+  editingQuotation={null}
+  handleEditChange={() => {}}
+  AllDestinations={[]}
+  SelectedDestination={null}
+  setSelectedDestination={() => {}}
+  selectedHotelToAdd={null}
+  setSelectedHotelToAdd={() => {}}
+  allHotels={[]}
+  handleAddHotel={() => {}}
+  handleRemoveHotel={() => {}}
+  handleHotelChange={() => {}}
+  handleHotelSummaryChange={() => {}}
+  getAvailableMealPlans={() => []}
+  toggleValue={false}
+  handleToggle={() => {}}
+  handleTransportSummaryChange={() => {}}
+  selectedTransportStateId={null}
+  setSelectedTransportStateId={() => {}}
+  transportStates={[]}
+  toTitleCase={(v) => v}
+  handlePackageChange={() => {}}
+  availableTransportPackagesForSelectedState={[]}
+  handleVehicleChange={() => {}}
+  isFetchingActivities={false}
+  selectedActivityToAdd={null}
+  setSelectedActivityToAdd={() => {}}
+  availableActivities={[]}
+  handleAddActivity={() => {}}
+  handleRemoveActivity={() => {}}
+  handleActivitySummaryChange={() => {}}
+  handleMarkupInputChange={() => {}}
+  handleUpdateQuotation={() => {}}
+  handleSaveAs={() => {}}
+  showSaveAsModal={false}
+  setShowSaveAsModal={() => {}}
+  newPackageName=""
+  setNewPackageName={() => {}}
+  newCustomerName=""
+  setNewCustomerName={() => {}}
+  handleConfirmSaveAs={() => {}}
+/>
 
-              {/* TRANSPORT & ACTIVITIES */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Transport */}
-                <section className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Car className="h-4 w-4 text-theme-primary" /> Transport
-                  </h3>
-                  <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3 border border-slate-100">
-                    <div className="flex justify-between">
-                      <p className="font-bold text-slate-800">{selectedQuote?.transportSummary?.vehicleName}</p>
-                      <Badge variant="outline">{selectedQuote?.transportSummary?.ac ? "AC" : "Non-AC"}</Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
-                       <span>Seats: {selectedQuote?.transportSummary?.seats}</span>
-                       <span>Rate: ₹{selectedQuote?.transportSummary?.price}/km</span>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Activities */}
-                <section className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Map className="h-4 w-4 text-theme-primary" /> Activities
-                  </h3>
-                  <div className="space-y-3">
-                    {selectedQuote?.activitySummary?.map((act, idx) => (
-                      <div key={idx} className="bg-white rounded-2xl p-5 shadow-sm flex justify-between items-center border border-slate-100">
-                        <div>
-                          <p className="font-bold text-slate-800">{act.name}</p>
-                          <p className="text-xs text-slate-500 capitalize">{act.city}, {act.type}</p>
-                        </div>
-                        <p className="font-bold text-theme-primary">₹{act.totalPrice}</p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </div>
-
-            </div>
-          </ScrollArea>
-          
-          <div className="p-6 bg-white border-t flex justify-between items-center">
-            <div className="text-xs text-slate-400 font-medium">
-              *Markup included: ₹{selectedQuote?.markup || 0}
-            </div>
-            <Button className="bg-theme-primary rounded-xl" onClick={() => setIsModalOpen(false)}>
-              Close Review
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -4,10 +4,8 @@ import React, { useState } from "react";
 import { 
   Search, 
   MapPin, 
-  Calendar, 
-  FileText, 
-  Eye, 
-  MoreVertical,
+  Calendar,  
+  Eye,FilePlus2,
   FilterX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,21 +18,40 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 
 export default function LeadsTable({ leads, onStatusChange, onCreateQuotation }) {
   const [searchTerm, setSearchTerm] = useState("");
   const router = useRouter();
-  // Filter Logic: Name or Destination
+
   const filteredLeads = leads.filter((lead) => {
     const name = lead.name?.toLowerCase() || "";
-    const dest = (lead.Destination || lead.destination || "").toLowerCase();
+    const dest = (lead.destination || "").toLowerCase();
     const term = searchTerm.toLowerCase();
     return name.includes(term) || dest.includes(term);
   });
 
-  // Helper for Status Badge Colors
+  const formatDate = (value) => {
+  if (!value) return "-";
+
+  let date;
+
+  // Firestore Timestamp
+  if (value?.seconds) {
+    date = new Date(value.seconds * 1000);
+  } else {
+    date = new Date(value);
+  }
+
+  if (isNaN(date)) return "-";
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+};
+
   const getStatusStyles = (status) => {
     switch (status) {
       case "New": return "bg-blue-100 text-blue-700 border-blue-200";
@@ -47,7 +64,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
 
   return (
     <div className="space-y-4">
-      {/* Search Header Area */}
+      {/* Search */}
       <div className="p-4 bg-white border-b flex items-center justify-between">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -55,101 +72,113 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
             placeholder="Search leads or destinations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 border-slate-200 focus:ring-theme-primary rounded-lg h-10"
+            className="pl-10 rounded-lg h-10"
           />
         </div>
         {searchTerm && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setSearchTerm("")}
-            className="text-slate-500 text-xs"
-          >
+          <Button variant="ghost" size="sm" onClick={() => setSearchTerm("")}>
             <FilterX className="h-4 w-4 mr-2" />
-            Clear Filter
+            Clear
           </Button>
         )}
       </div>
 
       <div className="overflow-x-auto">
-        <Table>
+        <Table className=" min-w-[1000px]">
           <TableHeader className="bg-slate-50/50">
             <TableRow>
-              <TableHead className="w-[80px] font-bold text-slate-600">ID</TableHead>
-              <TableHead className="font-bold text-slate-600">Lead Details</TableHead>
-              <TableHead className="font-bold text-slate-600">Travel Date</TableHead>
-              <TableHead className="font-bold text-slate-600">Status</TableHead>
-              <TableHead className="text-right font-bold text-slate-600 px-6">Actions</TableHead>
+              <TableHead className="w-[70px] text-center">S.No</TableHead>
+              <TableHead className="text-center">Lead Name</TableHead>
+              <TableHead className="text-center">Destination</TableHead>
+              <TableHead className="text-center">Travel Date</TableHead>
+              <TableHead  className=" text-center w-[120px]">Created At</TableHead>
+              <TableHead className=" text-center w-[140px]">Status</TableHead>
+              <TableHead className=" text-center px-6 w-[160px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
 
-          <TableBody>
+          <TableBody className="text-center">
             {filteredLeads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-slate-500">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <FileText className="h-8 w-8 text-slate-200" />
-                    <p>No matching leads found</p>
-                  </div>
+                <TableCell colSpan={7} className="h-32 text-center text-slate-500">
+                  No matching leads found
                 </TableCell>
               </TableRow>
             ) : (
               filteredLeads.map((lead, index) => (
-                <TableRow key={lead.id} className="group hover:bg-theme-muted/10 transition-colors">
-                  <TableCell className="font-mono text-xs text-slate-400">
-                    {lead?.id?.slice(0,6)}
-                  </TableCell>
+                <TableRow key={lead.id} className="hover:bg-theme-muted/10">
                   
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-slate-900">{lead.name}</span>
-                      <span className="flex items-center text-xs text-slate-500 mt-1">
-                        <MapPin className="h-3 w-3 mr-1 text-theme-primary" />
-                        {lead.Destination || lead.destination || "Not specified"}
-                      </span>
+                  {/* Serial Number */}
+                  <TableCell className=" text-center font-medium text-slate-500">
+                    {index + 1}
+                  </TableCell>
+
+                  {/* Lead Name */}
+                  <TableCell className=" text-center font-semibold text-slate-900">
+                    {lead.name}
+                  </TableCell>
+
+                  {/* Destination Column */}
+                  <TableCell className="text-sm text-slate-600">
+                    <div className="flex items-center">
+                      <MapPin className="h-3.5 w-3.5 mr-1 text-theme-primary" />
+                      {lead.destination || "Not specified"}
                     </div>
                   </TableCell>
 
-                  <TableCell>
-                    <div className="flex items-center text-sm text-slate-600">
+                  {/* Travel Date */}
+                  <TableCell className="text-sm text-slate-600">
+                    <div className="flex items-center">
                       <Calendar className="h-3.5 w-3.5 mr-2 text-slate-400" />
-                      {lead.travelDate || "TBD"}
+                     {formatDate(lead.travelDate)}
                     </div>
                   </TableCell>
 
+                  {/* Created At */}
+                      {/* Travel Date */}
+          <TableCell className="text-sm text-slate-600 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <Calendar className="h-3.5 w-3.5 text-slate-400" />
+              {formatDate(lead.createdAt)}
+            </div>
+          </TableCell>
+
+                  {/* Status */}
                   <TableCell>
                     <select
                       value={lead.status || "New"}
                       onChange={(e) => onStatusChange(lead.id, e.target.value)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-full border cursor-pointer focus:outline-none transition-all ${getStatusStyles(lead.status)}`}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-full border ${getStatusStyles(lead.status)}`}
                     >
                       <option value="New">New</option>
                       <option value="Contacted">Contacted</option>
                       <option value="Quotation Sent">Quotation Sent</option>
-                      <option value="Closed">Closed</option>
+                      <option value="Closed">Closed Won</option>
+                      <option value="Closed">Closed Lost</option>
                     </select>
                   </TableCell>
 
+                  {/* Actions */}
                   <TableCell className="text-right px-6">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex justify-end gap-2">
                       <Button
                         size="sm"
-                        className="bg-theme-primary hover:bg-theme-secondary text-white shadow-sm"
+                        className="bg-theme-primary text-white"
                         onClick={() => router.push(`/agent-panel?leadId=${lead.id}`)}
                       >
-                        <FileText className="h-3.5 w-3.5 mr-2" />
-                        Quotation
+                           <FilePlus2 className="h-4 w-4 mr-2" />
+                       Create Quotation
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-slate-400 hover:text-theme-primary hover:bg-theme-muted rounded-full"
-                        onClick={()=>router.push(`./leads/${lead.id}`)}
+                        onClick={() => router.push(`./leads/${lead.id}`)}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
+
                 </TableRow>
               ))
             )}

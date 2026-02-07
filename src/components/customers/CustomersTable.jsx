@@ -45,8 +45,8 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
         </div>
       ) : (
         <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
-          <Table>
-            <TableHeader className="bg-slate-50/50 ">
+          <Table> 
+            <TableHeader className="bg-slate-50/50  ">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-4 font-bold text-center text-slate-600 uppercase text-[11px] tracking-wider">
                   Customer Info
@@ -54,7 +54,7 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
                 <TableHead className="py-4 font-bold text-center text-slate-600  uppercase text-[11px] tracking-wider">
                   Location
                 </TableHead>
-                <TableHead className="py-4 font-bold  text-center text-slate-600   uppercase text-[11px] tracking-wider text-right">
+                <TableHead className=" text-center py-4 font-bold  text-center text-slate-600   uppercase text-[11px] tracking-wider text-right">
                   Actions
                 </TableHead>
               </TableRow>
@@ -118,7 +118,7 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
                             >
                               <FilePlus2 className="h-4 w-4 mr-2" />
                               <span className="hidden sm:inline">
-                                Quotation
+                              Create Quotation
                               </span>
                             </Button>
                           </TooltipTrigger>
