@@ -170,14 +170,14 @@ const QuotationsTable = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredQuotations.map((q) => (
+                {filteredQuotations.map((q,ind) => (
                   <TableRow
                     key={q.id}
                     className="cursor-pointer hover:bg-theme-muted/20 transition-colors "
                     onClick={() => handleViewClick(q)}
                   >
                     <TableCell className="font-medium">
-                      Quote {q.quoteNumber}
+                      Quote {ind+1}
                     </TableCell>
                     <TableCell>{q.customerName || q.leadName || "—"}</TableCell>
                     <TableCell>{q.packageName || "—"}</TableCell>

@@ -75,7 +75,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
         <Table>
           <TableHeader className="bg-slate-50/50">
             <TableRow>
-              <TableHead className="w-[80px] font-bold text-slate-600">ID</TableHead>
+              <TableHead className="w-[80px] font-bold text-slate-600">Sr. No.</TableHead>
               <TableHead className="font-bold text-slate-600">Lead Details</TableHead>
               <TableHead className="font-bold text-slate-600">Travel Date</TableHead>
               <TableHead className="font-bold text-slate-600">Status</TableHead>
@@ -97,7 +97,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
               filteredLeads.map((lead, index) => (
                 <TableRow key={lead.id} className="group hover:bg-theme-muted/10 transition-colors">
                   <TableCell className="font-mono text-xs text-slate-400">
-                    {lead?.id?.slice(0,6)}
+                    {index+1}
                   </TableCell>
                   
                   <TableCell>

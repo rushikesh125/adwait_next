@@ -164,7 +164,7 @@ export default function LeadProfilePage({ params }) {
             <Card className="border-none shadow-sm rounded-2xl flex flex-col h-[450px] bg-white">
               <CardHeader className="border-b border-slate-50 py-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-theme-primary" /> Internal Logs
+                  <MessageSquare className="h-4 w-4 text-theme-primary" /> Notes
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">

@@ -32,18 +32,24 @@ export default function LeadForm({ form, onChange, onSubmit }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-2">
+            {/* Lead Name Input - Reference point for suggestions */}
+            <div className="space-y-2 relative">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
                 <User className="h-4 w-4 text-theme-primary/60" /> Lead Name
               </Label>
               <Input
                 name="name"
                 value={form.name}
-                placeholder="Full Name"
+                placeholder="Type name to see suggestions..."
                 onChange={onChange}
-                className="h-11 border-slate-200 focus-visible:ring-theme-primary"
+                autoComplete="off" // Prevents browser defaults from overlapping our suggestions
+                className="h-11 border-slate-200 focus-visible:ring-theme-primary transition-all pr-10"
                 required
               />
+              {/* Optional: Visual indicator that it's a searchable field */}
+              <div className="absolute right-3 top-[38px] text-slate-300">
+                <Users className="h-4 w-4" />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -51,8 +57,8 @@ export default function LeadForm({ form, onChange, onSubmit }) {
                 <MapPin className="h-4 w-4 text-theme-primary/60" /> Travel To
               </Label>
               <Input
-                name="destination" // Changed from "Destination" to "destination"
-                value={form.destination} // Changed from form.Destination to form.destination
+                name="destination"
+                value={form.destination}
                 placeholder="City or Country"
                 onChange={onChange}
                 className="h-11 border-slate-200 focus-visible:ring-theme-primary"
@@ -62,8 +68,7 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Calendar className="h-4 w-4 text-theme-primary/60" /> Travel
-                Date
+                <Calendar className="h-4 w-4 text-theme-primary/60" /> Travel Date
               </Label>
               <Input
                 type="date"
@@ -77,8 +82,7 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Clock className="h-4 w-4 text-theme-primary/60" /> Number of
-                Days
+                <Clock className="h-4 w-4 text-theme-primary/60" /> Number of Days
               </Label>
               <Input
                 type="number"
@@ -120,8 +124,7 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Wallet className="h-4 w-4 text-theme-primary/60" /> Budget
-                (approx)
+                <Wallet className="h-4 w-4 text-theme-primary/60" /> Budget (approx)
               </Label>
               <Input
                 type="number"
@@ -135,8 +138,7 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Hotel className="h-4 w-4 text-theme-primary/60" /> Hotel
-                Preference
+                <Hotel className="h-4 w-4 text-theme-primary/60" /> Hotel Preference
               </Label>
               <Input
                 name="hotelPreference"
@@ -149,8 +151,7 @@ export default function LeadForm({ form, onChange, onSubmit }) {
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Plane className="h-4 w-4 text-theme-primary/60" /> Transport
-                Preference
+                <Plane className="h-4 w-4 text-theme-primary/60" /> Transport Preference
               </Label>
               <Input
                 name="transportPreference"
@@ -166,16 +167,15 @@ export default function LeadForm({ form, onChange, onSubmit }) {
         {/* --- Section 3: Notes --- */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2 text-slate-700 font-medium">
-            <FileText className="h-4 w-4 text-theme-primary/60" /> Additional
-            Requirements
+            <FileText className="h-4 w-4 text-theme-primary/60" /> Additional Requirements
           </Label>
           <Textarea
             name="notes"
             value={form.notes}
             onChange={onChange}
-            placeholder="Include any specific details (e.g. Vegetarian meals, wheel-chair access, honeymoon amenities)"
-            className="border-slate-200 focus-visible:ring-theme-primary resize-none p-4"
-            rows={4}
+            placeholder="Include any specific details (e.g. Vegetarian meals, wheel-chair access)"
+            className="border-slate-200 focus-visible:ring-theme-primary resize-none p-4 min-h-[100px]"
+            rows={3}
           />
         </div>
 
@@ -184,10 +184,10 @@ export default function LeadForm({ form, onChange, onSubmit }) {
           <Button
             size="lg"
             type="submit"
-            className="bg-theme-primary hover:bg-theme-secondary text-white px-10 shadow-lg shadow-theme-primary/20 rounded-xl"
+            className="bg-theme-primary hover:bg-theme-secondary text-white px-10 shadow-lg shadow-theme-primary/20 rounded-xl active:scale-95 transition-all"
           >
             <Send className="h-4 w-4 mr-2" />
-            Save Lead & Notify Team
+            Save Lead 
           </Button>
         </div>
       </form>
