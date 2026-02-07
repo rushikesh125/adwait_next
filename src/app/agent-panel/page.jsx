@@ -1,39 +1,45 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  CalendarPlus, 
-  FileText, 
-  PackagePlus, 
-  LayoutDashboard, 
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  CalendarPlus,
+  FileText,
+  PackagePlus,
+  LayoutDashboard,
   UserCircle,
-  LogOut
-} from 'lucide-react';
+  LogOut,
+} from "lucide-react";
 
 // Shadcn UI Components
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Firebase Logic
-import { getUserData } from '@/firebase/users';
+import { getUserData } from "@/firebase/users";
 
 // Custom Components
-import Create_new_package from '@/components/Create_new_package';
+import Create_new_package from "@/components/Create_new_package";
 
 const AgentDashboard = () => {
   const router = useRouter();
-  const { user, loading: authLoading } = useSelector(state => state.auth);
-  
+  const { user, loading: authLoading } = useSelector((state) => state.auth);
+
   const [userData, setUserData] = useState(null);
   const [activeTab, setActiveTab] = useState("create");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
-  
+
   // Form State persistence (as per original logic)
   const [saveChanges, setSaveChanges] = useState(false);
   const [checkInDate, setCheckInDate] = useState([]);
@@ -43,7 +49,7 @@ const AgentDashboard = () => {
   useEffect(() => {
     const initDashboard = async () => {
       if (!authLoading && !user) {
-        router.push('/login');
+        router.push("/login");
         return;
       }
 
@@ -67,11 +73,11 @@ const AgentDashboard = () => {
     const handleBeforeUnload = (e) => {
       if (showCreateForm && !saveChanges) {
         e.preventDefault();
-        e.returnValue = '';
+        e.returnValue = "";
       }
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [saveChanges, showCreateForm]);
 
   const handleTabChange = (tabName) => {
@@ -88,19 +94,24 @@ const AgentDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50 w-ful">
-      
-
       <main className="w-full mx-auto p-1 md:px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-     
-
           {/* Main Content Area */}
           <div className="col-span-full">
             <Tabs value={activeTab} className="w-full">
               <TabsList className="lg:hidden grid grid-cols-2 mb-6">
-                <TabsTrigger value="create" onClick={() => handleTabChange("create")}>Create</TabsTrigger>
-                <TabsTrigger value="my-quotations" onClick={() => handleTabChange("my-quotations")}>History</TabsTrigger>
+                <TabsTrigger
+                  value="create"
+                  onClick={() => handleTabChange("create")}
+                >
+                  Create
+                </TabsTrigger>
+                <TabsTrigger
+                  value="my-quotations"
+                  onClick={() => handleTabChange("my-quotations")}
+                >
+                  History
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="create" className="mt-0 outline-none">
@@ -108,11 +119,15 @@ const AgentDashboard = () => {
                   <CardHeader className="border-b bg-white">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div>
-                        <CardTitle className="text-xl text-theme-dark">Package Builder</CardTitle>
-                        <CardDescription>Create a professional itinerary for your clients</CardDescription>
+                        <CardTitle className="text-xl text-theme-dark">
+                          Package Builder
+                        </CardTitle>
+                        <CardDescription>
+                          Create a professional itinerary for your clients
+                        </CardDescription>
                       </div>
                       {!showCreateForm && (
-                        <Button 
+                        <Button
                           onClick={() => setShowCreateForm(true)}
                           className="bg-theme-primary hover:bg-theme-secondary text-white shadow-md transition-all hover:scale-105"
                         >
@@ -121,12 +136,12 @@ const AgentDashboard = () => {
                       )}
                     </div>
                   </CardHeader>
-                  
+
                   <CardContent className="p-0">
                     <AnimatePresence mode="wait">
                       {!showCreateForm ? (
-                        <motion.div 
-                          initial={{ opacity: 0 }} 
+                        <motion.div
+                          initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                           className="p-12 text-center"
@@ -134,9 +149,12 @@ const AgentDashboard = () => {
                           <div className="bg-theme-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                             <PackagePlus className="w-8 h-8 text-theme-primary" />
                           </div>
-                          <h3 className="text-lg font-medium text-slate-900">No active draft</h3>
+                          <h3 className="text-lg font-medium text-slate-900">
+                            No active draft
+                          </h3>
                           <p className="text-slate-500 max-w-xs mx-auto mt-2 mb-6">
-                            Click the button above to start building a new customized travel quotation.
+                            Click the button above to start building a new
+                            customized travel quotation.
                           </p>
                         </motion.div>
                       ) : (
@@ -166,7 +184,9 @@ const AgentDashboard = () => {
                 <Card className="border-none shadow-md">
                   <CardHeader>
                     <CardTitle>Your Quotations</CardTitle>
-                    <CardDescription>Manage and track your sent proposals</CardDescription>
+                    <CardDescription>
+                      Manage and track your sent proposals
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     {/* <MyQuotations /> */}

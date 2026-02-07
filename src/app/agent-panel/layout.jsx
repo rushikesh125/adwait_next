@@ -138,7 +138,7 @@ const AgentPanelLayout = ({ children }) => {
         </header>
 
         {/* 4. CONTENT AREA - flex-1 and overflow-y-auto enables internal scrolling */}
-        <main className="flex-1 overflow-y-auto p-2 md:p-6 bg-slate-100">
+        <main className="flex-1 overflow-y-auto bg-slate-100">
           <div className="mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
             {children}
           </div>

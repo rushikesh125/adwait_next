@@ -216,9 +216,9 @@ const SelectActivities = ({ onDone }) => {
                           <h4 className="font-semibold text-slate-800">{act.name}</h4>
                           <p className="text-xs text-slate-500 uppercase tracking-wide">{act.city}</p>
                         </div>
-                        <Badge variant="outline" className="text-theme-primary border-theme-primary/30">
+                        {/* <Badge variant="outline" className="text-theme-primary border-theme-primary/30">
                           ₹{rate.toLocaleString()} / pax
-                        </Badge>
+                        </Badge> */}
                       </div>
 
                       <div className="flex justify-between items-center mt-4">

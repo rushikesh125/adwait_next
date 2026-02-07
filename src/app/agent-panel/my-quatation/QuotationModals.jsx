@@ -1,10 +1,5 @@
 import React from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +11,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -115,16 +117,23 @@ const QuotationModals = ({
                         </div>
                         <div>
                           <span className="text-muted-foreground">Room:</span>
-                          <p className="font-medium">{hotel.selectedRoomCategory}</p>
+                          <p className="font-medium">
+                            {hotel.selectedRoomCategory}
+                          </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Meal Plan:</span>
-                          <p className="font-medium">{hotel.selectedMealPlan}</p>
+                          <span className="text-muted-foreground">
+                            Meal Plan:
+                          </span>
+                          <p className="font-medium">
+                            {hotel.selectedMealPlan}
+                          </p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Guests:</span>
                           <p className="font-medium">
-                            {hotel.numDouble}D, {hotel.numExtraAdult}A, {hotel.numExtraChild}C
+                            {hotel.numDouble}D, {hotel.numExtraAdult}A,{" "}
+                            {hotel.numExtraChild}C
                           </p>
                         </div>
                       </div>
@@ -148,7 +157,8 @@ const QuotationModals = ({
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Vehicle:</span>
                         <span className="font-medium">
-                          {viewingQuotation?.transportSummary?.vehicleName || "—"}
+                          {viewingQuotation?.transportSummary?.vehicleName ||
+                            "—"}
                           {viewingQuotation?.transportSummary?.ac && " (AC)"}
                         </span>
                       </div>
@@ -156,12 +166,16 @@ const QuotationModals = ({
                         <span className="text-muted-foreground">Cost:</span>
                         <span className="font-medium text-theme-primary">
                           ₹
-                          {viewingQuotation?.transportSummary?.pricingType === "perKm"
+                          {viewingQuotation?.transportSummary?.pricingType ===
+                          "perKm"
                             ? (
-                                (viewingQuotation.transportSummary?.perKmprice || 0) *
+                                (viewingQuotation.transportSummary
+                                  ?.perKmprice || 0) *
                                 (viewingQuotation.transportSummary?.kms || 0)
                               ).toFixed(0)
-                            : (viewingQuotation?.transportSummary?.price || 0).toFixed(0)}
+                            : (
+                                viewingQuotation?.transportSummary?.price || 0
+                              ).toFixed(0)}
                         </span>
                       </div>
                     </div>
@@ -179,13 +193,20 @@ const QuotationModals = ({
                   <Card>
                     <CardContent className="pt-6 space-y-4">
                       {viewingQuotation.activitySummary.map((act, i) => (
-                        <div key={i} className="flex justify-between items-center">
+                        <div
+                          key={i}
+                          className="flex justify-between items-center"
+                        >
                           <div>
                             <p className="font-medium">{act.name}</p>
-                            <p className="text-sm text-muted-foreground">{act.city}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {act.city}
+                            </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">{act.participants} Person(s)</p>
+                            <p className="font-medium">
+                              {act.participants} Person(s)
+                            </p>
                             <p className="text-sm text-theme-primary">
                               ₹{act.totalPrice?.toFixed(0)}
                             </p>
@@ -225,12 +246,15 @@ const QuotationModals = ({
                     <span>Transport Total:</span>
                     <span>
                       ₹
-                      {viewingQuotation?.transportSummary?.pricingType === "perKm"
+                      {viewingQuotation?.transportSummary?.pricingType ===
+                      "perKm"
                         ? (
-                            (viewingQuotation.transportSummary?.perKmprice || 0) *
-                            (viewingQuotation.transportSummary?.kms || 0)
+                            (viewingQuotation.transportSummary?.perKmprice ||
+                              0) * (viewingQuotation.transportSummary?.kms || 0)
                           ).toFixed(0)
-                        : (viewingQuotation?.transportSummary?.price || 0).toFixed(0)}
+                        : (
+                            viewingQuotation?.transportSummary?.price || 0
+                          ).toFixed(0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -251,7 +275,10 @@ const QuotationModals = ({
                   <div className="flex justify-between items-center text-lg font-bold">
                     <span className="text-theme-primary">Grand Total:</span>
                     <span className="text-2xl text-theme-primary">
-                      ₹{(viewingQuotation?.grandTotal || 0).toLocaleString("en-IN")}
+                      ₹
+                      {(viewingQuotation?.grandTotal || 0).toLocaleString(
+                        "en-IN",
+                      )}
                     </span>
                   </div>
                 </div>
@@ -286,10 +313,10 @@ const QuotationModals = ({
                     id="customerName"
                     name="customerName"
                     value={
-    editingQuotation?.customerName ||
-    editingQuotation?.leadName ||
-    ""
-  }
+                      editingQuotation?.customerName ||
+                      editingQuotation?.leadName ||
+                      ""
+                    }
                     onChange={handleEditChange}
                   />
                 </div>
@@ -373,7 +400,9 @@ const QuotationModals = ({
                               </SelectTrigger>
                               <SelectContent>
                                 {allHotels
-                                  .filter((h) => h.state === SelectedDestination)
+                                  .filter(
+                                    (h) => h.state === SelectedDestination,
+                                  )
                                   .map((h) => (
                                     <SelectItem key={h.id} value={h.id}>
                                       {h.name} ({h.city})
@@ -415,7 +444,9 @@ const QuotationModals = ({
                         <TableBody>
                           {editingQuotation.hotelSummary.map((hotel, index) => {
                             const currentHotelData = allHotels.find(
-                              (h) => h.name === hotel.hotel && h.state === hotel.state
+                              (h) =>
+                                h.name === hotel.hotel &&
+                                h.state === hotel.state,
                             );
                             return (
                               <TableRow key={index}>
@@ -425,10 +456,12 @@ const QuotationModals = ({
                                       allHotels.find(
                                         (h) =>
                                           h.name === hotel.hotel &&
-                                          h.state === hotel.state
+                                          h.state === hotel.state,
                                       )?.id || ""
                                     }
-                                    onValueChange={(val) => handleHotelChange(index, val)}
+                                    onValueChange={(val) =>
+                                      handleHotelChange(index, val)
+                                    }
                                   >
                                     <SelectTrigger className="w-[220px]">
                                       <SelectValue />
@@ -449,7 +482,11 @@ const QuotationModals = ({
                                   <Select
                                     value={hotel.selectedRoomCategory || ""}
                                     onValueChange={(val) =>
-                                      handleHotelSummaryChange(index, "selectedRoomCategory", val)
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "selectedRoomCategory",
+                                        val,
+                                      )
                                     }
                                   >
                                     <SelectTrigger>
@@ -457,7 +494,10 @@ const QuotationModals = ({
                                     </SelectTrigger>
                                     <SelectContent>
                                       {currentHotelData?.rooms?.map((room) => (
-                                        <SelectItem key={room.categoryName} value={room.categoryName}>
+                                        <SelectItem
+                                          key={room.categoryName}
+                                          value={room.categoryName}
+                                        >
                                           {room.categoryName}
                                         </SelectItem>
                                       ))}
@@ -471,7 +511,11 @@ const QuotationModals = ({
                                     min="1"
                                     value={hotel.nights || 1}
                                     onChange={(e) =>
-                                      handleHotelSummaryChange(index, "nights", e.target.value)
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "nights",
+                                        e.target.value,
+                                      )
                                     }
                                     className="w-20"
                                   />
@@ -483,7 +527,11 @@ const QuotationModals = ({
                                     min="0"
                                     value={hotel.numDouble || 0}
                                     onChange={(e) =>
-                                      handleHotelSummaryChange(index, "numDouble", e.target.value)
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "numDouble",
+                                        e.target.value,
+                                      )
                                     }
                                     className="w-20"
                                   />
@@ -495,7 +543,11 @@ const QuotationModals = ({
                                     min="0"
                                     value={hotel.numExtraAdult || 0}
                                     onChange={(e) =>
-                                      handleHotelSummaryChange(index, "numExtraAdult", e.target.value)
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "numExtraAdult",
+                                        e.target.value,
+                                      )
                                     }
                                     className="w-20"
                                   />
@@ -507,7 +559,11 @@ const QuotationModals = ({
                                     min="0"
                                     value={hotel.numExtraChild || 0}
                                     onChange={(e) =>
-                                      handleHotelSummaryChange(index, "numExtraChild", e.target.value)
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "numExtraChild",
+                                        e.target.value,
+                                      )
                                     }
                                     className="w-20"
                                   />
@@ -517,18 +573,24 @@ const QuotationModals = ({
                                   <Select
                                     value={hotel.selectedMealPlan || "EP"}
                                     onValueChange={(val) =>
-                                      handleHotelSummaryChange(index, "selectedMealPlan", val)
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "selectedMealPlan",
+                                        val,
+                                      )
                                     }
                                   >
                                     <SelectTrigger className="w-32">
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {getAvailableMealPlans(hotel).map((plan) => (
-                                        <SelectItem key={plan} value={plan}>
-                                          {plan}
-                                        </SelectItem>
-                                      ))}
+                                      {getAvailableMealPlans(hotel).map(
+                                        (plan) => (
+                                          <SelectItem key={plan} value={plan}>
+                                            {plan}
+                                          </SelectItem>
+                                        ),
+                                      )}
                                     </SelectContent>
                                   </Select>
                                 </TableCell>
@@ -542,7 +604,9 @@ const QuotationModals = ({
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => handleRemoveHotel(index)}
-                                    disabled={editingQuotation.hotelSummary.length <= 1}
+                                    disabled={
+                                      editingQuotation.hotelSummary.length <= 1
+                                    }
                                     className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -566,7 +630,9 @@ const QuotationModals = ({
                   <Card>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Transportation</CardTitle>
+                        <CardTitle className="text-lg">
+                          Transportation
+                        </CardTitle>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-medium">Custom</span>
                           <Switch
@@ -585,9 +651,15 @@ const QuotationModals = ({
                           <div className="space-y-2">
                             <Label>Vehicle Name</Label>
                             <Input
-                              value={editingQuotation?.transportSummary?.vehicleName || ""}
+                              value={
+                                editingQuotation?.transportSummary
+                                  ?.vehicleName || ""
+                              }
                               onChange={(e) =>
-                                handleTransportSummaryChange("vehicleName", e.target.value)
+                                handleTransportSummaryChange(
+                                  "vehicleName",
+                                  e.target.value,
+                                )
                               }
                             />
                           </div>
@@ -597,9 +669,14 @@ const QuotationModals = ({
                             <Input
                               type="number"
                               min="0"
-                              value={editingQuotation?.transportSummary?.price || 0}
+                              value={
+                                editingQuotation?.transportSummary?.price || 0
+                              }
                               onChange={(e) =>
-                                handleTransportSummaryChange("price", parseFloat(e.target.value) || 0)
+                                handleTransportSummaryChange(
+                                  "price",
+                                  parseFloat(e.target.value) || 0,
+                                )
                               }
                             />
                           </div>
@@ -609,13 +686,21 @@ const QuotationModals = ({
                               <input
                                 type="checkbox"
                                 id="ac"
-                                checked={!!editingQuotation?.transportSummary?.ac}
+                                checked={
+                                  !!editingQuotation?.transportSummary?.ac
+                                }
                                 onChange={(e) =>
-                                  handleTransportSummaryChange("ac", e.target.checked)
+                                  handleTransportSummaryChange(
+                                    "ac",
+                                    e.target.checked,
+                                  )
                                 }
                                 className="h-4 w-4 rounded border-gray-300 text-theme-primary focus:ring-theme-primary"
                               />
-                              <Label htmlFor="ac" className="text-sm font-medium">
+                              <Label
+                                htmlFor="ac"
+                                className="text-sm font-medium"
+                              >
                                 AC Vehicle
                               </Label>
                             </div>
@@ -648,7 +733,9 @@ const QuotationModals = ({
                               <div className="space-y-2">
                                 <Label>Change Package</Label>
                                 <Select
-                                  value={editingQuotation?.transportSummary?.id || ""}
+                                  value={
+                                    editingQuotation?.transportSummary?.id || ""
+                                  }
                                   onValueChange={(val) => {
                                     const e = { target: { value: val } };
                                     handlePackageChange(e);
@@ -658,26 +745,35 @@ const QuotationModals = ({
                                     <SelectValue placeholder="Select package" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {availableTransportPackagesForSelectedState.map((pkg) => (
-                                      <SelectItem key={pkg.id} value={pkg.id}>
-                                        {pkg.name || pkg.packageName || pkg.id}
-                                      </SelectItem>
-                                    ))}
+                                    {availableTransportPackagesForSelectedState.map(
+                                      (pkg) => (
+                                        <SelectItem key={pkg.id} value={pkg.id}>
+                                          {pkg.name ||
+                                            pkg.packageName ||
+                                            pkg.id}
+                                        </SelectItem>
+                                      ),
+                                    )}
                                   </SelectContent>
                                 </Select>
                               </div>
                             )}
                           </div>
 
-                          {editingQuotation?.transportSummary?.vehicles?.length > 0 && (
+                          {editingQuotation?.transportSummary?.vehicles
+                            ?.length > 0 && (
                             <div className="space-y-2">
                               <Label>Select Vehicle</Label>
                               <Select
-                                value={editingQuotation?.transportSummary?.selectedVehicle?.type || ""}
+                                value={
+                                  editingQuotation?.transportSummary
+                                    ?.selectedVehicle?.type || ""
+                                }
                                 onValueChange={(val) => {
-                                  const vehicle = editingQuotation.transportSummary.vehicles.find(
-                                    (v) => v.type === val
-                                  );
+                                  const vehicle =
+                                    editingQuotation.transportSummary.vehicles.find(
+                                      (v) => v.type === val,
+                                    );
                                   if (vehicle) handleVehicleChange(vehicle);
                                 }}
                               >
@@ -685,12 +781,14 @@ const QuotationModals = ({
                                   <SelectValue placeholder="Select vehicle" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {editingQuotation.transportSummary.vehicles.map((v, i) => (
-                                    <SelectItem key={i} value={v.type}>
-                                      {v.type} - ₹{v.price ?? v.perKmprice}{" "}
-                                      {v.ac ? "(AC)" : "(Non-AC)"}
-                                    </SelectItem>
-                                  ))}
+                                  {editingQuotation.transportSummary.vehicles.map(
+                                    (v, i) => (
+                                      <SelectItem key={i} value={v.type}>
+                                        {v.type} - ₹{v.price ?? v.perKmprice}{" "}
+                                        {v.ac ? "(AC)" : "(Non-AC)"}
+                                      </SelectItem>
+                                    ),
+                                  )}
                                 </SelectContent>
                               </Select>
                             </div>
@@ -699,21 +797,32 @@ const QuotationModals = ({
                           {selectedTransportStateId && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
                               <div>
-                                <Label className="text-sm text-muted-foreground">Current Package</Label>
+                                <Label className="text-sm text-muted-foreground">
+                                  Current Package
+                                </Label>
                                 <p className="font-medium mt-1">
-                                  {editingQuotation?.transportSummary?.packageName || "—"}
+                                  {editingQuotation?.transportSummary
+                                    ?.packageName || "—"}
                                 </p>
                               </div>
                               <div>
-                                <Label className="text-sm text-muted-foreground">AC Status</Label>
+                                <Label className="text-sm text-muted-foreground">
+                                  AC Status
+                                </Label>
                                 <p className="font-medium mt-1">
-                                  {editingQuotation?.transportSummary?.ac ? "Available" : "Not Available"}
+                                  {editingQuotation?.transportSummary?.ac
+                                    ? "Available"
+                                    : "Not Available"}
                                 </p>
                               </div>
                               <div>
-                                <Label className="text-sm text-muted-foreground">Vehicle Cost</Label>
+                                <Label className="text-sm text-muted-foreground">
+                                  Vehicle Cost
+                                </Label>
                                 <p className="font-medium text-theme-primary mt-1">
-                                  ₹{editingQuotation?.transportSummary?.totalPrice || 0}
+                                  ₹
+                                  {editingQuotation?.transportSummary
+                                    ?.totalPrice || 0}
                                 </p>
                               </div>
                             </div>
@@ -729,7 +838,9 @@ const QuotationModals = ({
                   {/* Add Activity */}
                   <Card>
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Add New Activity</CardTitle>
+                      <CardTitle className="text-lg">
+                        Add New Activity
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -758,18 +869,26 @@ const QuotationModals = ({
                             <Select
                               value={selectedActivityToAdd}
                               onValueChange={setSelectedActivityToAdd}
-                              disabled={!SelectedDestination || isFetchingActivities}
+                              disabled={
+                                !SelectedDestination || isFetchingActivities
+                              }
                             >
                               <SelectTrigger className="flex-1">
-                                <SelectValue placeholder={
-                                  isFetchingActivities ? "Loading..." : "Choose activity..."
-                                } />
+                                <SelectValue
+                                  placeholder={
+                                    isFetchingActivities
+                                      ? "Loading..."
+                                      : "Choose activity..."
+                                  }
+                                />
                               </SelectTrigger>
                               <SelectContent>
                                 {availableActivities.map((act) => (
                                   <SelectItem key={act.name} value={act.name}>
                                     {act.name} ({act.city}) - ₹
-                                    {act.fitRatePerPerson || act.groupRatePerPerson}/person
+                                    {act.fitRatePerPerson ||
+                                      act.groupRatePerPerson}
+                                    /person
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -797,42 +916,53 @@ const QuotationModals = ({
                           <TableRow className="bg-muted/50">
                             <TableHead>Activity</TableHead>
                             <TableHead>Participants</TableHead>
-                            <TableHead className="text-right">Total Price</TableHead>
+                            <TableHead className="text-right">
+                              Total Price
+                            </TableHead>
                             <TableHead className="w-16"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {editingQuotation.activitySummary.map((activity, index) => (
-                            <TableRow key={index}>
-                              <TableCell className="font-medium">
-                                {activity.name} <span className="text-muted-foreground">({activity.city})</span>
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={activity.participants || 1}
-                                  onChange={(e) =>
-                                    handleActivitySummaryChange(index, "participants", e.target.value)
-                                  }
-                                  className="w-24"
-                                />
-                              </TableCell>
-                              <TableCell className="text-right font-medium">
-                                ₹{(activity.totalPrice || 0).toFixed(0)}
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRemoveActivity(index)}
-                                  className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {editingQuotation.activitySummary.map(
+                            (activity, index) => (
+                              <TableRow key={index}>
+                                <TableCell className="font-medium">
+                                  {activity.name}{" "}
+                                  <span className="text-muted-foreground">
+                                    ({activity.city})
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={activity.participants || 1}
+                                    onChange={(e) =>
+                                      handleActivitySummaryChange(
+                                        index,
+                                        "participants",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="w-24"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  ₹{(activity.totalPrice || 0).toFixed(0)}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRemoveActivity(index)}
+                                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ),
+                          )}
                         </TableBody>
                       </Table>
                     </div>
@@ -858,15 +988,22 @@ const QuotationModals = ({
                         type="number"
                         placeholder="e.g. 5000"
                         value={editingQuotation?.markup || 0}
-                        onChange={(e) => handleMarkupInputChange(e.target.value)}
+                        onChange={(e) =>
+                          handleMarkupInputChange(e.target.value)
+                        }
                         className="text-lg"
                       />
                     </div>
 
                     <div className="flex flex-col justify-center items-end">
-                      <p className="text-sm text-muted-foreground">Grand Total</p>
+                      <p className="text-sm text-muted-foreground">
+                        Grand Total
+                      </p>
                       <p className="text-3xl font-bold text-theme-primary mt-1">
-                        ₹{(editingQuotation?.grandTotal || 0).toLocaleString("en-IN")}
+                        ₹
+                        {(editingQuotation?.grandTotal || 0).toLocaleString(
+                          "en-IN",
+                        )}
                       </p>
                     </div>
                   </div>
