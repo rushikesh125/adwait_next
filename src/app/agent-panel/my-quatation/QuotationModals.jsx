@@ -285,7 +285,11 @@ const QuotationModals = ({
                   <Input
                     id="customerName"
                     name="customerName"
-                    value={editingQuotation?.customerName || ""}
+                    value={
+    editingQuotation?.customerName ||
+    editingQuotation?.leadName ||
+    ""
+  }
                     onChange={handleEditChange}
                   />
                 </div>

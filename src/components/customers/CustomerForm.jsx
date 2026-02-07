@@ -48,10 +48,14 @@ export default function CustomerForm({ form, onChange, onSubmit, editMode }) {
             </Label>
             <Input
               id="mobile"
+              type="number"
               name="mobile"
               value={form.mobile}
               placeholder="9876543210"
               onChange={onChange}
+               max={14}
+              min ={10}
+             
               className="border-slate-200 focus-visible:ring-theme-primary h-11"
               required
             />

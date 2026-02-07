@@ -1417,7 +1417,7 @@ const Create_new_package = ({
                 className="bg-green-600 hover:bg-green-700 text-white"
                 onClick={handleSavePackage}
               >
-                Save Itinerary
+                Save Package
               </Button>
             </div>
           </div>
