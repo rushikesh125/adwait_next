@@ -226,7 +226,11 @@ const handleEditChange = (e) => {
             <Card className="border-none shadow-sm rounded-2xl flex flex-col h-[450px] bg-white">
               <CardHeader className="border-b border-slate-50 py-4">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
+<<<<<<< HEAD
                   <MessageSquare className="h-4 w-4 text-theme-primary" />  Notes
+=======
+                  <MessageSquare className="h-4 w-4 text-theme-primary" /> Notes
+>>>>>>> 27f1f49b7ce30853be7efd9f16a81123dcef21b7
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
