@@ -419,7 +419,7 @@ export default function LeadProfilePage({ params }) {
                                 size="icon"
                                 variant="ghost"
                                 className="rounded-lg hover:bg-theme-primary hover:text-white"
-                                onClick={() => handleEditQuotation(quote)}
+                                onClick={() => router.push(`/agent-panel/my-quatation/edit/${lid}`)}
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>

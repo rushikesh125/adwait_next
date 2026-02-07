@@ -8,7 +8,7 @@ import {
   serverTimestamp,
   doc,
 } from "firebase/firestore";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import "@/components/css/create_new_package.css";
 import HotelRoomSelector from "./HotelRoomSelector";
 import SelectTransport from "./TransportSelector";
@@ -59,6 +59,7 @@ import {
   setPackageName,
   setCustomerName,
 } from "@/store/packageSlice";
+import toast from "react-hot-toast";
 
 const Create_new_package = ({
   userData,
@@ -91,7 +92,7 @@ const Create_new_package = ({
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [packages, setPackages] = useState([]);
   const [customerName, setCustomerName] = useState("");
-
+  const router = useRouter();
   const { user } = useSelector((state) => state.auth);
 
   const checkInDate = propCheckInDate;
@@ -428,8 +429,8 @@ const Create_new_package = ({
       ) {
         navigator.clipboard
           .writeText(summary)
-          .then(() => alert("Package summary copied to clipboard!"))
-          .catch((err) => alert("Failed to copy: " + err));
+          .then(() => toast("Package summary copied to clipboard!"))
+          .catch((err) => toast("Failed to copy: " + err));
         return;
       }
     } catch (err) {
@@ -811,12 +812,13 @@ const Create_new_package = ({
 
       await addDoc(packagesCollectionRef, packageData);
 
-      alert("Package saved successfully!");
+      toast("Package saved successfully!");
+      router.push('./agent-panel/my-quatation')
       setShowSaveModal(false);
       dispatch(setPackageName(""));
     } catch (err) {
       console.error("Error saving package:", err);
-      alert("Failed to save package: " + err.message);
+      toast.error("Failed to save package: " + err.message);
     }
   };
 
