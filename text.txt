@@ -4,3 +4,6 @@ to use these color sheme use like text/bg-theme-primary like this , also don't f
 
 
 
+i am trying to build quotation building application , 
+we are using nextjs ( latest with app router ) , redux , lucid react icons, shadcn@latest , react-hot-toast and firebase (@/firebase/config) , 
+
