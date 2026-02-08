@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, Activity } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/firebase/config";
 import {
@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 import {
   Select,
   SelectContent,
@@ -53,11 +54,20 @@ import {
   ArrowLeft,
   Save,
   Copy,
+  User,
+  Info,
+  MapPin,
+  BedDouble,
+  ShieldCheck,
+  Thermometer,
+  Gauge,
+  Ticket,
+  Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 const EditQuotationPage = () => {
- const params = useParams();
+  const params = useParams();
   const router = useRouter();
   const dispatch = useDispatch();
   const { user, loading: authLoading } = useSelector((state) => state.auth);
@@ -260,7 +270,7 @@ const EditQuotationPage = () => {
             id: snapshot.docs[0].id,
             ...snapshot.docs[0].data(),
           };
-          
+
           console.log("Quotation data:", quotationData);
           setEditingQuotation(quotationData);
 
@@ -389,7 +399,6 @@ const EditQuotationPage = () => {
     selectedTransportStateId,
     isFirstEdit,
   ]);
-
 
   // Event Handlers
   const handleEditChange = (e) => {
@@ -923,7 +932,7 @@ const EditQuotationPage = () => {
     }
   };
 
- if (isLoadingQuotation || !editingQuotation) {
+  if (isLoadingQuotation || !editingQuotation) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-7xl flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -935,1039 +944,1282 @@ const EditQuotationPage = () => {
   }
 
   return (
-  <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-    <div className="container mx-auto py-6 px-4 max-w-7xl">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/agent-panel/my-quatation")}
-              className="hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                Edit Quotation
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                  {editingQuotation?.status || "Draft"}
-                </span>
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-2">
-                <span className="font-medium">
-                  {editingQuotation.customerName || editingQuotation.leadName}
-                </span>
-                {editingQuotation.createdAt && (
-                  <>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-sm">
-                      Created{" "}
-                      {new Date(
-                        editingQuotation.createdAt.seconds * 1000
-                      ).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </>
-                )}
-              </p>
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-theme-muted">
+      <div className="container mx-auto py-4 sm:py-6 px-3 sm:px-4 lg:px-6 max-w-7xl">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push("/agent-panel/my-quatation")}
+                className="hover:bg-theme-muted rounded-xl shrink-0 mt-1 sm:mt-0"
+              >
+                <ArrowLeft className="h-5 w-5 text-theme-primary" />
+              </Button>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex flex-wrap items-center gap-2 sm:gap-3">
+                  <span className="truncate">Edit Quotation</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-theme-muted text-theme-primary border border-theme-accent/20 shrink-0">
+                    {editingQuotation?.status || "Draft"}
+                  </span>
+                </h1>
+                <p className="text-slate-600 mt-1.5 flex flex-wrap items-center gap-2 text-sm sm:text-base">
+                  <span className="font-medium truncate">
+                    {editingQuotation.customerName || editingQuotation.leadName}
+                  </span>
+                  {editingQuotation.createdAt && (
+                    <>
+                      <span className="text-slate-400 hidden sm:inline">•</span>
+                      <span className="text-xs sm:text-sm text-slate-500">
+                        Created{" "}
+                        {new Date(
+                          editingQuotation.createdAt.seconds * 1000,
+                        ).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={handleSaveAs}
-              className="border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Save As New
-            </Button>
-            <Button
-              onClick={handleUpdateQuotation}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
-            </Button>
+            <div className="flex gap-2 sm:gap-3">
+              <Button
+                variant="outline"
+                onClick={handleSaveAs}
+                className="border-slate-300 hover:bg-slate-50 hover:border-theme-primary/40 transition-all flex-1 sm:flex-none"
+              >
+                <Copy className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Save As New</span>
+              </Button>
+              <Button
+                onClick={handleUpdateQuotation}
+                className="bg-gradient-to-r from-theme-primary to-theme-secondary hover:from-theme-secondary hover:to-theme-dark text-white shadow-md hover:shadow-lg transition-all flex-1 sm:flex-none"
+              >
+                <Save className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Save Changes</span>
+                <span className="sm:hidden">Save</span>
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="space-y-6">
-        {/* Customer Info */}
-        <Card className="shadow-sm border-gray-200 dark:border-gray-700 overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <IndianRupee className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              Customer Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="customerName"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Customer Name
-                </Label>
-                <Input
-                  id="customerName"
-                  name="customerName"
-                  value={
-                    editingQuotation?.customerName ||
-                    editingQuotation?.leadName ||
-                    ""
-                  }
-                  onChange={handleEditChange}
-                  className="border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="status"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Status
-                </Label>
-                <Select
-                  name="status"
-                  value={editingQuotation?.status || "Draft"}
-                  onValueChange={(value) =>
-                    handleEditChange({ target: { name: "status", value } })
-                  }
-                >
-                  <SelectTrigger className="border-gray-300 dark:border-gray-600">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Draft">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                        Draft
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="Sent">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                        Sent
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="Accepted">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-400"></span>
-                        Accepted
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="Rejected">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                        Rejected
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tabs */}
-        <Card className="shadow-sm border-gray-200 dark:border-gray-700">
-          <Tabs defaultValue="hotels" className="w-full">
-            <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-6">
-              <TabsList className="bg-transparent h-auto p-0 space-x-8">
-                <TabsTrigger
-                  value="hotels"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm rounded-t-lg px-4 py-3 -mb-px data-[state=active]:border-b-2 data-[state=active]:border-blue-600"
-                >
-                  <Hotel className="h-4 w-4 mr-2" />
-                  Hotels
-                  {editingQuotation?.hotelSummary?.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
-                      {editingQuotation.hotelSummary.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="transport"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm rounded-t-lg px-4 py-3 -mb-px data-[state=active]:border-b-2 data-[state=active]:border-blue-600"
-                >
-                  <Car className="h-4 w-4 mr-2" />
-                  Transport
-                  {editingQuotation?.transportSummary?.vehicleName && (
-                    <span className="ml-2 w-2 h-2 bg-green-500 rounded-full"></span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="activities"
-                  className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:shadow-sm rounded-t-lg px-4 py-3 -mb-px data-[state=active]:border-b-2 data-[state=active]:border-blue-600"
-                >
-                  <ActivitySquare className="h-4 w-4 mr-2" />
-                  Activities
-                  {editingQuotation?.activitySummary?.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium">
-                      {editingQuotation.activitySummary.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            {/* HOTELS TAB */}
-            <TabsContent value="hotels" className="p-6 space-y-6">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <Plus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                      Add New Hotel
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Select State
-                        </Label>
-                        <Select
-                          value={SelectedDestination}
-                          onValueChange={setSelectedDestination}
-                        >
-                          <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-                            <SelectValue placeholder="Select state" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {AllDestinations.map((state) => (
-                              <SelectItem key={state.name} value={state.name}>
-                                {state.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Select Hotel
-                        </Label>
-                        <div className="flex gap-3">
-                          <Select
-                            value={selectedHotelToAdd}
-                            onValueChange={setSelectedHotelToAdd}
-                            disabled={!SelectedDestination}
-                          >
-                            <SelectTrigger className="flex-1 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-                              <SelectValue placeholder="Choose hotel..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allHotels
-                                .filter((h) => h.state === SelectedDestination)
-                                .map((h) => (
-                                  <SelectItem key={h.id} value={h.id}>
-                                    {h.name} ({h.city})
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            onClick={handleAddHotel}
-                            disabled={!selectedHotelToAdd}
-                            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+        {/* Main Content */}
+        <div className="space-y-4 sm:space-y-6">
+          {/* Customer Info */}
+          <Card className="shadow-lg shadow-slate-200/50 border-slate-200 overflow-hidden rounded-3xl bg-white transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/60">
+            <CardHeader className="bg-gradient-to-br from-theme-muted/40 via-white to-white border-b border-slate-100 py-5">
+              <CardTitle className="flex items-center gap-4 text-slate-800 text-lg font-semibold tracking-tight">
+                <div className="p-2.5 bg-theme-primary/10 rounded-2xl ring-1 ring-theme-primary/20 shadow-sm">
+                  <IndianRupee className="h-5 w-5 text-theme-primary" />
                 </div>
-              </div>
-
-              {editingQuotation?.hotelSummary?.length > 0 ? (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
-                          <TableHead className="font-semibold text-gray-900 dark:text-white">
-                            Hotel
-                          </TableHead>
-                          <TableHead className="font-semibold text-gray-900 dark:text-white">
-                            Room Type
-                          </TableHead>
-                          <TableHead className="font-semibold text-gray-900 dark:text-white">
-                            Nights
-                          </TableHead>
-                          <TableHead className="font-semibold text-gray-900 dark:text-white">
-                            Rooms
-                          </TableHead>
-                          <TableHead className="font-semibold text-gray-900 dark:text-white">
-                            Adults
-                          </TableHead>
-                          <TableHead className="font-semibold text-gray-900 dark:text-white">
-                            Children
-                          </TableHead>
-                          <TableHead className="font-semibold text-gray-900 dark:text-white">
-                            Meal Plan
-                          </TableHead>
-                          <TableHead className="text-right font-semibold text-gray-900 dark:text-white">
-                            Price
-                          </TableHead>
-                          <TableHead className="w-16"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {editingQuotation.hotelSummary.map((hotel, index) => {
-                          const currentHotelData = allHotels.find(
-                            (h) =>
-                              h.name === hotel.hotel && h.state === hotel.state
-                          );
-                          return (
-                            <TableRow
-                              key={index}
-                              className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                            >
-                              <TableCell className="font-medium">
-                                <Select
-                                  value={
-                                    allHotels.find(
-                                      (h) =>
-                                        h.name === hotel.hotel &&
-                                        h.state === hotel.state
-                                    )?.id || ""
-                                  }
-                                  onValueChange={(val) =>
-                                    handleHotelChange(index, val)
-                                  }
-                                >
-                                  <SelectTrigger className="w-[220px] border-gray-300 dark:border-gray-600">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {allHotels
-                                      .filter((h) => h.state === hotel.state)
-                                      .map((h) => (
-                                        <SelectItem key={h.id} value={h.id}>
-                                          {h.name} ({h.city})
-                                        </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-
-                              <TableCell>
-                                <Select
-                                  value={hotel.selectedRoomCategory || ""}
-                                  onValueChange={(val) =>
-                                    handleHotelSummaryChange(
-                                      index,
-                                      "selectedRoomCategory",
-                                      val
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger className="border-gray-300 dark:border-gray-600">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {currentHotelData?.rooms?.map((room) => (
-                                      <SelectItem
-                                        key={room.categoryName}
-                                        value={room.categoryName}
-                                      >
-                                        {room.categoryName}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={hotel.nights || 1}
-                                  onChange={(e) =>
-                                    handleHotelSummaryChange(
-                                      index,
-                                      "nights",
-                                      e.target.value
-                                    )
-                                  }
-                                  className="w-20 border-gray-300 dark:border-gray-600"
-                                />
-                              </TableCell>
-
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={hotel.numDouble || 0}
-                                  onChange={(e) =>
-                                    handleHotelSummaryChange(
-                                      index,
-                                      "numDouble",
-                                      e.target.value
-                                    )
-                                  }
-                                  className="w-20 border-gray-300 dark:border-gray-600"
-                                />
-                              </TableCell>
-
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={hotel.numExtraAdult || 0}
-                                  onChange={(e) =>
-                                    handleHotelSummaryChange(
-                                      index,
-                                      "numExtraAdult",
-                                      e.target.value
-                                    )
-                                  }
-                                  className="w-20 border-gray-300 dark:border-gray-600"
-                                />
-                              </TableCell>
-
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={hotel.numExtraChild || 0}
-                                  onChange={(e) =>
-                                    handleHotelSummaryChange(
-                                      index,
-                                      "numExtraChild",
-                                      e.target.value
-                                    )
-                                  }
-                                  className="w-20 border-gray-300 dark:border-gray-600"
-                                />
-                              </TableCell>
-
-                              <TableCell>
-                                <Select
-                                  value={hotel.selectedMealPlan || "EP"}
-                                  onValueChange={(val) =>
-                                    handleHotelSummaryChange(
-                                      index,
-                                      "selectedMealPlan",
-                                      val
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger className="w-32 border-gray-300 dark:border-gray-600">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {getAvailableMealPlans(hotel).map(
-                                      (plan) => (
-                                        <SelectItem key={plan} value={plan}>
-                                          {plan}
-                                        </SelectItem>
-                                      )
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-
-                              <TableCell className="text-right">
-                                <span className="font-semibold text-blue-600 dark:text-blue-400">
-                                  ₹{(hotel.hotelTotal || 0).toFixed(0)}
-                                </span>
-                              </TableCell>
-
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRemoveHotel(index)}
-                                  disabled={
-                                    editingQuotation.hotelSummary.length <= 1
-                                  }
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                  <Hotel className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400 font-medium">
-                    No hotels added yet
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                    Add your first hotel using the form above
+                <div className="flex flex-col gap-0.5">
+                  <span>Customer Information</span>
+                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                    Client Details & Status
                   </p>
                 </div>
-              )}
-            </TabsContent>
+              </CardTitle>
+            </CardHeader>
 
-            {/* TRANSPORT TAB */}
-            <TabsContent value="transport" className="p-6 space-y-6">
-              <Card className="border-gray-200 dark:border-gray-700 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                        <Car className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      Transportation Details
-                    </CardTitle>
-                    <div className="flex items-center gap-3 bg-white dark:bg-gray-700 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Custom
+            <CardContent className="p-6 sm:p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+                {/* Customer Name Field */}
+                <div className="space-y-2.5">
+                  <Label
+                    htmlFor="customerName"
+                    className="text-xs font-bold text-slate-600 ml-1 flex items-center gap-2"
+                  >
+                    <User className="h-3.5 w-3.5 text-slate-400" />
+                    CUSTOMER NAME
+                  </Label>
+                  <Input
+                    id="customerName"
+                    name="customerName"
+                    placeholder="John Doe"
+                    value={
+                      editingQuotation?.customerName ||
+                      editingQuotation?.leadName ||
+                      ""
+                    }
+                    onChange={handleEditChange}
+                    className="h-11 border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-theme-primary/10 focus:border-theme-primary rounded-2xl transition-all duration-200 placeholder:text-slate-400"
+                  />
+                </div>
+
+                {/* Status Selection Field */}
+                <div className="space-y-2.5">
+                  <Label
+                    htmlFor="status"
+                    className="text-xs font-bold text-slate-600 ml-1 flex items-center gap-2"
+                  >
+                    <Info className="h-3.5 w-3.5 text-slate-400" />
+                    QUOTATION STATUS
+                  </Label>
+                  <Select
+                    name="status"
+                    value={editingQuotation?.status || "Draft"}
+                    onValueChange={(value) =>
+                      handleEditChange({ target: { name: "status", value } })
+                    }
+                  >
+                    <SelectTrigger className="h-11 border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-theme-primary/10 focus:border-theme-primary rounded-2xl transition-all duration-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 shadow-xl p-1">
+                      <SelectItem
+                        value="Draft"
+                        className="rounded-xl focus:bg-slate-100"
+                      >
+                        <span className="flex items-center gap-2.5 py-0.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-slate-300 ring-4 ring-slate-100" />
+                          <span className="font-medium text-slate-700">
+                            Draft
+                          </span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem
+                        value="Sent"
+                        className="rounded-xl focus:bg-theme-muted/50"
+                      >
+                        <span className="flex items-center gap-2.5 py-0.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-theme-primary ring-4 ring-theme-primary/10" />
+                          <span className="font-medium text-theme-dark">
+                            Sent
+                          </span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem
+                        value="Accepted"
+                        className="rounded-xl focus:bg-green-50"
+                      >
+                        <span className="flex items-center gap-2.5 py-0.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-green-500 ring-4 ring-green-100" />
+                          <span className="font-medium text-green-700">
+                            Accepted
+                          </span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem
+                        value="Rejected"
+                        className="rounded-xl focus:bg-red-50"
+                      >
+                        <span className="flex items-center gap-2.5 py-0.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-4 ring-red-100" />
+                          <span className="font-medium text-red-700">
+                            Rejected
+                          </span>
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabs */}
+          <Card className="shadow-sm border-slate-200 rounded-2xl overflow-hidden">
+            <Tabs defaultValue="hotels" className="w-full">
+              <div className="border-b border-slate-100 bg-white px-2 sm:px-6 overflow-x-auto no-scrollbar">
+                <TabsList className="bg-transparent h-auto p-0 gap-1 sm:gap-2 inline-flex min-w-full sm:min-w-0">
+                  {/* Hotels Tab */}
+                  <TabsTrigger
+                    value="hotels"
+                    className="group relative flex items-center justify-center gap-2 rounded-t-2xl px-4 sm:px-6 py-4 text-slate-500 transition-all duration-300
+                     data-[state=active]:text-theme-primary data-[state=active]:bg-theme-muted/30 whitespace-nowrap
+                     hover:text-theme-primary hover:bg-slate-50"
+                  >
+                    <Hotel className="h-4 w-4 transition-transform duration-300 group-data-[state=active]:scale-110" />
+                    <span className="text-sm font-semibold tracking-wide">
+                      Hotels
+                    </span>
+
+                    {editingQuotation?.hotelSummary?.length > 0 && (
+                      <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-theme-primary text-white rounded-full text-[10px] font-bold shadow-sm shadow-theme-primary/30">
+                        {editingQuotation.hotelSummary.length}
                       </span>
-                      <Switch
-                        checked={toggleValue}
-                        onCheckedChange={handleToggle}
-                      />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Package
+                    )}
+
+                    {/* Active Indicator Bar */}
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-theme-primary scale-x-0 transition-transform duration-300 group-data-[state=active]:scale-x-100 rounded-full" />
+                  </TabsTrigger>
+
+                  {/* Transport Tab */}
+                  <TabsTrigger
+                    value="transport"
+                    className="group relative flex items-center justify-center gap-2 rounded-t-2xl px-4 sm:px-6 py-4 text-slate-500 transition-all duration-300
+                     data-[state=active]:text-theme-primary data-[state=active]:bg-theme-muted/30 whitespace-nowrap
+                     hover:text-theme-primary hover:bg-slate-50"
+                  >
+                    <Car className="h-4 w-4 transition-transform duration-300 group-data-[state=active]:scale-110" />
+                    <span className="text-sm font-semibold tracking-wide">
+                      Transport
+                    </span>
+
+                    {editingQuotation?.transportSummary?.vehicleName && (
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                       </span>
-                    </div>
-                  </div>
-                </CardHeader>
+                    )}
 
-                <CardContent className="pt-6 space-y-6">
-                  {!toggleValue ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Vehicle Name
-                        </Label>
-                        <Input
-                          value={
-                            editingQuotation?.transportSummary?.vehicleName ||
-                            ""
-                          }
-                          onChange={(e) =>
-                            handleTransportSummaryChange(
-                              "vehicleName",
-                              e.target.value
-                            )
-                          }
-                          placeholder="e.g., Innova Crysta"
-                          className="border-gray-300 dark:border-gray-600"
-                        />
-                      </div>
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-theme-primary scale-x-0 transition-transform duration-300 group-data-[state=active]:scale-x-100 rounded-full" />
+                  </TabsTrigger>
 
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Price (₹)
-                        </Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={
-                            editingQuotation?.transportSummary?.price || 0
-                          }
-                          onChange={(e) =>
-                            handleTransportSummaryChange(
-                              "price",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          placeholder="0"
-                          className="border-gray-300 dark:border-gray-600"
-                        />
-                      </div>
+                  {/* Activities Tab */}
+                  <TabsTrigger
+                    value="activities"
+                    className="group relative flex items-center justify-center gap-2 rounded-t-2xl px-4 sm:px-6 py-4 text-slate-500 transition-all duration-300
+                     data-[state=active]:text-theme-primary data-[state=active]:bg-theme-muted/30 whitespace-nowrap
+                     hover:text-theme-primary hover:bg-slate-50"
+                  >
+                    <ActivitySquare className="h-4 w-4 transition-transform duration-300 group-data-[state=active]:scale-110" />
+                    <span className="text-sm font-semibold tracking-wide">
+                      Activities
+                    </span>
 
-                      <div className="flex items-end">
-                        <div className="flex items-center space-x-2 h-10 px-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
-                          <input
-                            type="checkbox"
-                            id="ac"
-                            checked={!!editingQuotation?.transportSummary?.ac}
-                            onChange={(e) =>
-                              handleTransportSummaryChange(
-                                "ac",
-                                e.target.checked
-                              )
-                            }
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <Label
-                            htmlFor="ac"
-                            className="text-sm font-medium cursor-pointer text-gray-700 dark:text-gray-300"
-                          >
-                            AC Vehicle
-                          </Label>
+                    {editingQuotation?.activitySummary?.length > 0 && (
+                      <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-theme-primary text-white rounded-full text-[10px] font-bold shadow-sm">
+                        {editingQuotation.activitySummary.length}
+                      </span>
+                    )}
+
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-theme-primary scale-x-0 transition-transform duration-300 group-data-[state=active]:scale-x-100 rounded-full" />
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* HOTELS TAB */}
+              <TabsContent
+                value="hotels"
+                className="p-4 sm:p-8 space-y-8 outline-none focus-visible:ring-0"
+              >
+                {/* Add New Hotel Section */}
+                <div className="relative group overflow-hidden bg-white rounded-3xl border border-slate-200 shadow-sm transition-all duration-300 hover:shadow-md">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-theme-primary" />
+                  <div className="p-5 sm:p-7">
+                    <div className="flex flex-col md:flex-row md:items-center gap-6">
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="p-3 bg-theme-primary/10 rounded-2xl shadow-inner">
+                          <Plus className="h-5 w-5 text-theme-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-800 tracking-tight">
+                            Add New Hotel
+                          </h3>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Select destination and stay
+                          </p>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Select State
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold text-slate-500 ml-1 flex items-center gap-1.5 uppercase">
+                            <MapPin className="h-3 w-3" /> State / Destination
                           </Label>
                           <Select
-                            value={selectedTransportStateId}
-                            onValueChange={setSelectedTransportStateId}
+                            value={SelectedDestination}
+                            onValueChange={setSelectedDestination}
                           >
-                            <SelectTrigger className="border-gray-300 dark:border-gray-600">
-                              <SelectValue placeholder="Select transport state" />
+                            <SelectTrigger className="bg-slate-50/50 border-slate-200 rounded-xl h-11 focus:ring-theme-primary/10">
+                              <SelectValue placeholder="Select destination" />
                             </SelectTrigger>
-                            <SelectContent>
-                              {transportStates.map((state) => (
-                                <SelectItem key={state.id} value={state.id}>
-                                  {toTitleCase(state.id)}
+                            <SelectContent className="rounded-xl shadow-2xl border-slate-100">
+                              {AllDestinations.map((state) => (
+                                <SelectItem
+                                  key={state.name}
+                                  value={state.name}
+                                  className="rounded-lg"
+                                >
+                                  {state.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
 
-                        {selectedTransportStateId && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-bold text-slate-500 ml-1 flex items-center gap-1.5 uppercase">
+                            <BedDouble className="h-3 w-3" /> Hotel Name
+                          </Label>
+                          <div className="flex gap-2">
+                            <Select
+                              value={selectedHotelToAdd}
+                              onValueChange={setSelectedHotelToAdd}
+                              disabled={!SelectedDestination}
+                            >
+                              <SelectTrigger className="flex-1 bg-slate-50/50 border-slate-200 rounded-xl h-11 focus:ring-theme-primary/10">
+                                <SelectValue placeholder="Choose hotel..." />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl shadow-2xl border-slate-100 max-h-[300px]">
+                                {allHotels
+                                  .filter(
+                                    (h) => h.state === SelectedDestination,
+                                  )
+                                  .map((h) => (
+                                    <SelectItem
+                                      key={h.id}
+                                      value={h.id}
+                                      className="rounded-lg"
+                                    >
+                                      {h.name}{" "}
+                                      <span className="text-[10px] text-slate-400 font-normal ml-1">
+                                        ({h.city})
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              onClick={handleAddHotel}
+                              disabled={!selectedHotelToAdd}
+                              className="h-11 px-5 bg-gradient-to-r from-theme-primary to-theme-secondary hover:from-theme-secondary hover:to-theme-dark text-white shadow-lg shadow-theme-primary/20 rounded-xl transition-all active:scale-95"
+                            >
+                              <Plus className="h-4 w-4 sm:mr-2" />
+                              <span className="hidden sm:inline font-semibold">
+                                Add
+                              </span>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hotel Summary Table */}
+                {editingQuotation?.hotelSummary?.length > 0 ? (
+                  <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto no-scrollbar">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50/80 hover:bg-slate-50/80 border-b border-slate-200">
+                            <TableHead className="py-4 font-bold text-[11px] text-slate-500 uppercase tracking-widest pl-6">
+                              Hotel Details
+                            </TableHead>
+                            <TableHead className="py-4 font-bold text-[11px] text-slate-500 uppercase tracking-widest">
+                              Room Type
+                            </TableHead>
+                            <TableHead className="py-4 font-bold text-[11px] text-slate-500 uppercase tracking-widest">
+                              Nights
+                            </TableHead>
+                            <TableHead className="py-4 font-bold text-[11px] text-slate-500 uppercase tracking-widest">
+                              Rooms
+                            </TableHead>
+                            <TableHead className="py-4 font-bold text-[11px] text-slate-500 uppercase tracking-widest text-center">
+                              Occupancy
+                            </TableHead>
+                            <TableHead className="py-4 font-bold text-[11px] text-slate-500 uppercase tracking-widest">
+                              Meal Plan
+                            </TableHead>
+                            <TableHead className="py-4 font-bold text-[11px] text-slate-500 uppercase tracking-widest text-right pr-6">
+                              Price
+                            </TableHead>
+                            <TableHead className="w-14"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {editingQuotation.hotelSummary.map((hotel, index) => {
+                            const currentHotelData = allHotels.find(
+                              (h) =>
+                                h.name === hotel.hotel &&
+                                h.state === hotel.state,
+                            );
+                            return (
+                              <TableRow
+                                key={index}
+                                className="hover:bg-slate-50/40 transition-colors border-b border-slate-100 last:border-0"
+                              >
+                                <TableCell className="pl-6 py-4">
+                                  <Select
+                                    value={currentHotelData?.id || ""}
+                                    onValueChange={(val) =>
+                                      handleHotelChange(index, val)
+                                    }
+                                  >
+                                    <SelectTrigger className="w-full min-w-[200px] border-slate-200 bg-white/50 rounded-xl h-10 shadow-sm focus:ring-theme-primary/10">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl shadow-2xl">
+                                      {allHotels
+                                        .filter((h) => h.state === hotel.state)
+                                        .map((h) => (
+                                          <SelectItem
+                                            key={h.id}
+                                            value={h.id}
+                                            className="rounded-lg"
+                                          >
+                                            {h.name}
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+
+                                <TableCell>
+                                  <Select
+                                    value={hotel.selectedRoomCategory || ""}
+                                    onValueChange={(val) =>
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "selectedRoomCategory",
+                                        val,
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className="min-w-[140px] border-slate-200 bg-white/50 rounded-xl h-10 shadow-sm focus:ring-theme-primary/10">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl shadow-2xl">
+                                      {currentHotelData?.rooms?.map((room) => (
+                                        <SelectItem
+                                          key={room.categoryName}
+                                          value={room.categoryName}
+                                          className="rounded-lg"
+                                        >
+                                          {room.categoryName}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={hotel.nights || 1}
+                                    onChange={(e) =>
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "nights",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="w-16 h-10 border-slate-200 rounded-xl text-center font-medium focus:ring-theme-primary/10"
+                                  />
+                                </TableCell>
+
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={hotel.numDouble || 0}
+                                    onChange={(e) =>
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "numDouble",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="w-16 h-10 border-slate-200 rounded-xl text-center font-medium focus:ring-theme-primary/10"
+                                  />
+                                </TableCell>
+
+                                <TableCell>
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-[9px] font-bold text-slate-400 uppercase">
+                                        A
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={hotel.numExtraAdult || 0}
+                                        onChange={(e) =>
+                                          handleHotelSummaryChange(
+                                            index,
+                                            "numExtraAdult",
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="w-12 h-9 border-slate-200 rounded-lg text-center text-xs focus:ring-theme-primary/10"
+                                      />
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-[9px] font-bold text-slate-400 uppercase">
+                                        C
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={hotel.numExtraChild || 0}
+                                        onChange={(e) =>
+                                          handleHotelSummaryChange(
+                                            index,
+                                            "numExtraChild",
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="w-12 h-9 border-slate-200 rounded-lg text-center text-xs focus:ring-theme-primary/10"
+                                      />
+                                    </div>
+                                  </div>
+                                </TableCell>
+
+                                <TableCell>
+                                  <Select
+                                    value={hotel.selectedMealPlan || "EP"}
+                                    onValueChange={(val) =>
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "selectedMealPlan",
+                                        val,
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className="w-24 border-slate-200 bg-white/50 rounded-xl h-10 shadow-sm focus:ring-theme-primary/10">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl shadow-2xl">
+                                      {getAvailableMealPlans(hotel).map(
+                                        (plan) => (
+                                          <SelectItem
+                                            key={plan}
+                                            value={plan}
+                                            className="rounded-lg"
+                                          >
+                                            {plan}
+                                          </SelectItem>
+                                        ),
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+
+                                <TableCell className="text-right pr-6">
+                                  <span className="text-sm font-bold text-theme-primary bg-theme-muted px-3 py-1.5 rounded-full">
+                                    ₹{(hotel.hotelTotal || 0).toLocaleString()}
+                                  </span>
+                                </TableCell>
+
+                                <TableCell className="pr-6">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRemoveHotel(index)}
+                                    disabled={
+                                      editingQuotation.hotelSummary.length <= 1
+                                    }
+                                    className="text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-slate-50/50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                    <div className="p-5 bg-white rounded-3xl shadow-sm border border-slate-100 mb-5 group-hover:scale-110 transition-transform duration-500">
+                      <Hotel className="h-10 w-10 text-slate-300" />
+                    </div>
+                    <h4 className="text-slate-700 font-bold text-lg">
+                      No Hotels Listed
+                    </h4>
+                    <p className="text-slate-500 text-sm max-w-[280px] mt-2">
+                      Start building your itinerary by adding a hotel using the
+                      destination selector above.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* TRANSPORT TAB */}
+              <TabsContent
+                value="transport"
+                className="p-4 sm:p-8 space-y-6 outline-none focus-visible:ring-0"
+              >
+                <Card className="border-slate-200 overflow-hidden rounded-[2rem] shadow-sm bg-white">
+                  <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-6 sm:p-8">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-theme-primary/10 rounded-2xl shadow-inner">
+                          <Car className="h-6 w-6 text-theme-primary" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl font-bold text-slate-800 tracking-tight">
+                            Transportation Details
+                          </CardTitle>
+                          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-1">
+                            Manage vehicle and route pricing
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Premium Toggle Switch */}
+                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                        <button
+                          onClick={() => toggleValue && handleToggle(false)}
+                          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+                            !toggleValue
+                              ? "bg-white text-theme-primary shadow-sm"
+                              : "text-slate-500 hover:text-slate-700"
+                          }`}
+                        >
+                          CUSTOM
+                        </button>
+                        <Switch
+                          checked={toggleValue}
+                          onCheckedChange={handleToggle}
+                          className="data-[state=checked]:bg-theme-primary"
+                        />
+                        <button
+                          onClick={() => !toggleValue && handleToggle(true)}
+                          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+                            toggleValue
+                              ? "bg-white text-theme-primary shadow-sm"
+                              : "text-slate-500 hover:text-slate-700"
+                          }`}
+                        >
+                          PACKAGE
+                        </button>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-6 sm:p-8">
+                    {!toggleValue ? (
+                      /* Custom Vehicle Layout */
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="space-y-2">
+                          <Label className="text-[11px] font-bold text-slate-500 ml-1 uppercase">
+                            Vehicle Name
+                          </Label>
+                          <Input
+                            value={
+                              editingQuotation?.transportSummary?.vehicleName ||
+                              ""
+                            }
+                            onChange={(e) =>
+                              handleTransportSummaryChange(
+                                "vehicleName",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="e.g., Innova Crysta"
+                            className="h-11 border-slate-200 rounded-xl bg-slate-50/50 focus:ring-theme-primary/10 transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[11px] font-bold text-slate-500 ml-1 uppercase">
+                            Price (₹)
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={
+                              editingQuotation?.transportSummary?.price || 0
+                            }
+                            onChange={(e) =>
+                              handleTransportSummaryChange(
+                                "price",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            placeholder="0"
+                            className="h-11 border-slate-200 rounded-xl bg-slate-50/50 focus:ring-theme-primary/10 font-semibold"
+                          />
+                        </div>
+
+                        <div className="flex items-end">
+                          <label
+                            htmlFor="ac"
+                            className={`flex items-center justify-between w-full h-11 px-4 rounded-xl border transition-all cursor-pointer ${
+                              editingQuotation?.transportSummary?.ac
+                                ? "bg-theme-primary/5 border-theme-primary/30 text-theme-primary"
+                                : "bg-slate-50/50 border-slate-200 text-slate-600"
+                            }`}
+                          >
+                            <span className="text-sm font-bold">
+                              AC Vehicle
+                            </span>
+                            <input
+                              type="checkbox"
+                              id="ac"
+                              checked={!!editingQuotation?.transportSummary?.ac}
+                              onChange={(e) =>
+                                handleTransportSummaryChange(
+                                  "ac",
+                                  e.target.checked,
+                                )
+                              }
+                              className="h-4 w-4 rounded border-slate-300 text-theme-primary focus:ring-theme-primary accent-theme-primary"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Package Layout */
+                      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                           <div className="space-y-2">
-                            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Change Package
+                            <Label className="text-[11px] font-bold text-slate-500 ml-1 uppercase">
+                              Select State
+                            </Label>
+                            <Select
+                              value={selectedTransportStateId}
+                              onValueChange={setSelectedTransportStateId}
+                            >
+                              <SelectTrigger className="h-11 border-slate-200 rounded-xl bg-slate-50/50">
+                                <SelectValue placeholder="Select transport state" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl shadow-2xl">
+                                {transportStates.map((state) => (
+                                  <SelectItem
+                                    key={state.id}
+                                    value={state.id}
+                                    className="rounded-lg"
+                                  >
+                                    {toTitleCase(state.id)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {selectedTransportStateId && (
+                            <div className="space-y-2">
+                              <Label className="text-[11px] font-bold text-slate-500 ml-1 uppercase">
+                                Transport Package
+                              </Label>
+                              <Select
+                                value={
+                                  editingQuotation?.transportSummary?.id || ""
+                                }
+                                onValueChange={(val) =>
+                                  handlePackageChange({
+                                    target: { value: val },
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-11 border-slate-200 rounded-xl bg-slate-50/50">
+                                  <SelectValue placeholder="Select package" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl shadow-2xl">
+                                  {availableTransportPackagesForSelectedState.map(
+                                    (pkg) => (
+                                      <SelectItem
+                                        key={pkg.id}
+                                        value={pkg.id}
+                                        className="rounded-lg"
+                                      >
+                                        {pkg.name || pkg.packageName || pkg.id}
+                                      </SelectItem>
+                                    ),
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+
+                        {editingQuotation?.transportSummary?.vehicles?.length >
+                          0 && (
+                          <div className="space-y-2">
+                            <Label className="text-[11px] font-bold text-slate-500 ml-1 uppercase">
+                              Available Vehicle Options
                             </Label>
                             <Select
                               value={
-                                editingQuotation?.transportSummary?.id || ""
+                                editingQuotation?.transportSummary
+                                  ?.selectedVehicle?.type || ""
                               }
                               onValueChange={(val) => {
-                                const e = { target: { value: val } };
-                                handlePackageChange(e);
+                                const vehicle =
+                                  editingQuotation.transportSummary.vehicles.find(
+                                    (v) => v.type === val,
+                                  );
+                                if (vehicle) handleVehicleChange(vehicle);
                               }}
                             >
-                              <SelectTrigger className="border-gray-300 dark:border-gray-600">
-                                <SelectValue placeholder="Select package" />
+                              <SelectTrigger className="h-12 border-slate-200 rounded-xl bg-white shadow-sm hover:border-theme-primary/30 transition-all">
+                                <SelectValue placeholder="Select vehicle type" />
                               </SelectTrigger>
-                              <SelectContent>
-                                {availableTransportPackagesForSelectedState.map(
-                                  (pkg) => (
-                                    <SelectItem key={pkg.id} value={pkg.id}>
-                                      {pkg.name || pkg.packageName || pkg.id}
+                              <SelectContent className="rounded-xl shadow-2xl">
+                                {editingQuotation.transportSummary.vehicles.map(
+                                  (v, i) => (
+                                    <SelectItem
+                                      key={i}
+                                      value={v.type}
+                                      className="rounded-lg py-3"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold">
+                                          {v.type}
+                                        </span>
+                                        <span className="text-slate-400">
+                                          •
+                                        </span>
+                                        <span className="text-theme-primary font-medium">
+                                          ₹{v.price ?? v.perKmprice}
+                                        </span>
+                                        <span
+                                          className={`text-[10px] px-2 py-0.5 rounded-full ${v.ac ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-600"}`}
+                                        >
+                                          {v.ac ? "AC" : "Non-AC"}
+                                        </span>
+                                      </div>
                                     </SelectItem>
-                                  )
+                                  ),
                                 )}
                               </SelectContent>
                             </Select>
                           </div>
                         )}
+
+                        {/* Summary Infographic Cards */}
+                        {selectedTransportStateId && (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 flex flex-col justify-between h-full group hover:bg-white hover:shadow-md transition-all">
+                              <div className="flex items-center gap-2 text-slate-400 mb-3">
+                                <ShieldCheck className="h-4 w-4" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">
+                                  Active Package
+                                </span>
+                              </div>
+                              <p className="font-bold text-slate-800 line-clamp-2">
+                                {editingQuotation?.transportSummary
+                                  ?.packageName || "—"}
+                              </p>
+                            </div>
+
+                            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 flex flex-col justify-between h-full group hover:bg-white hover:shadow-md transition-all">
+                              <div className="flex items-center gap-2 text-slate-400 mb-3">
+                                <Thermometer className="h-4 w-4" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">
+                                  Climate Control
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`w-2.5 h-2.5 rounded-full animate-pulse ${editingQuotation?.transportSummary?.ac ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" : "bg-slate-300"}`}
+                                />
+                                <p className="font-bold text-slate-800">
+                                  {editingQuotation?.transportSummary?.ac
+                                    ? "Full Air Conditioning"
+                                    : "Non-AC Vehicle"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-theme-primary to-theme-secondary rounded-2xl p-5 shadow-lg shadow-theme-primary/20 flex flex-col justify-between h-full">
+                              <div className="flex items-center gap-2 text-white/70 mb-3">
+                                <Gauge className="h-4 w-4" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">
+                                  Total Transport Cost
+                                </span>
+                              </div>
+                              <p className="font-black text-2xl text-white">
+                                ₹
+                                {(
+                                  editingQuotation?.transportSummary
+                                    ?.totalPrice || 0
+                                ).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                      {editingQuotation?.transportSummary?.vehicles?.length >
-                        0 && (
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Select Vehicle
-                          </Label>
-                          <Select
-                            value={
-                              editingQuotation?.transportSummary
-                                ?.selectedVehicle?.type || ""
-                            }
-                            onValueChange={(val) => {
-                              const vehicle =
-                                editingQuotation.transportSummary.vehicles.find(
-                                  (v) => v.type === val
-                                );
-                              if (vehicle) handleVehicleChange(vehicle);
-                            }}
-                          >
-                            <SelectTrigger className="border-gray-300 dark:border-gray-600">
-                              <SelectValue placeholder="Select vehicle" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {editingQuotation.transportSummary.vehicles.map(
-                                (v, i) => (
-                                  <SelectItem key={i} value={v.type}>
-                                    {v.type} - ₹{v.price ?? v.perKmprice}{" "}
-                                    {v.ac ? "(AC)" : "(Non-AC)"}
-                                  </SelectItem>
-                                )
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      {selectedTransportStateId && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                            <Label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                              Current Package
-                            </Label>
-                            <p className="font-semibold text-gray-900 dark:text-white mt-2">
-                              {editingQuotation?.transportSummary
-                                ?.packageName || "—"}
-                            </p>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                            <Label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                              AC Status
-                            </Label>
-                            <p className="font-semibold text-gray-900 dark:text-white mt-2 flex items-center gap-2">
-                              <span
-                                className={`w-2 h-2 rounded-full ${
-                                  editingQuotation?.transportSummary?.ac
-                                    ? "bg-green-500"
-                                    : "bg-gray-400"
-                                }`}
-                              ></span>
-                              {editingQuotation?.transportSummary?.ac
-                                ? "Available"
-                                : "Not Available"}
-                            </p>
-                          </div>
-                          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                            <Label className="text-xs font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wider">
-                              Vehicle Cost
-                            </Label>
-                            <p className="font-bold text-2xl text-blue-600 dark:text-blue-400 mt-2">
-                              ₹
-                              {editingQuotation?.transportSummary?.totalPrice ||
-                                0}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* ACTIVITIES TAB */}
-            <TabsContent value="activities" className="p-6 space-y-6">
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-6 border border-purple-200 dark:border-purple-800">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                    <Plus className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              {/* ACTIVITIES TAB */}
+              <TabsContent
+                value="activities"
+                className="p-4 sm:p-8 space-y-8 outline-none animate-in fade-in duration-500"
+              >
+                {/* Header & Activity Adder Section */}
+                <div className="relative overflow-hidden bg-white rounded-[2rem] border border-slate-200 shadow-sm">
+                  <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+                    <Activity size={120} />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                      Add New Activity
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Select State
+
+                  <div className="p-6 sm:p-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="p-3 bg-theme-primary rounded-2xl shadow-lg shadow-theme-muted">
+                        <Plus className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                          Activity Builder
+                        </h3>
+                        <p className="text-sm text-slate-500">
+                          Customize the guest experience with local excursions
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-end">
+                      <div className="space-y-3">
+                        <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
+                          Step 1: Choose Location
                         </Label>
                         <Select
                           value={SelectedDestination}
                           onValueChange={setSelectedDestination}
                         >
-                          <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-                            <SelectValue placeholder="Select state" />
+                          <SelectTrigger className="h-12 bg-slate-50/50 border-slate-200 rounded-xl focus:ring-purple-500/10">
+                            <SelectValue placeholder="Where are they going?" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="rounded-xl shadow-xl">
                             {AllDestinations.map((state) => (
-                              <SelectItem key={state.name} value={state.name}>
-                                {state.name}
+                              <SelectItem
+                                key={state.name}
+                                value={state.name}
+                                className="py-3"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4 text-slate-400" />
+                                  <span className="font-medium">
+                                    {state.name}
+                                  </span>
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Select Activity
+                      <div className="space-y-3">
+                        <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
+                          Step 2: Select & Add Activity
                         </Label>
                         <div className="flex gap-3">
-                          <Select
-                            value={selectedActivityToAdd}
-                            onValueChange={setSelectedActivityToAdd}
-                            disabled={
-                              !SelectedDestination || isFetchingActivities
-                            }
-                          >
-                            <SelectTrigger className="flex-1 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-                              <SelectValue
-                                placeholder={
-                                  isFetchingActivities
-                                    ? "Loading..."
-                                    : "Choose activity..."
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableActivities.map((act) => (
-                                <SelectItem key={act.name} value={act.name}>
-                                  {act.name} ({act.city}) - ₹
-                                  {act.fitRatePerPerson ||
-                                    act.groupRatePerPerson}
-                                  /person
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex-1">
+                            <Select
+                              value={selectedActivityToAdd}
+                              onValueChange={setSelectedActivityToAdd}
+                              disabled={
+                                !SelectedDestination || isFetchingActivities
+                              }
+                            >
+                              <SelectTrigger className="h-12 bg-slate-50/50 border-slate-200 rounded-xl">
+                                <SelectValue
+                                  placeholder={
+                                    isFetchingActivities
+                                      ? "Loading local fun..."
+                                      : "Browse activities..."
+                                  }
+                                />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl shadow-xl max-h-[300px]">
+                                {availableActivities.map((act) => (
+                                  <SelectItem
+                                    key={act.name}
+                                    value={act.name}
+                                    className="py-3"
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-slate-800">
+                                        {act.name}
+                                      </span>
+                                      <span className="text-xs text-theme-primary font-medium">
+                                        ₹
+                                        {act.fitRatePerPerson ||
+                                          act.groupRatePerPerson}{" "}
+                                        / person • {act.city}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
 
                           <Button
                             onClick={handleAddActivity}
                             disabled={!selectedActivityToAdd}
-                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md"
+                            className="h-12 px-6 bg-theme-primary hover:bg-theme-dark text-white rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-100 flex items-center gap-2"
                           >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add
+                            <Ticket className="h-4 w-4" />
+                            <span className="font-bold">Add</span>
                           </Button>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Activities Summary List */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <h4 className="text-sm font-bold text-slate-700 uppercase tracking-widest">
+                      Scheduled Activities (
+                      {editingQuotation?.activitySummary?.length || 0})
+                    </h4>
+                  </div>
+
+                  {editingQuotation?.activitySummary?.length > 0 ? (
+                    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-slate-50/50 border-b border-slate-100">
+                              <TableHead className="py-5 px-6 font-bold text-slate-600">
+                                Activity & Location
+                              </TableHead>
+                              <TableHead className="py-5 font-bold text-slate-600">
+                                Participants
+                              </TableHead>
+                              <TableHead className="py-5 text-right font-bold text-slate-600">
+                                Investment
+                              </TableHead>
+                              <TableHead className="w-20"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {editingQuotation.activitySummary.map(
+                              (activity, index) => (
+                                <TableRow
+                                  key={index}
+                                  className="group hover:bg-purple-50/30 transition-colors border-b border-slate-50 last:border-0"
+                                >
+                                  <TableCell className="py-5 px-6">
+                                    <div className="flex items-center gap-4">
+                                      <div className="h-10 w-10 rounded-xl bg-theme-muted flex items-center justify-center text-theme-primary font-bold text-xs">
+                                        {index + 1}
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-slate-900">
+                                          {activity.name}
+                                        </p>
+                                        <div className="flex items-center gap-1.5 text-slate-500 text-xs mt-0.5">
+                                          <MapPin className="h-3 w-3" />
+                                          {activity.city}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="relative flex items-center max-w-[120px]">
+                                      <Users className="absolute left-3 h-4 w-4 text-slate-400 pointer-events-none" />
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={activity.participants || 1}
+                                        onChange={(e) =>
+                                          handleActivitySummaryChange(
+                                            index,
+                                            "participants",
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="pl-9 h-10 border-slate-200 rounded-xl focus:ring-theme-primary font-medium"
+                                      />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <span className="text-lg font-black text-slate-900">
+                                      ₹
+                                      {(
+                                        activity.totalPrice || 0
+                                      ).toLocaleString()}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="px-6">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() =>
+                                        handleRemoveActivity(index)
+                                      }
+                                      className="h-10 w-10 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                    >
+                                      <Trash2 className="h-5 w-5" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ),
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200">
+                      <div className="p-4 bg-white rounded-full shadow-sm mb-4">
+                        <Ticket className="h-8 w-8 text-slate-300" />
+                      </div>
+                      <p className="text-slate-600 font-bold">
+                        No activities added yet
+                      </p>
+                      <p className="text-sm text-slate-400 mt-1 max-w-[240px] text-center">
+                        Select a destination above to start building the perfect
+                        itinerary.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </Card>
+
+          {/* Pricing Summary */}
+          <Card className="shadow-lg border-slate-200 overflow-hidden rounded-2xl bg-gradient-to-br from-white to-slate-50">
+            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
+              <CardTitle className="flex items-center gap-3 text-slate-900 text-lg sm:text-xl">
+                <div className="p-2 bg-amber-100 rounded-xl">
+                  <IndianRupee className="h-5 w-5 text-amber-600" />
+                </div>
+                Pricing Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="markup"
+                    className="text-sm font-medium text-slate-700"
+                  >
+                    Add Markup (₹)
+                  </Label>
+                  <Input
+                    id="markup"
+                    type="number"
+                    placeholder="e.g. 5000"
+                    value={editingQuotation?.markup || 0}
+                    onChange={(e) => handleMarkupInputChange(e.target.value)}
+                    className="text-lg border-slate-300 rounded-xl"
+                  />
+                </div>
+
+                <div className="flex flex-col justify-center items-end bg-gradient-to-br from-theme-muted to-theme-accent/10 rounded-xl p-4 sm:p-6 border-2 border-theme-accent/20">
+                  <p className="text-xs sm:text-sm font-medium text-theme-primary uppercase tracking-wider">
+                    Grand Total
+                  </p>
+                  <p className="text-3xl sm:text-4xl font-bold text-theme-primary mt-2">
+                    ₹
+                    {(editingQuotation?.grandTotal || 0).toLocaleString(
+                      "en-IN",
+                    )}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Inclusive of all charges
+                  </p>
+                </div>
               </div>
 
-              {editingQuotation?.activitySummary?.length > 0 ? (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <TableHead className="font-semibold text-gray-900 dark:text-white">
-                          Activity
-                        </TableHead>
-                        <TableHead className="font-semibold text-gray-900 dark:text-white">
-                          Participants
-                        </TableHead>
-                        <TableHead className="text-right font-semibold text-gray-900 dark:text-white">
-                          Total Price
-                        </TableHead>
-                        <TableHead className="w-16"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {editingQuotation.activitySummary.map(
-                        (activity, index) => (
-                          <TableRow
-                            key={index}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                          >
-                            <TableCell className="font-medium">
-                              <div>
-                                <p className="text-gray-900 dark:text-white">
-                                  {activity.name}
-                                </p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                  {activity.city}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={activity.participants || 1}
-                                onChange={(e) =>
-                                  handleActivitySummaryChange(
-                                    index,
-                                    "participants",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-24 border-gray-300 dark:border-gray-600"
-                              />
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <span className="font-semibold text-purple-600 dark:text-purple-400">
-                                ₹{(activity.totalPrice || 0).toFixed(0)}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRemoveActivity(index)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                  <ActivitySquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400 font-medium">
-                    No activities added yet
+              {/* Cost Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-slate-200">
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+                    Hotel Cost
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                    Add activities to enhance the travel experience
+                  <p className="text-lg sm:text-xl font-bold text-slate-900">
+                    ₹
+                    {editingQuotation?.hotelSummary
+                      ?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0)
+                      ?.toLocaleString("en-IN") || "0"}
                   </p>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </Card>
-
-        {/* Pricing Summary */}
-        <Card className="shadow-lg border-gray-200 dark:border-gray-700 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
-          <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-b border-yellow-200 dark:border-yellow-800">
-            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                <IndianRupee className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+                    Transport Cost
+                  </p>
+                  <p className="text-lg sm:text-xl font-bold text-slate-900">
+                    ₹
+                    {(editingQuotation?.transportSummary?.pricingType ===
+                    "perKm"
+                      ? (editingQuotation.transportSummary?.perKmprice || 0) *
+                        (editingQuotation.transportSummary?.kms || 0)
+                      : editingQuotation?.transportSummary?.price || 0
+                    ).toLocaleString("en-IN")}
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-slate-200">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+                    Activities Cost
+                  </p>
+                  <p className="text-lg sm:text-xl font-bold text-slate-900">
+                    ₹
+                    {editingQuotation?.activitySummary
+                      ?.reduce((sum, a) => sum + (a.totalPrice || 0), 0)
+                      ?.toLocaleString("en-IN") || "0"}
+                  </p>
+                </div>
               </div>
-              Pricing Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Save As Modal */}
+        <Dialog open={showSaveAsModal} onOpenChange={setShowSaveAsModal}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-theme-primary flex items-center gap-2">
+                <Copy className="h-5 w-5" />
+                Save as New Quotation
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
               <div className="space-y-2">
                 <Label
-                  htmlFor="markup"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  htmlFor="newPackageName"
+                  className="text-sm font-medium text-slate-700"
                 >
-                  Add Markup (₹)
+                  New Package Name
                 </Label>
                 <Input
-                  id="markup"
-                  type="number"
-                  placeholder="e.g. 5000"
-                  value={editingQuotation?.markup || 0}
-                  onChange={(e) => handleMarkupInputChange(e.target.value)}
-                  className="text-lg border-gray-300 dark:border-gray-600"
+                  id="newPackageName"
+                  value={newPackageName}
+                  onChange={(e) => setNewPackageName(e.target.value)}
+                  placeholder="Summer Special Goa 2025"
+                  className="border-slate-300 rounded-xl"
                 />
               </div>
 
-              <div className="flex flex-col justify-center items-end bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800">
-                <p className="text-sm font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wider">
-                  Grand Total
-                </p>
-                <p className="text-4xl font-bold text-blue-600 dark:text-blue-400 mt-2">
-                  ₹
-                  {(editingQuotation?.grandTotal || 0).toLocaleString("en-IN")}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Inclusive of all charges
-                </p>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="newCustomerName"
+                  className="text-sm font-medium text-slate-700"
+                >
+                  New Customer Name
+                </Label>
+                <Input
+                  id="newCustomerName"
+                  value={newCustomerName}
+                  onChange={(e) => setNewCustomerName(e.target.value)}
+                  placeholder="John Doe"
+                  className="border-slate-300 rounded-xl"
+                />
               </div>
             </div>
 
-            {/* Cost Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <div className="bg-white dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                  Hotel Cost
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  ₹
-                  {editingQuotation?.hotelSummary
-                    ?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0)
-                    ?.toLocaleString("en-IN") || "0"}
-                </p>
-              </div>
-              <div className="bg-white dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                  Transport Cost
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  ₹
-                  {(editingQuotation?.transportSummary?.pricingType === "perKm"
-                    ? (editingQuotation.transportSummary?.perKmprice || 0) *
-                      (editingQuotation.transportSummary?.kms || 0)
-                    : editingQuotation?.transportSummary?.price ||
-                      0
-                  ).toLocaleString("en-IN")}
-                </p>
-              </div>
-              <div className="bg-white dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                  Activities Cost
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  ₹
-                  {editingQuotation?.activitySummary
-                    ?.reduce((sum, a) => sum + (a.totalPrice || 0), 0)
-                    ?.toLocaleString("en-IN") || "0"}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowSaveAsModal(false)}
+                className="border-slate-300 rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmSaveAs}
+                className="bg-gradient-to-r from-theme-primary to-theme-secondary hover:from-theme-secondary hover:to-theme-dark text-white rounded-xl"
+              >
+                Save New Quotation
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* Save As Modal */}
-      <Dialog open={showSaveAsModal} onOpenChange={setShowSaveAsModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl text-blue-600 dark:text-blue-400 flex items-center gap-2">
-              <Copy className="h-5 w-5" />
-              Save as New Quotation
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label
-                htmlFor="newPackageName"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                New Package Name
-              </Label>
-              <Input
-                id="newPackageName"
-                value={newPackageName}
-                onChange={(e) => setNewPackageName(e.target.value)}
-                placeholder="Summer Special Goa 2025"
-                className="border-gray-300 dark:border-gray-600"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="newCustomerName"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                New Customer Name
-              </Label>
-              <Input
-                id="newCustomerName"
-                value={newCustomerName}
-                onChange={(e) => setNewCustomerName(e.target.value)}
-                placeholder="John Doe"
-                className="border-gray-300 dark:border-gray-600"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowSaveAsModal(false)}
-              className="border-gray-300 dark:border-gray-600"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmSaveAs}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
-            >
-              Save New Quotation
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
-  </div>
-);
+  );
 };
 
 export default EditQuotationPage;
