@@ -92,6 +92,7 @@ const Create_new_package = ({
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [packages, setPackages] = useState([]);
   const [customerName, setCustomerName] = useState("");
+  const [numCNB, setNumCNB] = useState([0]);
   const router = useRouter();
   const { user } = useSelector((state) => state.auth);
 
@@ -813,7 +814,7 @@ const Create_new_package = ({
       await addDoc(packagesCollectionRef, packageData);
 
       toast("Package saved successfully!");
-      router.push('./agent-panel/my-quatation')
+      router.push("./agent-panel/my-quatation");
       setShowSaveModal(false);
       dispatch(setPackageName(""));
     } catch (err) {
@@ -984,6 +985,8 @@ const Create_new_package = ({
                     numExtraChild={numExtraChild}
                     setNumExtraChild={setNumExtraChild}
                     hotelTotal={hotelTotal}
+                    numCNB={numCNB} 
+                    setNumCNB={setNumCNB}
                     setHotelTotal={setHotelTotal}
                     setSelectedMealPlan={setSelectedMealPlan}
                     selectedMealPlan={selectedMealPlan}
@@ -1389,7 +1392,7 @@ const Create_new_package = ({
 
       {/* Save Modal */}
       {showSaveModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 ">
           <div className="bg-white p-8 rounded-xl w-full max-w-md shadow-2xl space-y-6">
             <h2 className="text-xl font-bold text-theme-dark border-b pb-2">
               Finalize Package

@@ -13,11 +13,7 @@ import {
   Sun,
   CheckCircle2,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 
 // Sub-components
 import SeasonInfo from "./hotel-selector/SeasonInfo";
@@ -38,6 +34,8 @@ const HotelRoomSelector = ({
   setNumExtraAdult,
   numExtraChild,
   setNumExtraChild,
+  numCNB,
+  setNumCNB,
   hotelTotal,
   setHotelTotal,
   selectedMealPlan,
@@ -51,8 +49,20 @@ const HotelRoomSelector = ({
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [selectedPlans, setSelectedPlans] = useState({});
 
+  // ── Safe access with defaults ────────────────────────────────────────
+  const safeNumDouble     = numDouble?.[0]     ?? 1;
+  const safeNumExtraAdult = numExtraAdult?.[0] ?? 0;
+  const safeNumExtraChild = numExtraChild?.[0] ?? 0;
+  const safeNumCNB        = numCNB?.[0]        ?? 0;
+
+  const safeSetNumDouble     = setNumDouble     ? (v) => setNumDouble([v])     : () => {};
+  const safeSetNumExtraAdult = setNumExtraAdult ? (v) => setNumExtraAdult([v]) : () => {};
+  const safeSetNumExtraChild = setNumExtraChild ? (v) => setNumExtraChild([v]) : () => {};
+  const safeSetNumCNB        = setNumCNB        ? (v) => setNumCNB([v])        : () => {};
+
   // Derived values
   const currentCategory = hotel?.rooms?.[selectedCategoryIndex];
+
   const applicableSeason = useMemo(() => {
     if (!currentCategory?.seasons || !checkInDate) return null;
 
@@ -61,7 +71,7 @@ const HotelRoomSelector = ({
 
     return currentCategory.seasons.find((season) => {
       const start = new Date(season.start);
-      const end = new Date(season.end);
+      const end   = new Date(season.end);
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
       return checkIn >= start && checkIn <= end;
@@ -76,25 +86,35 @@ const HotelRoomSelector = ({
     if (!pricingData || !noOfNights) return 0;
 
     const costPerNight =
-      (pricingData.double || 0) * (numDouble[0] || 0) +
-      (pricingData.extraAdult || 0) * (numExtraAdult[0] || 0) +
-      (pricingData.extraChild || 0) * (numExtraChild[0] || 0);
+      (pricingData.double     || 0) * safeNumDouble +
+      (pricingData.extraAdult || 0) * safeNumExtraAdult +
+      (pricingData.extraChild || 0) * safeNumExtraChild +
+      (pricingData.cnb        || 0) * safeNumCNB;
 
     const total = costPerNight * noOfNights;
-    setHotelTotal([total]);
+    setHotelTotal?.([total]);
     return total;
   };
 
   useEffect(() => {
     calculateTotal();
-  }, [numDouble, numExtraAdult, numExtraChild, currentPlan, noOfNights, pricingData]);
+  }, [
+    safeNumDouble,
+    safeNumExtraAdult,
+    safeNumExtraChild,
+    safeNumCNB,
+    currentPlan,
+    noOfNights,
+    pricingData,
+  ]);
 
   // Sync selected plan to parent
   useEffect(() => {
     if (currentPlan) {
-      setSelectedMealPlan(currentPlan);
-      setSelectedRoomCategory(currentCategory?.categoryName || "");
+      setSelectedMealPlan?.(currentPlan);
+      setSelectedRoomCategory?.(currentCategory?.categoryName || "");
     }
+    console.log(typeof numCNB, numCNB)
   }, [currentPlan, currentCategory, setSelectedMealPlan, setSelectedRoomCategory]);
 
   const handleSaveHotel = () => {
@@ -115,10 +135,11 @@ const HotelRoomSelector = ({
       ).toISOString().split("T")[0],
       selectedRoomCategory: currentCategory.categoryName,
       selectedMealPlan: currentPlan,
-      numDouble: numDouble[0],
-      numExtraAdult: numExtraAdult[0],
-      numExtraChild: numExtraChild[0],
-      hotelTotal: hotelTotal[0] || 0,
+      numDouble: safeNumDouble,
+      numExtraAdult: safeNumExtraAdult,
+      numExtraChild: safeNumExtraChild,
+      numCNB: safeNumCNB,
+      hotelTotal: hotelTotal?.[0] || 0,
       GoogleListingURL: hotel.GoogleListingURL || null,
     };
 
@@ -144,15 +165,17 @@ const HotelRoomSelector = ({
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 mb-4">
           Room Categories
         </h3>
+
         <Tabs
           value={String(selectedCategoryIndex)}
           onValueChange={(val) => {
             const index = Number(val);
             setSelectedCategoryIndex(index);
             // Reset counts when changing category
-            setNumDouble([1]);
-            setNumExtraAdult([0]);
-            setNumExtraChild([0]);
+            safeSetNumDouble(1);
+            safeSetNumExtraAdult(0);
+            safeSetNumExtraChild(0);
+            safeSetNumCNB(0);
           }}
         >
           <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 bg-slate-100 p-1 rounded-xl">
@@ -177,7 +200,9 @@ const HotelRoomSelector = ({
                   <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg border">
                     <ExternalLink className="h-5 w-5 text-slate-600 mt-0.5" />
                     <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase mb-1">Google Maps</p>
+                      <p className="text-xs font-medium text-slate-500 uppercase mb-1">
+                        Google Maps
+                      </p>
                       <a
                         href={hotel.GoogleListingURL}
                         target="_blank"
@@ -217,22 +242,27 @@ const HotelRoomSelector = ({
 
               {/* Guest Configuration */}
               <GuestConfiguration
-                numDouble={numDouble[0]}
-                setNumDouble={(val) => setNumDouble([val])}
-                numExtraAdult={numExtraAdult[0]}
-                setNumExtraAdult={(val) => setNumExtraAdult([val])}
-                numExtraChild={numExtraChild[0]}
-                setNumExtraChild={(val) => setNumExtraChild([val])}
+                numDouble={safeNumDouble}
+                setNumDouble={safeSetNumDouble}
+                numExtraAdult={safeNumExtraAdult}
+                setNumExtraAdult={safeSetNumExtraAdult}
+                numExtraChild={safeNumExtraChild}
+                setNumExtraChild={safeSetNumExtraChild}
+                numCNB={safeNumCNB}
+                setNumCNB={safeSetNumCNB}
               />
 
               {/* Cost Summary */}
               {pricingData && currentPlan && (
                 <CostSummary
-                  perNightCost={pricingData.double * (numDouble[0] || 0) +
-                    pricingData.extraAdult * (numExtraAdult[0] || 0) +
-                    pricingData.extraChild * (numExtraChild[0] || 0)}
+                  perNightCost={
+                    (pricingData.double || 0) * safeNumDouble +
+                    (pricingData.extraAdult || 0) * safeNumExtraAdult +
+                    (pricingData.extraChild || 0) * safeNumExtraChild +
+                    (pricingData.cnb || 0) * safeNumCNB
+                  }
                   nights={noOfNights}
-                  total={hotelTotal[0] || 0}
+                  total={hotelTotal?.[0] || 0}
                 />
               )}
             </TabsContent>
@@ -240,8 +270,9 @@ const HotelRoomSelector = ({
         </Tabs>
       </div>
 
-      {/* Action Buttons */}
-      {/* <div className="flex flex-wrap gap-4 pt-6 border-t">
+      {/* Action Buttons – uncomment when ready */}
+      {/* 
+      <div className="flex flex-wrap gap-4 pt-6 border-t">
         <Button
           onClick={handleSaveHotel}
           className="bg-theme-primary hover:bg-primary/90 text-white px-8"
@@ -253,7 +284,8 @@ const HotelRoomSelector = ({
         <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
           Cancel
         </Button>
-      </div> */}
+      </div>
+      */}
     </div>
   );
 };

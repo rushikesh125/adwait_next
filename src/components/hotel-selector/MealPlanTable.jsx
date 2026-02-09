@@ -9,8 +9,8 @@ const MealPlanTable = ({ season, selectedPlan, onPlanChange }) => {
   }
 
   return (
-    <div className="overflow-scroll border border-slate-200 rounded-xl bg-white shadow-sm">
-      <table className="w-full text-left border-collapse">
+    <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-sm">
+      <table className="w-full text-left border-collapse min-w-[640px]">
         <thead>
           <tr className="bg-slate-50 border-b border-slate-200">
             <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider w-12">
@@ -28,12 +28,20 @@ const MealPlanTable = ({ season, selectedPlan, onPlanChange }) => {
             <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">
               Extra Child
             </th>
+            <th className="px-4 py-3 text-xs font-bold uppercase text-primary tracking-wider">
+              CNB
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {MealPlans.map((plan) => {
             const data = season.pricing[plan.toLowerCase()];
-            const hasPricing = data && (data.double > 0 || data.extraAdult > 0 || data.extraChild > 0);
+            const hasPricing =
+              data &&
+              (data.double > 0 ||
+                data.extraAdult > 0 ||
+                data.extraChild > 0 ||
+                data.cnb > 0);
 
             if (!hasPricing) return null;
 
@@ -57,6 +65,7 @@ const MealPlanTable = ({ season, selectedPlan, onPlanChange }) => {
                 <td className="px-4 py-4 text-slate-600">₹{data.double || 0}</td>
                 <td className="px-4 py-4 text-slate-600">₹{data.extraAdult || 0}</td>
                 <td className="px-4 py-4 text-slate-600">₹{data.extraChild || 0}</td>
+                <td className="px-4 py-4 text-slate-600 font-medium">₹{data.cnb || 0}</td>
               </tr>
             );
           })}

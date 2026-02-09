@@ -10,6 +10,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { 
+  updateHotelComplete, 
+  deleteHotel as deleteHotelFromDB,
+  validateHotelData 
+} from '@/firebase/accomodation';
+import toast from 'react-hot-toast';
 
 const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
   const [hotelData, setHotelData] = useState({
@@ -52,7 +58,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
       const seasons = [...rooms[roomIndex].seasons];
       const pricing = { 
         ...seasons[seasonIndex].pricing,
-        [plan]: { double: 0, extraAdult: 0, extraChild: 0 }
+        [plan]: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 }
       };
       
       seasons[seasonIndex] = { ...seasons[seasonIndex], pricing };
@@ -95,7 +101,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
       const pricing = {
         ...seasons[seasonIndex].pricing,
         [plan]: {
-          ...(seasons[seasonIndex].pricing?.[plan] || { double: 0, extraAdult: 0, extraChild: 0 }),
+          ...(seasons[seasonIndex].pricing?.[plan] || { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 }),
           [type]: numValue
         }
       };
@@ -118,10 +124,10 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
     const newSeason = {
       name: '', start: '', end: '',
       pricing: {
-        ep: { double: 0, extraAdult: 0, extraChild: 0 },
-        cp: { double: 0, extraAdult: 0, extraChild: 0 },
-        map: { double: 0, extraAdult: 0, extraChild: 0 },
-        ap: { double: 0, extraAdult: 0, extraChild: 0 }
+        ep: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+        cp: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+        map: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+        ap: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 }
       }
     };
     setHotelData(prev => {
@@ -142,13 +148,61 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
     });
   };
 
-  const handleSave = () => {
-    if (!hotelData.name?.trim() || !hotelData.city?.trim() || !hotelData.state?.trim()) {
-      alert("Hotel name, city and state are required.");
+  const handleSave = async () => {
+    // Validate data
+    const validation = validateHotelData(hotelData);
+    
+    if (!validation.isValid) {
+      validation.errors.forEach(error => toast.error(error));
       return;
     }
-    onSave(hotelData);
-    onClose();
+
+    // Show loading toast
+    const loadingToast = toast.loading('Updating hotel...');
+
+    try {
+      // Update hotel in Firebase
+      const success = await updateHotelComplete(hotel.id, hotelData);
+      
+      toast.dismiss(loadingToast);
+      
+      if (success) {
+        // Call the onSave callback if provided
+        if (onSave) {
+          onSave(hotelData);
+        }
+        onClose();
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error("Error in handleSave:", error);
+      toast.error("Failed to save hotel");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete "${hotelData.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    const loadingToast = toast.loading('Deleting hotel...');
+
+    try {
+      const success = await deleteHotelFromDB(hotel.id);
+      
+      toast.dismiss(loadingToast);
+      
+      if (success) {
+        if (onDelete) {
+          onDelete(hotel.id);
+        }
+        onClose();
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error("Error deleting hotel:", error);
+      toast.error("Failed to delete hotel");
+    }
   };
 
   return (
@@ -181,6 +235,18 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">State *</Label>
                 <Input name="state" value={hotelData.state} onChange={handleHotelChange} className="h-10" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Star Rating</Label>
+                <Input name="rating" value={hotelData.rating} onChange={handleHotelChange} placeholder="e.g., 5-star" className="h-10" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Google Review Rating</Label>
+                <Input name="GoogleReviewRating" type="number" step="0.1" min="0" max="5" value={hotelData.GoogleReviewRating} onChange={handleHotelChange} className="h-10" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Google Listing URL</Label>
+                <Input name="GoogleListingURL" value={hotelData.GoogleListingURL} onChange={handleHotelChange} placeholder="https://goo.gl/maps/..." className="h-10" />
               </div>
             </div>
 
@@ -251,14 +317,15 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                                   )}
                                 </div>
                                 
-                                <div className="border rounded-md">
-                                  <table className="w-full text-sm">
+                                <div className="border rounded-md overflow-x-auto">
+                                  <table className="w-full text-sm min-w-[600px]">
                                     <thead className="bg-slate-50 border-b">
                                       <tr>
                                         <th className="p-2 text-left">Plan</th>
                                         <th className="p-2 text-left">Double</th>
                                         <th className="p-2 text-left">Extra Adult</th>
                                         <th className="p-2 text-left">Extra Child</th>
+                                        <th className="p-2 text-left text-theme-primary">CNB</th>
                                         <th className="p-2"></th>
                                       </tr>
                                     </thead>
@@ -266,9 +333,50 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                                       {activePlans.map((plan) => (
                                         <tr key={plan} className="hover:bg-slate-50/50">
                                           <td className="p-2 font-bold uppercase text-theme-primary">{plan}</td>
-                                          <td className="p-1"><Input type="number" value={season.pricing[plan]?.double ?? ''} onChange={(e) => handlePricingChange(roomIndex, seasonIndex, plan, "double", e.target.value)} className="h-8" /></td>
-                                          <td className="p-1"><Input type="number" value={season.pricing[plan]?.extraAdult ?? ''} onChange={(e) => handlePricingChange(roomIndex, seasonIndex, plan, "extraAdult", e.target.value)} className="h-8" /></td>
-                                          <td className="p-1"><Input type="number" value={season.pricing[plan]?.extraChild ?? ''} onChange={(e) => handlePricingChange(roomIndex, seasonIndex, plan, "extraChild", e.target.value)} className="h-8" /></td>
+                                          <td className="p-1">
+                                            <div className="relative">
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+                                              <Input 
+                                                type="number" 
+                                                value={season.pricing[plan]?.double ?? ''} 
+                                                onChange={(e) => handlePricingChange(roomIndex, seasonIndex, plan, "double", e.target.value)} 
+                                                className="h-8 pl-6" 
+                                              />
+                                            </div>
+                                          </td>
+                                          <td className="p-1">
+                                            <div className="relative">
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+                                              <Input 
+                                                type="number" 
+                                                value={season.pricing[plan]?.extraAdult ?? ''} 
+                                                onChange={(e) => handlePricingChange(roomIndex, seasonIndex, plan, "extraAdult", e.target.value)} 
+                                                className="h-8 pl-6" 
+                                              />
+                                            </div>
+                                          </td>
+                                          <td className="p-1">
+                                            <div className="relative">
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+                                              <Input 
+                                                type="number" 
+                                                value={season.pricing[plan]?.extraChild ?? ''} 
+                                                onChange={(e) => handlePricingChange(roomIndex, seasonIndex, plan, "extraChild", e.target.value)} 
+                                                className="h-8 pl-6" 
+                                              />
+                                            </div>
+                                          </td>
+                                          <td className="p-1">
+                                            <div className="relative">
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
+                                              <Input 
+                                                type="number" 
+                                                value={season.pricing[plan]?.cnb ?? ''} 
+                                                onChange={(e) => handlePricingChange(roomIndex, seasonIndex, plan, "cnb", e.target.value)} 
+                                                className="h-8 pl-6 border-theme-primary/30 focus:border-theme-primary" 
+                                              />
+                                            </div>
+                                          </td>
                                           <td className="p-1 text-center">
                                             <Button variant="ghost" size="icon" onClick={() => removeMealPlan(roomIndex, seasonIndex, plan)} className="h-7 w-7 text-slate-400 hover:text-red-500">
                                               <X className="h-4 w-4" />
@@ -278,7 +386,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                                       ))}
                                       {activePlans.length === 0 && (
                                         <tr>
-                                          <td colSpan="5" className="p-4 text-center text-muted-foreground italic">No meal plans added. Add one using the buttons above.</td>
+                                          <td colSpan="6" className="p-4 text-center text-muted-foreground italic">No meal plans added. Add one using the buttons above.</td>
                                         </tr>
                                       )}
                                     </tbody>
@@ -299,7 +407,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
 
         <div className="border-t p-4 bg-gray-50 flex flex-col sm:flex-row gap-3 justify-end">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button variant="destructive" onClick={() => window.confirm("Delete hotel?") && onDelete(hotelData.id)}>Delete Hotel</Button>
+          <Button variant="destructive" onClick={handleDelete}>Delete Hotel</Button>
           <Button onClick={handleSave} className="bg-theme-primary">Save Changes</Button>
         </div>
       </Card>

@@ -1,6 +1,6 @@
 // src/components/hotel-selector/GuestConfiguration.jsx
 import React from "react";
-import { BedDouble, UserPlus, Baby, Users } from "lucide-react";
+import { BedDouble, UserPlus, Baby, Users, UserX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -11,7 +11,10 @@ const GuestConfiguration = ({
   setNumExtraAdult,
   numExtraChild,
   setNumExtraChild,
+  numCNB,
+  setNumCNB,
 }) => {
+  console.log(typeof numCNB)
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -19,7 +22,7 @@ const GuestConfiguration = ({
         <h3 className="text-base font-semibold">Guest Configuration</h3>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-3 p-5 bg-slate-50 rounded-lg border border-slate-200">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 p-5 bg-slate-50 rounded-lg border border-slate-200">
         <div className="space-y-2">
           <Label htmlFor="double-rooms" className="text-sm font-medium flex items-center gap-2">
             <BedDouble className="h-4 w-4 text-slate-500" />
@@ -62,6 +65,21 @@ const GuestConfiguration = ({
             value={numExtraChild}
             onChange={(e) => setNumExtraChild(Math.max(0, parseInt(e.target.value) || 0))}
             className="h-10"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="cnb" className="text-sm font-medium flex items-center gap-2">
+            <UserX className="h-4 w-4 text-slate-500" />
+            CNB (No Bed)
+          </Label>
+          <Input
+            id="cnb"
+            type="number"
+            min={0}
+            value={numCNB}
+            onChange={(e) => setNumCNB(Math.max(0, parseInt(e.target.value) || 0))}
+            className="h-10 border-primary/30 focus:border-primary"
           />
         </div>
       </div>

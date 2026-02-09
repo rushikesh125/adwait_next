@@ -42,7 +42,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
   const [isAddingExtraSeason, setIsAddingExtraSeason] = useState(false);
 
   // ── Room category management ────────────────────────────────
-  const [roomCategories, setRoomCategories] = useState([]); // array of already saved categories (for display)
+  const [roomCategories, setRoomCategories] = useState([]); 
   const [currentCategoryName, setCurrentCategoryName] = useState("");
   const [currentPricing, setCurrentPricing] = useState([]); // pricing[seasonIndex][plan][type]
 
@@ -81,12 +81,11 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       if (data.rooms?.length > 0) {
         setRoomCategories(data.rooms);
 
-        // Initialize pricing grid using last saved room (or empty)
         const template = data.rooms[data.rooms.length - 1]?.seasons?.map(s => ({
-          ep: { double: 0, extraAdult: 0, extraChild: 0 },
-          cp: { double: 0, extraAdult: 0, extraChild: 0 },
-          map: { double: 0, extraAdult: 0, extraChild: 0 },
-          ap: { double: 0, extraAdult: 0, extraChild: 0 },
+          ep: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+          cp: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+          map: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+          ap: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
           ...s.pricing
         })) || [];
 
@@ -171,7 +170,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       let hotelId = createdHotelId;
 
       if (!editMode) {
-        // Check duplicate
         const snap = await getDocs(collection(db, "hotels"));
         const duplicate = snap.docs.some(d => {
           const h = d.data();
@@ -199,7 +197,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         setCreatedHotelId(hotelId);
         setHotelCreated(true);
 
-        // Update city hotelIds
         const stateDoc = states.find(s => s.name === selectedState);
         const citySnap = await getDoc(doc(db, "locations", stateDoc.id));
         const cityList = citySnap.data().cities.map(c => 
@@ -266,10 +263,10 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         start: s.start,
         end: s.end,
         pricing: {
-          ep:   { double: 0, extraAdult: 0, extraChild: 0, ...(currentPricing[i]?.ep   || {}) },
-          cp:   { double: 0, extraAdult: 0, extraChild: 0, ...(currentPricing[i]?.cp   || {}) },
-          map:  { double: 0, extraAdult: 0, extraChild: 0, ...(currentPricing[i]?.map  || {}) },
-          ap:   { double: 0, extraAdult: 0, extraChild: 0, ...(currentPricing[i]?.ap   || {}) },
+          ep:   { double: 0, extraAdult: 0, extraChild: 0, cnb: 0, ...(currentPricing[i]?.ep   || {}) },
+          cp:   { double: 0, extraAdult: 0, extraChild: 0, cnb: 0, ...(currentPricing[i]?.cp   || {}) },
+          map:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0, ...(currentPricing[i]?.map  || {}) },
+          ap:   { double: 0, extraAdult: 0, extraChild: 0, cnb: 0, ...(currentPricing[i]?.ap   || {}) },
         }
       }))
     };
@@ -281,9 +278,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
 
       setRoomCategories(prev => [...prev, newRoom]);
       setCurrentCategoryName("");
-      // Keep seasons & pricing grid for next category
       alert("Room category saved ✓");
-
     } catch (err) {
       console.error(err);
       alert("Failed to save room category");
@@ -293,16 +288,12 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
   const resetForNewCategory = () => {
     setCurrentCategoryName("");
     setCurrentPricing(seasons.map(() => ({
-      ep:   { double: 0, extraAdult: 0, extraChild: 0 },
-      cp:   { double: 0, extraAdult: 0, extraChild: 0 },
-      map:  { double: 0, extraAdult: 0, extraChild: 0 },
-      ap:   { double: 0, extraAdult: 0, extraChild: 0 }
+      ep:   { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+      cp:   { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+      map:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+      ap:   { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 }
     })));
   };
-
-  // ────────────────────────────────────────────────────────────────
-  // RENDER
-  // ────────────────────────────────────────────────────────────────
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-start overflow-y-auto p-4 py-8">
@@ -332,7 +323,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
 
           {/* ── 1. Basic Info ──────────────────────────────────────── */}
           <div className={`space-y-6 ${hotelCreated ? 'opacity-50 pointer-events-none' : ''}`}>
-            {/* State + City */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -490,7 +480,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
             </div>
           )}
 
-          {/* Seasons list + add more */}
           {seasons.length > 0 && (
             <div className="space-y-5">
               <div className="flex justify-between items-center">
@@ -552,7 +541,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
             </div>
           )}
 
-          {/* Season editor */}
           {(currentSeasonIndex < seasons.length || isAddingExtraSeason) && (
             <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-5">
               <h4 className="font-bold flex items-center gap-2">
@@ -631,7 +619,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                 />
               </div>
 
-              {/* Already saved categories (small preview) */}
               {roomCategories.length > 0 && (
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-slate-600">Saved categories:</p>
@@ -645,7 +632,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                 </div>
               )}
 
-              {/* Pricing tables – one per season */}
+              {/* Pricing tables */}
               <div className="space-y-6">
                 {seasons.map((season, idx) => (
                   <div key={idx} className="border rounded-xl overflow-hidden shadow-sm">
@@ -656,20 +643,21 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                       </span>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm min-w-[600px]">
+                      <table className="w-full text-sm min-w-[750px]">
                         <thead className="bg-slate-50/70">
                           <tr className="text-slate-600">
                             <th className="px-6 py-3 text-left">Plan</th>
                             <th className="px-6 py-3 text-left">Double</th>
                             <th className="px-6 py-3 text-left">Extra Adult</th>
                             <th className="px-6 py-3 text-left">Extra Child</th>
+                            <th className="px-6 py-3 text-left text-theme-primary">CNB (No Bed)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
                           {["ep", "cp", "map", "ap"].map(plan => (
                             <tr key={plan} className="hover:bg-slate-50/40">
                               <td className="px-6 py-3 font-bold uppercase bg-slate-50/30">{plan}</td>
-                              {["double", "extraAdult", "extraChild"].map(key => (
+                              {["double", "extraAdult", "extraChild", "cnb"].map(key => (
                                 <td key={key} className="px-6 py-3">
                                   <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₹</span>
@@ -678,7 +666,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                                       min="0"
                                       value={currentPricing[idx]?.[plan]?.[key] ?? ""}
                                       onChange={e => handlePricingChange(idx, plan, key, e.target.value)}
-                                      className="w-full h-9 pl-8 pr-3 border rounded border-slate-200 focus:border-theme-primary outline-none text-right"
+                                      className={`w-full h-9 pl-8 pr-3 border rounded outline-none text-right ${key === 'cnb' ? 'border-theme-primary/30 focus:border-theme-primary' : 'border-slate-200 focus:border-theme-primary'}`}
                                     />
                                   </div>
                                 </td>
@@ -712,7 +700,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
             </div>
           )}
 
-          {/* After saving a category */}
           {roomCategories.length > 0 && !currentCategoryName && (
             <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center space-y-5">
               <Check className="h-12 w-12 text-green-600 mx-auto" />
