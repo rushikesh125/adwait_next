@@ -116,7 +116,7 @@ const getStatusStyles = (status) => {
               <TableHead className="">Travel Date</TableHead>
               <TableHead  className=" w-[120px]">Created At</TableHead>
               <TableHead className="  w-[140px]">Status</TableHead>
-              <TableHead className="  px-6 w-[160px]">Actirons</TableHead>
+              <TableHead className="  px-6 w-[160px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
 
