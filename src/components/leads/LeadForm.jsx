@@ -23,12 +23,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
 
 const selectTriggerClass =
   "h-11 w-full bg-white border-slate-200 px-3 py-2.5 text-sm leading-6 focus:ring-theme-primary";
@@ -47,15 +45,26 @@ export default function LeadForm({ form, onChange, onSubmit }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-2 relative">
-                 <Label className="flex items-center gap-2 text-slate-700 font-medium"> 
-                  <User className="h-4 w-4 text-theme-primary/60" /> Lead Name </Label>
-                   <Input name="name" value={form.name} placeholder="Type name to see suggestions..." onChange={onChange} 
-                   autoComplete="off"
-                   className="h-11 border-slate-200 focus-visible:ring-theme-primary transition-all pr-10" required /> 
-                   {/* Optional: Visual indicator that it's a searchable field */} 
-              <div className="absolute right-3 top-[38px] text-slate-300"> <Users className="h-4 w-4" /> 
-              </div> </div>
+            <div className="space-y-2 relative">
+              <Label className="flex items-center gap-2 text-slate-700 font-medium">
+                <User className="h-4 w-4 text-theme-primary/60" /> Lead
+                Name{" "}
+              </Label>
+              <Input
+                name="name"
+                value={form.name}
+                placeholder="Type name to see suggestions..."
+                onChange={onChange}
+                autoComplete="off"
+                className="h-11 border-slate-200 focus-visible:ring-theme-primary transition-all pr-10"
+                required
+              />
+              {/* Optional: Visual indicator that it's a searchable field */}
+              <div className="absolute right-3 top-[38px] text-slate-300">
+                {" "}
+                <Users className="h-4 w-4" />
+              </div>{" "}
+            </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
@@ -115,46 +124,45 @@ export default function LeadForm({ form, onChange, onSubmit }) {
                 className="h-11 border-slate-200 focus-visible:ring-theme-primary"
                 required
               />
-                              </div>
-                  {/* Type of Trip */}
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                      <Users className="h-4 w-4 text-theme-primary/60" />
-                      Type of Trip
-                    </Label>
-                    <Select
-                      value={form.tripType}
-                      onValueChange={(value) =>
-                        onChange({
-                          target: {
-                            name: "tripType",
-                            value,
-                          },
-                        })
-                      }
-                    >
-                    <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Select trip type" />
-                      </SelectTrigger>
-
-                      <SelectContent side="bottom" position="popper" align="start"  className="w-[var(--radix-select-trigger-width)]" >
-                        <SelectItem value="Family">Family</SelectItem>
-                        <SelectItem value="Honeymoon">Honeymoon</SelectItem>
-                        <SelectItem value="Group">Group</SelectItem>
-                        <SelectItem value="Corporate">Corporate</SelectItem>
-                        <SelectItem value="Couple">Couple</SelectItem>
-                        <SelectItem value="Study">Study</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
             </div>
+            {/* Type of Trip */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-slate-700 font-medium">
+                <Users className="h-4 w-4 text-theme-primary/60" />
+                Type of Trip
+              </Label>
+              <Select
+                value={form.tripType}
+                onValueChange={(value) =>
+                  onChange({
+                    target: {
+                      name: "tripType",
+                      value,
+                    },
+                  })
+                }
+              >
+                <SelectTrigger className={selectTriggerClass}>
+                  <SelectValue placeholder="Select trip type" />
+                </SelectTrigger>
+
+                <SelectContent
+                  side="bottom"
+                  position="popper"
+                  align="start"
+                  className="w-[var(--radix-select-trigger-width)]"
+                >
+                  <SelectItem value="Family">Family</SelectItem>
+                  <SelectItem value="Honeymoon">Honeymoon</SelectItem>
+                  <SelectItem value="Group">Group</SelectItem>
+                  <SelectItem value="Corporate">Corporate</SelectItem>
+                  <SelectItem value="Couple">Couple</SelectItem>
+                  <SelectItem value="Study">Study</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-          
-            
-
-
-
 
         {/* --- Section 2: Preferences & Logistics --- */}
         <div className="space-y-4 pt-2">
@@ -195,7 +203,6 @@ export default function LeadForm({ form, onChange, onSubmit }) {
               />
             </div>
 
-          
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
                 <Hotel className="h-4 w-4 text-theme-primary/60" /> Hotel
@@ -262,7 +269,7 @@ export default function LeadForm({ form, onChange, onSubmit }) {
                 </label>
               </div>
             </div>
-              <div className="space-y-2">
+            <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
                 <Wallet className="h-4 w-4 text-theme-primary/60" /> Budget
                 (approx)
@@ -277,93 +284,91 @@ export default function LeadForm({ form, onChange, onSubmit }) {
               />
             </div>
             {/* No of Rooms Required */}
-<div className="space-y-2">
-  <Label className="flex items-center gap-2 text-slate-700 font-medium">
-    <Hotel className="h-4 w-4 text-theme-primary/60" />
-    No. of Rooms Required
-  </Label>
-  <Input
-    type="number"
-    name="rooms"
-    value={form.rooms}
-    placeholder="Number of rooms"
-    onChange={onChange}
-    className="h-11 border-slate-200 focus-visible:ring-theme-primary"
-  />
-</div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-slate-700 font-medium">
+                <Hotel className="h-4 w-4 text-theme-primary/60" />
+                No. of Rooms Required
+              </Label>
+              <Input
+                type="number"
+                name="rooms"
+                value={form.rooms}
+                placeholder="Number of rooms"
+                onChange={onChange}
+                className="h-11 border-slate-200 focus-visible:ring-theme-primary"
+              />
+            </div>
 
-{/* Vehicle for Sightseeing */}
-<div className="space-y-2">
-  <Label className="flex items-center gap-2 text-slate-700 font-medium">
-    <Plane className="h-4 w-4 text-theme-primary/60" />
-    Vehicle for Sightseeing
-  </Label>
+            {/* Vehicle for Sightseeing */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-slate-700 font-medium">
+                <Plane className="h-4 w-4 text-theme-primary/60" />
+                Vehicle for Sightseeing
+              </Label>
 
-  <Select
-    value={form.sightseeingVehicle}
-    onValueChange={(value) =>
-      onChange({
-        target: {
-          name: "sightseeingVehicle",
-          value,
-        },
-      })
-    }
-  >
-    <SelectTrigger className={selectTriggerClass}>
-      <SelectValue placeholder="Select vehicle" />
-    </SelectTrigger>
+              <Select
+                value={form.sightseeingVehicle}
+                onValueChange={(value) =>
+                  onChange({
+                    target: {
+                      name: "sightseeingVehicle",
+                      value,
+                    },
+                  })
+                }
+              >
+                <SelectTrigger className={selectTriggerClass}>
+                  <SelectValue placeholder="Select vehicle" />
+                </SelectTrigger>
 
-    <SelectContent
-      align="start"
-       side="bottom"
-    
-      position="popper"
-      className="w-[var(--radix-select-trigger-width)]"
-    >
-      <SelectItem value="Sedan">Sedan</SelectItem>
-      <SelectItem value="SUV">SUV</SelectItem>
-      <SelectItem value="Tempo Traveller">Tempo Traveller</SelectItem>
-      <SelectItem value="Bus">Bus</SelectItem>
-      <SelectItem value="Not Required">Not Required</SelectItem>
-    </SelectContent>
-  </Select>
-</div>
-
-
+                <SelectContent
+                  align="start"
+                  side="bottom"
+                  position="popper"
+                  className="w-[var(--radix-select-trigger-width)]"
+                >
+                  <SelectItem value="Sedan">Sedan</SelectItem>
+                  <SelectItem value="SUV">SUV</SelectItem>
+                  <SelectItem value="Tempo Traveller">
+                    Tempo Traveller
+                  </SelectItem>
+                  <SelectItem value="Bus">Bus</SelectItem>
+                  <SelectItem value="Not Required">Not Required</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Need Help With Ticket Booking */}
-<div className="space-y-2">
-  <Label className="flex items-center gap-2 text-slate-700 font-medium">
-    <Send className="h-4 w-4 text-theme-primary/60" />
-    Need Help With Tickets Booking?
-  </Label>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-slate-700 font-medium">
+                <Send className="h-4 w-4 text-theme-primary/60" />
+                Need Help With Tickets Booking?
+              </Label>
 
-  <div className="flex flex-wrap gap-4">
-    {["Flight", "Train", "Bus", "Not Required"].map((item) => (
-      <label key={item} className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={form.ticketHelp.includes(item)}
-          onChange={(e) => {
-            const updated = e.target.checked
-              ? [...form.ticketHelp, item]
-              : form.ticketHelp.filter((v) => v !== item);
+              <div className="flex flex-wrap gap-4">
+                {["Flight", "Train", "Bus", "Not Required"].map((item) => (
+                  <label key={item} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.ticketHelp.includes(item)}
+                      onChange={(e) => {
+                        const updated = e.target.checked
+                          ? [...form.ticketHelp, item]
+                          : form.ticketHelp.filter((v) => v !== item);
 
-            onChange({
-              target: {
-                name: "ticketHelp",
-                value: updated,
-              },
-            });
-          }}
-        />
-        {item}
-      </label>
-    ))}
-  </div>
-</div>
-
+                        onChange({
+                          target: {
+                            name: "ticketHelp",
+                            value: updated,
+                          },
+                        });
+                      }}
+                    />
+                    {item}
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
