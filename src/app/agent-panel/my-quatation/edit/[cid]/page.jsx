@@ -263,7 +263,7 @@ const EditQuotationPage = () => {
           ),
         );
         const snapshot = await getDocs(q);
-
+        console.log(snapshot)
         if (!snapshot.empty) {
           // Get the first document from the array
           const quotationData = {
@@ -282,7 +282,7 @@ const EditQuotationPage = () => {
           }
         } else {
           toast.error("Quotation not found");
-          router.push("/agent-panel/my-quatation");
+          // router.push("/agent-panel/my-quatation");
         }
       } catch (error) {
         console.error("Error fetching quotation:", error);
