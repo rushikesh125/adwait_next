@@ -31,7 +31,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Search, Download, Edit, Trash2, Copy } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 const QuotationsTable = ({
   filteredQuotations,
@@ -51,8 +50,6 @@ const QuotationsTable = ({
   handleDeleteQuotation,
   handleCopyToClipboard,
 }) => {
-  const router = useRouter();
-  // console.log(filteredQuotations)
   return (
     <>
       {/* Header */}
@@ -216,7 +213,6 @@ const QuotationsTable = ({
                       <Button
                         variant="ghost"
                         size="icon"
-                        // onClick={() => router.push(`./my-quatation/edit/${q.id}`)}
                         onClick={() => handleEditClick(q)}
                         title="Edit Quotation"
                       >
