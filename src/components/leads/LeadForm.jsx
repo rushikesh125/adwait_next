@@ -47,25 +47,15 @@ export default function LeadForm({ form, onChange, onSubmit }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Lead Name Input - Reference point for suggestions */}
-            <div className="space-y-2 relative">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <User className="h-4 w-4 text-theme-primary/60" /> Lead Name
-              </Label>
-              <Input
-                name="name"
-                value={form.name}
-                placeholder="Type name to see suggestions..."
-                onChange={onChange}
-                autoComplete="off" // Prevents browser defaults from overlapping our suggestions
-                className="h-11 border-slate-200 focus-visible:ring-theme-primary transition-all pr-10"
-                required
-              />
-              {/* Optional: Visual indicator that it's a searchable field */}
-              <div className="absolute right-3 top-[38px] text-slate-300">
-                <Users className="h-4 w-4" />
-              </div>
-            </div>
+              <div className="space-y-2 relative">
+                 <Label className="flex items-center gap-2 text-slate-700 font-medium"> 
+                  <User className="h-4 w-4 text-theme-primary/60" /> Lead Name </Label>
+                   <Input name="name" value={form.name} placeholder="Type name to see suggestions..." onChange={onChange} 
+                   autoComplete="off"
+                   className="h-11 border-slate-200 focus-visible:ring-theme-primary transition-all pr-10" required /> 
+                   {/* Optional: Visual indicator that it's a searchable field */} 
+              <div className="absolute right-3 top-[38px] text-slate-300"> <Users className="h-4 w-4" /> 
+              </div> </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-slate-700 font-medium">
