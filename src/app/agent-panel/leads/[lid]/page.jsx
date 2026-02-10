@@ -4,6 +4,7 @@ import React, { useEffect, useState, use } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import {
+  
   Mail,
   Phone,
   MapPin,
@@ -233,45 +234,65 @@ export default function LeadProfilePage({ params }) {
               <CardContent className=" space-y-4">
                 <div className="space-y-4">
                   {[
-                    {
-                      icon: MapPin,
-                      label: "Destination",
-                      value: lead?.destination || "-",
-                    },
-                    {
-                      icon: Calendar,
-                      label: "Travel Date",
-                      value: formatDate(lead?.travelDate),
-                    },
-                    {
-                      icon: Clock,
-                      label: "Duration",
-                      value: lead?.days ? `${lead.days} Days` : "-",
-                    },
-                    {
-                      icon: Users,
-                      label: "Adults",
-                      value: lead?.adults ? `${lead.adults}` : "-",
-                    },
-                    {
-                      icon: Users,
-                      label: "Children",
-                      value: lead?.children ? `${lead.children}` : "0",
-                    },
-                    {
-                      icon: Hotel,
-                      label: "Hotel",
-                      value: lead?.hotelPreference || "-",
-                    },
-                    {
-                      icon: Train,
-                      label: "Transport Preference",
-                      value:
-                        Array.isArray(lead?.bookingHelp) &&
-                        lead.bookingHelp.length > 0
-                          ? lead.bookingHelp.join(", ")
-                          : "-",
-                    },
+                   {
+    icon: MapPin,
+    label: "Destination",
+    value: lead?.destination || "-",
+  },
+  {
+    icon: Calendar,
+    label: "Travel Date",
+    value: formatDate(lead?.travelDate),
+  },
+  {
+    icon: Clock,
+    label: "Duration",
+    value: lead?.days ? `${lead.days} Days` : "-",
+  },
+  {
+    icon: MapPin,
+    label: "Departure City",
+    value: lead?.departureCity || "-",
+  },
+  {
+    icon: Users,
+    label: "Trip Type",
+    value: lead?.tripType || "-",
+  },
+  {
+    icon: Users,
+    label: "Adults",
+    value: lead?.adults ?? "-",
+  },
+  {
+    icon: Users,
+    label: "Children",
+    value: lead?.children ?? "0",
+  },
+  {
+    icon: Hotel,
+    label: "Hotel Preference",
+    value: lead?.hotelPreference || "-",
+  },
+  {
+    icon: Hotel,
+    label: "Rooms Required",
+    value: lead?.rooms ? `${lead.rooms}` : "-",
+  },
+  {
+    icon: Car,
+    label: "Sightseeing Vehicle",
+    value: lead?.sightseeingVehicle || "-",
+  },
+  {
+    icon: Train,
+    label: "Booking Help",
+    value:
+      Array.isArray(lead?.ticketHelp) && lead.ticketHelp.length > 0
+        ? lead.ticketHelp.join(", ")
+        : "-",
+  },
+                   
                   ].map((item, idx) => (
                     <div
                       key={idx}
