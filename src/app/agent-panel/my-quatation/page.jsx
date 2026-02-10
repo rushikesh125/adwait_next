@@ -2,15 +2,22 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { db } from "@/firebase/config";
 import {
-  collection,getDocs,query,where, orderBy, doc, deleteDoc, updateDoc, addDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  doc,
+  deleteDoc,
+  updateDoc,
+  addDoc,
 } from "firebase/firestore";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateAndDownloadQuotationPDF } from "@/lib/my-quotation-pdf";
 import { useDispatch, useSelector } from "react-redux";
 import { setLoading } from "@/store/authSlice";
 import "@/app/globals.css";
 import QuotationsTable from "./QuotationsTable";
-import { useSearchParams , searchParams} from "next/navigation";
+import { useSearchParams, searchParams } from "next/navigation";
 import QuotationModals from "./QuotationModals";
 const MyQuotations = () => {
   // --- 1. STATE HOOKS ---
@@ -34,14 +41,17 @@ const MyQuotations = () => {
   const [SelectedDestination, setSelectedDestination] = useState("");
   const [transportStates, setTransportStates] = useState([]);
   const [selectedTransportStateId, setSelectedTransportStateId] = useState("");
-  const [availableTransportPackagesForSelectedState, setAvailableTransportPackagesForSelectedState] = useState([]);
+  const [
+    availableTransportPackagesForSelectedState,
+    setAvailableTransportPackagesForSelectedState,
+  ] = useState([]);
   const [editingQuotation, setEditingQuotation] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
   const [newCustomerName, setNewCustomerName] = useState("");
-const searchParams = useSearchParams();
-const editId = searchParams.get("editId");
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("editId");
   // --- 2. HELPER FUNCTIONS ---
   const formatPdfDate = (dateData) => {
     if (!dateData) return "N/A";
@@ -58,11 +68,18 @@ const editId = searchParams.get("editId");
 
   const getDestinationOfpkg = (Quote) => {
     let resultString = "";
-    if (!Quote || !Array.isArray(Quote.hotelSummary) || Quote.hotelSummary.length === 0) {
+    if (
+      !Quote ||
+      !Array.isArray(Quote.hotelSummary) ||
+      Quote.hotelSummary.length === 0
+    ) {
       if (Quote?.transportSummary?.state) {
         return `${Quote.transportSummary.state} (Transport) \n`;
       }
-      if (Array.isArray(Quote?.activitySummary) && Quote.activitySummary.length > 0) {
+      if (
+        Array.isArray(Quote?.activitySummary) &&
+        Quote.activitySummary.length > 0
+      ) {
         const activityStatesCitiesMap = new Map();
         Quote.activitySummary.forEach((activity) => {
           const state = activity.state;
@@ -130,14 +147,14 @@ const editId = searchParams.get("editId");
         (h) =>
           h.name === hotelSummaryEntry.hotel &&
           h.city === hotelSummaryEntry.city &&
-          h.state === hotelSummaryEntry.state
+          h.state === hotelSummaryEntry.state,
       );
 
       if (!fullHotelData || !Array.isArray(fullHotelData.rooms))
         return ["EP", "CP", "MAP", "AP"];
 
       const roomCategoryData = fullHotelData.rooms.find(
-        (r) => r.categoryName === hotelSummaryEntry.selectedRoomCategory
+        (r) => r.categoryName === hotelSummaryEntry.selectedRoomCategory,
       );
 
       if (!roomCategoryData || !Array.isArray(roomCategoryData.seasons))
@@ -181,7 +198,7 @@ const editId = searchParams.get("editId");
       });
       return mealPlanOptions.length > 0 ? mealPlanOptions : ["EP"];
     },
-    [allHotels]
+    [allHotels],
   );
 
   const fetchQuotations = useCallback(async () => {
@@ -196,7 +213,7 @@ const editId = searchParams.get("editId");
         db,
         "saved_packages_by_agents",
         agentId,
-        "packages"
+        "packages",
       );
       const q = query(packagesRef, orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
@@ -238,7 +255,7 @@ const editId = searchParams.get("editId");
     } = hotelEntry;
 
     const roomData = fullHotelData.rooms.find(
-      (r) => r.categoryName === selectedRoomCategory
+      (r) => r.categoryName === selectedRoomCategory,
     );
     if (!roomData || !Array.isArray(roomData.seasons)) return 0;
 
@@ -263,7 +280,7 @@ const editId = searchParams.get("editId");
     const pricing = applicableSeason.pricing[selectedMealPlan.toLowerCase()];
     if (!pricing) {
       console.warn(
-        `No pricing found for meal plan ${selectedMealPlan} in season for room category ${selectedRoomCategory}`
+        `No pricing found for meal plan ${selectedMealPlan} in season for room category ${selectedRoomCategory}`,
       );
       return 0;
     }
@@ -280,7 +297,7 @@ const editId = searchParams.get("editId");
     let hotelTotal =
       data.hotelSummary?.reduce(
         (sum, hotel) => sum + (hotel.hotelTotal || 0),
-        0
+        0,
       ) || 0;
     let transportTotal = 0;
 
@@ -295,7 +312,7 @@ const editId = searchParams.get("editId");
     const activityTotal =
       data.activitySummary?.reduce(
         (sum, act) => sum + (act.totalPrice || 0),
-        0
+        0,
       ) || 0;
     const markup = data.markup || 0;
     return hotelTotal + transportTotal + activityTotal + markup;
@@ -330,7 +347,14 @@ const editId = searchParams.get("editId");
         matchesEndDate
       );
     });
-  }, [quotations, searchTerm, filterDestination, startDate, endDate, getDestinationOfpkg]);
+  }, [
+    quotations,
+    searchTerm,
+    filterDestination,
+    startDate,
+    endDate,
+    getDestinationOfpkg,
+  ]);
 
   const generatePackageSummary = (quotationData) => {
     if (quotationData.hotelSummary.length === 0)
@@ -361,13 +385,13 @@ const editId = searchParams.get("editId");
       summary += `${firstEntry.numCNB || 0} Child No Bed\n`;
     }
     summary += `\n *HOTELS*\n`;
-    
+
     quotationData.hotelSummary.forEach((entry, index) => {
       const hotelFullDetails = allHotels.find(
         (h) =>
           h.name === entry.hotel &&
           h.city === entry.city &&
-          h.state === entry.state
+          h.state === entry.state,
       );
 
       const hotelCheckIn = formatDate(entry.checkInDate);
@@ -421,7 +445,8 @@ const editId = searchParams.get("editId");
 
     summary += `*TOTAL TOUR COST = ₹${quotationData.grandTotal.toFixed()}/-*\n\n`;
     summary += `*INCLUDED*\n`;
-    const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals();
+    const { totalBreakfasts, totalLunches, totalDinners } =
+      calculateTotalMeals();
 
     if (totalBreakfasts > 0) {
       summary += `✅ ${totalBreakfasts} Breakfast(s)\n`;
@@ -510,18 +535,16 @@ const editId = searchParams.get("editId");
     fetchQuotations();
   }, [fetchQuotations]);
 
-
-
-    useEffect(() => {
-  if (editId && quotations.length > 0) {
-    const quoteToEdit = quotations.find(q => q.id === editId);
-    if (quoteToEdit) {
-      const deepCopy = JSON.parse(JSON.stringify(quoteToEdit));
-      setEditingQuotation(deepCopy);
-      setIsEditModalOpen(true);
+  useEffect(() => {
+    if (editId && quotations.length > 0) {
+      const quoteToEdit = quotations.find((q) => q.id === editId);
+      if (quoteToEdit) {
+        const deepCopy = JSON.parse(JSON.stringify(quoteToEdit));
+        setEditingQuotation(deepCopy);
+        setIsEditModalOpen(true);
+      }
     }
-  }
-}, [editId, quotations]);
+  }, [editId, quotations]);
 
   useEffect(() => {
     if (!isEditModalOpen || !editingQuotation) {
@@ -549,11 +572,11 @@ const editId = searchParams.get("editId");
         try {
           const q = query(
             collection(db, "activities"),
-            where("state", "==", currentActivityState)
+            where("state", "==", currentActivityState),
           );
           const snapshot = await getDocs(q);
           setAvailableActivities(
-            snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+            snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
           );
         } catch (error) {
           console.error("Error fetching activities:", error);
@@ -573,7 +596,7 @@ const editId = searchParams.get("editId");
             db,
             "transport",
             selectedTransportStateId,
-            "packages"
+            "packages",
           );
           const snapshot = await getDocs(transportPackagesRef);
           const fetchedPackages = snapshot.docs.map((doc) => ({
@@ -584,7 +607,7 @@ const editId = searchParams.get("editId");
         } catch (error) {
           console.error(
             `Error fetching transport packages for ${selectedTransportStateId}:`,
-            error
+            error,
           );
           setAvailableTransportPackagesForSelectedState([]);
         }
@@ -594,7 +617,13 @@ const editId = searchParams.get("editId");
     };
 
     fetchTransportPackages();
-  }, [isEditModalOpen, editingQuotation, SelectedDestination, selectedTransportStateId, isFirstEdit]);
+  }, [
+    isEditModalOpen,
+    editingQuotation,
+    SelectedDestination,
+    selectedTransportStateId,
+    isFirstEdit,
+  ]);
 
   // --- 5. Event Handlers ---
   const handleToggle = () => {
@@ -682,7 +711,7 @@ const editId = searchParams.get("editId");
       "saved_packages_by_agents",
       agentId,
       "packages",
-      editingQuotation.id
+      editingQuotation.id,
     );
 
     try {
@@ -697,522 +726,7 @@ const editId = searchParams.get("editId");
   };
 
   const handleDownloadPDF = (quotation) => {
-    if (!quotation || !quotation.hotelSummary || quotation.hotelSummary.length === 0) {
-      alert("Cannot generate PDF: Quotation data is incomplete or has no hotels.");
-      return;
-    }
-
-    const doc = new jsPDF();
-    const BRAND_COLOR_BLUE = "#0D47A1";
-    const HEADER_TEXT_COLOR = "#444444";
-    const FONT_SIZE_NORMAL = 9;
-    const FONT_SIZE_SMALL = 8;
-    const pageContentWidth = 180;
-
-    const img = new Image();
-    img.src = "/adwait-logo.jpg";
-
-    img.onload = () => {
-      const addHeader = () => {
-        const logoY = 10;
-        const companyNameY = logoY + 8;
-        const sloganY = companyNameY + 7;
-
-        const logoWidth = 40;
-        const logoHeight = (img.height * logoWidth) / img.width;
-        doc.addImage(img, "PNG", 15, logoY, logoWidth, logoHeight);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.setTextColor(BRAND_COLOR_BLUE);
-        doc.text("Adwait Tours", 60, companyNameY);
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(HEADER_TEXT_COLOR);
-        doc.text("Travel Package Quotation", 60, sloganY);
-
-        doc.setFontSize(FONT_SIZE_SMALL);
-        doc.setTextColor(HEADER_TEXT_COLOR);
-
-        const contactBlockX = 160;
-        let contactLineY = logoY + 4;
-
-        const phoneNumber = "+91 9884798483";
-        const phoneLink = `tel:${phoneNumber.replace(/ /g, "")}`;
-        const phoneLabel = "Phone: ";
-        const phoneText = `${phoneLabel}${phoneNumber}`;
-
-        const phoneTextWidth =
-          (doc.getStringUnitWidth(phoneText) * FONT_SIZE_SMALL) /
-          doc.internal.scaleFactor;
-        const phoneTextHeight =
-          (FONT_SIZE_SMALL / doc.internal.scaleFactor) * 1.15;
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, "bold");
-        doc.text(phoneLabel, contactBlockX, contactLineY, { align: "left" });
-
-        doc.setTextColor(0, 0, 255);
-        doc.setFont(undefined, "normal");
-        doc.text(
-          phoneNumber,
-          contactBlockX +
-            (doc.getStringUnitWidth(phoneLabel) * FONT_SIZE_SMALL) /
-              doc.internal.scaleFactor,
-          contactLineY,
-          { align: "left" }
-        );
-
-        doc.link(
-          contactBlockX,
-          contactLineY - phoneTextHeight + 1,
-          phoneTextWidth,
-          phoneTextHeight,
-          { url: phoneLink }
-        );
-
-        contactLineY += 5;
-        const emailAddress = "sales@adwaittours.com";
-        const emailLink = `mailto:${emailAddress}`;
-        const emailLabel = "Email: ";
-        const emailText = `${emailLabel}${emailAddress}`;
-        const emailTextWidth =
-          (doc.getStringUnitWidth(emailText) * FONT_SIZE_SMALL) /
-          doc.internal.scaleFactor;
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, "bold");
-        doc.text(emailLabel, contactBlockX, contactLineY, { align: "left" });
-
-        doc.setTextColor(0, 0, 255);
-        doc.setFont(undefined, "normal");
-        doc.text(
-          emailAddress,
-          contactBlockX +
-            (doc.getStringUnitWidth(emailLabel) * FONT_SIZE_SMALL) /
-              doc.internal.scaleFactor,
-          contactLineY,
-          { align: "left" }
-        );
-        doc.link(
-          contactBlockX - emailTextWidth,
-          contactLineY - phoneTextHeight + 1,
-          emailTextWidth,
-          phoneTextHeight,
-          { url: emailLink }
-        );
-
-        contactLineY += 5;
-        const webAddress = "www.adwaittours.com";
-        const webLink = `https://${webAddress}`;
-        const webLabel = "Web: ";
-        const webText = `${webLabel}${webAddress}`;
-        const webTextWidth =
-          (doc.getStringUnitWidth(webText) * FONT_SIZE_SMALL) /
-          doc.internal.scaleFactor;
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, "bold");
-        doc.text(webLabel, contactBlockX, contactLineY, { align: "left" });
-
-        doc.setTextColor(0, 0, 255);
-        doc.setFont(undefined, "normal");
-        doc.text(
-          webAddress,
-          contactBlockX +
-            (doc.getStringUnitWidth(webLabel) * FONT_SIZE_SMALL) /
-              doc.internal.scaleFactor,
-          contactLineY,
-          { align: "left" }
-        );
-        doc.link(
-          contactBlockX - webTextWidth,
-          contactLineY - phoneTextHeight + 1,
-          webTextWidth,
-          phoneTextHeight,
-          { url: webLink }
-        );
-
-        const finalHeaderBottomY =
-          Math.max(logoY + logoHeight, sloganY, contactLineY) + 5;
-        doc.setDrawColor("#CCCCCC");
-        doc.setLineWidth(0.2);
-        doc.line(15, finalHeaderBottomY, 200, finalHeaderBottomY);
-      };
-
-      const addFooter = () => {
-        doc.setDrawColor("#CCCCCC");
-        doc.setLineWidth(0.2);
-        doc.line(15, 282, 200, 282);
-
-        doc.setFontSize(FONT_SIZE_SMALL);
-        doc.setTextColor(HEADER_TEXT_COLOR);
-        doc.text("Thank you for choosing Adwait Tours!", 107, 287, {
-          align: "center",
-        });
-
-        const linkY = 291;
-        const googleLinkText = "For Reviews: Google Page";
-        const instagramLinkText = "Follow Us: Instagram";
-        const separator = " | ";
-
-        const fullText = googleLinkText + separator + instagramLinkText;
-        const fullWidth =
-          (doc.getStringUnitWidth(fullText) * FONT_SIZE_SMALL) /
-          doc.internal.scaleFactor;
-
-        const startX = 107 - fullWidth / 2;
-
-        const googleLinkWidth =
-          (doc.getStringUnitWidth(googleLinkText) * FONT_SIZE_SMALL) /
-          doc.internal.scaleFactor;
-
-        doc.setTextColor(0, 0, 255);
-        doc.text(googleLinkText, startX, linkY);
-        doc.setDrawColor(0, 0, 255);
-        doc.setLineWidth(0.2);
-        doc.line(startX, linkY + 1, startX + googleLinkWidth, linkY + 1);
-        doc.link(
-          startX,
-          linkY - FONT_SIZE_SMALL,
-          googleLinkWidth,
-          FONT_SIZE_SMALL,
-          {
-            url: "https://share.google/gpnOuOQxhD49T77Yw",
-          }
-        );
-
-        doc.setTextColor(HEADER_TEXT_COLOR);
-        const sepX = startX + googleLinkWidth;
-        doc.text(separator, sepX, linkY);
-
-        const instagramLinkWidth =
-          (doc.getStringUnitWidth(instagramLinkText) * FONT_SIZE_SMALL) /
-          doc.internal.scaleFactor;
-
-        const instaX =
-          sepX +
-          (doc.getStringUnitWidth(separator) * FONT_SIZE_SMALL) /
-            doc.internal.scaleFactor;
-
-        doc.setTextColor(0, 0, 255);
-        doc.text(instagramLinkText, instaX, linkY);
-        doc.setDrawColor(0, 0, 255);
-        doc.line(instaX, linkY + 1, instaX + instagramLinkWidth, linkY + 1);
-        doc.link(
-          instaX,
-          linkY - FONT_SIZE_SMALL,
-          instagramLinkWidth,
-          FONT_SIZE_SMALL,
-          {
-            url: "https://www.instagram.com/adwaittours?igsh=MW11cGRldWR4aGJxdQ==",
-          }
-        );
-
-        doc.setTextColor(HEADER_TEXT_COLOR);
-      };
-
-      addHeader();
-      let currentY = 32;
-      currentY += 20;
-
-      const firstHotel = quotation.hotelSummary[0];
-
-      let travelStartDate = "";
-      let travelEndDate = "";
-
-      if (quotation.hotelSummary && quotation.hotelSummary.length > 0) {
-        travelStartDate = formatPdfDate(quotation.hotelSummary[0].checkInDate);
-        const lastHotel =
-          quotation.hotelSummary[quotation.hotelSummary.length - 1];
-        travelEndDate = formatPdfDate(lastHotel.checkOutDate);
-      }
-      
-      autoTable(doc, {
-        startY: currentY,
-        body: [
-          [
-            "Customer Name:",
-            quotation.customerName || "N/A",
-            "Quotation Date:",
-            formatPdfDate(new Date()),
-          ],
-          [
-            "Travel Dates:",
-            `${travelStartDate} - ${travelEndDate}`,
-            "No. of Guests:",
-            `${firstHotel.numDouble || 0} Couple(s), ${
-              firstHotel.numExtraAdult || 0
-            } Adult(s), ${firstHotel.numExtraChild || 0} Child(ren) with mattress${
-              Number(firstHotel.numCNB) > 0 ? `, ${firstHotel.numCNB || 0} Child(ren) no bed` : ''
-            }`,
-            "",
-            "",
-          ],
-          ["Destination:", getDestinationOfpkg(quotation)],
-        ],
-        theme: "plain",
-        styles: { fontSize: FONT_SIZE_NORMAL },
-        columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 35 },
-          1: { cellWidth: "auto" },
-          2: { fontStyle: "bold", cellWidth: 35 },
-          3: { cellWidth: "auto" },
-        },
-        margin: { left: 15, right: 15 },
-      });
-      currentY = doc.lastAutoTable.finalY;
-
-      const MealPlans = {
-        EP: "Accommodation only",
-        CP: "Breakfast only",
-        MAP: "Breakfast and Dinner",
-        AP: "Breakfast, Lunch and Dinner",
-      };
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("Hotel Details", 15, currentY + 10);
-      currentY += 12;
-
-      autoTable(doc, {
-        startY: currentY + 5,
-        head: [
-          ["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan"],
-        ],
-        body: quotation.hotelSummary.map((h) => {
-          const fullHotelData = allHotels.find(
-            (hotel) =>
-              hotel.name === h.hotel &&
-              hotel.city === h.city &&
-              hotel.state === h.state
-          );
-          return [
-            { content: h.hotel, _fullData: fullHotelData },
-            h.city,
-            h.selectedRoomCategory,
-            `${formatPdfDate(h.checkInDate)} - ${formatPdfDate(
-              h.checkOutDate
-            )}`,
-            h.nights,
-            MealPlans[h.selectedMealPlan] || h.selectedMealPlan,
-          ];
-        }),
-        theme: "grid",
-        headStyles: { fillColor: BRAND_COLOR_BLUE },
-        styles: { fontSize: FONT_SIZE_NORMAL, cellPadding: 2 },
-        columnStyles: {
-          4: { halign: "center" },
-        },
-        margin: { left: 15, right: 15 },
-        didDrawPage: (data) => {
-          addHeader();
-        },
-        didParseCell: (data) => {
-          if (data.section === "body" && data.column.index === 0) {
-            const fullHotelData = data.cell.raw?._fullData;
-            if (fullHotelData && fullHotelData.GoogleListingURL) {
-              data.cell.styles.textColor = [0, 0, 255];
-            }
-          }
-        },
-        didDrawCell: (data) => {
-          if (data.section === "body" && data.column.index === 0) {
-            const fullHotelData = data.cell.raw?._fullData;
-            if (fullHotelData && fullHotelData.GoogleListingURL) {
-              doc.link(
-                data.cell.x,
-                data.cell.y,
-                data.cell.width,
-                data.cell.height,
-                { url: fullHotelData.GoogleListingURL }
-              );
-            }
-          }
-        },
-      });
-      currentY = doc.lastAutoTable.finalY;
-
-      const totalHotelCost = quotation.hotelSummary.reduce(
-        (sum, h) => sum + (h.hotelTotal || 0),
-        0
-      );
-
-      let totalTransportCost = 0;
-      if (quotation.transportSummary) {
-        if (quotation.transportSummary.pricingType === "perKm") {
-          totalTransportCost =
-            (quotation.transportSummary.perKmprice || 0) *
-            (quotation.transportSummary.kms || 0);
-        } else {
-          totalTransportCost = quotation.transportSummary.price || 0;
-        }
-      }
-
-      const totalActivityCost =
-        quotation.activitySummary?.reduce(
-          (sum, act) => sum + (act.totalPrice || 0),
-          0
-        ) || 0;
-      const totalMarkup = quotation.markup || 0;
-      const calculatedGrandTotal =
-        totalHotelCost + totalTransportCost + totalActivityCost + totalMarkup;
-
-      autoTable(doc, {
-        startY: currentY + 10,
-        body: [
-          [
-            {
-              content: "Grand Total Tour Cost:",
-              styles: {
-                halign: "left",
-                fontStyle: "bold",
-                textColor: BRAND_COLOR_BLUE,
-              },
-            },
-            {
-              content: `Rs. ${calculatedGrandTotal.toLocaleString("en-IN", {
-                maximumFractionDigits: 0,
-              })}/-`,
-              styles: {
-                halign: "right",
-                fontStyle: "bold",
-                textColor: BRAND_COLOR_BLUE,
-              },
-            },
-          ],
-        ],
-        theme: "grid",
-        styles: { fontSize: FONT_SIZE_NORMAL + 2, cellPadding: 3 },
-        columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: "auto" } },
-        margin: { left: 15, right: 15 },
-        didDrawPage: (data) => {
-          addHeader();
-        },
-      });
-      currentY = doc.lastAutoTable.finalY;
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("Inclusions & Exclusions", 15, currentY + 10);
-      currentY += 12;
-
-      const columnWidth = pageContentWidth / 2 - 5;
-
-      const includedItems = ["• Hotel accommodation as specified."];
-
-      let totalBreakfasts = 0;
-      let totalLunches = 0;
-      let totalDinners = 0;
-
-      quotation.hotelSummary.forEach((hotel) => {
-        const nights = parseInt(hotel.nights) || 1;
-
-        switch (hotel.selectedMealPlan) {
-          case "CP":
-            totalBreakfasts = totalBreakfasts + nights;
-            break;
-          case "MAP":
-            totalBreakfasts = totalBreakfasts + nights;
-            totalDinners = totalDinners + nights;
-            break;
-          case "AP":
-            totalBreakfasts = totalBreakfasts + nights;
-            totalLunches = totalLunches + nights;
-            totalDinners = totalDinners + nights;
-            break;
-          default:
-            break;
-        }
-      });
-
-      const mealItems = [];
-      if (totalBreakfasts > 0) {
-        mealItems.push(`${totalBreakfasts} Breakfast(s)`);
-      }
-      if (totalLunches > 0) {
-        mealItems.push(`${totalLunches} Lunch(es)`);
-      }
-      if (totalDinners > 0) {
-        mealItems.push(`${totalDinners} Dinner(s)`);
-      }
-
-      if (mealItems.length > 0) {
-        includedItems.push(`• ${mealItems.join(", ")}`);
-      }
-      if (quotation.transportSummary?.vehicleName) {
-        if (quotation.transportSummary?.ac) {
-          includedItems.push(
-            "• All transfers and sightseeing by private - " +
-              quotation.transportSummary.vehicleName +
-              " (AC) vehicle."
-          );
-        } else {
-          includedItems.push(
-            "• All transfers and sightseeing by private - " +
-              quotation.transportSummary.vehicleName +
-              " vehicle."
-          );
-        }
-        if (quotation.activitySummary) {
-          for (let i = 0; i < quotation.activitySummary.length; i++) {
-            includedItems.push(
-              "• " +
-                quotation.activitySummary[i].name +
-                " for  " +
-                quotation.activitySummary[i].participants +
-                " participants."
-            );
-          }
-        }
-        includedItems.push(
-          "• Toll, parking fees, driver allowance, and permits."
-        );
-      }
-
-      const excludedItems = [
-        "• Train / Flight Fare.",
-        "• Early check-in & late check-out as per hotel policy.",
-        '• Any items not mentioned in the "Included" section.',
-      ];
-
-      const wrappedIncluded = includedItems.map((item) =>
-        doc.splitTextToSize(item)
-      );
-      const wrappedExcluded = excludedItems.map((item) =>
-        doc.splitTextToSize(item)
-      );
-
-      const body = [];
-      const maxLength = Math.max(
-        wrappedIncluded.length,
-        wrappedExcluded.length
-      );
-      for (let i = 0; i < maxLength; i++) {
-        body.push([wrappedIncluded[i] || "", wrappedExcluded[i] || ""]);
-      }
-
-      autoTable(doc, {
-        startY: currentY + 5,
-        head: [["INCLUDED", "EXCLUDED"]],
-        body: body,
-        headStyles: { fillColor: BRAND_COLOR_BLUE, halign: "center" },
-        theme: "grid",
-        styles: { fontSize: FONT_SIZE_NORMAL, cellPadding: 2 },
-        margin: { left: 15, right: 15 },
-        didDrawPage: (data) => {
-          addHeader();
-        },
-      });
-      currentY = doc.lastAutoTable.finalY;
-
-      addFooter();
-      doc.save(`Quotation-${quotation.customerName.replace(/ /g, "_")}.pdf`);
-    };
-
-    img.onerror = () =>
-      alert("Failed to generate PDF: Could not load company logo.");
+    generateAndDownloadQuotationPDF(quotation, allHotels);
   };
 
   const handleAddHotel = () => {
@@ -1225,7 +739,7 @@ const editId = searchParams.get("editId");
     if (!newHotelData) return;
 
     const isAlreadyAdded = editingQuotation.hotelSummary.some(
-      (h) => h.hotel === newHotelData.name
+      (h) => h.hotel === newHotelData.name,
     );
     if (isAlreadyAdded) {
       alert(`${newHotelData.name} is already in the quotation.`);
@@ -1254,7 +768,7 @@ const editId = searchParams.get("editId");
       const updatedQuotation = { ...prev, hotelSummary: updatedSummary };
       updatedQuotation.hotelTotal = updatedSummary.reduce(
         (sum, hotel) => sum + (hotel.hotelTotal || 0),
-        0
+        0,
       );
       return {
         ...updatedQuotation,
@@ -1273,12 +787,12 @@ const editId = searchParams.get("editId");
 
     setEditingQuotation((prev) => {
       const updatedSummary = prev.hotelSummary.filter(
-        (_, index) => index !== indexToRemove
+        (_, index) => index !== indexToRemove,
       );
       const updatedQuotation = { ...prev, hotelSummary: updatedSummary };
       updatedQuotation.hotelTotal = updatedSummary.reduce(
         (sum, hotel) => sum + (hotel.hotelTotal || 0),
-        0
+        0,
       );
       return {
         ...updatedQuotation,
@@ -1333,7 +847,8 @@ const editId = searchParams.get("editId");
       if (name === "selectedRoomCategory") {
         const entryToUpdate = updatedSummary[index];
         const currentHotelData = allHotels.find(
-          (h) => h.name === entryToUpdate.hotel && h.city === entryToUpdate.city
+          (h) =>
+            h.name === entryToUpdate.hotel && h.city === entryToUpdate.city,
         );
         if (currentHotelData) {
           const availablePlans = getAvailableMealPlans(entryToUpdate);
@@ -1348,7 +863,7 @@ const editId = searchParams.get("editId");
           (h) =>
             h.name === entry.hotel &&
             h.city === entry.city &&
-            h.state === entry.state
+            h.state === entry.state,
         );
         const newPrice = fullHotelData
           ? calculateHotelPrice(entry, fullHotelData)
@@ -1408,14 +923,14 @@ const editId = searchParams.get("editId");
 
       newHotelEntry.hotelTotal = calculateHotelPrice(
         newHotelEntry,
-        newHotelData
+        newHotelData,
       );
       updatedSummary[indexToUpdate] = newHotelEntry;
 
       const updatedQuotation = { ...prev, hotelSummary: updatedSummary };
       updatedQuotation.hotelTotal = updatedSummary.reduce(
         (sum, hotel) => sum + (hotel.hotelTotal || 0),
-        0
+        0,
       );
 
       return {
@@ -1428,7 +943,7 @@ const editId = searchParams.get("editId");
   const handlePackageChange = (e) => {
     const newPackageId = e.target.value;
     const newPackage = availableTransportPackagesForSelectedState.find(
-      (p) => p.id === newPackageId
+      (p) => p.id === newPackageId,
     );
 
     if (
@@ -1533,7 +1048,7 @@ const editId = searchParams.get("editId");
 
       updatedQuotation.activityTotal = updatedActivitySummary.reduce(
         (sum, act) => sum + (act.totalPrice || 0),
-        0
+        0,
       );
       const newGrandTotal = recalculateGrandTotal(updatedQuotation);
 
@@ -1552,7 +1067,7 @@ const editId = searchParams.get("editId");
     let isAlreadyAdded = false;
     try {
       isAlreadyAdded = editingQuotation.activitySummary.some(
-        (activity) => activity.name === selectedActivityToAdd
+        (activity) => activity.name === selectedActivityToAdd,
       );
     } catch (error) {
       isAlreadyAdded = false;
@@ -1564,7 +1079,7 @@ const editId = searchParams.get("editId");
     }
 
     const activityData = availableActivities.find(
-      (act) => act.name === selectedActivityToAdd
+      (act) => act.name === selectedActivityToAdd,
     );
     if (!activityData) return;
 
@@ -1576,7 +1091,7 @@ const editId = searchParams.get("editId");
       groupRatePerPerson: activityData.groupRatePerPerson || 0,
       participants: 1,
       totalPrice: parseFloat(
-        activityData.fitRatePerPerson || activityData.groupRatePerPerson || 0
+        activityData.fitRatePerPerson || activityData.groupRatePerPerson || 0,
       ),
     };
 
@@ -1602,7 +1117,7 @@ const editId = searchParams.get("editId");
   const handleRemoveActivity = (indexToRemove) => {
     setEditingQuotation((prev) => {
       const updatedActivitySummary = prev.activitySummary.filter(
-        (_, index) => index !== indexToRemove
+        (_, index) => index !== indexToRemove,
       );
       const updatedQuotation = {
         ...prev,
@@ -1657,7 +1172,7 @@ const editId = searchParams.get("editId");
         db,
         "saved_packages_by_agents",
         agentId,
-        "packages"
+        "packages",
       );
       await addDoc(packagesRef, newQuotationData);
 
@@ -1668,7 +1183,7 @@ const editId = searchParams.get("editId");
     } catch (error) {
       console.error("Error saving new quotation:", error);
       alert(
-        "Failed to save the new quotation. Please check the console for details."
+        "Failed to save the new quotation. Please check the console for details.",
       );
     }
   };
@@ -1683,7 +1198,7 @@ const editId = searchParams.get("editId");
     if (window.confirm("Are you sure you want to delete this quotation?")) {
       try {
         await deleteDoc(
-          doc(db, "saved_packages_by_agents", agentId, "packages", quotationId)
+          doc(db, "saved_packages_by_agents", agentId, "packages", quotationId),
         );
         alert("Quotation deleted successfully!");
         fetchQuotations();
@@ -1724,14 +1239,14 @@ const editId = searchParams.get("editId");
             .then(() => {
               displayMessageBox(
                 "Package summary copied to clipboard!",
-                "success"
+                "success",
               );
             })
             .catch((err) => {
               displayMessageBox("Failed to copy to clipboard: " + err, "error");
               console.error(
                 "Failed to copy using navigator.clipboard.writeText:",
-                err
+                err,
               );
             });
           return;
@@ -1749,7 +1264,7 @@ const editId = searchParams.get("editId");
     } else {
       displayMessageBox(
         "Failed to copy to clipboard. Your browser might not support this feature directly in this context.",
-        "error"
+        "error",
       );
     }
   };
@@ -1805,7 +1320,9 @@ const editId = searchParams.get("editId");
         transportStates={transportStates}
         toTitleCase={toTitleCase}
         handlePackageChange={handlePackageChange}
-        availableTransportPackagesForSelectedState={availableTransportPackagesForSelectedState}
+        availableTransportPackagesForSelectedState={
+          availableTransportPackagesForSelectedState
+        }
         handleVehicleChange={handleVehicleChange}
         isFetchingActivities={isFetchingActivities}
         selectedActivityToAdd={selectedActivityToAdd}
