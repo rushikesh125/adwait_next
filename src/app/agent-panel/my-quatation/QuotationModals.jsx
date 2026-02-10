@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,7 +90,7 @@ const QuotationModals = ({
     <>
       {/* ================== VIEW MODAL ================== */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className=" lg:min-w-5xl max-h-[90vh] overflow-scroll">
+        <DialogContent className="lg:min-w-5xl max-h-[90vh] overflow-scroll">
           <DialogHeader>
             <DialogTitle className="text-2xl text-theme-primary">
               Quotation for {viewingQuotation?.customerName}
@@ -132,11 +134,27 @@ const QuotationModals = ({
                         <div>
                           <span className="text-muted-foreground">Guests:</span>
                           <p className="font-medium">
-                            {hotel.numDouble}D, {hotel.numExtraAdult}A,{" "}
-                            {hotel.numExtraChild}C
+                            {hotel.numDouble || 0}D, {hotel.numExtraAdult || 0}A,{" "}
+                            {hotel.numExtraChild || 0}C
+                            {Number(hotel.numCNB) > 0 && `, ${hotel.numCNB} CNB`}
                           </p>
                         </div>
                       </div>
+
+                      {/* Optional CNB price display (if you store it) */}
+                      {Number(hotel.numCNB) > 0 && hotel.cnbPricePerChild > 0 && (
+                        <div className="mt-3 pt-3 border-t text-sm text-theme-primary/90">
+                          <div className="flex justify-between">
+                            <span>CNB Charges:</span>
+                            <span>
+                              ₹
+                              {(
+                                Number(hotel.numCNB) * Number(hotel.cnbPricePerChild)
+                              ).toFixed(0)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -169,8 +187,8 @@ const QuotationModals = ({
                           {viewingQuotation?.transportSummary?.pricingType ===
                           "perKm"
                             ? (
-                                (viewingQuotation.transportSummary
-                                  ?.perKmprice || 0) *
+                                (viewingQuotation.transportSummary?.perKmprice ||
+                                  0) *
                                 (viewingQuotation.transportSummary?.kms || 0)
                               ).toFixed(0)
                             : (
@@ -434,8 +452,9 @@ const QuotationModals = ({
                             <TableHead>Room Type</TableHead>
                             <TableHead>Nights</TableHead>
                             <TableHead>Rooms</TableHead>
-                            <TableHead>Adults</TableHead>
-                            <TableHead>Children</TableHead>
+                            <TableHead>Extra Adults</TableHead>
+                            <TableHead>Extra Children</TableHead>
+                            <TableHead>CNB</TableHead> {/* ← NEW COLUMN */}
                             <TableHead>Meal Plan</TableHead>
                             <TableHead className="text-right">Price</TableHead>
                             <TableHead className="w-16"></TableHead>
@@ -562,6 +581,23 @@ const QuotationModals = ({
                                       handleHotelSummaryChange(
                                         index,
                                         "numExtraChild",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="w-20"
+                                  />
+                                </TableCell>
+
+                                {/* ── NEW CNB INPUT ── */}
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={hotel.numCNB || 0}
+                                    onChange={(e) =>
+                                      handleHotelSummaryChange(
+                                        index,
+                                        "numCNB",
                                         e.target.value,
                                       )
                                     }

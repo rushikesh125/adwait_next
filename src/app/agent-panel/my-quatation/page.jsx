@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { db } from "@/firebase/config";
@@ -174,7 +173,8 @@ const editId = searchParams.get("editId");
           pricing &&
           (pricing.double > 0 ||
             pricing.extraAdult > 0 ||
-            pricing.extraChild > 0)
+            pricing.extraChild > 0 ||
+            pricing.cnb > 0)
         ) {
           mealPlanOptions.push(plan);
         }
@@ -233,6 +233,7 @@ const editId = searchParams.get("editId");
       numDouble,
       numExtraAdult,
       numExtraChild,
+      numCNB,
       nights = 1,
     } = hotelEntry;
 
@@ -270,8 +271,9 @@ const editId = searchParams.get("editId");
     const doublePrice = (pricing.double || 0) * (numDouble || 0);
     const adultPrice = (pricing.extraAdult || 0) * (numExtraAdult || 0);
     const childPrice = (pricing.extraChild || 0) * (numExtraChild || 0);
+    const cnbPrice = (pricing.cnb || 0) * (numCNB || 0);
 
-    return (doublePrice + adultPrice + childPrice) * nights;
+    return (doublePrice + adultPrice + childPrice + cnbPrice) * nights;
   }, []);
 
   const recalculateGrandTotal = useCallback((data) => {
@@ -354,8 +356,11 @@ const editId = searchParams.get("editId");
     summary += `Kindly find the best possible rates for your requirement starting ${startDate}\n`;
     summary += `${firstEntry.numDouble || 0} Couple\n`;
     summary += `${firstEntry.numExtraChild || 0} Extra Child With Matress\n`;
-    summary += `${firstEntry.numExtraAdult || 0} Extra Adult With Matress\n\n`;
-    summary += ` *HOTELS*\n`;
+    summary += `${firstEntry.numExtraAdult || 0} Extra Adult With Matress\n`;
+    if (Number(firstEntry.numCNB) > 0) {
+      summary += `${firstEntry.numCNB || 0} Child No Bed\n`;
+    }
+    summary += `\n *HOTELS*\n`;
     
     quotationData.hotelSummary.forEach((entry, index) => {
       const hotelFullDetails = allHotels.find(
@@ -939,7 +944,9 @@ const editId = searchParams.get("editId");
             "No. of Guests:",
             `${firstHotel.numDouble || 0} Couple(s), ${
               firstHotel.numExtraAdult || 0
-            } Adult(s), ${firstHotel.numExtraChild || 0} Child(ren)`,
+            } Adult(s), ${firstHotel.numExtraChild || 0} Child(ren) with mattress${
+              Number(firstHotel.numCNB) > 0 ? `, ${firstHotel.numCNB || 0} Child(ren) no bed` : ''
+            }`,
             "",
             "",
           ],
@@ -1233,6 +1240,7 @@ const editId = searchParams.get("editId");
       numDouble: 1,
       numExtraAdult: 0,
       numExtraChild: 0,
+      numCNB: 0,
       checkInDate: new Date().toISOString().split("T")[0],
       selectedRoomCategory: newHotelData.rooms[0]?.categoryName || "",
       selectedMealPlan: "EP",
@@ -1288,6 +1296,7 @@ const editId = searchParams.get("editId");
         "numDouble",
         "numExtraAdult",
         "numExtraChild",
+        "numCNB",
       ].includes(name);
       updatedSummary[index][name] = isNumericField
         ? parseInt(value, 10) || 0
@@ -1394,6 +1403,7 @@ const editId = searchParams.get("editId");
         numDouble: 1,
         numExtraAdult: 0,
         numExtraChild: 0,
+        numCNB: 0,
       };
 
       newHotelEntry.hotelTotal = calculateHotelPrice(
