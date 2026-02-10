@@ -3,13 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -73,7 +66,7 @@ const QuotationsTable = ({
             </CardTitle>
 
             {/* Search and Filters */}
-            <div className="md:flex flex-col md:flex-row ga-2 md:gap-4 items-end">
+            <div className="md:flex flex-col md:flex-row gap-2 md:gap-4 items-end">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="search" className="text-sm">
                   Search
@@ -82,36 +75,12 @@ const QuotationsTable = ({
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="search"
-                    placeholder="Search by customer or package name..."
+                    placeholder="Search by customer, package, or destination..."
                     className="pl-10"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-              </div>
-
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="destination" className="text-sm">
-                  Destination
-                </Label>
-                <Select
-                  value={filterDestination}
-                  onValueChange={setFilterDestination}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Destinations" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem>All Destinations</SelectItem>
-                    {[
-                      ...new Set(quotations.map((q) => getDestinationOfpkg(q))),
-                    ].map((dest) => (
-                      <SelectItem key={dest} value={dest}>
-                        {dest}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4 flex-1">
@@ -170,14 +139,14 @@ const QuotationsTable = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredQuotations.map((q,ind) => (
+                {filteredQuotations.map((q, ind) => (
                   <TableRow
                     key={q.id}
                     className="cursor-pointer hover:bg-theme-muted/20 transition-colors "
                     onClick={() => handleViewClick(q)}
                   >
                     <TableCell className="font-medium">
-                      Quote {ind+1}
+                      Quote {ind + 1}
                     </TableCell>
                     <TableCell>{q.customerName || q.leadName || "—"}</TableCell>
                     <TableCell>{q.packageName || "—"}</TableCell>

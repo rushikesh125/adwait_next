@@ -324,16 +324,14 @@ const MyQuotations = () => {
         ? new Date(q.createdAt.seconds * 1000)
         : null;
 
+      const packageDestination = getDestinationOfpkg(q);
+      
       const matchesSearch =
         searchTerm.toLowerCase() === "" ||
         q.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         `quote ${q.quoteNumber}`.includes(searchTerm.toLowerCase()) ||
-        q.packageName?.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const packageDestination = getDestinationOfpkg(q);
-      const matchesDestination =
-        filterDestination === "" ||
-        packageDestination.includes(filterDestination);
+        q.packageName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        packageDestination.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStartDate =
         !startDate || (quotationDate && quotationDate >= new Date(startDate));
@@ -342,7 +340,6 @@ const MyQuotations = () => {
 
       return (
         matchesSearch &&
-        matchesDestination &&
         matchesStartDate &&
         matchesEndDate
       );
@@ -350,7 +347,6 @@ const MyQuotations = () => {
   }, [
     quotations,
     searchTerm,
-    filterDestination,
     startDate,
     endDate,
     getDestinationOfpkg,
