@@ -307,6 +307,8 @@ const hotelTotalPrice = hotelEntries.reduce(
     });
   };
 
+
+
   const calculateTotalMeals = (hotelEntriesData) => {
     let totalBreakfasts = 0;
     let totalLunches = 0;
@@ -1020,98 +1022,98 @@ const hotelTotalPrice = hotelEntries.reduce(
               </div>
             )}
 
-            {/* 4. Room Selection + Actions */}
-            {selectedHotel ? (
-              <div className="space-y-6">
-                <div className="p-2 md:p-6 bg-white rounded-xl border border-theme-muted shadow-sm">
-                  <HotelRoomSelector
-                    hotel={hotels.find((h) => h.id === selectedHotel)}
-                    checkInDate={checkInDate}
-                    noOfNights={nights}
-                    numDouble={numDouble}
-                    setNumDouble={setNumDouble}
-                    numExtraAdult={numExtraAdult}
-                    setNumExtraAdult={setNumExtraAdult}
-                    numExtraChild={numExtraChild}
-                    setNumExtraChild={setNumExtraChild}
-                    hotelTotal={hotelTotal}
-                    numCNB={numCNB} 
-                    setNumCNB={setNumCNB}
-                    setHotelTotal={setHotelTotal}
-                    setSelectedMealPlan={setSelectedMealPlan}
-                    selectedMealPlan={selectedMealPlan}
-                    setSelectedRoomCategory={setSelectedRoomCategory}
-                    selectedRoomCategory={selectedRoomCategory}
-                  />
+              {/* 4. Room Selection + Actions */}
+              {selectedHotel ? (
+                <div className="space-y-6">
+                  <div className="p-2 md:p-6 bg-white rounded-xl border border-theme-muted shadow-sm">
+                    <HotelRoomSelector
+                      hotel={hotels.find((h) => h.id === selectedHotel)}
+                      checkInDate={checkInDate}
+                      noOfNights={nights}
+                      numDouble={numDouble}
+                      setNumDouble={setNumDouble}
+                      numExtraAdult={numExtraAdult}
+                      setNumExtraAdult={setNumExtraAdult}
+                      numExtraChild={numExtraChild}
+                      setNumExtraChild={setNumExtraChild}
+                      hotelTotal={hotelTotal}
+                      numCNB={numCNB} 
+                      setNumCNB={setNumCNB}
+                      setHotelTotal={setHotelTotal}
+                      setSelectedMealPlan={setSelectedMealPlan}
+                      selectedMealPlan={selectedMealPlan}
+                      setSelectedRoomCategory={setSelectedRoomCategory}
+                      selectedRoomCategory={selectedRoomCategory}
+                    />
 
-                  <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-100">
-                    <button
-                      className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
-                      onClick={() => {
-                        const selectedHotelFullData = hotels.find(
-                          (h) => h.id === selectedHotel,
-                        );
-                        const currentHotelData = {
-                          checkInDate,
-                          nights,
-                          checkOutDate,
-                          state: selectedState,
-                          hotel: selectedHotelFullData?.name || "N/A",
-                          city: selectedHotelFullData?.city || "N/A",
-                          GoogleListingURL:
-                            selectedHotelFullData?.GoogleListingURL || null,
-                          numDouble: numDouble[0],
-                          numExtraAdult: numExtraAdult[0],
-                          numExtraChild: numExtraChild[0],
-                          hotelTotal: hotelTotal[0],
-                          selectedMealPlan: selectedMealPlan,
-                          selectedRoomCategory: selectedRoomCategory,
-                        };
-
-                        if (editingIndex !== null) {
-                          dispatch(
-                            updateHotelEntry({
-                              index: editingIndex,
-                              data: currentHotelData,
-                            }),
-                          );
-                        } else {
-                          dispatch(addHotelEntry(currentHotelData));
-                        }
-
-                        setSaveChanges(true);
-                        setIsReadyToAddAnother(true);
-                        setEditingIndex(null);
-                      }}
-                    >
-                      {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
-                    </button>
-
-                    {isReadyToAddAnother && (
+                    <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-100">
                       <button
-                        className="px-6 py-2.5 border border-theme-primary text-theme-primary hover:bg-theme-muted rounded-md font-medium transition-all"
+                        className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
                         onClick={() => {
-                          setCheckInDate(checkOutDate);
-                          setSelectedState("");
-                          setSelectedHotel(null);
-                          setNights(1);
-                          setSelectedRoomCategory(null);
-                          setSelectedMealPlan("");
-                          setApplicableSeason(null);
-                          setNumDouble([0]);
-                          setNumExtraAdult([0]);
-                          setNumExtraChild([0]);
-                          setHotelTotal([0]);
-                          setSaveChanges(false);
-                          setIsReadyToAddAnother(false);
+                          const selectedHotelFullData = hotels.find(
+                            (h) => h.id === selectedHotel,
+                          );
+                          const currentHotelData = {
+                            checkInDate,
+                            nights,
+                            checkOutDate,
+                            state: selectedState,
+                            hotel: selectedHotelFullData?.name || "N/A",
+                            city: selectedHotelFullData?.city || "N/A",
+                            GoogleListingURL:
+                              selectedHotelFullData?.GoogleListingURL || null,
+                            numDouble: numDouble[0],
+                            numExtraAdult: numExtraAdult[0],
+                            numExtraChild: numExtraChild[0],
+                            hotelTotal: hotelTotal[0],
+                            selectedMealPlan: selectedMealPlan,
+                            selectedRoomCategory: selectedRoomCategory,
+                          };
+
+                          if (editingIndex !== null) {
+                            dispatch(
+                              updateHotelEntry({
+                                index: editingIndex,
+                                data: currentHotelData,
+                              }),
+                            );
+                          } else {
+                            dispatch(addHotelEntry(currentHotelData));
+                          }
+
+                          setSaveChanges(true);
+                          setIsReadyToAddAnother(true);
                           setEditingIndex(null);
                         }}
                       >
-                        ➕ Add Another Hotel
+                        {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
                       </button>
-                    )}
+
+                      {isReadyToAddAnother && (
+                        <button
+                          className="px-6 py-2.5 border border-theme-primary text-theme-primary hover:bg-theme-muted rounded-md font-medium transition-all"
+                          onClick={() => {
+                            setCheckInDate(checkOutDate);
+                            setSelectedState("");
+                            setSelectedHotel(null);
+                            setNights(1);
+                            setSelectedRoomCategory(null);
+                            setSelectedMealPlan("");
+                            setApplicableSeason(null);
+                            setNumDouble([0]);
+                            setNumExtraAdult([0]);
+                            setNumExtraChild([0]);
+                            setHotelTotal([0]);
+                            setSaveChanges(false);
+                            setIsReadyToAddAnother(false);
+                            setEditingIndex(null);
+                          }}
+                        >
+                          ➕ Add Another Hotel
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
 
                 {/* Current Selection Summary */}
                 {saveChanges && (
@@ -1505,7 +1507,7 @@ const hotelTotalPrice = hotelEntries.reduce(
     nights,
 
     selectedRoomCategory: customHotel.roomCategory,
-    selectedMealPlan: selectedMealPlans.join(", "),
+    selectedMealPlan: selectedMealPlans[0] || "EP",
     hotelTotal: pricePerNight * Number(nights),
 
     numDouble: 1,
