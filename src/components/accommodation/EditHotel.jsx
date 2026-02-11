@@ -30,6 +30,17 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
   });
 
   const [openSeasons, setOpenSeasons] = useState({});
+  const [showCloneModal, setShowCloneModal] = useState(false);
+const [cloneContext, setCloneContext] = useState(null);
+// cloneContext = { roomIndex, seasonIndex }
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+const [pendingClone, setPendingClone] = useState(null);
+const [cloneForm, setCloneForm] = useState({
+  name: "",
+  start: "",
+  end: ""
+});
+
 
   const toggleSeason = (roomIdx, seasonIdx) => {
     const key = `${roomIdx}-${seasonIdx}`;
@@ -51,6 +62,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
       return { ...prev, rooms };
     });
   };
+
 
   const addMealPlan = (roomIndex, seasonIndex, plan) => {
     setHotelData(prev => {
@@ -294,7 +306,33 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                               <Badge variant="outline" className="bg-white">{season.name || 'Unnamed Season'}</Badge>
                               <span className="text-xs text-muted-foreground">{season.start} to {season.end}</span>
                             </div>
-                            <Button onClick={(e) => { e.stopPropagation(); removeSeason(roomIndex, seasonIndex); }} variant="ghost" size="sm" className="text-red-400"><Trash2 className="h-4 w-4" /></Button>
+                            <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-theme-primary text-white"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCloneContext({ roomIndex, seasonIndex });
+                              setShowCloneModal(true);
+                            }}
+                          >
+                            Clone Rates
+                          </Button>
+
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeSeason(roomIndex, seasonIndex);
+                            }}
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-400"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+
                           </div>
 
                           {isOpen && (
@@ -411,6 +449,152 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
           <Button onClick={handleSave} className="bg-theme-primary">Save Changes</Button>
         </div>
       </Card>
+      {showCloneModal && cloneContext && (
+  <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center">
+    <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
+      <h3 className="text-lg font-bold">Clone Season Rates</h3>
+
+      <Input
+  placeholder="New Season Name"
+  value={cloneForm.name}
+  onChange={(e) =>
+    setCloneForm((f) => ({ ...f, name: e.target.value }))
+  }
+/>
+
+<Input
+  type="date"
+  value={cloneForm.start}
+  onChange={(e) =>
+    setCloneForm((f) => ({ ...f, start: e.target.value }))
+  }
+/>
+
+<Input
+  type="date"
+  value={cloneForm.end}
+  onChange={(e) =>
+    setCloneForm((f) => ({ ...f, end: e.target.value }))
+  }
+/>
+
+      <div className="flex justify-end gap-3 pt-4">
+        <Button variant="outline" onClick={() => setShowCloneModal(false)}>
+          Cancel
+        </Button>
+        <Button
+          onClick={() => {
+            const { roomIndex, seasonIndex } = cloneContext;
+const { name, start, end } = cloneForm;
+
+            if (!name || !start || !end) {
+              toast.error("Fill all fields");
+              return;
+            }
+
+            setHotelData((prev) => {
+              const rooms = [...prev.rooms];
+              const sourceSeason = rooms[roomIndex].seasons[seasonIndex];
+
+              const exists = rooms[roomIndex].seasons.some(
+                (s) => s.name === name
+              );
+
+             if (exists) {
+            setPendingClone({ roomIndex, seasonIndex });
+            setShowOverwriteConfirm(true);
+            return prev;
+          }
+
+              const clonedSeason = {
+                name,
+                start,
+                end,
+                pricing: JSON.parse(
+                  JSON.stringify(sourceSeason.pricing)
+                ),
+              };
+
+              const seasons = exists
+                ? rooms[roomIndex].seasons.map((s) =>
+                    s.name === name ? clonedSeason : s
+                  )
+                : [...rooms[roomIndex].seasons, clonedSeason];
+
+              rooms[roomIndex] = { ...rooms[roomIndex], seasons };
+              return { ...prev, rooms };
+            });
+
+            toast.success("Rates cloned");
+
+             setCloneForm({ name: "", start: "", end: "" });
+            setShowCloneModal(false);
+          }}
+        >
+          Clone
+        </Button>
+      </div>
+    </div>
+  </div>
+  
+)}
+{showOverwriteConfirm && (
+  <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center">
+    <div className="bg-white rounded-xl p-6 w-full max-w-sm space-y-4">
+      <h3 className="text-lg font-bold">Overwrite Season?</h3>
+      <p className="text-sm text-slate-600">
+        This season already exists. Do you want to overwrite its rates?
+      </p>
+
+      <div className="flex justify-end gap-3 pt-4">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowOverwriteConfirm(false);
+            setPendingClone(null);
+          }}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          className="bg-theme-primary text-white"
+          onClick={() => {
+            const { roomIndex, seasonIndex } = pendingClone;
+
+            setHotelData(prev => {
+              const rooms = [...prev.rooms];
+              const source = rooms[roomIndex].seasons[seasonIndex];
+
+              const seasons = rooms[roomIndex].seasons.map(s =>
+                s.name === cloneForm.name
+                  ? {
+                      name: cloneForm.name,
+                      start: cloneForm.start,
+                      end: cloneForm.end,
+                      pricing: JSON.parse(JSON.stringify(source.pricing))
+                    }
+                  : s
+              );
+
+              rooms[roomIndex] = { ...rooms[roomIndex], seasons };
+              return { ...prev, rooms };
+            });
+
+            toast.success("Rates overwritten");
+            setShowOverwriteConfirm(false);
+            setShowCloneModal(false);
+          }}
+        >
+          Overwrite
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
     </div>
   );
 };
