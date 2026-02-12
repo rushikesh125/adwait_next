@@ -1,3 +1,5 @@
+
+"use client";
 // src/components/Create_new_package.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import {
@@ -12,9 +14,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import "@/components/css/create_new_package.css";
 import HotelRoomSelector from "./HotelRoomSelector";
 import SelectTransport from "./TransportSelector";
+
 import SelectActivities from "./SelectActivities";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import CustomHotelDialog from "@/components/CustomHotelDialog";
+
+
+
+
 import "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,6 +104,7 @@ const Create_new_package = ({
   const router = useRouter();
   const { user } = useSelector((state) => state.auth);
 
+
   const checkInDate = propCheckInDate;
   const setCheckInDate = propSetCheckInDate;
   const checkOutDate = propCheckOutDate;
@@ -137,7 +146,7 @@ const Create_new_package = ({
     console.log("Customer ID:", customerId);
     fetchCustomer();
   }, [customerId]);
-
+    console.log("CustomHotelDialog  typeof:", typeof CustomHotelDialog );
   useEffect(() => {
     if (!leadId) return;
     const fetchLead = async () => {
@@ -155,6 +164,31 @@ const Create_new_package = ({
     console.log("Customer Name:", customerName);
   }, [customerName]);
 
+
+
+    const [showCustomHotelModal, setShowCustomHotelModal] = useState(false);
+
+const [customHotel, setCustomHotel] = useState({
+  name: "",
+  city: "",
+  roomCategory: "",
+  prices: {
+    Standard: "",
+    Deluxe: "",
+    Suite: "",
+  },
+  mealPlans: {
+    EP: false,
+    CP: false,
+    MAP: false,
+    AP: false,
+  },
+  googleRating: "",
+  googleLink: "",
+});
+
+
+console.log(CustomHotelDialog);
   // ── Fetch Data ────────────────────────────────────────────────────
   useEffect(() => {
     const fetchHotels = async () => {
@@ -208,10 +242,11 @@ const Create_new_package = ({
   }, [checkInDate, nights]);
 
   // ── FIXED Calculations ────────────────────────────────────────────
-  const hotelTotalPrice = hotelEntries.reduce(
-    (acc, entry) => acc + (Number(entry.hotelTotal) || 0),
-    0,
-  );
+const hotelTotalPrice = hotelEntries.reduce(
+  (acc, entry) => acc + Number(entry.hotelTotal || 0),
+  0
+);
+
 
   const transportTotalPrice = selectedTransport?.selectedVehicle?.price
     ? Number(selectedTransport.selectedVehicle.price)
@@ -260,6 +295,7 @@ const Create_new_package = ({
           })
           .replace(/ /g, "-");
   };
+  
 
   const calculateHotelTotalPriceForAllNights = (entries) => {
     if (!Array.isArray(entries) || entries.length === 0) return [];
@@ -270,6 +306,8 @@ const Create_new_package = ({
       return { ...hotel, hotelTotal: totalPriceForAllNights };
     });
   };
+
+
 
   const calculateTotalMeals = (hotelEntriesData) => {
     let totalBreakfasts = 0;
@@ -920,11 +958,25 @@ const Create_new_package = ({
                 <h3 className="text-lg font-semibold text-theme-dark mb-4 flex items-center gap-2">
                   <Hotel className="w-5 h-5" /> Hotels in {selectedState}
                 </h3>
+                
                 {filteredHotels.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">
+                <div className="text-center py-8 space-y-4">
+                  <p className="text-slate-500">
                     No hotels found in {selectedState}
-                  </div>
-                ) : (
+                  </p>
+
+                  <button
+                    onClick={() => setShowCustomHotelModal(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 
+                    bg-theme-primary text-white rounded-lg 
+                    hover:bg-theme-secondary transition-all"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Custom Hotel
+                  </button>
+                </div>
+              ) : (
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto p-1">
                     {Object.keys(groupedHotels).map((city) => (
                       <div key={city} className="space-y-2">
@@ -970,98 +1022,98 @@ const Create_new_package = ({
               </div>
             )}
 
-            {/* 4. Room Selection + Actions */}
-            {selectedHotel ? (
-              <div className="space-y-6">
-                <div className="p-2 md:p-6 bg-white rounded-xl border border-theme-muted shadow-sm">
-                  <HotelRoomSelector
-                    hotel={hotels.find((h) => h.id === selectedHotel)}
-                    checkInDate={checkInDate}
-                    noOfNights={nights}
-                    numDouble={numDouble}
-                    setNumDouble={setNumDouble}
-                    numExtraAdult={numExtraAdult}
-                    setNumExtraAdult={setNumExtraAdult}
-                    numExtraChild={numExtraChild}
-                    setNumExtraChild={setNumExtraChild}
-                    hotelTotal={hotelTotal}
-                    numCNB={numCNB} 
-                    setNumCNB={setNumCNB}
-                    setHotelTotal={setHotelTotal}
-                    setSelectedMealPlan={setSelectedMealPlan}
-                    selectedMealPlan={selectedMealPlan}
-                    setSelectedRoomCategory={setSelectedRoomCategory}
-                    selectedRoomCategory={selectedRoomCategory}
-                  />
+              {/* 4. Room Selection + Actions */}
+              {selectedHotel ? (
+                <div className="space-y-6">
+                  <div className="p-2 md:p-6 bg-white rounded-xl border border-theme-muted shadow-sm">
+                    <HotelRoomSelector
+                      hotel={hotels.find((h) => h.id === selectedHotel)}
+                      checkInDate={checkInDate}
+                      noOfNights={nights}
+                      numDouble={numDouble}
+                      setNumDouble={setNumDouble}
+                      numExtraAdult={numExtraAdult}
+                      setNumExtraAdult={setNumExtraAdult}
+                      numExtraChild={numExtraChild}
+                      setNumExtraChild={setNumExtraChild}
+                      hotelTotal={hotelTotal}
+                      numCNB={numCNB} 
+                      setNumCNB={setNumCNB}
+                      setHotelTotal={setHotelTotal}
+                      setSelectedMealPlan={setSelectedMealPlan}
+                      selectedMealPlan={selectedMealPlan}
+                      setSelectedRoomCategory={setSelectedRoomCategory}
+                      selectedRoomCategory={selectedRoomCategory}
+                    />
 
-                  <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-100">
-                    <button
-                      className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
-                      onClick={() => {
-                        const selectedHotelFullData = hotels.find(
-                          (h) => h.id === selectedHotel,
-                        );
-                        const currentHotelData = {
-                          checkInDate,
-                          nights,
-                          checkOutDate,
-                          state: selectedState,
-                          hotel: selectedHotelFullData?.name || "N/A",
-                          city: selectedHotelFullData?.city || "N/A",
-                          GoogleListingURL:
-                            selectedHotelFullData?.GoogleListingURL || null,
-                          numDouble: numDouble[0],
-                          numExtraAdult: numExtraAdult[0],
-                          numExtraChild: numExtraChild[0],
-                          hotelTotal: hotelTotal[0],
-                          selectedMealPlan: selectedMealPlan,
-                          selectedRoomCategory: selectedRoomCategory,
-                        };
-
-                        if (editingIndex !== null) {
-                          dispatch(
-                            updateHotelEntry({
-                              index: editingIndex,
-                              data: currentHotelData,
-                            }),
-                          );
-                        } else {
-                          dispatch(addHotelEntry(currentHotelData));
-                        }
-
-                        setSaveChanges(true);
-                        setIsReadyToAddAnother(true);
-                        setEditingIndex(null);
-                      }}
-                    >
-                      {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
-                    </button>
-
-                    {isReadyToAddAnother && (
+                    <div className="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-100">
                       <button
-                        className="px-6 py-2.5 border border-theme-primary text-theme-primary hover:bg-theme-muted rounded-md font-medium transition-all"
+                        className="px-6 py-2.5 bg-theme-primary hover:bg-theme-secondary text-white rounded-md font-medium transition-all shadow-sm"
                         onClick={() => {
-                          setCheckInDate(checkOutDate);
-                          setSelectedState("");
-                          setSelectedHotel(null);
-                          setNights(1);
-                          setSelectedRoomCategory(null);
-                          setSelectedMealPlan("");
-                          setApplicableSeason(null);
-                          setNumDouble([0]);
-                          setNumExtraAdult([0]);
-                          setNumExtraChild([0]);
-                          setHotelTotal([0]);
-                          setSaveChanges(false);
-                          setIsReadyToAddAnother(false);
+                          const selectedHotelFullData = hotels.find(
+                            (h) => h.id === selectedHotel,
+                          );
+                          const currentHotelData = {
+                            checkInDate,
+                            nights,
+                            checkOutDate,
+                            state: selectedState,
+                            hotel: selectedHotelFullData?.name || "N/A",
+                            city: selectedHotelFullData?.city || "N/A",
+                            GoogleListingURL:
+                              selectedHotelFullData?.GoogleListingURL || null,
+                            numDouble: numDouble[0],
+                            numExtraAdult: numExtraAdult[0],
+                            numExtraChild: numExtraChild[0],
+                            hotelTotal: hotelTotal[0],
+                            selectedMealPlan: selectedMealPlan,
+                            selectedRoomCategory: selectedRoomCategory,
+                          };
+
+                          if (editingIndex !== null) {
+                            dispatch(
+                              updateHotelEntry({
+                                index: editingIndex,
+                                data: currentHotelData,
+                              }),
+                            );
+                          } else {
+                            dispatch(addHotelEntry(currentHotelData));
+                          }
+
+                          setSaveChanges(true);
+                          setIsReadyToAddAnother(true);
                           setEditingIndex(null);
                         }}
                       >
-                        ➕ Add Another Hotel
+                        {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
                       </button>
-                    )}
+
+                      {isReadyToAddAnother && (
+                        <button
+                          className="px-6 py-2.5 border border-theme-primary text-theme-primary hover:bg-theme-muted rounded-md font-medium transition-all"
+                          onClick={() => {
+                            setCheckInDate(checkOutDate);
+                            setSelectedState("");
+                            setSelectedHotel(null);
+                            setNights(1);
+                            setSelectedRoomCategory(null);
+                            setSelectedMealPlan("");
+                            setApplicableSeason(null);
+                            setNumDouble([0]);
+                            setNumExtraAdult([0]);
+                            setNumExtraChild([0]);
+                            setHotelTotal([0]);
+                            setSaveChanges(false);
+                            setIsReadyToAddAnother(false);
+                            setEditingIndex(null);
+                          }}
+                        >
+                          ➕ Add Another Hotel
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
 
                 {/* Current Selection Summary */}
                 {saveChanges && (
@@ -1154,13 +1206,7 @@ const Create_new_package = ({
                           <div className="text-right min-w-[140px]">
                             <p className="text-xs text-slate-500">Total Cost</p>
                             <p className="text-2xl font-bold text-theme-primary mt-0.5">
-                              ₹
-                              {Number(entry.hotelTotal || 0).toLocaleString(
-                                "en-IN",
-                                {
-                                  maximumFractionDigits: 0,
-                                },
-                              )}
+                            ₹{Number(entry.hotelTotal || 0).toLocaleString("en-IN")}
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
                               for {entry.nights} night
@@ -1420,14 +1466,78 @@ const Create_new_package = ({
               </Button>
               <Button
                 className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={handleSavePackage}
-              >
+                onClick={handleSavePackage}>
                 Save Package
               </Button>
             </div>
           </div>
         </div>
       )}
+      <CustomHotelDialog 
+  open={showCustomHotelModal}
+  onClose={() => setShowCustomHotelModal(false)}
+  selectedState={selectedState}
+  customHotel={customHotel}
+  setCustomHotel={setCustomHotel}
+ onSave={() => {
+    if (!customHotel.roomCategory) {
+      alert("Please select a room category");
+      return;
+    }
+
+    const pricePerNight =
+      Number(customHotel.prices[customHotel.roomCategory]) || 0;
+
+    const selectedMealPlans = Object.keys(customHotel.mealPlans)
+      .filter((plan) => customHotel.mealPlans[plan]);
+
+    if (pricePerNight <= 0) {
+      alert("Please enter a valid room price");
+      return;
+    }
+
+   dispatch(
+  addHotelEntry({
+    hotel: customHotel.name,
+    city: customHotel.city,
+    state: selectedState,
+
+    checkInDate,
+    checkOutDate,
+    nights,
+
+    selectedRoomCategory: customHotel.roomCategory,
+    selectedMealPlan: selectedMealPlans[0] || "EP",
+    hotelTotal: pricePerNight * Number(nights),
+
+    numDouble: 1,
+    numExtraAdult: 0,
+    numExtraChild: 0,
+
+    GoogleListingURL: customHotel.googleLink || null,
+    GoogleReviewRating: customHotel.googleRating || null,
+
+    isCustom: true,
+  })
+);
+
+
+    setShowCustomHotelModal(false);
+    setSaveChanges(true);
+
+    // reset modal state
+    setCustomHotel({
+      name: "",
+      city: "",
+      roomCategory: "",
+      prices: { Standard: "", Deluxe: "", Suite: "" },
+      mealPlans: { EP: false, CP: false, MAP: false, AP: false },
+      googleRating: "",
+      googleLink: "",
+    });
+  }}
+/>
+
     </div>
   );
 };
