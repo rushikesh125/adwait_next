@@ -15,6 +15,8 @@ export default function Home() {
       router.push("/admin-panel");
     } else if (user && user.role === "agent") {
       router.push("/agent-panel");
+    }else if(user && user.role === "superadmin"){
+      router.push("/superadmin")
     }
   }, [user]);
   if (loading) {
