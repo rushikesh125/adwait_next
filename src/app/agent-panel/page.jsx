@@ -31,6 +31,7 @@ import { getUserData } from "@/firebase/users";
 // Custom Components
 import Create_new_package from "@/components/Create_new_package";
 
+
 const AgentDashboard = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useSelector((state) => state.auth);
@@ -66,6 +67,7 @@ const AgentDashboard = () => {
     };
 
     initDashboard();
+
   }, [user, authLoading, router]);
 
   // Unsaved Changes Guard
