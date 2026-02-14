@@ -103,6 +103,9 @@ const [cloneForm, setCloneForm] = useState({
     });
   };
 
+
+  //delete the season 
+  const [seasonToDelete, setSeasonToDelete] = useState(null);
   const handlePricingChange = (roomIndex, seasonIndex, plan, type, value) => {
     const numValue = value === '' ? 0 : Number(value);
     if (numValue < 0) return;
@@ -321,9 +324,9 @@ const [cloneForm, setCloneForm] = useState({
                           </Button>
 
                           <Button
-                            onClick={(e) => {
+                          onClick={(e) => {
                               e.stopPropagation();
-                              removeSeason(roomIndex, seasonIndex);
+                              setSeasonToDelete({ roomIndex, seasonIndex });
                             }}
                             variant="ghost"
                             size="sm"
@@ -594,6 +597,41 @@ const { name, start, end } = cloneForm;
 )}
 
 
+{seasonToDelete && (
+  <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center">
+    <div className="bg-white rounded-xl p-6 w-full max-w-sm space-y-4 shadow-xl">
+      <h3 className="text-lg font-bold text-red-600">
+        Delete Season
+      </h3>
+
+      <p className="text-sm text-slate-600">
+        Are you sure you want to delete this season?
+        This action cannot be undone.
+      </p>
+
+      <div className="flex justify-end gap-3 pt-4">
+        <Button
+          variant="outline"
+          onClick={() => setSeasonToDelete(null)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          variant="destructive"
+          onClick={() => {
+            const { roomIndex, seasonIndex } = seasonToDelete;
+            removeSeason(roomIndex, seasonIndex);
+            toast.success("Season deleted successfully");
+            setSeasonToDelete(null);
+          }}
+        >
+          Delete
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   );
