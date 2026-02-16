@@ -1,5 +1,5 @@
 "use client";
-
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from "react";
 import {
   Users,
@@ -11,7 +11,7 @@ import {
   Pencil,
   Badge,
 } from "lucide-react";
-
+import { useSelector } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,7 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { fetchAllStates, fetchActivitiesByState } from "@/firebase/activities_service";
 
-const SelectActivities = ({ onDone }) => {
+const SelectActivities = ({ onDone, initialActivities = [] }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedState, setSelectedState] = useState("");
   const [states, setStates] = useState([]);
@@ -32,7 +32,15 @@ const SelectActivities = ({ onDone }) => {
   const [selectedActivitiesFit, setSelectedActivitiesFit] = useState([]);
   const [selectedActivitiesGroup, setSelectedActivitiesGroup] = useState([]);
   const [pricingType, setPricingType] = useState("fit");
+  const [showCustomActivityModal, setShowCustomActivityModal] = useState(false);
 
+const [customActivity, setCustomActivity] = useState({
+  name: "",
+  city: "",
+  pricePerPerson: "",
+  participants: 1,
+  description: "",
+});
   /* ---------------- Load States ---------------- */
   useEffect(() => {
     if (showDropdown && states.length === 0) {
@@ -43,6 +51,8 @@ const SelectActivities = ({ onDone }) => {
     }
   }, [showDropdown, states.length]);
 
+
+
   /* ---------------- Load Activities ---------------- */
   useEffect(() => {
     if (!selectedState) return;
@@ -52,17 +62,22 @@ const SelectActivities = ({ onDone }) => {
       .finally(() => setActivityLoading(false));
   }, [selectedState]);
 
+  
+
   /* ---------------- Toggle Activity ---------------- */
   const handleToggle = (act, type) => {
     const isFit = type === "fit";
     const list = isFit ? selectedActivitiesFit : selectedActivitiesGroup;
     const setter = isFit ? setSelectedActivitiesFit : setSelectedActivitiesGroup;
+const exists = list.find((a) => (a.id || a.name) === (act.id || act.name));
 
-    const exists = list.find((a) => a.name === act.name);
-
-    if (exists) {
-      setter(list.filter((a) => a.name !== act.name));
-    } else {
+  if (exists) {
+  setter(
+    list.filter(
+      (a) => (a.id || a.name) !== (act.id || act.name)
+    )
+  );
+} else {
       setter([
         ...list,
         {
@@ -88,7 +103,8 @@ const SelectActivities = ({ onDone }) => {
       )
     );
   };
-
+  
+  
   /* ---------------- Totals ---------------- */
   const totalFIT = selectedActivitiesFit.reduce(
     (sum, a) => sum + (Number(a.participants || 0) * Number(a.fitRatePerPerson || 0)),
@@ -127,7 +143,21 @@ const SelectActivities = ({ onDone }) => {
     setSelectedActivitiesFit([]);
     setSelectedActivitiesGroup([]);
   };
+const customSelectedActivities = [
+  ...selectedActivitiesFit,
+  ...selectedActivitiesGroup,
+].filter((a) => a.isCustom);
 
+const combinedActivities = [
+  ...activities,
+  ...customSelectedActivities.filter(
+    (custom) =>
+      !activities.some(
+        (dbAct) =>
+          (dbAct.id || dbAct.name) === (custom.id || custom.name)
+      )
+  ),
+];
   if (!showDropdown) {
     return (
       <div className="flex gap-4">
@@ -203,11 +233,31 @@ const SelectActivities = ({ onDone }) => {
               </div>
             ) : (
               <ScrollArea className="h-[420px] mt-4 pr-4">
-                {activities.map((act) => {
+                
+               {activities.length === 0 && (
+  <div className="text-center py-20 space-y-4">
+    <p className="text-sm text-slate-500">
+      No activities found in {selectedState}
+    </  p>
+
+    <Button
+      className="bg-theme-primary text-white"
+      onClick={() => setShowCustomActivityModal(true)}
+
+    >
+      + Add Custom Activity
+    </Button>
+  </div>
+)}
+
+
+{combinedActivities.map((act) => {
                   const isFit = pricingType === "fit";
                   const list = isFit ? selectedActivitiesFit : selectedActivitiesGroup;
-                  const selected = list.find((a) => a.name === act.name);
+                 const selected = list.find(
+                            (a) => (a.id || a.name) === (act.id || act.name));
                   const rate = isFit ? act.fitRatePerPerson : act.groupRatePerPerson;
+                  
 
                   return (
                     <div key={act.name} className={`p-4 border rounded-xl mb-3 transition-colors ${selected ? 'border-theme-primary bg-theme-primary/5' : 'bg-white'}`}>
@@ -285,6 +335,119 @@ const SelectActivities = ({ onDone }) => {
           </>
         )}
       </CardContent>
+      {showCustomActivityModal && (
+  <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+    <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4 shadow-xl">
+      <h3 className="text-lg font-bold text-theme-dark">
+        Add Custom Activity
+      </h3>
+
+      <Input
+        placeholder="Activity Name"
+        value={customActivity.name}
+        onChange={(e) =>
+          setCustomActivity({ ...customActivity, name: e.target.value })
+        }
+      />
+
+      <Input
+        placeholder="Location (City)"
+        value={customActivity.city}
+        onChange={(e) =>
+          setCustomActivity({ ...customActivity, city: e.target.value })
+        }
+      />
+
+      <Input
+        type="number"
+        placeholder="Price Per Person"
+        value={customActivity.pricePerPerson}
+        onChange={(e) =>
+          setCustomActivity({
+            ...customActivity,
+            pricePerPerson: e.target.value,
+          })
+        }
+      />
+
+      <Input
+        type="number"
+        min="1"
+        placeholder="Number of Persons"
+        value={customActivity.participants}
+        onChange={(e) =>
+          setCustomActivity({
+            ...customActivity,
+            participants: e.target.value,
+          })
+        }
+      />
+
+      <textarea
+        className="w-full p-2 border rounded"
+        placeholder="Description (optional)"
+        value={customActivity.description}
+        onChange={(e) =>
+          setCustomActivity({
+            ...customActivity,
+            description: e.target.value,
+          })
+        }
+      />
+
+      <div className="flex justify-end gap-3 pt-3">
+        <Button
+          variant="outline"
+          onClick={() => setShowCustomActivityModal(false)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          className="bg-theme-primary text-white"
+          onClick={() => {
+            if (!customActivity.name || !customActivity.pricePerPerson) {
+              alert("Please fill required fields");
+              return;
+            }
+
+            const isFit = pricingType === "fit";
+
+            const newActivity = {
+              name: customActivity.name,
+              city: customActivity.city,
+              fitRatePerPerson: Number(customActivity.pricePerPerson),
+              groupRatePerPerson: Number(customActivity.pricePerPerson),
+              participants: Number(customActivity.participants),
+              description: customActivity.description,
+              isCustom: true,
+            };
+
+            if (isFit) {
+              setSelectedActivitiesFit((prev) => [...prev, newActivity]);
+            } else {
+              setSelectedActivitiesGroup((prev) => [...prev, newActivity]);
+            }
+
+            setShowCustomActivityModal(false);
+
+            setCustomActivity({
+              name: "",
+              city: "",
+              pricePerPerson: "",
+              participants: 1,
+              description: "",
+            });
+          }}
+        >
+          Add Activity
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
+
     </Card>
   );
 };

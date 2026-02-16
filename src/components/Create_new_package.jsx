@@ -2,6 +2,7 @@
 "use client";
 // src/components/Create_new_package.jsx
 import React, { useEffect, useState, useMemo } from "react";
+
 import {
   collection,
   getDocs,
@@ -159,7 +160,6 @@ const Create_new_package = ({
     console.log("Customer ID:", customerId);
     fetchLead();
   }, [leadId]);
-
   useEffect(() => {
     console.log("Customer Name:", customerName);
   }, [customerName]);
@@ -758,8 +758,9 @@ const hotelTotalPrice = hotelEntries.reduce(
         currentQuotationDataForPdf.activitySummary.length > 0
       ) {
         for (const activity of currentQuotationDataForPdf.activitySummary) {
+          //update for custom activity creation 
           includedItems.push(
-            `• ${activity.name} for ${activity.participants} participants.`,
+            `• ${activity.name} (${activity.city || "Custom Location"}) - ${activity.participants} Person(s)`
           );
         }
       }
@@ -1272,10 +1273,11 @@ const hotelTotalPrice = hotelEntries.reduce(
               </button>
               {showActivitiesSection && (
                 <div className="mt-4 md:p-4 bg-slate-50 rounded-lg border border-slate-100">
-                  <SelectActivities
-                    selectedState={selectedState}
-                    onDone={handleActivitiesDone}
-                  />
+                 <SelectActivities
+  selectedState={selectedState}
+  onDone={handleActivitiesDone}
+  initialActivities={selectedActivities}
+/>
                 </div>
               )}
             </div>

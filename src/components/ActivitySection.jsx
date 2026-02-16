@@ -19,6 +19,7 @@ const ActivitySection = ({ onActivitiesChange }) => {
   const [pricingType, setPricingType] = useState("fit"); // fit | group
   const [selectedItems, setSelectedItems] = useState([]);
 
+
   /* ───────────── Load States ───────────── */
   useEffect(() => {
     let active = true;
@@ -31,26 +32,39 @@ const ActivitySection = ({ onActivitiesChange }) => {
   }, []);
 
   /* ───────────── Load Activities by State ───────────── */
-  useEffect(() => {
+useEffect(() => {
+  let active = true;
+
+  const loadActivities = async () => {
     if (!selectedState) {
-      setActivities([]);
+      if (active) setActivities([]);
       return;
     }
 
-    let active = true;
-    setLoading(true);
+    try {
+      setLoading(true);
+      const allActs = await fetchActivities();
+      if (!active) return;
 
-    fetchActivities()
-      .then((allActs) => {
-        if (!active) return;
-        setActivities(allActs.filter((a) => a.state === selectedState));
-      })
-      .finally(() => active && setLoading(false));
+      const filtered = allActs.filter(
+        (a) => a.state === selectedState
+      );
 
-    return () => {
-      active = false;
-    };
-  }, [selectedState]);
+      setActivities(filtered);
+    } catch (err) {
+      console.error("Error loading activities:", err);
+    } finally {
+      if (active) setLoading(false);
+    }
+  };
+
+  loadActivities();
+
+  return () => {
+    active = false;
+  };
+}, [selectedState]);
+
 
   /* ───────────── Propagate to Parent ───────────── */
   useEffect(() => {
@@ -295,7 +309,10 @@ const ActivitySection = ({ onActivitiesChange }) => {
             </div>
           </div>
         )}
+
       </CardContent>
+      
+
     </Card>
   );
 };
