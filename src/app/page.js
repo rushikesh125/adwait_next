@@ -5,18 +5,22 @@ import Loading from "./loading";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import NotLoggedIn from "@/components/NotLoggedIn";
+import toast from "react-hot-toast";
 
 export default function Home() {
   const { user, loading, initialized } = useSelector((state) => state.auth);
   const router = useRouter();
 
   useEffect(() => {
-    if (user && user.role === "admin") {
+    if (user && user.role === "admin" && user?.approved == true) {
       router.push("/admin-panel");
-    } else if (user && user.role === "agent") {
+    } else if (user && user.role === "agent" && user?.approved ==true ) {
       router.push("/agent-panel");
     }else if(user && user.role === "superadmin"){
       router.push("/superadmin")
+    }else if(user && user.approved == false){
+      toast.error("Wait for Admin Approval")
+      router.push("/login")
     }
   }, [user]);
   if (loading) {

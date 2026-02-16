@@ -11,6 +11,7 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/firebase/config"; 
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
+import emailjs from "@emailjs/browser"; // 1. Import EmailJS
 
 // Shadcn Components
 import { Button } from "@/components/ui/button";
@@ -37,14 +38,12 @@ import {
   Mail, 
   Lock, 
   UserPlus, 
-  Chrome, 
   Loader2, 
   User, 
   Phone, 
   Eye, 
   EyeOff, 
-  ShieldCheck, 
-  ArrowRight 
+  ShieldCheck 
 } from "lucide-react";
 import { Google } from "@mui/icons-material";
 
@@ -55,7 +54,7 @@ export default function SignupPage() {
     countryCode: "+91",
     phone: "",
     password: "",
-    role: "agent" // Default role
+    role: "agent"
   });
   
   const [showPassword, setShowPassword] = useState(false);
@@ -63,18 +62,28 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Redirect if already logged in
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        // If user is already logged in, you might want to redirect based on role
-        // For now, we stay on page to allow them to create new accounts if needed
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  // 2. Helper function to send email via EmailJS
+  const sendAdminEmail = async (userDisplayName, userEmail, userRole, userPhone) => {
+    try {
+      await emailjs.send(
+       "service_gmfmqbu",
+        "template_msuvmij",
+        {
+          user_name: userDisplayName,
+          user_email: userEmail,
+          user_role: userRole,
+          user_phone: userPhone,
+          admin_email: "rushikesh.gaikwad@adwaittours.com", // You can also pass this as a variable
+        },
+        "GjevhIIhLITokCOAK"
+      );
+      console.log("Admin notified via EmailJS");
+    } catch (error) {
+      console.error("EmailJS Error:", error);
+      // We don't block the UI for email failures, but we log them
+    }
+  };
 
-  // Validation: Password Strength
   const checkPasswordStrength = (pwd) => {
     const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
     const medium = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
@@ -89,14 +98,12 @@ export default function SignupPage() {
     setPasswordStrength(checkPasswordStrength(pwd));
   };
 
-  // Logic: Email Validation
   const validateEmail = (email) => {
     const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const invalidDomains = ["@test.com", "@tempmail.com", "@mailinator.com"];
     return validFormat.test(email) && !invalidDomains.some((d) => email.endsWith(d));
   };
 
-  // Function: Save User to Firestore
   const saveUserToDb = async (user, role, name, phone) => {
     const collectionName = role === "admin" ? "admins" : "agents";
     await setDoc(doc(db, collectionName, user.uid), {
@@ -105,7 +112,7 @@ export default function SignupPage() {
       email: user.email,
       phone: phone || "",
       role: role,
-      approved: false, // Default to false for admin review
+      approved: false,
       createdAt: new Date(),
     });
   };
@@ -120,7 +127,12 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const { user } = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      await saveUserToDb(user, formData.role, formData.name, `${formData.countryCode}${formData.phone}`);
+      const fullPhone = `${formData.countryCode}${formData.phone}`;
+      
+      await saveUserToDb(user, formData.role, formData.name, fullPhone);
+      
+      // 3. Trigger Email Notification
+      await sendAdminEmail(formData.name, formData.email, formData.role, fullPhone);
       
       toast.success("Signup successful! Waiting for admin approval.");
       await signOut(auth);
@@ -132,7 +144,7 @@ export default function SignupPage() {
     }
   };
 
-  // HANDLER: Google Signup (Role Based)
+  // HANDLER: Google Signup
   const handleGoogleSignup = async () => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
@@ -140,18 +152,20 @@ export default function SignupPage() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
-      // Determine collection based on UI selection
       const collectionName = formData.role === "admin" ? "admins" : "agents";
       const docSnap = await getDoc(doc(db, collectionName, user.uid));
 
       if (!docSnap.exists()) {
-        // New user - Use the role currently selected in the dropdown
-        await saveUserToDb(user, formData.role, user.displayName, user.phoneNumber);
+        const phone = user.phoneNumber || "Not provided";
+        await saveUserToDb(user, formData.role, user.displayName, phone);
+        
+        // 4. Trigger Email Notification for Google User
+        await sendAdminEmail(user.displayName, user.email, formData.role, phone);
+
         toast.success(`Registered as ${formData.role}. Awaiting approval.`);
         await signOut(auth);
         router.push("/login");
       } else {
-        // Existing user
         const data = docSnap.data();
         if (data.approved) {
           toast.success("Welcome back!");
@@ -172,30 +186,28 @@ export default function SignupPage() {
     <div className="min-h-screen w-full flex items-center justify-center bg-[#FDFCFE] relative overflow-hidden p-4">
       <Toaster position="top-center" />
       
-      {/* Background Orbs */}
-      <div className="absolute top-[-5%] left-[-5%] w-[350px] h-[350px] rounded-full bg-theme-muted/30 blur-[100px] animate-pulse" />
-      <div className="absolute bottom-[-5%] right-[-5%] w-[350px] h-[350px] rounded-full bg-theme-secondary/10 blur-[100px]" />
+      {/* Background Decor */}
+      <div className="absolute top-[-5%] left-[-5%] w-[350px] h-[350px] rounded-full bg-blue-50/50 blur-[100px] animate-pulse" />
 
-      <Card className="w-full max-w-[480px] rounded-3xl border-slate-100 shadow-2xl bg-white/80 backdrop-blur-xl z-10 transition-all">
+      <Card className="w-full max-w-[480px] rounded-3xl border-slate-100 shadow-2xl bg-white/80 backdrop-blur-xl z-10">
         <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto w-14 h-14 bg-gradient-to-br from-theme-gradient-from to-theme-gradient-to rounded-2xl flex items-center justify-center mb-2 -rotate-3 shadow-lg shadow-theme-primary/30">
+          <div className="mx-auto w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-blue-200">
             <UserPlus className="text-white w-7 h-7" />
           </div>
-          <CardTitle className="text-3xl font-extrabold text-theme-dark tracking-tight">Create Account</CardTitle>
-          <CardDescription className="text-slate-500 font-medium">Join Adwait Tours Management</CardDescription>
+          <CardTitle className="text-3xl font-extrabold text-slate-900">Create Account</CardTitle>
+          <CardDescription className="text-slate-500 font-medium text-base">Join Adwait Tours Management</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-2">
           <form onSubmit={handleSignup} className="space-y-4">
             
-            {/* Full Name */}
             <div className="space-y-1.5">
-              <Label className="text-theme-dark font-semibold ml-1">Full Name</Label>
-              <div className="relative group">
-                <User className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-theme-primary transition-colors" />
+              <Label className="text-slate-900 font-semibold ml-1">Full Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input 
                   placeholder="John Doe" 
-                  className="pl-10 h-11 border-slate-200 focus-visible:ring-theme-primary" 
+                  className="pl-10 h-11 border-slate-200 focus:ring-blue-500" 
                   required 
                   value={formData.name} 
                   onChange={(e) => setFormData({...formData, name: e.target.value})} 
@@ -203,15 +215,14 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Email */}
             <div className="space-y-1.5">
-              <Label className="text-theme-dark font-semibold ml-1">Email Address</Label>
-              <div className="relative group">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-theme-primary transition-colors" />
+              <Label className="text-slate-900 font-semibold ml-1">Email Address</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input 
                   type="email" 
                   placeholder="john@example.com" 
-                  className="pl-10 h-11 border-slate-200 focus-visible:ring-theme-primary" 
+                  className="pl-10 h-11 border-slate-200 focus:ring-blue-500" 
                   required 
                   value={formData.email} 
                   onChange={(e) => setFormData({...formData, email: e.target.value})} 
@@ -219,32 +230,30 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Phone & Country Code */}
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1.5">
-                <Label className="text-theme-dark font-semibold ml-1">Code</Label>
+                <Label className="text-slate-900 font-semibold ml-1">Code</Label>
                 <Select 
                   value={formData.countryCode} 
                   onValueChange={(val) => setFormData({...formData, countryCode: val})}
                 >
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="h-11 border-slate-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="+91">🇮🇳 +91</SelectItem>
                     <SelectItem value="+1">🇺🇸 +1</SelectItem>
-                    <SelectItem value="+44">🇬🇧 +44</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label className="text-theme-dark font-semibold ml-1">Phone Number</Label>
-                <div className="relative group">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-theme-primary transition-colors" />
+                <Label className="text-slate-900 font-semibold ml-1">Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <Input 
                     type="tel"
                     placeholder="10 digit number" 
-                    className="pl-10 h-11 border-slate-200 focus-visible:ring-theme-primary" 
+                    className="pl-10 h-11 border-slate-200 focus:ring-blue-500" 
                     required 
                     value={formData.phone} 
                     onChange={(e) => setFormData({...formData, phone: e.target.value})} 
@@ -253,11 +262,10 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Password with Strength Indicator */}
             <div className="space-y-1.5">
-              <Label className="text-theme-dark font-semibold ml-1">Password</Label>
-              <div className="relative group">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-theme-primary transition-colors" />
+              <Label className="text-slate-900 font-semibold ml-1">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input 
                   type={showPassword ? "text" : "password"} 
                   className="pl-10 pr-10 h-11 border-slate-200" 
@@ -268,7 +276,7 @@ export default function SignupPage() {
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-theme-primary transition-colors"
+                  className="absolute right-3 top-3 text-slate-400 hover:text-blue-600"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -281,26 +289,20 @@ export default function SignupPage() {
                       passwordStrength === "Medium" ? "w-2/3 bg-yellow-500" : "w-full bg-green-500"
                     }`} />
                   </div>
-                  <span className={`text-[10px] font-bold uppercase ${
-                    passwordStrength === "Weak" ? "text-red-500" : 
-                    passwordStrength === "Medium" ? "text-yellow-600" : "text-green-600"
-                  }`}>
-                    {passwordStrength}
-                  </span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">{passwordStrength}</span>
                 </div>
               )}
             </div>
 
-            {/* Role Selection (CRITICAL: Determines Google Signup Role) */}
             <div className="space-y-1.5">
-              <Label className="text-theme-dark font-semibold ml-1">Select Your Role</Label>
+              <Label className="text-slate-900 font-semibold ml-1">Select Your Role</Label>
               <Select 
                 value={formData.role} 
                 onValueChange={(val) => setFormData({...formData, role: val})}
               >
                 <SelectTrigger className="h-11 border-slate-200 bg-white/50">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-theme-accent" />
+                    <ShieldCheck className="h-4 w-4 text-blue-600" />
                     <SelectValue />
                   </div>
                 </SelectTrigger>
@@ -314,7 +316,7 @@ export default function SignupPage() {
             <Button 
               type="submit" 
               disabled={loading}
-              className="w-full h-12 bg-gradient-to-r cursor-pointer from-theme-gradient-from to-theme-gradient-to hover:shadow-xl hover:opacity-90 transition-all font-bold text-lg rounded-xl shadow-lg shadow-theme-primary/20"
+              className="w-full h-12 bg-blue-600 hover:bg-blue-700 transition-all font-bold text-lg rounded-xl shadow-lg"
             >
               {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Sign Up"}
             </Button>
@@ -325,9 +327,9 @@ export default function SignupPage() {
             variant="outline" 
             onClick={handleGoogleSignup}
             disabled={loading}
-            className="w-full h-12 border-slate-200 cursor-pointer bg-white hover:bg-slate-50 group transition-all rounded-xl"
+            className="w-full h-12 border-slate-200 bg-white hover:bg-slate-50 transition-all rounded-xl mt-4"
           >
-            <Google className="mr-2 h-5 w-5 text-theme-accent group-hover:scale-110 transition-transform" />
+            <Google className="mr-2 h-5 w-5 text-red-500" />
             <span className="font-semibold text-slate-700">Continue with Google</span>
           </Button>
         </CardContent>
@@ -337,7 +339,7 @@ export default function SignupPage() {
             Already have an account?{" "}
             <button 
               onClick={() => router.push("/login")} 
-              className="text-theme-primary font-bold hover:text-theme-dark hover:underline underline-offset-4 transition-all"
+              className="text-blue-600 font-bold hover:underline"
             >
               Log in here
             </button>

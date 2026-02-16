@@ -7,3 +7,4 @@ so we are using nextjs(latest with app rotuer and JS ( no ts ))+shadcn@latest , 
 i am trying to build quotation building application , 
 we are using nextjs ( latest with app router ) , redux , lucid react icons, shadcn@latest , react-hot-toast and firebase (@/firebase/config) , 
 
+vcp_3rnAydypHYpcqKr9qcz0G5ie2d1Hd1e6ZyHaXbxbL2AH3qOx734NyNDt
