@@ -12,13 +12,13 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user && user.role === "admin" && user?.approved == true) {
+    if (user && user.role === "admin" && user?.approved == "accepted") {
       router.push("/admin-panel");
-    } else if (user && user.role === "agent" && user?.approved ==true ) {
+    } else if (user && user.role === "agent" && user?.approved =="accepted" ) {
       router.push("/agent-panel");
     }else if(user && user.role === "superadmin"){
       router.push("/superadmin")
-    }else if(user && user.approved == false){
+    }else if(user && user.approved == "pending"){
       toast.error("Wait for Admin Approval")
       router.push("/login")
     }
