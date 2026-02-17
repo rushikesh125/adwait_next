@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { 
   createUserWithEmailAndPassword, 
   signOut, 
@@ -11,7 +11,7 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/firebase/config"; 
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
-import emailjs from "@emailjs/browser"; // 1. Import EmailJS
+import emailjs from "@emailjs/browser";
 
 // Shadcn Components
 import { Button } from "@/components/ui/button";
@@ -62,25 +62,24 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // 2. Helper function to send email via EmailJS
+  // Helper function to send email via EmailJS
   const sendAdminEmail = async (userDisplayName, userEmail, userRole, userPhone) => {
     try {
       await emailjs.send(
-       "service_gmfmqbu",
+        "service_gmfmqbu",
         "template_msuvmij",
         {
           user_name: userDisplayName,
           user_email: userEmail,
           user_role: userRole,
           user_phone: userPhone,
-          admin_email: "rushikesh.gaikwad@adwaittours.com", // You can also pass this as a variable
+          admin_email: "rushikesh.gaikwad@adwaittours.com",
         },
         "GjevhIIhLITokCOAK"
       );
       console.log("Admin notified via EmailJS");
     } catch (error) {
       console.error("EmailJS Error:", error);
-      // We don't block the UI for email failures, but we log them
     }
   };
 
@@ -104,6 +103,7 @@ export default function SignupPage() {
     return validFormat.test(email) && !invalidDomains.some((d) => email.endsWith(d));
   };
 
+  // REVISED: Saving with string status for 'approved'
   const saveUserToDb = async (user, role, name, phone) => {
     const collectionName = role === "admin" ? "admins" : "agents";
     await setDoc(doc(db, collectionName, user.uid), {
@@ -112,7 +112,7 @@ export default function SignupPage() {
       email: user.email,
       phone: phone || "",
       role: role,
-      approved: false,
+      approved: "pending", // Set default status to pending
       createdAt: new Date(),
     });
   };
@@ -130,8 +130,6 @@ export default function SignupPage() {
       const fullPhone = `${formData.countryCode}${formData.phone}`;
       
       await saveUserToDb(user, formData.role, formData.name, fullPhone);
-      
-      // 3. Trigger Email Notification
       await sendAdminEmail(formData.name, formData.email, formData.role, fullPhone);
       
       toast.success("Signup successful! Waiting for admin approval.");
@@ -158,8 +156,6 @@ export default function SignupPage() {
       if (!docSnap.exists()) {
         const phone = user.phoneNumber || "Not provided";
         await saveUserToDb(user, formData.role, user.displayName, phone);
-        
-        // 4. Trigger Email Notification for Google User
         await sendAdminEmail(user.displayName, user.email, formData.role, phone);
 
         toast.success(`Registered as ${formData.role}. Awaiting approval.`);
@@ -167,11 +163,19 @@ export default function SignupPage() {
         router.push("/login");
       } else {
         const data = docSnap.data();
-        if (data.approved) {
+        
+        // REVISED Logic for the 4 statuses saved in "approved" field
+        if (data.approved === "accepted") {
           toast.success("Welcome back!");
           router.push(data.role === "admin" ? "/data-entry" : "/agent-dashboard");
-        } else {
+        } else if (data.approved === "pending") {
           toast.error("Account pending approval.");
+          await signOut(auth);
+        } else if (data.approved === "rejected") {
+          toast.error("Your application has been rejected.");
+          await signOut(auth);
+        } else if (data.approved === "suspended") {
+          toast.error("Your account is currently suspended.");
           await signOut(auth);
         }
       }
@@ -186,7 +190,6 @@ export default function SignupPage() {
     <div className="min-h-screen w-full flex items-center justify-center bg-[#FDFCFE] relative overflow-hidden p-4">
       <Toaster position="top-center" />
       
-      {/* Background Decor */}
       <div className="absolute top-[-5%] left-[-5%] w-[350px] h-[350px] rounded-full bg-blue-50/50 blur-[100px] animate-pulse" />
 
       <Card className="w-full max-w-[480px] rounded-3xl border-slate-100 shadow-2xl bg-white/80 backdrop-blur-xl z-10">
@@ -200,7 +203,6 @@ export default function SignupPage() {
 
         <CardContent className="space-y-2">
           <form onSubmit={handleSignup} className="space-y-4">
-            
             <div className="space-y-1.5">
               <Label className="text-slate-900 font-semibold ml-1">Full Name</Label>
               <div className="relative">

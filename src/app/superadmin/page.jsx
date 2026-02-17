@@ -2,251 +2,135 @@
 
 import React, { useEffect, useState } from "react";
 import { db } from "@/firebase/config";
-import {
-  collection,
-  getDocs,
-  updateDoc,
-  doc,
-  deleteDoc,
-} from "firebase/firestore";
-import {
-  Users,
-  UserCheck,
-  Clock,
-  LogOut,
-  Shield,
-  UserRound,
-  LayoutDashboard,
-  Loader2,
-} from "lucide-react";
-
-// Shadcn Components
-import { Button } from "@/components/ui/button";
+import { collection, getDocs, updateDoc, doc, deleteDoc } from "firebase/firestore";
+import emailjs from "@emailjs/browser";
+import { Shield, UserRound, Loader2, Search, Badge } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import UserCard from "@/components/UserCare";
+import { Input } from "@/components/ui/input";
+// import UserRow from "./UserRow"; 
 import UserDropdown from "@/components/UserDropdown";
 import { useSelector } from "react-redux";
-// import UserCard from "@/components/UserCard";
+import toast, { Toaster } from "react-hot-toast";
+import UserRow from "@/components/UserCard";
 
 export default function Dashboard() {
   const [admins, setAdmins] = useState([]);
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useSelector((state) => state.auth);
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
       const adminSnap = await getDocs(collection(db, "admins"));
       const agentSnap = await getDocs(collection(db, "agents"));
-
       setAdmins(adminSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
       setAgents(agentSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    } catch (error) {
-      console.error("Error fetching users:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { toast.error("Failed to load users"); }
+    finally { setLoading(false); }
   };
 
-  const handleApproval = async (type, id, status) => {
-    const ref = doc(db, type, id);
-    await updateDoc(ref, { approved: status });
-    fetchUsers();
+  const sendStatusEmail = async (userEmail, userName, status, reason = "") => {
+    try {
+      // Create a separate template in EmailJS for status updates
+      await emailjs.send(
+        "service_gmfmqbu", 
+        "template_status_update", // Update with your actual template ID
+        {
+          to_name: userName,
+          to_email: userEmail,
+          status: status,
+          reason: reason || "Your account status has been updated by the administrator.",
+        },
+        "GjevhIIhLITokCOAK"
+      );
+    } catch (err) { console.error("Mail Error:", err); }
+  };
+
+  const handleStatusUpdate = async (type, id, newStatus, reason = "") => {
+    try {
+      const userList = type === "admins" ? admins : agents;
+      const targetUser = userList.find(u => u.id === id);
+      
+      const ref = doc(db, type, id);
+      await updateDoc(ref, { approved: newStatus });
+      
+      // Trigger Email
+      await sendStatusEmail(targetUser.email, targetUser.name, newStatus, reason);
+      
+      toast.success(`User marked as ${newStatus}`);
+      fetchUsers();
+    } catch (error) { toast.error("Update failed"); }
   };
 
   const handleDelete = async (type, id) => {
-    const ref = doc(db, type, id);
-    await deleteDoc(ref);
+    if (!confirm("Are you sure? This cannot be undone.")) return;
+    await deleteDoc(doc(db, type, id));
     fetchUsers();
+    toast.success("User deleted");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("adminName");
-    window.location.href = "/";
-  };
+  useEffect(() => { fetchUsers(); }, []);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const totalApproved = [...admins, ...agents].filter((u) => u.approved).length;
-  const totalPending = [...admins, ...agents].filter((u) => !u.approved).length;
-  const adminName =
-    typeof window !== "undefined"
-      ? localStorage.getItem("adminName") || "Admin"
-      : "Admin";
+  const UserTable = ({ data, type }) => (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th className="p-4 text-xs font-bold uppercase text-slate-500">User</th>
+              <th className="p-4 text-xs font-bold uppercase text-slate-500 hidden md:table-cell">Email</th>
+              <th className="p-4 text-xs font-bold uppercase text-slate-500 hidden sm:table-cell">Phone</th>
+              <th className="p-4 text-xs font-bold uppercase text-slate-500">Status</th>
+              <th className="p-4 text-xs font-bold uppercase text-slate-500 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((u) => (
+              <UserRow key={u.id} user={u} type={type} onChange={handleStatusUpdate} onDelete={handleDelete} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col">
-      {/* --- Responsive Header --- */}
-      <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-theme-primary p-1.5 rounded-lg">
-              <Shield className="w-5 h-5 md:w-6 md:h-6  text-white" />
-            </div>
-            <h1 className="text-lg md:text-xl font-bold tracking-tight text-theme-primary">
-              Adwait Tours
-            </h1>
-          </div>
-
-          <UserDropdown user={user}/>
+    <div className="min-h-screen bg-slate-50/50">
+      <Toaster />
+      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Shield className="text-blue-600" />
+          <h1 className="font-bold text-xl">Adwait Tours Admin</h1>
         </div>
+        <UserDropdown user={user}/>
       </header>
 
-      <main className="flex-1 container mx-auto px-4 py-6 md:py-8">
-        {/* Header Section */}
-        <div className="mb-8 flex flex-col gap-2">
-          <h2 className="text-2xl md:text-3xl font-bold text-theme-primary tracking-tight">
-            Dashboard Overview
-          </h2>
-          <p className="text-sm md:text-base text-muted-foreground">
-            Welcome back, {adminName}.
-          </p>
-        </div>
-
-        {/* 📊 Statistics Grid - Highly Responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
-          <Card className="border-none shadow-sm bg-blue-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-blue-100 text-xs font-medium uppercase tracking-wider">
-                    Approved
-                  </p>
-                  <h3 className="text-3xl font-bold mt-1">{totalApproved}</h3>
-                </div>
-                <UserCheck className="w-8 h-8 opacity-20" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-                    Pending
-                  </p>
-                  <h3 className="text-3xl font-bold mt-1 text-slate-900">
-                    {totalPending}
-                  </h3>
-                </div>
-                <Clock className="w-8 h-8 text-amber-500 opacity-20" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white sm:col-span-2 lg:col-span-1">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-                    Total Users
-                  </p>
-                  <h3 className="text-3xl font-bold mt-1 text-slate-900">
-                    {admins.length + agents.length}
-                  </h3>
-                </div>
-                <Users className="w-8 h-8 text-slate-400 opacity-20" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* --- Tabs Section --- */}
-        <Tabs defaultValue="admins" className="w-full space-y-6">
-          <div className="flex items-center justify-between border-b pb-4 overflow-x-auto">
-            <TabsList className="bg-slate-100 p-1">
-              <TabsTrigger
-                value="admins"
-                className="flex items-center gap-2 px-4 md:px-6"
-              >
-                <Shield className="w-4 h-4" />
-                <span>Admins</span>
-                <Badge
-                  variant="secondary"
-                  className="ml-1 h-5 px-1.5 text-[10px]"
-                >
-                  {admins.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger
-                value="agents"
-                className="flex items-center gap-2 px-4 md:px-6"
-              >
-                <UserRound className="w-4 h-4" />
-                <span>Agents</span>
-                <Badge
-                  variant="secondary"
-                  className="ml-1 h-5 px-1.5 text-[10px]"
-                >
-                  {agents.length}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
+      <main className="container mx-auto p-4 md:p-8 space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
+            <p className="text-slate-500">Manage access levels and approvals for your team.</p>
           </div>
+        </div>
+
+        <Tabs defaultValue="admins" className="space-y-6">
+          <TabsList className="bg-white border shadow-sm">
+            <TabsTrigger value="admins" className="gap-2">Admins <Badge variant="secondary">{admins.length}</Badge></TabsTrigger>
+            <TabsTrigger value="agents" className="gap-2">Agents <Badge variant="secondary">{agents.length}</Badge></TabsTrigger>
+          </TabsList>
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary" />
-              <p>Loading records...</p>
-            </div>
+            <div className="flex flex-col items-center py-20"><Loader2 className="animate-spin text-blue-600 mb-2" /> Loading...</div>
           ) : (
             <>
-              <TabsContent value="admins" className="mt-0">
-                <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {admins.length > 0 ? (
-                    admins.map((admin) => (
-                      <UserCard
-                        key={admin.id}
-                        user={admin}
-                        type="admins"
-                        onChange={handleApproval}
-                        onDelete={handleDelete}
-                      />
-                    ))
-                  ) : (
-                    <EmptyState message="No administrators found." />
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="agents" className="mt-0">
-                <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {agents.length > 0 ? (
-                    agents.map((agent) => (
-                      <UserCard
-                        key={agent.id}
-                        user={agent}
-                        type="agents"
-                        onChange={handleApproval}
-                        onDelete={handleDelete}
-                      />
-                    ))
-                  ) : (
-                    <EmptyState message="No agent accounts found." />
-                  )}
-                </div>
-              </TabsContent>
+              <TabsContent value="admins"><UserTable data={admins} type="admins" /></TabsContent>
+              <TabsContent value="agents"><UserTable data={agents} type="agents" /></TabsContent>
             </>
           )}
         </Tabs>
       </main>
-    </div>
-  );
-}
-
-// Helper Component for Empty States
-function EmptyState({ message }) {
-  return (
-    <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-white/50">
-      <LayoutDashboard className="w-10 h-10 text-slate-300 mb-3" />
-      <p className="text-slate-500 font-medium">{message}</p>
     </div>
   );
 }
