@@ -23,7 +23,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Download, Edit, Trash2, Copy } from "lucide-react";
+import { Search, Download, Edit, Trash2, Copy, Eye } from "lucide-react";
+
+const STATUS_VARIANT_MAP = {
+  Accepted: "success",
+  Sent: "default",
+  Rejected: "destructive",
+};
 
 const QuotationsTable = ({
   filteredQuotations,
@@ -35,7 +41,6 @@ const QuotationsTable = ({
   setStartDate,
   endDate,
   setEndDate,
-  quotations,
   getDestinationOfpkg,
   handleViewClick,
   handleEditClick,
@@ -43,34 +48,37 @@ const QuotationsTable = ({
   handleDeleteQuotation,
   handleCopyToClipboard,
 }) => {
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setFilterDestination?.("");
+    setStartDate("");
+    setEndDate("");
+  };
+
+  const hasActiveFilters = searchTerm || filterDestination || startDate || endDate;
+
   return (
     <>
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-theme-primary">
-            My Quotations
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and edit your travel quotations
-          </p>
+          <h1 className="text-3xl font-bold text-theme-primary">My Quotations</h1>
+          <p className="text-muted-foreground mt-1">Manage and edit your travel quotations</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{filteredQuotations.length} quotation{filteredQuotations.length !== 1 ? "s" : ""}</span>
         </div>
       </div>
 
-      {/* Unified Card with Filters and Table */}
       <Card className="border-theme-muted shadow-sm">
         <CardHeader className="pb-4 border-b">
           <div className="flex flex-col gap-4">
-            <CardTitle className="text-xl text-theme-primary">
-              All Quotations
-            </CardTitle>
+            <CardTitle className="text-xl text-theme-primary">All Quotations</CardTitle>
 
-            {/* Search and Filters */}
-            <div className="md:flex flex-col md:flex-row gap-2 md:gap-4 items-end">
+            {/* Filters */}
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-end">
               <div className="flex-1 space-y-2">
-                <Label htmlFor="search" className="text-sm">
-                  Search
-                </Label>
+                <Label htmlFor="search" className="text-sm">Search</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -83,11 +91,9 @@ const QuotationsTable = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 flex-1">
+              <div className="grid grid-cols-2 gap-3 flex-1">
                 <div className="space-y-2">
-                  <Label htmlFor="startDate" className="text-sm">
-                    From Date
-                  </Label>
+                  <Label htmlFor="startDate" className="text-sm">From Date</Label>
                   <Input
                     type="date"
                     id="startDate"
@@ -96,9 +102,7 @@ const QuotationsTable = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="endDate" className="text-sm">
-                    To Date
-                  </Label>
+                  <Label htmlFor="endDate" className="text-sm">To Date</Label>
                   <Input
                     type="date"
                     id="endDate"
@@ -110,13 +114,9 @@ const QuotationsTable = ({
 
               <Button
                 variant="outline"
-                onClick={() => {
-                  setSearchTerm("");
-                  setFilterDestination("");
-                  setStartDate("");
-                  setEndDate("");
-                }}
-                className="h-10"
+                onClick={handleClearFilters}
+                disabled={!hasActiveFilters}
+                className="h-10 whitespace-nowrap"
               >
                 Clear Filters
               </Button>
@@ -125,10 +125,10 @@ const QuotationsTable = ({
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="rounded-b-md border-t-0">
+          <div className="rounded-b-md">
             <Table>
               <TableHeader>
-                <TableRow className="bg-theme-muted/30 hover:bg-theme-muted/50 ">
+                <TableRow className="bg-theme-muted/30 hover:bg-theme-muted/50">
                   <TableHead className="w-24">Quote No.</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Package</TableHead>
@@ -139,103 +139,117 @@ const QuotationsTable = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredQuotations.map((q, ind) => (
-                  <TableRow
-                    key={q.id}
-                    className="cursor-pointer hover:bg-theme-muted/20 transition-colors "
-                    onClick={() => handleViewClick(q)}
-                  >
-                    <TableCell className="font-medium">
-                      Quote {ind + 1}
+                {filteredQuotations.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                      No quotations match your search.
                     </TableCell>
-                    <TableCell>{q.customerName || q.leadName || "—"}</TableCell>
-                    <TableCell>{q.packageName || "—"}</TableCell>
-                    <TableCell className="whitespace-pre-line max-w-xs">
-                      {getDestinationOfpkg(q)}
-                    </TableCell>
-                    <TableCell>
-                      {q.createdAt
-                        ? new Date(
-                            q.createdAt.seconds * 1000,
-                          ).toLocaleDateString("en-GB")
-                        : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          q.status === "Accepted"
-                            ? "success"
-                            : q.status === "Sent"
-                              ? "default"
-                              : q.status === "Rejected"
-                                ? "destructive"
-                                : "secondary"
-                        }
-                      >
-                        {q.status || "Draft"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell
-                      className="text-right space-x-2"
-                      onClick={(e) => e.stopPropagation()}
+                  </TableRow>
+                ) : (
+                  filteredQuotations.map((q, ind) => (
+                    <TableRow
+                      key={q.id}
+                      className="cursor-pointer hover:bg-theme-muted/20 transition-colors"
+                      onClick={() => handleViewClick(q)}
                     >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditClick(q)}
-                        title="Edit Quotation"
+                      <TableCell className="font-medium text-theme-primary">
+                        #{ind + 1}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {q.customerName || q.leadName || "—"}
+                      </TableCell>
+                      <TableCell className="max-w-[160px] truncate" title={q.packageName}>
+                        {q.packageName || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-pre-line max-w-[180px] text-sm text-muted-foreground">
+                        {getDestinationOfpkg(q)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {q.createdAt
+                          ? new Date(q.createdAt.seconds * 1000).toLocaleDateString("en-GB")
+                          : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT_MAP[q.status] || "secondary"}>
+                          {q.status || "Draft"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className="text-right"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDownloadPDF(q)}
-                        title="Download PDF"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-destructive hover:text-destructive/90"
-                            title="Delete Quotation"
+                            onClick={() => handleViewClick(q)}
+                            title="View Quotation"
+                            className="h-8 w-8"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete the quotation for "
-                              {q.customerName}". This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteQuotation(q.id)}
-                              className="bg-destructive hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleCopyToClipboard(q)}
-                        title="Copy Summary"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditClick(q)}
+                            title="Edit Quotation"
+                            className="h-8 w-8"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDownloadPDF(q)}
+                            title="Download PDF"
+                            className="h-8 w-8"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCopyToClipboard(q)}
+                            title="Copy Summary"
+                            className="h-8 w-8"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive/90 h-8 w-8"
+                                title="Delete Quotation"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete the quotation for &quot;
+                                  {q.customerName}&quot;. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteQuotation(q.id)}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

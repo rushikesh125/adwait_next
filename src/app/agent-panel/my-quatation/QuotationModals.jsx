@@ -1,6 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { db } from "@/firebase/config";
+import {
+  collection, query, where, getDocs, addDoc, updateDoc, doc,
+} from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,59 +41,599 @@ import {
   ActivitySquare,
   Trash2,
   IndianRupee,
+  Star,
+  PenLine,
 } from "lucide-react";
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const MEAL_PLANS = ["EP", "CP", "MAP", "AP"];
+const STAR_RATINGS = ["1", "2", "3", "4", "5"];
+
+const EMPTY_PRICING = () => ({
+  ep:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+  cp:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+  map: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+  ap:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+});
+
+const PLAN_LABELS = { ep: "EP", cp: "CP", map: "MAP", ap: "AP" };
+const PLAN_DESCRIPTIONS = {
+  ep: "Accommodation only",
+  cp: "Bed + Breakfast",
+  map: "Breakfast + Dinner",
+  ap: "All Meals",
+};
+
+/**
+ * Compute the per-night price for a custom hotel given its stored pricing table,
+ * selected meal plan, and guest counts — mirrors calculateHotelPrice logic.
+ */
+const calcCustomHotelNightPrice = (pricing, plan, { numDouble, numExtraAdult, numExtraChild, numCNB }) => {
+  if (!pricing || !plan) return 0;
+  const p = pricing[plan.toLowerCase()];
+  if (!p) return 0;
+  return (
+    (p.double || 0) * (numDouble || 0) +
+    (p.extraAdult || 0) * (numExtraAdult || 0) +
+    (p.extraChild || 0) * (numExtraChild || 0) +
+    (p.cnb || 0) * (numCNB || 0)
+  );
+};
+
+// ─── Custom Hotel Form ────────────────────────────────────────────────────────
+const CustomHotelForm = ({ state: defaultState, onAdd, onCancel }) => {
+  // ── Basic info ──
+  const [hotelName, setHotelName] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState(defaultState || "");
+  const [rating, setRating] = useState("3");
+  const [roomType, setRoomType] = useState("");
+
+  // ── Pricing table (one row per meal plan) ──
+  const [pricing, setPricing] = useState(EMPTY_PRICING());
+
+  // ── Meal plan selection ──
+  const [selectedMealPlan, setSelectedMealPlan] = useState("EP");
+
+  // ── Guest counts & dates (for the quotation row) ──
+  const [nights, setNights]             = useState(1);
+  const [numDouble, setNumDouble]       = useState(1);
+  const [numExtraAdult, setNumExtraAdult] = useState(0);
+  const [numExtraChild, setNumExtraChild] = useState(0);
+  const [numCNB, setNumCNB]             = useState(0);
+  const [checkInDate, setCheckInDate]   = useState(new Date().toISOString().split("T")[0]);
+
+  // ── Firestore lookup ──
+  const [isSaving, setIsSaving]         = useState(false);
+  const [existingDocId, setExistingDocId] = useState(null); // if found in DB
+
+  // Lookup DB when hotel name + city + state are all filled
+  useEffect(() => {
+    const name = hotelName.trim();
+    const c    = city.trim();
+    const s    = state.trim();
+    if (!name || !c || !s) return;
+
+    let cancelled = false;
+    const lookup = async () => {
+      try {
+        const q = query(
+          collection(db, "custom_hotels"),
+          where("name",  "==", name),
+          where("city",  "==", c),
+          where("state", "==", s),
+        );
+        const snap = await getDocs(q);
+        if (cancelled || snap.empty) return;
+        const d = snap.docs[0];
+        const data = d.data();
+        setExistingDocId(d.id);
+        setRating(data.rating || "3");
+        setRoomType(data.roomType || "");
+        setPricing(data.pricing || EMPTY_PRICING());
+        setSelectedMealPlan(data.lastUsedMealPlan || "EP");
+      } catch (err) {
+        console.error("Custom hotel lookup failed:", err);
+      }
+    };
+    lookup();
+    return () => { cancelled = true; };
+  }, [hotelName, city, state]);
+
+  const handlePricingChange = (plan, type, raw) => {
+    const val = raw === "" ? 0 : Math.max(0, Number(raw));
+    setPricing((prev) => ({
+      ...prev,
+      [plan]: { ...prev[plan], [type]: val },
+    }));
+  };
+
+  // Derived: price per night for selected plan + current guest counts
+  const pricePerNight = calcCustomHotelNightPrice(pricing, selectedMealPlan, {
+    numDouble, numExtraAdult, numExtraChild, numCNB,
+  });
+  const estimatedTotal = pricePerNight * nights;
+
+  // Plans that have at least one positive price entered
+  const plansWithPrice = MEAL_PLANS.filter((p) => {
+    const row = pricing[p.toLowerCase()];
+    return row && Object.values(row).some((v) => v > 0);
+  });
+
+  const handleSubmit = async () => {
+    if (!hotelName.trim()) { alert("Hotel name is required."); return; }
+    if (!city.trim())      { alert("City is required."); return; }
+    if (!state.trim())     { alert("State is required."); return; }
+    if (!roomType.trim())  { alert("Room type is required."); return; }
+    if (plansWithPrice.length === 0) { alert("Enter at least one price in the pricing table."); return; }
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        name: hotelName.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        rating,
+        roomType: roomType.trim(),
+        pricing,
+        lastUsedMealPlan: selectedMealPlan,
+        updatedAt: new Date(),
+      };
+
+      if (existingDocId) {
+        await updateDoc(doc(db, "custom_hotels", existingDocId), payload);
+      } else {
+        const ref = await addDoc(collection(db, "custom_hotels"), { ...payload, createdAt: new Date() });
+        setExistingDocId(ref.id);
+      }
+    } catch (err) {
+      console.error("Failed to save custom hotel:", err);
+      // Non-blocking — still add to quotation even if save fails
+    } finally {
+      setIsSaving(false);
+    }
+
+    // Build checkout date
+    const checkIn  = new Date(checkInDate);
+    const checkOut = new Date(checkIn);
+    checkOut.setDate(checkOut.getDate() + (nights || 1));
+
+    onAdd({
+      hotel: hotelName.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      rating,
+      selectedRoomCategory: roomType.trim(),
+      nights,
+      numDouble,
+      numExtraAdult,
+      numExtraChild,
+      numCNB,
+      selectedMealPlan,
+      pricing,           // stored so hotelTotal can be recalculated when plan/counts change
+      pricePerNight,     // per-night at current guest mix (informational)
+      hotelTotal: estimatedTotal,
+      checkInDate,
+      checkOutDate: checkOut.toISOString().split("T")[0],
+      isCustom: true,
+    });
+  };
+
+  return (
+    <Card className="border-dashed border-2 border-theme-primary/40 bg-theme-muted/10">
+      <CardHeader className="pb-2 p-3 sm:p-4">
+        <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-theme-primary">
+          <PenLine className="h-4 w-4" />
+          Add Custom Hotel
+          {existingDocId && (
+            <span className="ml-2 text-xs font-normal text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+              ✓ Found in records — prices pre-filled
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="p-3 sm:p-4 pt-0 space-y-4">
+
+        {/* ── Row 1: Identity ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="sm:col-span-2 space-y-1">
+            <Label className="text-xs">Hotel Name *</Label>
+            <Input
+              value={hotelName}
+              onChange={(e) => setHotelName(e.target.value)}
+              placeholder="e.g. Hotel Paradise"
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">City *</Label>
+            <Input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Lonavala"
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">State *</Label>
+            <Input
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              placeholder="e.g. Maharashtra"
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        {/* ── Row 2: Rating + Room type ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Star Rating</Label>
+            <Select value={rating} onValueChange={setRating}>
+              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STAR_RATINGS.map((r) => (
+                  <SelectItem key={r} value={r}>{r} Star{r !== "1" ? "s" : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-3 space-y-1">
+            <Label className="text-xs">Room Type * (free text)</Label>
+            <Input
+              value={roomType}
+              onChange={(e) => setRoomType(e.target.value)}
+              placeholder="e.g. Premium Deluxe, Suite, Cottage…"
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        {/* ── Pricing table ── */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+            Pricing Table — enter rates per guest type
+          </Label>
+          <div className="rounded-lg border overflow-x-auto">
+            <table className="w-full text-xs min-w-[480px]">
+              <thead>
+                <tr className="bg-muted/50 text-muted-foreground">
+                  <th className="px-3 py-2 text-left font-medium w-20">Plan</th>
+                  <th className="px-3 py-2 text-left font-medium">Double (₹)</th>
+                  <th className="px-3 py-2 text-left font-medium">Extra Adult (₹)</th>
+                  <th className="px-3 py-2 text-left font-medium">Extra Child (₹)</th>
+                  <th className="px-3 py-2 text-left font-medium text-theme-primary">CNB (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {Object.entries(PLAN_LABELS).map(([planKey, planLabel]) => (
+                  <tr key={planKey} className="hover:bg-muted/20">
+                    <td className="px-3 py-2">
+                      <div className="font-bold text-xs">{planLabel}</div>
+                      <div className="text-muted-foreground text-[10px] leading-tight">
+                        {PLAN_DESCRIPTIONS[planKey]}
+                      </div>
+                    </td>
+                    {["double", "extraAdult", "extraChild", "cnb"].map((type) => (
+                      <td key={type} className="px-3 py-2">
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={pricing[planKey]?.[type] || ""}
+                            onChange={(e) => handlePricingChange(planKey, type, e.target.value)}
+                            className={`w-full h-8 pl-5 pr-2 border rounded text-right text-xs outline-none focus:ring-1 focus:ring-theme-primary
+                              ${type === "cnb" ? "border-theme-primary/30" : "border-input"}`}
+                            placeholder="0"
+                          />
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── Meal plan selector ── */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+            Select Active Meal Plan for this stay
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            {MEAL_PLANS.map((plan) => {
+              const hasPrice = plansWithPrice.includes(plan);
+              const isActive = selectedMealPlan === plan;
+              return (
+                <button
+                  key={plan}
+                  type="button"
+                  onClick={() => setSelectedMealPlan(plan)}
+                  disabled={!hasPrice}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                    ${isActive
+                      ? "bg-theme-primary text-white border-theme-primary shadow-sm"
+                      : hasPrice
+                        ? "bg-white border-input text-slate-700 hover:border-theme-primary/60"
+                        : "bg-muted/30 border-muted text-muted-foreground cursor-not-allowed opacity-50"
+                    }`}
+                >
+                  {plan}
+                  {hasPrice && <span className="ml-1 text-[10px] opacity-70">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+          {!plansWithPrice.includes(selectedMealPlan) && plansWithPrice.length > 0 && (
+            <p className="text-[11px] text-amber-600">
+              Selected plan has no price — switch to a plan marked ✓
+            </p>
+          )}
+        </div>
+
+        {/* ── Guest counts + dates ── */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {[
+            { label: "Check-in", type: "date",   val: checkInDate,    set: setCheckInDate,   min: undefined },
+            { label: "Nights",   type: "number",  val: nights,         set: (v) => setNights(parseInt(v)||1),        min: 1 },
+            { label: "Rooms",    type: "number",  val: numDouble,      set: (v) => setNumDouble(parseInt(v)||0),     min: 0 },
+            { label: "Ex. Adults",  type: "number", val: numExtraAdult,  set: (v) => setNumExtraAdult(parseInt(v)||0), min: 0 },
+            { label: "Ex. Children",type: "number", val: numExtraChild,  set: (v) => setNumExtraChild(parseInt(v)||0), min: 0 },
+            { label: "CNB",      type: "number",  val: numCNB,         set: (v) => setNumCNB(parseInt(v)||0),        min: 0 },
+          ].map(({ label, type, val, set: setter, min }) => (
+            <div key={label} className="space-y-1">
+              <Label className="text-xs">{label}</Label>
+              <input
+                type={type}
+                min={min}
+                value={val}
+                onChange={(e) => setter(e.target.value)}
+                className="w-full h-8 border rounded px-2 text-xs outline-none focus:ring-1 focus:ring-theme-primary"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* ── Summary + actions ── */}
+        <div className="flex items-center justify-between pt-1 border-t gap-4">
+          <div className="text-sm text-muted-foreground space-y-0.5">
+            <div>
+              Per night:{" "}
+              <span className="font-semibold text-theme-primary">₹{pricePerNight.toFixed(0)}</span>
+              <span className="text-xs ml-1">({selectedMealPlan})</span>
+            </div>
+            <div>
+              Est. total ({nights} night{nights !== 1 ? "s" : ""}):{" "}
+              <span className="font-bold text-theme-primary">₹{estimatedTotal.toFixed(0)}</span>
+            </div>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSubmit}
+              disabled={isSaving}
+              className="bg-theme-primary hover:bg-theme-secondary text-xs"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              {isSaving ? "Saving…" : "Add Hotel"}
+            </Button>
+          </div>
+        </div>
+
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── Custom Activity Form ─────────────────────────────────────────────────────
+const CustomActivityForm = ({ state, onAdd, onCancel }) => {
+  const [form, setForm] = useState({
+    name: "",
+    city: "",
+    state: state || "",
+    description: "",
+    participants: 1,
+    pricePerPerson: 0,
+    isCustom: true,
+  });
+
+  const set = (key, val) => setForm((p) => ({ ...p, [key]: val }));
+
+  const handleSubmit = () => {
+    if (!form.name.trim()) { alert("Activity name is required."); return; }
+    if (!form.city.trim()) { alert("City is required."); return; }
+    const totalPrice = (parseFloat(form.pricePerPerson) || 0) * (parseInt(form.participants) || 1);
+    onAdd({ ...form, totalPrice, fitRatePerPerson: form.pricePerPerson, groupRatePerPerson: form.pricePerPerson });
+  };
+
+  return (
+    <Card className="border-dashed border-2 border-theme-primary/40 bg-theme-muted/10">
+      <CardHeader className="pb-2 p-3 sm:p-4">
+        <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-theme-primary">
+          <PenLine className="h-4 w-4" />
+          Add Custom Activity
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Activity Name *</Label>
+            <Input
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+              placeholder="e.g. Paragliding"
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">City *</Label>
+            <Input
+              value={form.city}
+              onChange={(e) => set("city", e.target.value)}
+              placeholder="e.g. Manali"
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">State</Label>
+            <Input
+              value={form.state}
+              onChange={(e) => set("state", e.target.value)}
+              placeholder="e.g. Himachal Pradesh"
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Participants</Label>
+            <Input
+              type="number"
+              min="1"
+              value={form.participants}
+              onChange={(e) => set("participants", parseInt(e.target.value) || 1)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Price / Person (₹)</Label>
+            <Input
+              type="number"
+              min="0"
+              value={form.pricePerPerson}
+              onChange={(e) => set("pricePerPerson", parseFloat(e.target.value) || 0)}
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs">Description (optional)</Label>
+          <Input
+            value={form.description}
+            onChange={(e) => set("description", e.target.value)}
+            placeholder="Short description of the activity"
+            className="text-sm"
+          />
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-sm text-muted-foreground">
+            Total ≈{" "}
+            <span className="font-semibold text-theme-primary">
+              ₹{((parseFloat(form.pricePerPerson) || 0) * (parseInt(form.participants) || 1)).toFixed(0)}
+            </span>
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSubmit} className="bg-theme-primary hover:bg-theme-secondary text-xs">
+              <Plus className="h-3 w-3 mr-1" /> Add Activity
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── Main QuotationModals ─────────────────────────────────────────────────────
 const QuotationModals = ({
-  isViewModalOpen,
-  setIsViewModalOpen,
-  viewingQuotation,
-  isEditModalOpen,
-  setIsEditModalOpen,
-  editingQuotation,
+  isViewModalOpen, setIsViewModalOpen, viewingQuotation,
+  isEditModalOpen, setIsEditModalOpen, editingQuotation,
   handleEditChange,
-  AllDestinations,
-  SelectedDestination,
-  setSelectedDestination,
-  selectedHotelToAdd,
-  setSelectedHotelToAdd,
-  allHotels,
-  handleAddHotel,
-  handleRemoveHotel,
-  handleHotelChange,
-  handleHotelSummaryChange,
+  AllDestinations, SelectedDestination, setSelectedDestination,
+  selectedHotelToAdd, setSelectedHotelToAdd, allHotels,
+  handleAddHotel, handleAddCustomHotel, handleRemoveHotel, handleHotelChange, handleHotelSummaryChange,
   getAvailableMealPlans,
-  toggleValue,
-  handleToggle,
-  handleTransportSummaryChange,
-  selectedTransportStateId,
-  setSelectedTransportStateId,
-  transportStates,
-  toTitleCase,
-  handlePackageChange,
-  availableTransportPackagesForSelectedState,
-  handleVehicleChange,
-  isFetchingActivities,
-  selectedActivityToAdd,
-  setSelectedActivityToAdd,
-  availableActivities,
-  handleAddActivity,
-  handleRemoveActivity,
-  handleActivitySummaryChange,
-  handleMarkupInputChange,
-  handleUpdateQuotation,
-  handleSaveAs,
-  showSaveAsModal,
-  setShowSaveAsModal,
-  newPackageName,
-  setNewPackageName,
-  newCustomerName,
-  setNewCustomerName,
-  handleConfirmSaveAs,
+  toggleValue, handleToggle, handleTransportSummaryChange,
+  selectedTransportStateId, setSelectedTransportStateId, transportStates, toTitleCase,
+  handlePackageChange, availableTransportPackagesForSelectedState, handleVehicleChange,
+  isFetchingActivities, selectedActivityToAdd, setSelectedActivityToAdd,
+  availableActivities, handleAddActivity, handleAddCustomActivity,
+  handleRemoveActivity, handleActivitySummaryChange,
+  markupMode, setMarkupMode, handleMarkupInputChange, recalculateGrandTotal,
+  handleUpdateQuotation, handleSaveAs,
+  showSaveAsModal, setShowSaveAsModal, newPackageName, setNewPackageName,
+  newCustomerName, setNewCustomerName, handleConfirmSaveAs,
 }) => {
-  // Utility function to truncate text
   const truncateText = (text, maxLength) => {
     if (!text) return "";
     return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  };
+
+  // ── Local UI state (internal to modals) ───────────────────────────────────
+  const [showCustomHotelForm, setShowCustomHotelForm] = useState(false);
+  const [showCustomActivityForm, setShowCustomActivityForm] = useState(false);
+
+  const hotelsForSelectedState = useMemo(
+    () => allHotels.filter((h) => h.state === SelectedDestination),
+    [allHotels, SelectedDestination],
+  );
+
+  const activitiesForSelectedState = useMemo(
+    () => availableActivities,
+    [availableActivities],
+  );
+
+  const noHotelsFound = SelectedDestination && hotelsForSelectedState.length === 0;
+  const noActivitiesFound = SelectedDestination && !isFetchingActivities && activitiesForSelectedState.length === 0;
+
+  // Compute base total (ex-markup) for percentage markup calculation
+  const baseTotal = useMemo(() => {
+    if (!editingQuotation) return 0;
+    const hotelTotal = editingQuotation.hotelSummary?.reduce((s, h) => s + (h.hotelTotal || 0), 0) || 0;
+    let transportTotal = 0;
+    if (editingQuotation.transportSummary) {
+      transportTotal =
+        editingQuotation.transportSummary.pricingType === "perKm"
+          ? (editingQuotation.transportSummary.kms || 0) * (editingQuotation.transportSummary.perKmprice || 0)
+          : editingQuotation.transportSummary.price || 0;
+    }
+    const activityTotal = editingQuotation.activitySummary?.reduce((s, a) => s + (a.totalPrice || 0), 0) || 0;
+    return hotelTotal + transportTotal + activityTotal;
+  }, [editingQuotation]);
+
+  // The "raw" markup input value (could be % or amount)
+  const markupInputValue = editingQuotation?.markupValue ?? editingQuotation?.markup ?? 0;
+
+  const handleMarkupChange = (value) => {
+    handleMarkupInputChange(value, markupMode, baseTotal);
+  };
+
+  const handleMarkupModeSwitch = (newMode) => {
+    setMarkupMode(newMode);
+    // Reset markupValue to 0 when switching modes
+    handleMarkupInputChange(0, newMode, baseTotal);
+  };
+
+  // ── Custom hotel add handler ───────────────────────────────────────────────
+  const onCustomHotelAdd = (data) => {
+    handleAddCustomHotel(data);
+    setShowCustomHotelForm(false);
+  };
+
+  // ── Custom activity add handler ───────────────────────────────────────────
+  const onCustomActivityAdd = (data) => {
+    handleAddCustomActivity(data);
+    setShowCustomActivityForm(false);
+  };
+
+  // ── Star rendering helper ─────────────────────────────────────────────────
+  const renderStars = (rating) => {
+    const n = parseInt(rating) || 0;
+    return Array.from({ length: n }).map((_, i) => (
+      <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+    ));
   };
 
   return (
@@ -108,15 +652,27 @@ const QuotationModals = ({
             <div>
               <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
                 <Hotel className="h-4 w-4 sm:h-5 sm:w-5 text-theme-primary flex-shrink-0" />
-                <span className="truncate">Hotel Details</span>
+                Hotel Details
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {viewingQuotation?.hotelSummary?.map((hotel, i) => (
                   <Card key={i} className="border-theme-muted">
                     <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
-                      <h4 className="font-medium text-sm sm:text-base truncate" title={hotel.hotel}>
-                        {truncateText(hotel.hotel, 25)}
-                      </h4>
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-medium text-sm sm:text-base truncate" title={hotel.hotel}>
+                          {truncateText(hotel.hotel, 22)}
+                        </h4>
+                        {hotel.isCustom && (
+                          <span className="text-xs bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded flex-shrink-0">
+                            Custom
+                          </span>
+                        )}
+                      </div>
+                      {hotel.rating && (
+                        <div className="flex items-center gap-0.5 mt-1">
+                          {renderStars(hotel.rating)}
+                        </div>
+                      )}
                       <p className="text-xs sm:text-sm text-muted-foreground mt-1 truncate">
                         {hotel.city}, {hotel.state}
                       </p>
@@ -133,31 +689,19 @@ const QuotationModals = ({
                         </div>
                         <div>
                           <span className="text-muted-foreground">Meal:</span>
-                          <p className="font-medium">
-                            {hotel.selectedMealPlan}
-                          </p>
+                          <p className="font-medium">{hotel.selectedMealPlan}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Guests:</span>
                           <p className="font-medium text-xs">
-                            {hotel.numDouble || 0}D, {hotel.numExtraAdult || 0}A,{" "}
-                            {hotel.numExtraChild || 0}C
+                            {hotel.numDouble || 0}D, {hotel.numExtraAdult || 0}A, {hotel.numExtraChild || 0}C
                             {Number(hotel.numCNB) > 0 && `, ${hotel.numCNB} CNB`}
                           </p>
                         </div>
                       </div>
-
-                      {Number(hotel.numCNB) > 0 && hotel.cnbPricePerChild > 0 && (
-                        <div className="mt-3 pt-3 border-t text-xs sm:text-sm text-theme-primary/90">
-                          <div className="flex justify-between">
-                            <span>CNB Charges:</span>
-                            <span>
-                              ₹
-                              {(
-                                Number(hotel.numCNB) * Number(hotel.cnbPricePerChild)
-                              ).toFixed(0)}
-                            </span>
-                          </div>
+                      {hotel.isCustom && hotel.pricePerNight > 0 && (
+                        <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
+                          ₹{hotel.pricePerNight}/night
                         </div>
                       )}
                     </CardContent>
@@ -168,11 +712,10 @@ const QuotationModals = ({
 
             {/* Transport & Activities */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-              {/* Transport */}
               <div>
                 <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
                   <Car className="h-4 w-4 sm:h-5 sm:w-5 text-theme-primary flex-shrink-0" />
-                  <span className="truncate">Transport</span>
+                  Transport
                 </h3>
                 <Card>
                   <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
@@ -187,17 +730,9 @@ const QuotationModals = ({
                       <div className="flex justify-between gap-2">
                         <span className="text-muted-foreground flex-shrink-0">Cost:</span>
                         <span className="font-medium text-theme-primary">
-                          ₹
-                          {viewingQuotation?.transportSummary?.pricingType ===
-                          "perKm"
-                            ? (
-                                (viewingQuotation.transportSummary?.perKmprice ||
-                                  0) *
-                                (viewingQuotation.transportSummary?.kms || 0)
-                              ).toFixed(0)
-                            : (
-                                viewingQuotation?.transportSummary?.price || 0
-                              ).toFixed(0)}
+                          ₹{viewingQuotation?.transportSummary?.pricingType === "perKm"
+                            ? ((viewingQuotation.transportSummary?.perKmprice || 0) * (viewingQuotation.transportSummary?.kms || 0)).toFixed(0)
+                            : (viewingQuotation?.transportSummary?.price || 0).toFixed(0)}
                         </span>
                       </div>
                     </div>
@@ -205,44 +740,39 @@ const QuotationModals = ({
                 </Card>
               </div>
 
-              {/* Activities */}
               <div>
                 <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
                   <ActivitySquare className="h-4 w-4 sm:h-5 sm:w-5 text-theme-primary flex-shrink-0" />
-                  <span className="truncate">Activities</span>
+                  Activities
                 </h3>
                 {viewingQuotation?.activitySummary?.length > 0 ? (
                   <Card>
                     <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6 space-y-3 sm:space-y-4">
                       {viewingQuotation.activitySummary.map((act, i) => (
-                        <div
-                          key={i}
-                          className="flex justify-between items-center gap-2"
-                        >
+                        <div key={i} className="flex justify-between items-center gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm sm:text-base truncate" title={act.name}>
-                              {truncateText(act.name, 20)}
-                            </p>
-                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                              {act.city}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-sm sm:text-base truncate" title={act.name}>
+                                {truncateText(act.name, 20)}
+                              </p>
+                              {act.isCustom && (
+                                <span className="text-xs bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded flex-shrink-0">
+                                  Custom
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">{act.city}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="font-medium text-sm sm:text-base">
-                              {act.participants} Person(s)
-                            </p>
-                            <p className="text-xs sm:text-sm text-theme-primary">
-                              ₹{act.totalPrice?.toFixed(0)}
-                            </p>
+                            <p className="font-medium text-sm sm:text-base">{act.participants} Person(s)</p>
+                            <p className="text-xs sm:text-sm text-theme-primary">₹{act.totalPrice?.toFixed(0)}</p>
                           </div>
                         </div>
                       ))}
                     </CardContent>
                   </Card>
                 ) : (
-                  <p className="text-muted-foreground text-center py-6 text-sm">
-                    No activities added
-                  </p>
+                  <p className="text-muted-foreground text-center py-6 text-sm">No activities added</p>
                 )}
               </div>
             </div>
@@ -252,43 +782,24 @@ const QuotationModals = ({
               <CardHeader className="pb-3 p-3 sm:p-6">
                 <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                   <IndianRupee className="h-4 w-4 sm:h-5 sm:w-5 text-theme-primary flex-shrink-0" />
-                  <span className="truncate">Cost Summary</span>
+                  Cost Summary
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6 pt-0">
                 <div className="space-y-2 sm:space-y-3 text-sm sm:text-base">
                   <div className="flex justify-between gap-2">
                     <span>Hotel Total:</span>
-                    <span>
-                      ₹
-                      {viewingQuotation?.hotelSummary
-                        ?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0)
-                        ?.toFixed(0) || "0"}
-                    </span>
+                    <span>₹{viewingQuotation?.hotelSummary?.reduce((s, h) => s + (h.hotelTotal || 0), 0)?.toFixed(0) || "0"}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span>Transport Total:</span>
-                    <span>
-                      ₹
-                      {viewingQuotation?.transportSummary?.pricingType ===
-                      "perKm"
-                        ? (
-                            (viewingQuotation.transportSummary?.perKmprice ||
-                              0) * (viewingQuotation.transportSummary?.kms || 0)
-                          ).toFixed(0)
-                        : (
-                            viewingQuotation?.transportSummary?.price || 0
-                          ).toFixed(0)}
-                    </span>
+                    <span>₹{viewingQuotation?.transportSummary?.pricingType === "perKm"
+                      ? ((viewingQuotation.transportSummary?.perKmprice || 0) * (viewingQuotation.transportSummary?.kms || 0)).toFixed(0)
+                      : (viewingQuotation?.transportSummary?.price || 0).toFixed(0)}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span>Activity Total:</span>
-                    <span>
-                      ₹
-                      {viewingQuotation?.activitySummary
-                        ?.reduce((sum, a) => sum + (a.totalPrice || 0), 0)
-                        ?.toFixed(0) || "0"}
-                    </span>
+                    <span>₹{viewingQuotation?.activitySummary?.reduce((s, a) => s + (a.totalPrice || 0), 0)?.toFixed(0) || "0"}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span>Markup:</span>
@@ -297,14 +808,9 @@ const QuotationModals = ({
                 </div>
                 <div className="pt-3 sm:pt-4 border-t">
                   <div className="flex justify-between items-center gap-2">
-                    <span className="text-base sm:text-lg font-bold text-theme-primary">
-                      Grand Total:
-                    </span>
+                    <span className="text-base sm:text-lg font-bold text-theme-primary">Grand Total:</span>
                     <span className="text-xl sm:text-2xl font-bold text-theme-primary">
-                      ₹
-                      {(viewingQuotation?.grandTotal || 0).toLocaleString(
-                        "en-IN",
-                      )}
+                      ₹{(viewingQuotation?.grandTotal || 0).toLocaleString("en-IN")}
                     </span>
                   </div>
                 </div>
@@ -313,11 +819,7 @@ const QuotationModals = ({
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsViewModalOpen(false)}
-              className="w-full sm:w-auto"
-            >
+            <Button variant="outline" onClick={() => setIsViewModalOpen(false)} className="w-full sm:w-auto">
               Close
             </Button>
           </DialogFooter>
@@ -325,7 +827,10 @@ const QuotationModals = ({
       </Dialog>
 
       {/* ================== EDIT MODAL ================== */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <Dialog open={isEditModalOpen} onOpenChange={(open) => {
+        setIsEditModalOpen(open);
+        if (!open) { setShowCustomHotelForm(false); setShowCustomActivityForm(false); }
+      }}>
         <DialogContent className="w-[95vw] max-w-6xl lg:max-w-7xl max-h-[90vh] overflow-scroll flex flex-col p-4 sm:p-6">
           <DialogHeader className="pb-3 sm:pb-4 border-b">
             <DialogTitle className="text-xl sm:text-2xl text-theme-primary break-words">
@@ -342,16 +847,11 @@ const QuotationModals = ({
                   <Input
                     id="customerName"
                     name="customerName"
-                    value={
-                      editingQuotation?.customerName ||
-                      editingQuotation?.leadName ||
-                      ""
-                    }
+                    value={editingQuotation?.customerName || editingQuotation?.leadName || ""}
                     onChange={handleEditChange}
                     className="text-sm sm:text-base"
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="status" className="text-sm">Status</Label>
                   <Select
@@ -393,29 +893,26 @@ const QuotationModals = ({
                   </TabsTrigger>
                 </TabsList>
 
-                {/* HOTELS TAB */}
+                {/* ─── HOTELS TAB ─── */}
                 <TabsContent value="hotels" className="space-y-4 sm:space-y-6">
-                  {/* Add Hotel */}
                   <Card>
                     <CardHeader className="pb-3 p-3 sm:p-6">
-                      <CardTitle className="text-base sm:text-lg">Add New Hotel</CardTitle>
+                      <CardTitle className="text-base sm:text-lg">Add Hotel</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4 p-3 sm:p-6 pt-0">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label className="text-sm">Select State</Label>
-                          <Select
-                            value={SelectedDestination}
-                            onValueChange={setSelectedDestination}
-                          >
+                          <Select value={SelectedDestination} onValueChange={(v) => {
+                            setSelectedDestination(v);
+                            setShowCustomHotelForm(false);
+                          }}>
                             <SelectTrigger className="text-sm">
                               <SelectValue placeholder="Select state" />
                             </SelectTrigger>
                             <SelectContent>
                               {AllDestinations.map((state) => (
-                                <SelectItem key={state.name} value={state.name}>
-                                  {state.name}
-                                </SelectItem>
+                                <SelectItem key={state.name} value={state.name}>{state.name}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -423,58 +920,90 @@ const QuotationModals = ({
 
                         <div className="space-y-2">
                           <Label className="text-sm">Select Hotel</Label>
-                          <div className="flex gap-2 sm:gap-3">
-                            <Select
-                              value={selectedHotelToAdd}
-                              onValueChange={setSelectedHotelToAdd}
-                              disabled={!SelectedDestination}
-                            >
-                              <SelectTrigger className="flex-1 text-sm">
-                                <SelectValue placeholder="Choose hotel..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {allHotels
-                                  .filter(
-                                    (h) => h.state === SelectedDestination,
-                                  )
-                                  .map((h) => (
+                          {noHotelsFound ? (
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground flex-1">No hotels found for this state.</p>
+                              {!showCustomHotelForm && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => setShowCustomHotelForm(true)}
+                                  className="bg-theme-primary hover:bg-theme-secondary text-xs whitespace-nowrap"
+                                >
+                                  <PenLine className="h-3 w-3 mr-1" />
+                                  Add Custom
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex gap-2 sm:gap-3">
+                              <Select
+                                value={selectedHotelToAdd}
+                                onValueChange={setSelectedHotelToAdd}
+                                disabled={!SelectedDestination}
+                              >
+                                <SelectTrigger className="flex-1 text-sm">
+                                  <SelectValue placeholder="Choose hotel..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {hotelsForSelectedState.map((h) => (
                                     <SelectItem key={h.id} value={h.id}>
                                       {h.name} ({h.city})
                                     </SelectItem>
                                   ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              onClick={handleAddHotel}
-                              disabled={!selectedHotelToAdd}
-                              className="bg-theme-primary hover:bg-theme-secondary flex-shrink-0 text-sm sm:text-base"
-                              size="sm"
-                            >
-                              <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                              <span className="hidden sm:inline">Add</span>
-                            </Button>
-                          </div>
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                onClick={handleAddHotel}
+                                disabled={!selectedHotelToAdd}
+                                className="bg-theme-primary hover:bg-theme-secondary flex-shrink-0 text-sm sm:text-base"
+                                size="sm"
+                              >
+                                <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Add</span>
+                              </Button>
+                              {SelectedDestination && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowCustomHotelForm((p) => !p)}
+                                  className="flex-shrink-0 text-xs border-theme-primary/40 text-theme-primary"
+                                  title="Add custom hotel"
+                                >
+                                  <PenLine className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                      {/* Custom hotel form */}
+                      {showCustomHotelForm && (
+                        <CustomHotelForm
+                          state={SelectedDestination}
+                          onAdd={onCustomHotelAdd}
+                          onCancel={() => setShowCustomHotelForm(false)}
+                        />
+                      )}
                     </CardContent>
                   </Card>
 
-                  {/* Hotels Table - Mobile Responsive */}
+                  {/* Hotels list — desktop table + mobile cards */}
                   {editingQuotation?.hotelSummary?.length > 0 ? (
                     <>
-                      {/* Desktop Table View */}
+                      {/* Desktop Table */}
                       <div className="hidden lg:block rounded-md border overflow-x-auto">
                         <Table>
                           <TableHeader>
                             <TableRow className="bg-muted/50">
                               <TableHead className="min-w-[180px]">Hotel</TableHead>
-                              <TableHead className="min-w-[140px]">Room Type</TableHead>
+                              <TableHead className="min-w-[130px]">Room Type</TableHead>
                               <TableHead className="w-20">Nights</TableHead>
                               <TableHead className="w-20">Rooms</TableHead>
-                              <TableHead className="w-24">Extra Adults</TableHead>
-                              <TableHead className="w-24">Extra Children</TableHead>
+                              <TableHead className="w-24">Ex. Adults</TableHead>
+                              <TableHead className="w-24">Ex. Children</TableHead>
                               <TableHead className="w-20">CNB</TableHead>
-                              <TableHead className="min-w-[120px]">Meal Plan</TableHead>
+                              <TableHead className="min-w-[110px]">Meal Plan</TableHead>
                               <TableHead className="text-right min-w-[100px]">Price</TableHead>
                               <TableHead className="w-16"></TableHead>
                             </TableRow>
@@ -482,172 +1011,110 @@ const QuotationModals = ({
                           <TableBody>
                             {editingQuotation.hotelSummary.map((hotel, index) => {
                               const currentHotelData = allHotels.find(
-                                (h) =>
-                                  h.name === hotel.hotel &&
-                                  h.state === hotel.state,
+                                (h) => h.name === hotel.hotel && h.state === hotel.state,
                               );
                               return (
-                                <TableRow key={index}>
+                                <TableRow key={index} className={hotel.isCustom ? "bg-theme-muted/10" : ""}>
                                   <TableCell className="font-medium">
-                                    <Select
-                                      value={
-                                        allHotels.find(
-                                          (h) =>
-                                            h.name === hotel.hotel &&
-                                            h.state === hotel.state,
-                                        )?.id || ""
-                                      }
-                                      onValueChange={(val) =>
-                                        handleHotelChange(index, val)
-                                      }
-                                    >
-                                      <SelectTrigger className="w-[200px]">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {allHotels
-                                          .filter((h) => h.state === hotel.state)
-                                          .map((h) => (
-                                            <SelectItem key={h.id} value={h.id}>
-                                              {h.name} ({h.city})
-                                            </SelectItem>
+                                    {hotel.isCustom ? (
+                                      <div className="space-y-0.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-sm font-medium truncate max-w-[160px]" title={hotel.hotel}>
+                                            {hotel.hotel}
+                                          </span>
+                                          <span className="text-xs bg-theme-primary/10 text-theme-primary px-1 rounded flex-shrink-0">
+                                            Custom
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-0.5">
+                                          {renderStars(hotel.rating)}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">{hotel.city}, {hotel.state}</p>
+                                      </div>
+                                    ) : (
+                                      <Select
+                                        value={allHotels.find((h) => h.name === hotel.hotel && h.state === hotel.state)?.id || ""}
+                                        onValueChange={(val) => handleHotelChange(index, val)}
+                                      >
+                                        <SelectTrigger className="w-[190px]">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {allHotels.filter((h) => h.state === hotel.state).map((h) => (
+                                            <SelectItem key={h.id} value={h.id}>{h.name} ({h.city})</SelectItem>
                                           ))}
-                                      </SelectContent>
-                                    </Select>
+                                        </SelectContent>
+                                      </Select>
+                                    )}
                                   </TableCell>
 
                                   <TableCell>
+                                    {hotel.isCustom ? (
+                                      <Input
+                                        value={hotel.selectedRoomCategory || ""}
+                                        onChange={(e) => handleHotelSummaryChange(index, "selectedRoomCategory", e.target.value)}
+                                        placeholder="e.g. Deluxe"
+                                        className="w-[130px] text-sm"
+                                      />
+                                    ) : (
+                                      <Select
+                                        value={hotel.selectedRoomCategory || ""}
+                                        onValueChange={(val) => handleHotelSummaryChange(index, "selectedRoomCategory", val)}
+                                      >
+                                        <SelectTrigger className="w-[130px]">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {currentHotelData?.rooms?.map((room) => (
+                                            <SelectItem key={room.categoryName} value={room.categoryName}>{room.categoryName}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                  </TableCell>
+
+                                  {["nights", "numDouble", "numExtraAdult", "numExtraChild", "numCNB"].map((field) => (
+                                    <TableCell key={field}>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={hotel[field] || 0}
+                                        onChange={(e) => handleHotelSummaryChange(index, field, e.target.value)}
+                                        className="w-20"
+                                      />
+                                    </TableCell>
+                                  ))}
+
+                                  <TableCell>
                                     <Select
-                                      value={hotel.selectedRoomCategory || ""}
-                                      onValueChange={(val) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "selectedRoomCategory",
-                                          val,
-                                        )
-                                      }
+                                      value={hotel.selectedMealPlan || "EP"}
+                                      onValueChange={(val) => handleHotelSummaryChange(index, "selectedMealPlan", val)}
                                     >
-                                      <SelectTrigger>
+                                      <SelectTrigger className="w-28">
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {currentHotelData?.rooms?.map((room) => (
-                                          <SelectItem
-                                            key={room.categoryName}
-                                            value={room.categoryName}
-                                          >
-                                            {room.categoryName}
-                                          </SelectItem>
+                                        {(hotel.isCustom ? MEAL_PLANS : getAvailableMealPlans(hotel)).map((plan) => (
+                                          <SelectItem key={plan} value={plan}>{plan}</SelectItem>
                                         ))}
                                       </SelectContent>
                                     </Select>
                                   </TableCell>
 
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      value={hotel.nights || 1}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "nights",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="w-20"
-                                    />
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={hotel.numDouble || 0}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "numDouble",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="w-20"
-                                    />
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={hotel.numExtraAdult || 0}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "numExtraAdult",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="w-20"
-                                    />
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={hotel.numExtraChild || 0}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "numExtraChild",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="w-20"
-                                    />
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={hotel.numCNB || 0}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "numCNB",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="w-20"
-                                    />
-                                  </TableCell>
-
-                                  <TableCell>
-                                    <Select
-                                      value={hotel.selectedMealPlan || "EP"}
-                                      onValueChange={(val) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "selectedMealPlan",
-                                          val,
-                                        )
-                                      }
-                                    >
-                                      <SelectTrigger className="w-32">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {getAvailableMealPlans(hotel).map(
-                                          (plan) => (
-                                            <SelectItem key={plan} value={plan}>
-                                              {plan}
-                                            </SelectItem>
-                                          ),
-                                        )}
-                                      </SelectContent>
-                                    </Select>
-                                  </TableCell>
+                                  {hotel.isCustom && (
+                                    <TableCell>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs text-muted-foreground">₹/night</span>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          value={hotel.pricePerNight || 0}
+                                          onChange={(e) => handleHotelSummaryChange(index, "pricePerNight", e.target.value)}
+                                          className="w-24"
+                                        />
+                                      </div>
+                                    </TableCell>
+                                  )}
 
                                   <TableCell className="text-right font-medium">
                                     ₹{(hotel.hotelTotal || 0).toFixed(0)}
@@ -658,9 +1125,7 @@ const QuotationModals = ({
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => handleRemoveHotel(index)}
-                                      disabled={
-                                        editingQuotation.hotelSummary.length <= 1
-                                      }
+                                      disabled={editingQuotation.hotelSummary.length <= 1}
                                       className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -673,53 +1138,50 @@ const QuotationModals = ({
                         </Table>
                       </div>
 
-                      {/* Mobile Card View */}
+                      {/* Mobile Cards */}
                       <div className="lg:hidden space-y-4">
                         {editingQuotation.hotelSummary.map((hotel, index) => {
                           const currentHotelData = allHotels.find(
-                            (h) =>
-                              h.name === hotel.hotel &&
-                              h.state === hotel.state,
+                            (h) => h.name === hotel.hotel && h.state === hotel.state,
                           );
                           return (
-                            <Card key={index} className="border-theme-muted">
+                            <Card key={index} className={`border-theme-muted ${hotel.isCustom ? "bg-theme-muted/10" : ""}`}>
                               <CardContent className="p-4 space-y-3">
                                 <div className="flex justify-between items-start gap-2">
-                                  <div className="flex-1 min-w-0 space-y-2">
-                                    <Label className="text-xs">Hotel</Label>
-                                    <Select
-                                      value={
-                                        allHotels.find(
-                                          (h) =>
-                                            h.name === hotel.hotel &&
-                                            h.state === hotel.state,
-                                        )?.id || ""
-                                      }
-                                      onValueChange={(val) =>
-                                        handleHotelChange(index, val)
-                                      }
-                                    >
-                                      <SelectTrigger className="text-sm">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {allHotels
-                                          .filter((h) => h.state === hotel.state)
-                                          .map((h) => (
-                                            <SelectItem key={h.id} value={h.id}>
-                                              {h.name} ({h.city})
-                                            </SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                    </Select>
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    {hotel.isCustom ? (
+                                      <>
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-medium text-sm truncate">{hotel.hotel}</span>
+                                          <span className="text-xs bg-theme-primary/10 text-theme-primary px-1 rounded flex-shrink-0">Custom</span>
+                                        </div>
+                                        <div className="flex items-center gap-0.5">{renderStars(hotel.rating)}</div>
+                                        <p className="text-xs text-muted-foreground">{hotel.city}, {hotel.state}</p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Label className="text-xs">Hotel</Label>
+                                        <Select
+                                          value={allHotels.find((h) => h.name === hotel.hotel && h.state === hotel.state)?.id || ""}
+                                          onValueChange={(val) => handleHotelChange(index, val)}
+                                        >
+                                          <SelectTrigger className="text-sm">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {allHotels.filter((h) => h.state === hotel.state).map((h) => (
+                                              <SelectItem key={h.id} value={h.id}>{h.name} ({h.city})</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </>
+                                    )}
                                   </div>
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => handleRemoveHotel(index)}
-                                    disabled={
-                                      editingQuotation.hotelSummary.length <= 1
-                                    }
+                                    disabled={editingQuotation.hotelSummary.length <= 1}
                                     className="text-destructive hover:text-destructive/90 hover:bg-destructive/10 flex-shrink-0"
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -727,147 +1189,83 @@ const QuotationModals = ({
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label className="text-xs">Room Type</Label>
-                                    <Select
-                                      value={hotel.selectedRoomCategory || ""}
-                                      onValueChange={(val) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "selectedRoomCategory",
-                                          val,
-                                        )
-                                      }
-                                    >
-                                      <SelectTrigger className="text-sm">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {currentHotelData?.rooms?.map((room) => (
-                                          <SelectItem
-                                            key={room.categoryName}
-                                            value={room.categoryName}
-                                          >
-                                            {room.categoryName}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                    {hotel.isCustom ? (
+                                      <Input
+                                        value={hotel.selectedRoomCategory || ""}
+                                        onChange={(e) => handleHotelSummaryChange(index, "selectedRoomCategory", e.target.value)}
+                                        placeholder="e.g. Deluxe"
+                                        className="text-sm"
+                                      />
+                                    ) : (
+                                      <Select
+                                        value={hotel.selectedRoomCategory || ""}
+                                        onValueChange={(val) => handleHotelSummaryChange(index, "selectedRoomCategory", val)}
+                                      >
+                                        <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                          {currentHotelData?.rooms?.map((room) => (
+                                            <SelectItem key={room.categoryName} value={room.categoryName}>{room.categoryName}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
                                   </div>
-
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <Label className="text-xs">Meal Plan</Label>
                                     <Select
                                       value={hotel.selectedMealPlan || "EP"}
-                                      onValueChange={(val) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "selectedMealPlan",
-                                          val,
-                                        )
-                                      }
+                                      onValueChange={(val) => handleHotelSummaryChange(index, "selectedMealPlan", val)}
                                     >
-                                      <SelectTrigger className="text-sm">
-                                        <SelectValue />
-                                      </SelectTrigger>
+                                      <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                                       <SelectContent>
-                                        {getAvailableMealPlans(hotel).map(
-                                          (plan) => (
-                                            <SelectItem key={plan} value={plan}>
-                                              {plan}
-                                            </SelectItem>
-                                          ),
-                                        )}
+                                        {(hotel.isCustom ? MEAL_PLANS : getAvailableMealPlans(hotel)).map((plan) => (
+                                          <SelectItem key={plan} value={plan}>{plan}</SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                   </div>
                                 </div>
 
                                 <div className="grid grid-cols-4 gap-2">
-                                  <div className="space-y-2">
-                                    <Label className="text-xs">Nights</Label>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      value={hotel.nights || 1}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "nights",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="text-sm"
-                                    />
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <Label className="text-xs">Rooms</Label>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={hotel.numDouble || 0}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "numDouble",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="text-sm"
-                                    />
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <Label className="text-xs">Adults</Label>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={hotel.numExtraAdult || 0}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "numExtraAdult",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="text-sm"
-                                    />
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <Label className="text-xs">Child</Label>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={hotel.numExtraChild || 0}
-                                      onChange={(e) =>
-                                        handleHotelSummaryChange(
-                                          index,
-                                          "numExtraChild",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="text-sm"
-                                    />
-                                  </div>
+                                  {[["nights","Nights"],["numDouble","Rooms"],["numExtraAdult","Adults"],["numExtraChild","Child"]].map(([field, label]) => (
+                                    <div key={field} className="space-y-1">
+                                      <Label className="text-xs">{label}</Label>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={hotel[field] || 0}
+                                        onChange={(e) => handleHotelSummaryChange(index, field, e.target.value)}
+                                        className="text-sm"
+                                      />
+                                    </div>
+                                  ))}
                                 </div>
 
-                                <div className="flex justify-between items-center pt-2 border-t">
-                                  <span className="text-xs text-muted-foreground">CNB:</span>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    value={hotel.numCNB || 0}
-                                    onChange={(e) =>
-                                      handleHotelSummaryChange(
-                                        index,
-                                        "numCNB",
-                                        e.target.value,
-                                      )
-                                    }
-                                    className="w-20 text-sm"
-                                  />
+                                <div className="flex items-center gap-3">
+                                  <div className="space-y-1 w-24">
+                                    <Label className="text-xs">CNB</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={hotel.numCNB || 0}
+                                      onChange={(e) => handleHotelSummaryChange(index, "numCNB", e.target.value)}
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                  {hotel.isCustom && (
+                                    <div className="flex-1 space-y-1">
+                                      <Label className="text-xs">Price/Night (₹)</Label>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={hotel.pricePerNight || 0}
+                                        onChange={(e) => handleHotelSummaryChange(index, "pricePerNight", e.target.value)}
+                                        className="text-sm"
+                                      />
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="flex justify-between items-center pt-2 border-t">
@@ -889,20 +1287,15 @@ const QuotationModals = ({
                   )}
                 </TabsContent>
 
-                {/* TRANSPORT TAB */}
+                {/* ─── TRANSPORT TAB ─── */}
                 <TabsContent value="transport" className="space-y-4 sm:space-y-6">
                   <Card>
                     <CardHeader className="pb-3 p-3 sm:p-6">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <CardTitle className="text-base sm:text-lg">
-                          Transportation
-                        </CardTitle>
+                        <CardTitle className="text-base sm:text-lg">Transportation</CardTitle>
                         <div className="flex items-center gap-3">
                           <span className="text-xs sm:text-sm font-medium">Custom</span>
-                          <Switch
-                            checked={toggleValue}
-                            onCheckedChange={handleToggle}
-                          />
+                          <Switch checked={toggleValue} onCheckedChange={handleToggle} />
                           <span className="text-xs sm:text-sm font-medium">Package</span>
                         </div>
                       </div>
@@ -910,134 +1303,83 @@ const QuotationModals = ({
 
                     <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-6 pt-0">
                       {!toggleValue ? (
-                        // Custom Transport
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                           <div className="space-y-2">
                             <Label className="text-sm">Vehicle Name</Label>
                             <Input
-                              value={
-                                editingQuotation?.transportSummary
-                                  ?.vehicleName || ""
-                              }
-                              onChange={(e) =>
-                                handleTransportSummaryChange(
-                                  "vehicleName",
-                                  e.target.value,
-                                )
-                              }
+                              value={editingQuotation?.transportSummary?.vehicleName || ""}
+                              onChange={(e) => handleTransportSummaryChange("vehicleName", e.target.value)}
                               className="text-sm"
                             />
                           </div>
-
                           <div className="space-y-2">
                             <Label className="text-sm">Price (₹)</Label>
                             <Input
                               type="number"
                               min="0"
-                              value={
-                                editingQuotation?.transportSummary?.price || 0
-                              }
-                              onChange={(e) =>
-                                handleTransportSummaryChange(
-                                  "price",
-                                  parseFloat(e.target.value) || 0,
-                                )
-                              }
+                              value={editingQuotation?.transportSummary?.price || 0}
+                              onChange={(e) => handleTransportSummaryChange("price", parseFloat(e.target.value) || 0)}
                               className="text-sm"
                             />
                           </div>
-
                           <div className="flex items-end">
                             <div className="flex items-center space-x-2">
                               <input
                                 type="checkbox"
                                 id="ac"
-                                checked={
-                                  !!editingQuotation?.transportSummary?.ac
-                                }
-                                onChange={(e) =>
-                                  handleTransportSummaryChange(
-                                    "ac",
-                                    e.target.checked,
-                                  )
-                                }
+                                checked={!!editingQuotation?.transportSummary?.ac}
+                                onChange={(e) => handleTransportSummaryChange("ac", e.target.checked)}
                                 className="h-4 w-4 rounded border-gray-300 text-theme-primary focus:ring-theme-primary"
                               />
-                              <Label
-                                htmlFor="ac"
-                                className="text-xs sm:text-sm font-medium"
-                              >
-                                AC Vehicle
-                              </Label>
+                              <Label htmlFor="ac" className="text-xs sm:text-sm font-medium">AC Vehicle</Label>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        // Package Transport
                         <div className="space-y-4 sm:space-y-6">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                             <div className="space-y-2">
                               <Label className="text-sm">Select State</Label>
-                              <Select
-                                value={selectedTransportStateId}
-                                onValueChange={setSelectedTransportStateId}
-                              >
+                              <Select value={selectedTransportStateId} onValueChange={setSelectedTransportStateId}>
                                 <SelectTrigger className="text-sm">
                                   <SelectValue placeholder="Select transport state" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {transportStates.map((state) => (
-                                    <SelectItem key={state.id} value={state.id}>
-                                      {toTitleCase(state.id)}
-                                    </SelectItem>
+                                    <SelectItem key={state.id} value={state.id}>{toTitleCase(state.id)}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </div>
-
                             {selectedTransportStateId && (
                               <div className="space-y-2">
                                 <Label className="text-sm">Change Package</Label>
                                 <Select
-                                  value={
-                                    editingQuotation?.transportSummary?.id || ""
-                                  }
-                                  onValueChange={(val) => {
-                                    const e = { target: { value: val } };
-                                    handlePackageChange(e);
-                                  }}
+                                  value={editingQuotation?.transportSummary?.id || ""}
+                                  onValueChange={(val) => handlePackageChange({ target: { value: val } })}
                                 >
                                   <SelectTrigger className="text-sm">
                                     <SelectValue placeholder="Select package" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {availableTransportPackagesForSelectedState.map(
-                                      (pkg) => (
-                                        <SelectItem key={pkg.id} value={pkg.id}>
-                                          {truncateText(pkg.name || pkg.packageName || pkg.id, 30)}
-                                        </SelectItem>
-                                      ),
-                                    )}
+                                    {availableTransportPackagesForSelectedState.map((pkg) => (
+                                      <SelectItem key={pkg.id} value={pkg.id}>
+                                        {truncateText(pkg.name || pkg.packageName || pkg.id, 30)}
+                                      </SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
                               </div>
                             )}
                           </div>
 
-                          {editingQuotation?.transportSummary?.vehicles
-                            ?.length > 0 && (
+                          {editingQuotation?.transportSummary?.vehicles?.length > 0 && (
                             <div className="space-y-2">
                               <Label className="text-sm">Select Vehicle</Label>
                               <Select
-                                value={
-                                  editingQuotation?.transportSummary
-                                    ?.selectedVehicle?.type || ""
-                                }
+                                value={editingQuotation?.transportSummary?.selectedVehicle?.type || ""}
                                 onValueChange={(val) => {
-                                  const vehicle =
-                                    editingQuotation.transportSummary.vehicles.find(
-                                      (v) => v.type === val,
-                                    );
+                                  const vehicle = editingQuotation.transportSummary.vehicles.find((v) => v.type === val);
                                   if (vehicle) handleVehicleChange(vehicle);
                                 }}
                               >
@@ -1045,14 +1387,11 @@ const QuotationModals = ({
                                   <SelectValue placeholder="Select vehicle" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {editingQuotation.transportSummary.vehicles.map(
-                                    (v, i) => (
-                                      <SelectItem key={i} value={v.type}>
-                                        {v.type} - ₹{v.price ?? v.perKmprice}{" "}
-                                        {v.ac ? "(AC)" : "(Non-AC)"}
-                                      </SelectItem>
-                                    ),
-                                  )}
+                                  {editingQuotation.transportSummary.vehicles.map((v, i) => (
+                                    <SelectItem key={i} value={v.type}>
+                                      {v.type} - ₹{v.price ?? v.perKmprice} {v.ac ? "(AC)" : "(Non-AC)"}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             </div>
@@ -1061,31 +1400,21 @@ const QuotationModals = ({
                           {selectedTransportStateId && (
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-4 border-t">
                               <div>
-                                <Label className="text-xs text-muted-foreground">
-                                  Current Package
-                                </Label>
+                                <Label className="text-xs text-muted-foreground">Current Package</Label>
                                 <p className="font-medium mt-1 text-sm truncate" title={editingQuotation?.transportSummary?.packageName}>
                                   {truncateText(editingQuotation?.transportSummary?.packageName || "—", 20)}
                                 </p>
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">
-                                  AC Status
-                                </Label>
+                                <Label className="text-xs text-muted-foreground">AC Status</Label>
                                 <p className="font-medium mt-1 text-sm">
-                                  {editingQuotation?.transportSummary?.ac
-                                    ? "Available"
-                                    : "Not Available"}
+                                  {editingQuotation?.transportSummary?.ac ? "Available" : "Not Available"}
                                 </p>
                               </div>
                               <div>
-                                <Label className="text-xs text-muted-foreground">
-                                  Vehicle Cost
-                                </Label>
+                                <Label className="text-xs text-muted-foreground">Vehicle Cost</Label>
                                 <p className="font-medium text-theme-primary mt-1 text-sm">
-                                  ₹
-                                  {editingQuotation?.transportSummary
-                                    ?.totalPrice || 0}
+                                  ₹{editingQuotation?.transportSummary?.totalPrice || 0}
                                 </p>
                               </div>
                             </div>
@@ -1096,31 +1425,26 @@ const QuotationModals = ({
                   </Card>
                 </TabsContent>
 
-                {/* ACTIVITIES TAB */}
+                {/* ─── ACTIVITIES TAB ─── */}
                 <TabsContent value="activities" className="space-y-4 sm:space-y-6">
-                  {/* Add Activity */}
                   <Card>
                     <CardHeader className="pb-3 p-3 sm:p-6">
-                      <CardTitle className="text-base sm:text-lg">
-                        Add New Activity
-                      </CardTitle>
+                      <CardTitle className="text-base sm:text-lg">Add Activity</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-3 sm:p-6 pt-0">
+                    <CardContent className="p-3 sm:p-6 pt-0 space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <div className="space-y-2">
                           <Label className="text-sm">Select State</Label>
-                          <Select
-                            value={SelectedDestination}
-                            onValueChange={setSelectedDestination}
-                          >
+                          <Select value={SelectedDestination} onValueChange={(v) => {
+                            setSelectedDestination(v);
+                            setShowCustomActivityForm(false);
+                          }}>
                             <SelectTrigger className="text-sm">
                               <SelectValue placeholder="Select state" />
                             </SelectTrigger>
                             <SelectContent>
                               {AllDestinations.map((state) => (
-                                <SelectItem key={state.name} value={state.name}>
-                                  {state.name}
-                                </SelectItem>
+                                <SelectItem key={state.name} value={state.name}>{state.name}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -1128,165 +1452,203 @@ const QuotationModals = ({
 
                         <div className="space-y-2">
                           <Label className="text-sm">Select Activity</Label>
-                          <div className="flex gap-2 sm:gap-3">
-                            <Select
-                              value={selectedActivityToAdd}
-                              onValueChange={setSelectedActivityToAdd}
-                              disabled={
-                                !SelectedDestination || isFetchingActivities
-                              }
-                            >
-                              <SelectTrigger className="flex-1 text-sm">
-                                <SelectValue
-                                  placeholder={
-                                    isFetchingActivities
-                                      ? "Loading..."
-                                      : "Choose activity..."
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availableActivities.map((act) => (
-                                  <SelectItem key={act.name} value={act.name}>
-                                    {act.name} ({act.city}) - ₹
-                                    {act.fitRatePerPerson ||
-                                      act.groupRatePerPerson}
-                                    /person
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-
-                            <Button
-                              onClick={handleAddActivity}
-                              disabled={!selectedActivityToAdd}
-                              className="bg-theme-primary hover:bg-theme-secondary flex-shrink-0"
-                              size="sm"
-                            >
-                              <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                              <span className="hidden sm:inline">Add</span>
-                            </Button>
-                          </div>
+                          {noActivitiesFound ? (
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground flex-1">No activities found for this state.</p>
+                              {!showCustomActivityForm && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => setShowCustomActivityForm(true)}
+                                  className="bg-theme-primary hover:bg-theme-secondary text-xs whitespace-nowrap"
+                                >
+                                  <PenLine className="h-3 w-3 mr-1" />
+                                  Add Custom
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex gap-2 sm:gap-3">
+                              <Select
+                                value={selectedActivityToAdd}
+                                onValueChange={setSelectedActivityToAdd}
+                                disabled={!SelectedDestination || isFetchingActivities}
+                              >
+                                <SelectTrigger className="flex-1 text-sm">
+                                  <SelectValue placeholder={isFetchingActivities ? "Loading..." : "Choose activity..."} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableActivities.map((act) => (
+                                    <SelectItem key={act.name} value={act.name}>
+                                      {act.name} ({act.city}) - ₹{act.fitRatePerPerson || act.groupRatePerPerson}/person
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                onClick={handleAddActivity}
+                                disabled={!selectedActivityToAdd}
+                                className="bg-theme-primary hover:bg-theme-secondary flex-shrink-0"
+                                size="sm"
+                              >
+                                <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Add</span>
+                              </Button>
+                              {SelectedDestination && !isFetchingActivities && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowCustomActivityForm((p) => !p)}
+                                  className="flex-shrink-0 text-xs border-theme-primary/40 text-theme-primary"
+                                  title="Add custom activity"
+                                >
+                                  <PenLine className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                      {/* Custom activity form */}
+                      {showCustomActivityForm && (
+                        <CustomActivityForm
+                          state={SelectedDestination}
+                          onAdd={onCustomActivityAdd}
+                          onCancel={() => setShowCustomActivityForm(false)}
+                        />
+                      )}
                     </CardContent>
                   </Card>
 
-                  {/* Activities Table/Cards */}
+                  {/* Activities list */}
                   {editingQuotation?.activitySummary?.length > 0 ? (
                     <>
-                      {/* Desktop Table */}
+                      {/* Desktop */}
                       <div className="hidden md:block rounded-md border">
                         <Table>
                           <TableHeader>
                             <TableRow className="bg-muted/50">
                               <TableHead>Activity</TableHead>
                               <TableHead>Participants</TableHead>
-                              <TableHead className="text-right">
-                                Total Price
-                              </TableHead>
+                              <TableHead>Price/Person</TableHead>
+                              <TableHead className="text-right">Total</TableHead>
                               <TableHead className="w-16"></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {editingQuotation.activitySummary.map(
-                              (activity, index) => (
-                                <TableRow key={index}>
-                                  <TableCell className="font-medium">
-                                    <span className="block truncate max-w-[200px]" title={activity.name}>
+                            {editingQuotation.activitySummary.map((activity, index) => (
+                              <TableRow key={index} className={activity.isCustom ? "bg-theme-muted/10" : ""}>
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="block truncate max-w-[180px]" title={activity.name}>
                                       {activity.name}
                                     </span>
-                                    <span className="text-muted-foreground text-sm">
-                                      ({activity.city})
-                                    </span>
-                                  </TableCell>
-                                  <TableCell>
+                                    {activity.isCustom && (
+                                      <span className="text-xs bg-theme-primary/10 text-theme-primary px-1 rounded flex-shrink-0">Custom</span>
+                                    )}
+                                  </div>
+                                  <span className="text-muted-foreground text-sm">({activity.city})</span>
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={activity.participants || 1}
+                                    onChange={(e) => handleActivitySummaryChange(index, "participants", e.target.value)}
+                                    className="w-24"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  {activity.isCustom ? (
                                     <Input
                                       type="number"
-                                      min="1"
-                                      value={activity.participants || 1}
-                                      onChange={(e) =>
-                                        handleActivitySummaryChange(
-                                          index,
-                                          "participants",
-                                          e.target.value,
-                                        )
-                                      }
-                                      className="w-24"
+                                      min="0"
+                                      value={activity.pricePerPerson || 0}
+                                      onChange={(e) => handleActivitySummaryChange(index, "pricePerPerson", e.target.value)}
+                                      className="w-28"
                                     />
-                                  </TableCell>
-                                  <TableCell className="text-right font-medium">
-                                    ₹{(activity.totalPrice || 0).toFixed(0)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleRemoveActivity(index)}
-                                      className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ),
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-
-                      {/* Mobile Cards */}
-                      <div className="md:hidden space-y-3">
-                        {editingQuotation.activitySummary.map(
-                          (activity, index) => (
-                            <Card key={index} className="border-theme-muted">
-                              <CardContent className="p-4">
-                                <div className="flex justify-between items-start gap-2 mb-3">
-                                  <div className="flex-1 min-w-0">
-                                    <h4 className="font-medium text-sm truncate" title={activity.name}>
-                                      {activity.name}
-                                    </h4>
-                                    <p className="text-xs text-muted-foreground">
-                                      {activity.city}
-                                    </p>
-                                  </div>
+                                  ) : (
+                                    <span className="text-sm">
+                                      ₹{activity.participants > 10 ? activity.groupRatePerPerson : activity.fitRatePerPerson}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  ₹{(activity.totalPrice || 0).toFixed(0)}
+                                </TableCell>
+                                <TableCell>
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => handleRemoveActivity(index)}
-                                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10 flex-shrink-0 h-8 w-8"
+                                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Mobile */}
+                      <div className="md:hidden space-y-3">
+                        {editingQuotation.activitySummary.map((activity, index) => (
+                          <Card key={index} className={`border-theme-muted ${activity.isCustom ? "bg-theme-muted/10" : ""}`}>
+                            <CardContent className="p-4">
+                              <div className="flex justify-between items-start gap-2 mb-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <h4 className="font-medium text-sm truncate" title={activity.name}>{activity.name}</h4>
+                                    {activity.isCustom && (
+                                      <span className="text-xs bg-theme-primary/10 text-theme-primary px-1 rounded">Custom</span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">{activity.city}</p>
                                 </div>
-                                <div className="flex justify-between items-center gap-4">
-                                  <div className="flex-1">
-                                    <Label className="text-xs">Participants</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoveActivity(index)}
+                                  className="text-destructive hover:text-destructive/90 hover:bg-destructive/10 flex-shrink-0 h-8 w-8"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <div className="flex justify-between items-end gap-4">
+                                <div className="flex-1 space-y-1">
+                                  <Label className="text-xs">Participants</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={activity.participants || 1}
+                                    onChange={(e) => handleActivitySummaryChange(index, "participants", e.target.value)}
+                                    className="mt-1 text-sm"
+                                  />
+                                </div>
+                                {activity.isCustom && (
+                                  <div className="flex-1 space-y-1">
+                                    <Label className="text-xs">₹ / Person</Label>
                                     <Input
                                       type="number"
-                                      min="1"
-                                      value={activity.participants || 1}
-                                      onChange={(e) =>
-                                        handleActivitySummaryChange(
-                                          index,
-                                          "participants",
-                                          e.target.value,
-                                        )
-                                      }
+                                      min="0"
+                                      value={activity.pricePerPerson || 0}
+                                      onChange={(e) => handleActivitySummaryChange(index, "pricePerPerson", e.target.value)}
                                       className="mt-1 text-sm"
                                     />
                                   </div>
-                                  <div className="text-right">
-                                    <Label className="text-xs text-muted-foreground">Total</Label>
-                                    <p className="font-bold text-theme-primary mt-1">
-                                      ₹{(activity.totalPrice || 0).toFixed(0)}
-                                    </p>
-                                  </div>
+                                )}
+                                <div className="text-right">
+                                  <Label className="text-xs text-muted-foreground">Total</Label>
+                                  <p className="font-bold text-theme-primary mt-1">
+                                    ₹{(activity.totalPrice || 0).toFixed(0)}
+                                  </p>
                                 </div>
-                              </CardContent>
-                            </Card>
-                          ),
-                        )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
                     </>
                   ) : (
@@ -1297,38 +1659,102 @@ const QuotationModals = ({
                 </TabsContent>
               </Tabs>
 
-              {/* Pricing & Grand Total */}
+              {/* ─── PRICING SUMMARY WITH DUAL MARKUP ─── */}
               <Card className="bg-theme-muted/30">
                 <CardHeader className="pb-3 p-3 sm:p-6">
                   <CardTitle className="text-base sm:text-lg">Pricing Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-6 pt-0">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
-                    <div className="space-y-2">
-                      <Label htmlFor="markup" className="text-sm">Add Markup (₹)</Label>
-                      <Input
-                        id="markup"
-                        type="number"
-                        placeholder="e.g. 5000"
-                        value={editingQuotation?.markup || 0}
-                        onChange={(e) =>
-                          handleMarkupInputChange(e.target.value)
-                        }
-                        className="text-base sm:text-lg"
-                      />
+                  {/* Subtotals */}
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="text-center p-2 rounded-md bg-background border">
+                      <p className="text-xs text-muted-foreground mb-0.5">Hotels</p>
+                      <p className="font-semibold text-theme-primary">
+                        ₹{(editingQuotation?.hotelSummary?.reduce((s, h) => s + (h.hotelTotal || 0), 0) || 0).toFixed(0)}
+                      </p>
+                    </div>
+                    <div className="text-center p-2 rounded-md bg-background border">
+                      <p className="text-xs text-muted-foreground mb-0.5">Transport</p>
+                      <p className="font-semibold text-theme-primary">
+                        ₹{editingQuotation?.transportSummary?.pricingType === "perKm"
+                          ? ((editingQuotation.transportSummary.kms || 0) * (editingQuotation.transportSummary.perKmprice || 0)).toFixed(0)
+                          : (editingQuotation?.transportSummary?.price || 0).toFixed(0)}
+                      </p>
+                    </div>
+                    <div className="text-center p-2 rounded-md bg-background border">
+                      <p className="text-xs text-muted-foreground mb-0.5">Activities</p>
+                      <p className="font-semibold text-theme-primary">
+                        ₹{(editingQuotation?.activitySummary?.reduce((s, a) => s + (a.totalPrice || 0), 0) || 0).toFixed(0)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Markup section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Markup</Label>
+                      {/* Toggle between % and ₹ */}
+                      <div className="flex items-center gap-1 border rounded-md overflow-hidden text-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleMarkupModeSwitch("amount")}
+                          className={`px-3 py-1.5 transition-colors ${
+                            markupMode === "amount"
+                              ? "bg-theme-primary text-white font-medium"
+                              : "hover:bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          ₹ Amount
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMarkupModeSwitch("percentage")}
+                          className={`px-3 py-1.5 transition-colors ${
+                            markupMode === "percentage"
+                              ? "bg-theme-primary text-white font-medium"
+                              : "hover:bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          % Percent
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col justify-center items-start sm:items-end">
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        Grand Total
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          {markupMode === "percentage" ? "%" : "₹"}
+                        </span>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder={markupMode === "percentage" ? "e.g. 10" : "e.g. 5000"}
+                          value={markupInputValue}
+                          onChange={(e) => handleMarkupChange(e.target.value)}
+                          className="pl-7 text-base sm:text-lg"
+                        />
+                      </div>
+                      {markupMode === "percentage" && (
+                        <div className="text-sm text-muted-foreground whitespace-nowrap">
+                          = ₹{(editingQuotation?.markup || 0).toFixed(0)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Grand total */}
+                  <div className="pt-3 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Grand Total</p>
                       <p className="text-2xl sm:text-3xl font-bold text-theme-primary mt-1">
-                        ₹
-                        {(editingQuotation?.grandTotal || 0).toLocaleString(
-                          "en-IN",
-                        )}
+                        ₹{(editingQuotation?.grandTotal || 0).toLocaleString("en-IN")}
                       </p>
                     </div>
+                    {markupMode === "percentage" && (editingQuotation?.markupValue || 0) > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Base ₹{baseTotal.toFixed(0)} + {editingQuotation.markupValue}% markup
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1336,11 +1762,7 @@ const QuotationModals = ({
           </ScrollArea>
 
           <DialogFooter className="pt-4 sm:pt-6 border-t mt-4 flex-col sm:flex-row gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsEditModalOpen(false)}
-              className="w-full sm:w-auto"
-            >
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
             <Button
@@ -1364,11 +1786,8 @@ const QuotationModals = ({
       <Dialog open={showSaveAsModal} onOpenChange={setShowSaveAsModal}>
         <DialogContent className="w-[95vw] max-w-md p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl text-theme-primary">
-              Save as New Quotation
-            </DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl text-theme-primary">Save as New Quotation</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4 sm:space-y-6 py-4">
             <div className="space-y-2">
               <Label htmlFor="newPackageName" className="text-sm">New Package Name</Label>
@@ -1380,7 +1799,6 @@ const QuotationModals = ({
                 className="text-sm"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="newCustomerName" className="text-sm">New Customer Name</Label>
               <Input
@@ -1392,19 +1810,9 @@ const QuotationModals = ({
               />
             </div>
           </div>
-
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowSaveAsModal(false)}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmSaveAs}
-              className="bg-theme-primary hover:bg-theme-secondary w-full sm:w-auto"
-            >
+            <Button variant="outline" onClick={() => setShowSaveAsModal(false)} className="w-full sm:w-auto">Cancel</Button>
+            <Button onClick={handleConfirmSaveAs} className="bg-theme-primary hover:bg-theme-secondary w-full sm:w-auto">
               Save New Quotation
             </Button>
           </DialogFooter>
