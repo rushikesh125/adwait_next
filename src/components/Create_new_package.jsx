@@ -1,7 +1,6 @@
 "use client";
 // src/components/Create_new_package.jsx
-// Self-contained — no HotelRoomSelector / SelectTransport / SelectActivities imports.
-// Preserves customerId / leadId linking, Redux packageSlice, PDF/clipboard export.
+// Enhanced UI with full functionality preserved
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
@@ -62,14 +61,25 @@ import {
   Save,
   Star,
   PenLine,
-  ActivitySquare,
-  ChevronRight,
-  ChevronDown,
   X,
+  BedDouble,
+  Utensils,
+  Users,
+  User,
+  BusFront,
+  Flame,
+  Moon,
+  Sun,
+  ArrowRight,
+  Activity,
+  CheckCircle2,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Constants & helpers shared across inner components
+// Constants & helpers
 // ─────────────────────────────────────────────────────────────────────────────
 const MEAL_PLANS = ["EP", "CP", "MAP", "AP"];
 const MEAL_PLAN_LABELS = {
@@ -77,6 +87,12 @@ const MEAL_PLAN_LABELS = {
   CP: "Bed + Breakfast",
   MAP: "Breakfast + Dinner",
   AP: "All Meals",
+};
+const MEAL_PLAN_ICONS = {
+  EP: "🏨",
+  CP: "🍳",
+  MAP: "🍽️",
+  AP: "🍱",
 };
 const STAR_RATINGS = ["1", "2", "3", "4", "5"];
 
@@ -112,9 +128,7 @@ const renderStars = (rating) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 1. HotelRoomSelector (inline) ─────────────────────────────────────────
-// Handles room category, meal plan, guest counts, price calculation for a
-// single DB hotel. Returns hotelTotal via onTotalChange.
+// ── HotelRoomSelector (inline) ────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 const HotelRoomSelector = ({
   hotel,
@@ -133,7 +147,6 @@ const HotelRoomSelector = ({
   const [numExtraChild, setNumExtraChild] = useState(initial.numExtraChild ?? 0);
   const [numCNB, setNumCNB]             = useState(initial.numCNB         ?? 0);
 
-  // Resolve applicable season
   const getApplicableSeason = useCallback((roomData) => {
     if (!roomData?.seasons || !checkInDate) return null;
     const d = new Date(checkInDate);
@@ -148,7 +161,6 @@ const HotelRoomSelector = ({
   const roomData = hotel?.rooms?.find((r) => r.categoryName === selectedRoomCategory);
   const season   = getApplicableSeason(roomData);
 
-  // Available meal plans for current season & room
   const availableMealPlans = useMemo(() => {
     if (!season?.pricing) return MEAL_PLANS;
     return MEAL_PLANS.filter((p) => {
@@ -157,21 +169,18 @@ const HotelRoomSelector = ({
     });
   }, [season]);
 
-  // Auto-correct meal plan when available plans change
   useEffect(() => {
     if (availableMealPlans.length && !availableMealPlans.includes(selectedMealPlan)) {
       setSelectedMealPlan(availableMealPlans[0]);
     }
   }, [availableMealPlans, selectedMealPlan]);
 
-  // Auto-select first room category
   useEffect(() => {
     if (!selectedRoomCategory && hotel?.rooms?.length) {
       setSelectedRoomCategory(hotel.rooms[0].categoryName);
     }
   }, [hotel, selectedRoomCategory]);
 
-  // Price calculation
   const calculateTotal = useCallback(() => {
     if (!season?.pricing || !selectedMealPlan) return 0;
     const pr = season.pricing[selectedMealPlan.toLowerCase()];
@@ -186,7 +195,6 @@ const HotelRoomSelector = ({
 
   const total = calculateTotal();
 
-  // Bubble up changes
   useEffect(() => { onTotalChange?.(total); }, [total]);
   useEffect(() => { onRoomCategoryChange?.(selectedRoomCategory); }, [selectedRoomCategory]);
   useEffect(() => { onMealPlanChange?.(selectedMealPlan); }, [selectedMealPlan]);
@@ -196,20 +204,24 @@ const HotelRoomSelector = ({
 
   if (!hotel) return null;
 
+  const pricePerNight = total / (parseInt(nights) || 1);
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Room categories */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Room Category</Label>
+        <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+          <BedDouble className="h-3.5 w-3.5" /> Room Category
+        </Label>
         <div className="flex flex-wrap gap-2">
           {hotel.rooms?.map((r) => (
             <button
               key={r.categoryName}
               onClick={() => setSelectedRoomCategory(r.categoryName)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all shadow-sm ${
                 selectedRoomCategory === r.categoryName
-                  ? "bg-theme-primary text-white border-theme-primary"
-                  : "bg-white border-slate-200 text-slate-700 hover:border-theme-primary/60"
+                  ? "bg-theme-primary text-white border-theme-primary shadow-theme-primary/25"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-theme-primary/50 hover:shadow-md"
               }`}
             >
               {r.categoryName}
@@ -221,58 +233,74 @@ const HotelRoomSelector = ({
       {/* Meal plan */}
       {availableMealPlans.length > 0 && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Meal Plan</Label>
-          <div className="flex flex-wrap gap-2">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Utensils className="h-3.5 w-3.5" /> Meal Plan
+          </Label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {availableMealPlans.map((plan) => (
               <button
                 key={plan}
                 onClick={() => setSelectedMealPlan(plan)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                className={`p-3 rounded-xl border-2 transition-all text-left ${
                   selectedMealPlan === plan
                     ? "bg-theme-primary text-white border-theme-primary"
-                    : "bg-white border-slate-200 text-slate-700 hover:border-theme-primary/60"
+                    : "bg-white border-slate-200 hover:border-theme-primary/40"
                 }`}
               >
-                <span className="font-bold">{plan}</span>
-                <span className="ml-1 opacity-70 hidden sm:inline">— {MEAL_PLAN_LABELS[plan]}</span>
+                <div className="text-lg mb-0.5">{MEAL_PLAN_ICONS[plan]}</div>
+                <div className="font-bold text-sm">{plan}</div>
+                <div className={`text-[10px] leading-tight mt-0.5 ${selectedMealPlan === plan ? "text-white/80" : "text-slate-500"}`}>
+                  {MEAL_PLAN_LABELS[plan]}
+                </div>
               </button>
             ))}
           </div>
           {!season && checkInDate && (
-            <p className="text-xs text-amber-600">⚠ No pricing season found for the selected check-in date.</p>
+            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">
+              <Info className="h-4 w-4 flex-shrink-0" />
+              No pricing season found for the selected check-in date.
+            </div>
           )}
         </div>
       )}
 
       {/* Guest counts */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Rooms (Double)", val: numDouble,      set: setNumDouble      },
-          { label: "Extra Adults",   val: numExtraAdult,  set: setNumExtraAdult  },
-          { label: "Extra Children", val: numExtraChild,  set: setNumExtraChild  },
-          { label: "CNB",            val: numCNB,         set: setNumCNB         },
-        ].map(({ label, val, set }) => (
-          <div key={label} className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{label}</Label>
-            <Input
-              type="number"
-              min="0"
-              value={val}
-              onChange={(e) => set(parseInt(e.target.value) || 0)}
-              className="text-sm h-9"
-            />
-          </div>
-        ))}
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5" /> Guest Configuration
+        </Label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Rooms (Double)", val: numDouble, set: setNumDouble, icon: "🛏️" },
+            { label: "Extra Adults", val: numExtraAdult, set: setNumExtraAdult, icon: "👤" },
+            { label: "Extra Children", val: numExtraChild, set: setNumExtraChild, icon: "👧" },
+            { label: "CNB", val: numCNB, set: setNumCNB, icon: "🛌" },
+          ].map(({ label, val, set, icon }) => (
+            <div key={label} className="space-y-1">
+              <Label className="text-xs text-slate-500">{icon} {label}</Label>
+              <div className="flex items-center border-2 border-slate-200 rounded-xl overflow-hidden focus-within:border-theme-primary transition-colors">
+                <button onClick={() => set(Math.max(0, val - 1))} className="px-2.5 py-2 text-slate-600 hover:bg-slate-100 text-sm font-bold">−</button>
+                <span className="flex-1 text-center text-sm font-semibold">{val}</span>
+                <button onClick={() => set(val + 1)} className="px-2.5 py-2 text-slate-600 hover:bg-slate-100 text-sm font-bold">+</button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Total */}
-      <div className="flex items-center justify-between bg-theme-muted/20 rounded-lg px-4 py-3">
-        <span className="text-sm text-muted-foreground">
-          {season ? `${season.name} season` : "No season matched"}
-        </span>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Est. total ({nights} night{nights !== 1 ? "s" : ""})</p>
-          <p className="text-xl font-bold text-theme-primary">₹{total.toLocaleString("en-IN")}</p>
+      {/* Price summary */}
+      <div className="rounded-xl border-2 border-theme-primary/20 bg-gradient-to-br from-theme-primary/5 to-theme-primary/10 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-slate-500">{season ? `${season.name || "Current"} season` : "Pricing"}</p>
+            <p className="text-sm text-slate-600 mt-0.5">
+              ₹{pricePerNight.toLocaleString("en-IN", { maximumFractionDigits: 0 })} / night × {nights} night{nights !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Est. Total</p>
+            <p className="text-2xl font-black text-theme-primary">₹{total.toLocaleString("en-IN")}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -280,7 +308,7 @@ const HotelRoomSelector = ({
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 2. CustomHotelForm (inline, with pricing table + Firestore persistence) ──
+// ── CustomHotelForm (inline) ──────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 const PLAN_DESCRIPTIONS = { ep: "Accommodation only", cp: "Bed + Breakfast", map: "Breakfast + Dinner", ap: "All Meals" };
 
@@ -301,7 +329,6 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
   const [existingDocId, setExistingDocId] = useState(null);
   const [isSaving, setIsSaving]         = useState(false);
 
-  // Firestore lookup when identity is complete
   useEffect(() => {
     const name = hotelName.trim(); const c = city.trim(); const s = state.trim();
     if (!name || !c || !s) return;
@@ -386,8 +413,6 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 sm:p-4 pt-0 space-y-4">
-
-        {/* Identity */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div className="sm:col-span-2 space-y-1">
             <Label className="text-xs">Hotel Name *</Label>
@@ -403,7 +428,6 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
           </div>
         </div>
 
-        {/* Rating + room type */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="space-y-1">
             <Label className="text-xs">Star Rating</Label>
@@ -420,7 +444,6 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
           </div>
         </div>
 
-        {/* Pricing table */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground uppercase tracking-wide">Pricing Table — rates per guest type (₹)</Label>
           <div className="rounded-lg border overflow-x-auto">
@@ -449,8 +472,7 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
                             type="number" min="0"
                             value={pricing[planKey]?.[type] || ""}
                             onChange={(e) => handlePricingChange(planKey, type, e.target.value)}
-                            className={`w-full h-8 pl-5 pr-2 border rounded text-right text-xs outline-none focus:ring-1 focus:ring-theme-primary
-                              ${type === "cnb" ? "border-theme-primary/30" : "border-input"}`}
+                            className="w-full h-8 pl-5 pr-2 border rounded text-right text-xs outline-none focus:ring-1 focus:ring-theme-primary border-input"
                             placeholder="0"
                           />
                         </div>
@@ -463,7 +485,6 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
           </div>
         </div>
 
-        {/* Meal plan selector */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground uppercase tracking-wide">Active Meal Plan for this stay</Label>
           <div className="flex flex-wrap gap-2">
@@ -487,15 +508,14 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
           </div>
         </div>
 
-        {/* Dates + guests */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {[
-            { label: "Check-in", type: "date",   val: checkInDate,    set: setCheckInDate   },
-            { label: "Nights",   type: "number",  val: nights,         set: (v) => setNights(parseInt(v)||1)         },
-            { label: "Rooms",    type: "number",  val: numDouble,      set: (v) => setNumDouble(parseInt(v)||0)      },
-            { label: "Ex. Adults",  type: "number", val: numExtraAdult,  set: (v) => setNumExtraAdult(parseInt(v)||0) },
-            { label: "Ex. Children",type: "number", val: numExtraChild,  set: (v) => setNumExtraChild(parseInt(v)||0) },
-            { label: "CNB",      type: "number",  val: numCNB,         set: (v) => setNumCNB(parseInt(v)||0)         },
+            { label: "Check-in", type: "date", val: checkInDate, set: setCheckInDate },
+            { label: "Nights", type: "number", val: nights, set: (v) => setNights(parseInt(v)||1) },
+            { label: "Rooms", type: "number", val: numDouble, set: (v) => setNumDouble(parseInt(v)||0) },
+            { label: "Ex. Adults", type: "number", val: numExtraAdult, set: (v) => setNumExtraAdult(parseInt(v)||0) },
+            { label: "Ex. Children", type: "number", val: numExtraChild, set: (v) => setNumExtraChild(parseInt(v)||0) },
+            { label: "CNB", type: "number", val: numCNB, set: (v) => setNumCNB(parseInt(v)||0) },
           ].map(({ label, type, val, set }) => (
             <div key={label} className="space-y-1">
               <Label className="text-xs">{label}</Label>
@@ -505,7 +525,6 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
           ))}
         </div>
 
-        {/* Summary + actions */}
         <div className="flex items-center justify-between pt-1 border-t gap-4">
           <div className="text-sm space-y-0.5">
             <div>Per night: <span className="font-bold text-theme-primary">₹{pricePerNight.toFixed(0)}</span> <span className="text-xs text-muted-foreground">({selectedMealPlan})</span></div>
@@ -524,7 +543,7 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 3. TransportSelector (inline) ─────────────────────────────────────────
+// ── TransportSelector (inline) ────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 const TransportSelector = ({ onTransportSelect }) => {
   const [transportStates, setTransportStates] = useState([]);
@@ -571,27 +590,28 @@ const TransportSelector = ({ onTransportSelect }) => {
 
   return (
     <div className="space-y-5">
-      {/* Toggle: custom vs package */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => setIsCustom(false)}
-          className={`px-4 py-1.5 rounded-lg text-xs font-semibold border transition-all ${!isCustom ? "bg-theme-primary text-white border-theme-primary" : "bg-white border-input text-slate-700"}`}
-        >
-          From Package
-        </button>
-        <button
-          onClick={() => setIsCustom(true)}
-          className={`px-4 py-1.5 rounded-lg text-xs font-semibold border transition-all ${isCustom ? "bg-theme-primary text-white border-theme-primary" : "bg-white border-input text-slate-700"}`}
-        >
-          Custom
-        </button>
+      <div className="flex items-center gap-2 bg-slate-100 rounded-xl p-1">
+        {["From Package", "Custom"].map((label, i) => (
+          <button
+            key={label}
+            onClick={() => setIsCustom(i === 1)}
+            className={`flex-1 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              isCustom === (i === 1)
+                ? "bg-white text-theme-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {!isCustom ? (
         <div className="space-y-4">
-          {/* State */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Transport State</Label>
+            <Label className="text-sm flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-theme-primary" /> Transport State
+            </Label>
             <Select value={selectedStateId} onValueChange={setSelectedStateId}>
               <SelectTrigger className="text-sm"><SelectValue placeholder="Select state" /></SelectTrigger>
               <SelectContent>
@@ -600,7 +620,6 @@ const TransportSelector = ({ onTransportSelect }) => {
             </Select>
           </div>
 
-          {/* Packages */}
           {packages.length > 0 && (
             <div className="space-y-1.5">
               <Label className="text-sm">Package</Label>
@@ -609,33 +628,42 @@ const TransportSelector = ({ onTransportSelect }) => {
                   <button
                     key={pkg.id}
                     onClick={() => { setSelectedPkg(pkg); setSelectedVehicle(null); }}
-                    className={`text-left p-3 rounded-lg border text-sm transition-all ${selectedPkg?.id === pkg.id ? "border-theme-primary bg-theme-muted/20" : "border-slate-200 hover:border-theme-primary/40"}`}
+                    className={`text-left p-3 rounded-xl border-2 text-sm transition-all ${
+                      selectedPkg?.id === pkg.id
+                        ? "border-theme-primary bg-theme-primary/5"
+                        : "border-slate-200 hover:border-theme-primary/40"
+                    }`}
                   >
-                    <p className="font-medium">{pkg.name || pkg.packageName || pkg.id}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{pkg.vehicles?.length || 0} vehicle(s)</p>
+                    <p className="font-semibold">{pkg.name || pkg.packageName || pkg.id}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{pkg.vehicles?.length || 0} vehicle(s) available</p>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Vehicles */}
           {selectedPkg?.vehicles?.length > 0 && (
             <div className="space-y-1.5">
-              <Label className="text-sm">Vehicle</Label>
+              <Label className="text-sm">Choose Vehicle</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {selectedPkg.vehicles.map((v, i) => (
                   <button
                     key={i}
                     onClick={() => handleVehicleSelect(v, selectedPkg)}
-                    className={`text-left p-3 rounded-lg border text-sm transition-all ${selectedVehicle?.type === v.type ? "border-theme-primary bg-theme-muted/20" : "border-slate-200 hover:border-theme-primary/40"}`}
+                    className={`text-left p-3 rounded-xl border-2 text-sm transition-all ${
+                      selectedVehicle?.type === v.type
+                        ? "border-theme-primary bg-theme-primary/5"
+                        : "border-slate-200 hover:border-theme-primary/40"
+                    }`}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="font-medium">{v.type}</p>
-                      <Badge variant="outline" className="text-xs">{v.ac ? "AC" : "Non-AC"}</Badge>
+                      <p className="font-semibold">🚗 {v.type}</p>
+                      <Badge variant={v.ac ? "default" : "outline"} className={`text-xs ${v.ac ? "bg-green-100 text-green-800 border-green-200" : ""}`}>
+                        {v.ac ? "AC" : "Non-AC"}
+                      </Badge>
                     </div>
-                    <p className="text-xs text-theme-primary mt-0.5 font-semibold">
-                      ₹{v.price ?? v.perKmprice}{v.perKmprice ? "/km" : ""}
+                    <p className="text-sm font-bold text-theme-primary mt-1">
+                      ₹{(v.price ?? v.perKmprice ?? 0).toLocaleString("en-IN")}{v.perKmprice ? "/km" : ""}
                     </p>
                   </button>
                 ))}
@@ -643,10 +671,14 @@ const TransportSelector = ({ onTransportSelect }) => {
             </div>
           )}
 
-          {selectedVehicle && (
-            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm text-green-800 flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              {selectedVehicle.type} {selectedVehicle.ac ? "(AC)" : "(Non-AC)"} — ₹{selectedVehicle.price ?? selectedVehicle.perKmprice} selected
+          {selectedVehicle && !selectedVehicle.isCustom && (
+            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+              <span className="font-medium">{selectedVehicle.type}</span>
+              <span className="text-green-600">{selectedVehicle.ac ? "(AC)" : "(Non-AC)"}</span>
+              <span>—</span>
+              <span className="font-bold">₹{selectedVehicle.price ?? selectedVehicle.perKmprice}</span>
+              <span className="text-green-600 text-xs">selected ✓</span>
             </div>
           )}
         </div>
@@ -655,7 +687,7 @@ const TransportSelector = ({ onTransportSelect }) => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 space-y-1.5">
               <Label className="text-sm">Vehicle Name</Label>
-              <Input value={customVehicleName} onChange={(e) => setCustomVehicleName(e.target.value)} placeholder="e.g. Toyota Innova" className="text-sm" />
+              <Input value={customVehicleName} onChange={(e) => setCustomVehicleName(e.target.value)} placeholder="e.g. Toyota Innova Crysta" className="text-sm" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Price (₹)</Label>
@@ -663,16 +695,16 @@ const TransportSelector = ({ onTransportSelect }) => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="customAC" checked={customAC} onChange={(e) => setCustomAC(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-theme-primary" />
-            <Label htmlFor="customAC" className="text-sm">AC Vehicle</Label>
+            <input type="checkbox" id="customAC" checked={customAC} onChange={(e) => setCustomAC(e.target.checked)} className="h-4 w-4 rounded border-gray-300 accent-theme-primary" />
+            <Label htmlFor="customAC" className="text-sm cursor-pointer">AC Vehicle</Label>
           </div>
           <Button onClick={handleCustomApply} className="bg-theme-primary hover:bg-theme-secondary text-sm">
-            Apply Custom Transport
+            <CheckCircle2 className="h-4 w-4 mr-2" /> Apply Custom Transport
           </Button>
           {selectedVehicle?.isCustom && (
-            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm text-green-800 flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              {selectedVehicle.type} {selectedVehicle.ac ? "(AC)" : "(Non-AC)"} — ₹{selectedVehicle.price} applied
+            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="font-medium">{selectedVehicle.type}</span> {selectedVehicle.ac ? "(AC)" : "(Non-AC)"} — ₹{selectedVehicle.price} applied ✓
             </div>
           )}
         </div>
@@ -682,14 +714,17 @@ const TransportSelector = ({ onTransportSelect }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── 4. ActivitySelector (inline) ──────────────────────────────────────────
+// ── ActivitySelector (inline) ─────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => {
   const [activities, setActivities]   = useState([]);
   const [isFetching, setIsFetching]   = useState(false);
   const [selected, setSelected]       = useState(initialActivities);
   const [showCustomForm, setShowCustomForm] = useState(false);
-  const [customForm, setCustomForm]   = useState({ name: "", city: "", state: selectedState || "", description: "", participants: 1, pricePerPerson: 0 });
+  const [customForm, setCustomForm]   = useState({
+    name: "", city: "", state: selectedState || "",
+    description: "", participants: 1, pricePerPerson: 0,
+  });
 
   useEffect(() => {
     if (!selectedState) return;
@@ -706,8 +741,11 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
     if (selected.some((a) => a.name === act.name)) { alert("Already added."); return; }
     const entry = {
       name: act.name, city: act.city, state: act.state,
-      fitRatePerPerson: act.fitRatePerPerson || 0, groupRatePerPerson: act.groupRatePerPerson || 0,
-      participants: 1, totalPrice: parseFloat(act.fitRatePerPerson || act.groupRatePerPerson || 0), isCustom: false,
+      fitRatePerPerson: act.fitRatePerPerson || 0,
+      groupRatePerPerson: act.groupRatePerPerson || 0,
+      participants: 1,
+      totalPrice: parseFloat(act.fitRatePerPerson || act.groupRatePerPerson || 0),
+      isCustom: false,
     };
     const updated = [...selected, entry];
     setSelected(updated);
@@ -718,7 +756,9 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
     const n = parseInt(val) || 1;
     const updated = selected.map((a, i) => {
       if (i !== idx) return a;
-      const rate = a.isCustom ? a.pricePerPerson || 0 : n > 10 ? a.groupRatePerPerson : a.fitRatePerPerson;
+      const rate = a.isCustom
+        ? a.pricePerPerson || 0
+        : n > 10 ? a.groupRatePerPerson : a.fitRatePerPerson;
       return { ...a, participants: n, totalPrice: rate * n };
     });
     setSelected(updated);
@@ -735,7 +775,11 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
     if (!customForm.name.trim()) { alert("Activity name is required."); return; }
     if (!customForm.city.trim()) { alert("City is required."); return; }
     const totalPrice = (parseFloat(customForm.pricePerPerson) || 0) * (parseInt(customForm.participants) || 1);
-    const entry = { ...customForm, isCustom: true, totalPrice, fitRatePerPerson: customForm.pricePerPerson, groupRatePerPerson: customForm.pricePerPerson };
+    const entry = {
+      ...customForm, isCustom: true, totalPrice,
+      fitRatePerPerson: customForm.pricePerPerson,
+      groupRatePerPerson: customForm.pricePerPerson,
+    };
     const updated = [...selected, entry];
     setSelected(updated);
     onDone?.(updated, updated.reduce((s, a) => s + (a.totalPrice || 0), 0));
@@ -745,7 +789,6 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
 
   return (
     <div className="space-y-4">
-      {/* Available activities */}
       {isFetching ? (
         <p className="text-sm text-muted-foreground">Loading activities…</p>
       ) : activities.length === 0 ? (
@@ -759,27 +802,30 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
                 key={act.id}
                 onClick={() => !isAdded && addActivity(act)}
                 disabled={isAdded}
-                className={`text-left p-3 rounded-lg border text-sm transition-all ${isAdded ? "border-green-300 bg-green-50 text-green-700" : "border-slate-200 hover:border-theme-primary/40"}`}
+                className={`text-left p-3 rounded-xl border-2 text-sm transition-all ${
+                  isAdded
+                    ? "border-green-300 bg-green-50"
+                    : "border-slate-200 hover:border-theme-primary/40"
+                }`}
               >
                 <div className="flex items-center justify-between">
-                  <p className="font-medium">{act.name}</p>
+                  <p className="font-semibold">{act.name}</p>
                   {isAdded && <CheckCircle className="h-4 w-4 text-green-600" />}
                 </div>
-                <p className="text-xs text-muted-foreground">{act.city} • ₹{act.fitRatePerPerson || act.groupRatePerPerson}/person</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  📍 {act.city} • ₹{(act.fitRatePerPerson || act.groupRatePerPerson || 0).toLocaleString()}/person
+                </p>
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Add custom activity toggle */}
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => setShowCustomForm((p) => !p)} className="text-xs border-theme-primary/40 text-theme-primary">
-          <PenLine className="h-3 w-3 mr-1" /> Add Custom Activity
-        </Button>
-      </div>
+      <Button variant="outline" size="sm" onClick={() => setShowCustomForm((p) => !p)}
+        className="text-xs border-theme-primary/40 text-theme-primary">
+        <PenLine className="h-3 w-3 mr-1" /> Add Custom Activity
+      </Button>
 
-      {/* Custom activity form */}
       {showCustomForm && (
         <Card className="border-dashed border-2 border-theme-primary/40 bg-theme-muted/10">
           <CardContent className="p-3 space-y-3">
@@ -818,27 +864,24 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
         </Card>
       )}
 
-      {/* Selected activities */}
       {selected.length > 0 && (
         <div className="space-y-2 pt-2 border-t">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Selected Activities</p>
           {selected.map((act, i) => (
-            <div key={i} className="flex items-center gap-3 p-2.5 bg-white border rounded-lg text-sm">
+            <div key={i} className="flex items-center gap-3 p-2.5 bg-white border rounded-xl text-sm">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <p className="font-medium truncate">{act.name}</p>
                   {act.isCustom && <Badge variant="outline" className="text-[10px] px-1.5">Custom</Badge>}
                 </div>
-                <p className="text-xs text-muted-foreground">{act.city}</p>
+                <p className="text-xs text-muted-foreground">📍 {act.city}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Input
-                  type="number" min="1" value={act.participants}
+                <Input type="number" min="1" value={act.participants}
                   onChange={(e) => updateParticipants(i, e.target.value)}
-                  className="w-16 h-7 text-xs text-center"
-                />
-                <span className="text-xs text-muted-foreground">×</span>
-                <span className="text-xs font-semibold text-theme-primary w-20 text-right">₹{act.totalPrice?.toFixed(0)}</span>
+                  className="w-16 h-7 text-xs text-center" />
+                <span className="text-xs text-muted-foreground">pax</span>
+                <span className="text-xs font-bold text-theme-primary w-20 text-right">₹{act.totalPrice?.toFixed(0)}</span>
                 <button onClick={() => removeActivity(i)} className="text-destructive hover:bg-destructive/10 rounded p-1">
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -846,11 +889,231 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
             </div>
           ))}
           <div className="flex justify-between text-sm font-bold pt-1">
-            <span>Total Activities</span>
+            <span>Activities Total</span>
             <span className="text-theme-primary">₹{totalPrice.toFixed(0)}</span>
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── TransportSummaryCard — beautiful display of selected transport ─────────
+// ─────────────────────────────────────────────────────────────────────────────
+const TransportSummaryCard = ({ transport, onEdit }) => {
+  if (!transport?.selectedVehicle) return null;
+  const v = transport.selectedVehicle;
+  return (
+    <div className="relative overflow-hidden rounded-2xl border-2 border-theme-primary/20 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-sm">
+      {/* Decorative background icon */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-5">
+        <BusFront className="h-28 w-28 text-theme-primary" />
+      </div>
+
+      <div className="relative p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-theme-primary/10 flex items-center justify-center">
+              <Car className="h-5 w-5 text-theme-primary" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-theme-primary/70">Transport</p>
+              <p className="font-bold text-theme-dark text-sm">{transport.name || "Custom Package"}</p>
+            </div>
+          </div>
+          <button onClick={onEdit} className="flex items-center gap-1 text-xs text-slate-500 hover:text-theme-primary transition-colors bg-white border rounded-lg px-2.5 py-1.5 shadow-sm">
+            <Edit3 className="h-3 w-3" /> Change
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white/80 rounded-xl p-3 border border-white shadow-sm">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">Vehicle</p>
+            <p className="font-bold text-slate-800 text-sm">{v.type}</p>
+          </div>
+          <div className="bg-white/80 rounded-xl p-3 border border-white shadow-sm">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">AC</p>
+            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${v.ac ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
+              {v.ac ? "✓ Yes" : "✗ No"}
+            </div>
+          </div>
+          <div className="bg-white/80 rounded-xl p-3 border border-white shadow-sm">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">Price</p>
+            <p className="font-black text-theme-primary text-base">₹{Number(v.price || 0).toLocaleString("en-IN")}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── ActivitySummaryCard — display of all selected activities ──────────────
+// ─────────────────────────────────────────────────────────────────────────────
+const ActivitySummaryCard = ({ activities, totalPrice, onEdit }) => {
+  if (!activities || activities.length === 0) return null;
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? activities : activities.slice(0, 3);
+
+  return (
+    <div className="rounded-2xl border-2 border-theme-primary/20 bg-gradient-to-br from-emerald-50 via-white to-teal-50 shadow-sm overflow-hidden">
+      <div className="p-4 border-b border-emerald-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+            <Palmtree className="h-4 w-4 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/70">Activities</p>
+            <p className="font-bold text-slate-800 text-sm">{activities.length} Activity{activities.length > 1 ? "s" : ""} Selected</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <p className="text-[10px] text-slate-500">Total</p>
+            <p className="font-black text-emerald-600 text-sm">₹{Number(totalPrice || 0).toLocaleString("en-IN")}</p>
+          </div>
+          <button onClick={onEdit} className="text-xs text-slate-500 hover:text-theme-primary transition-colors bg-white border rounded-lg px-2.5 py-1.5 shadow-sm flex items-center gap-1">
+            <Edit3 className="h-3 w-3" /> Edit
+          </button>
+        </div>
+      </div>
+
+      <div className="p-3 space-y-2">
+        {visible.map((act, i) => (
+          <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl p-2.5 border border-white shadow-sm">
+            <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <Activity className="h-3.5 w-3.5 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-semibold text-slate-800 truncate">{act.name}</p>
+                {act.isCustom && <span className="text-[9px] bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded-full font-medium">Custom</span>}
+              </div>
+              <p className="text-xs text-slate-500">📍 {act.city} · {act.participants} person{act.participants > 1 ? "s" : ""}</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-sm font-bold text-emerald-600">₹{Number(act.totalPrice || 0).toLocaleString("en-IN")}</p>
+              <p className="text-[10px] text-slate-400">₹{(act.fitRatePerPerson || act.pricePerPerson || 0).toLocaleString()}/pax</p>
+            </div>
+          </div>
+        ))}
+
+        {activities.length > 3 && (
+          <button onClick={() => setExpanded(p => !p)}
+            className="w-full text-xs text-theme-primary hover:text-theme-secondary flex items-center justify-center gap-1 py-1">
+            {expanded ? <><ChevronUp className="h-3 w-3" /> Show less</> : <><ChevronDown className="h-3 w-3" /> +{activities.length - 3} more</>}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── HotelItineraryCard — rich display of a saved hotel entry ─────────────
+// ─────────────────────────────────────────────────────────────────────────────
+const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
+  const mealEmoji = MEAL_PLAN_ICONS[entry.selectedMealPlan] || "🍽️";
+  const mealLabel = MEAL_PLAN_LABELS[entry.selectedMealPlan] || entry.selectedMealPlan;
+
+  return (
+    <div className={`relative overflow-hidden rounded-2xl border-2 shadow-sm transition-all hover:shadow-md
+      ${entry.isCustom ? "border-theme-primary/30 bg-gradient-to-br from-purple-50 via-white to-theme-primary/5" : "border-slate-200 bg-white"}`}
+    >
+      {/* Night indicator badge */}
+      <div className="absolute top-3 right-3 flex items-center gap-1 bg-theme-dark text-white text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm">
+        <Moon className="h-3 w-3" />
+        {entry.nights}N
+      </div>
+
+      <div className="p-4 sm:p-5">
+        {/* Header */}
+        <div className="flex items-start gap-3 mb-4 pr-14">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${entry.isCustom ? "bg-purple-100" : "bg-theme-primary/10"}`}>
+            <Hotel className={`h-5 w-5 ${entry.isCustom ? "text-purple-600" : "text-theme-primary"}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
+              <h4 className="font-bold text-slate-800 text-base leading-tight">{entry.hotel}</h4>
+              {entry.isCustom && (
+                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">Custom</span>
+              )}
+            </div>
+            {entry.rating && <div className="flex gap-0.5 mb-0.5">{renderStars(entry.rating)}</div>}
+            <p className="text-xs text-slate-500 flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> {entry.city}, {entry.state}
+            </p>
+          </div>
+        </div>
+
+        {/* Info grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+          <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Check-in</p>
+            <p className="text-xs font-bold text-slate-700 mt-0.5">{formatDate(entry.checkInDate)}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Check-out</p>
+            <p className="text-xs font-bold text-slate-700 mt-0.5">{formatDate(entry.checkOutDate)}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Room Type</p>
+            <p className="text-xs font-bold text-slate-700 mt-0.5 truncate">{entry.selectedRoomCategory || "—"}</p>
+          </div>
+          <div className="bg-theme-primary/5 rounded-xl p-2.5 border border-theme-primary/10">
+            <p className="text-[10px] text-theme-primary/70 uppercase font-medium tracking-wide">Meal Plan</p>
+            <p className="text-xs font-bold text-theme-primary mt-0.5">{mealEmoji} {entry.selectedMealPlan} <span className="font-normal opacity-70">— {mealLabel}</span></p>
+          </div>
+        </div>
+
+        {/* Guest pills */}
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {entry.numDouble > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
+              🛏️ {entry.numDouble} Room{entry.numDouble > 1 ? "s" : ""}
+            </span>
+          )}
+          {entry.numExtraAdult > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2.5 py-1 rounded-full font-medium">
+              👤 {entry.numExtraAdult} Extra Adult{entry.numExtraAdult > 1 ? "s" : ""}
+            </span>
+          )}
+          {entry.numExtraChild > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs bg-pink-50 text-pink-700 border border-pink-200 px-2.5 py-1 rounded-full font-medium">
+              👧 {entry.numExtraChild} Child{entry.numExtraChild > 1 ? "ren" : ""}
+            </span>
+          )}
+          {entry.numCNB > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full font-medium">
+              🛌 {entry.numCNB} CNB
+            </span>
+          )}
+        </div>
+
+        {/* Footer: price + actions */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+          <div>
+            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Total Cost</p>
+            <p className="text-2xl font-black text-theme-primary">₹{Number(entry.hotelTotal || 0).toLocaleString("en-IN")}</p>
+            <p className="text-[10px] text-slate-400 -mt-0.5">for {entry.nights} night{entry.nights > 1 ? "s" : ""}</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onEdit(index)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 hover:text-theme-primary border border-slate-200 hover:border-theme-primary/40 hover:bg-theme-primary/5 rounded-xl transition-all"
+            >
+              <Edit3 className="h-3.5 w-3.5" /> Edit
+            </button>
+            <button
+              onClick={() => onDelete(index)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-300 hover:bg-red-50 rounded-xl transition-all"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Remove
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -881,7 +1144,6 @@ const Create_new_package = ({
     customerName: reduxCustomerName,
   } = useSelector((state) => state.package);
 
-  // ── Prop aliases ──
   const checkInDate    = propCheckInDate;
   const setCheckInDate = propSetCheckInDate;
   const checkOutDate   = propCheckOutDate;
@@ -889,7 +1151,6 @@ const Create_new_package = ({
   const saveChanges    = propSaveChanges;
   const setSaveChanges = propSetSaveChanges;
 
-  // ── Local state ──
   const [hotels, setHotels]             = useState([]);
   const [states, setStates]             = useState([]);
   const [selectedState, setSelectedState] = useState("");
@@ -905,13 +1166,11 @@ const Create_new_package = ({
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [customerName, setCustomerName] = useState("");
 
-  // HotelRoomSelector bubble-up state
   const [roomCategory, setRoomCategory]     = useState("");
   const [mealPlan, setMealPlan]             = useState("");
   const [guests, setGuests]                 = useState({ numDouble: 1, numExtraAdult: 0, numExtraChild: 0, numCNB: 0 });
   const [currentHotelTotal, setCurrentHotelTotal] = useState(0);
 
-  // ── ID / lead linking (preserved from original) ──
   const customerId = searchParams.get("customerId") || searchParams.get("customerid");
   const leadId     = searchParams.get("leadId");
 
@@ -933,7 +1192,6 @@ const Create_new_package = ({
     });
   }, [leadId]);
 
-  // ── Fetch hotels & states ──
   useEffect(() => {
     getDocs(collection(db, "hotels")).then((snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data(), rooms: d.data().rooms || [] }));
@@ -943,7 +1201,6 @@ const Create_new_package = ({
     getDocs(collection(db, "locations")).then((snap) => setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
   }, []);
 
-  // ── Auto checkout date ──
   useEffect(() => {
     if (!checkInDate || !nights) return;
     const d = new Date(checkInDate);
@@ -952,7 +1209,6 @@ const Create_new_package = ({
     setCheckOutDate(d.toISOString().split("T")[0]);
   }, [checkInDate, nights]);
 
-  // ── Derived ──
   const filteredHotels = useMemo(() => hotels.filter((h) => h.state?.toLowerCase() === selectedState.toLowerCase()), [hotels, selectedState]);
   const groupedHotels  = useMemo(() => filteredHotels.reduce((acc, h) => { const c = h.city || "Other"; if (!acc[c]) acc[c] = []; acc[c].push(h); return acc; }, {}), [filteredHotels]);
   const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
@@ -960,7 +1216,6 @@ const Create_new_package = ({
   const transportTotalPrice = selectedTransport?.selectedVehicle?.price ? Number(selectedTransport.selectedVehicle.price) : 0;
   const grandTotal = hotelTotalPrice + transportTotalPrice + activityTotalPrice + confirmedMarkup;
 
-  // ── Save hotel ──
   const handleSaveHotel = () => {
     if (!selectedHotelData) { alert("Please select a hotel."); return; }
     if (!mealPlan) { alert("Please select a meal plan."); return; }
@@ -1008,7 +1263,6 @@ const Create_new_package = ({
     setShowCustomHotelForm(false);
   };
 
-  // ── Custom hotel add ──
   const handleCustomHotelAdd = (data) => {
     dispatch(addHotelEntry(data));
     setShowCustomHotelForm(false);
@@ -1016,19 +1270,16 @@ const Create_new_package = ({
     setIsReadyToAddAnother(true);
   };
 
-  // ── Activity done ──
   const handleActivitiesDone = (activities, total) => {
     dispatch(setSelectedActivities({ activities, totalPrice: total }));
   };
 
-  // ── Markup apply ──
   const handleApplyMarkup = () => {
     const base = hotelTotalPrice + transportTotalPrice + activityTotalPrice;
     const markup = markupType === "percentage" ? (markupAmount / 100) * base : markupAmount;
     dispatch(setConfirmedMarkup(markup));
   };
 
-  // ── Meals helper ──
   const calculateTotalMeals = (entries) => {
     let totalBreakfasts = 0, totalLunches = 0, totalDinners = 0;
     entries.forEach(({ selectedMealPlan, nights }) => {
@@ -1041,7 +1292,6 @@ const Create_new_package = ({
     return { totalBreakfasts, totalLunches, totalDinners };
   };
 
-  // ── Clipboard summary ──
   const generatePackageSummary = () => {
     if (!hotelEntries.length) return "Hotel details not available.";
     const first = hotelEntries[0];
@@ -1087,7 +1337,6 @@ const Create_new_package = ({
     finally { document.body.removeChild(ta); }
   };
 
-  // ── PDF (preserved from original) ──
   const handleExportToPDF = () => {
     if (!hotelEntries.length) { alert("Add at least one hotel before exporting."); return; }
     const pdfdoc = new jsPDF();
@@ -1151,10 +1400,13 @@ const Create_new_package = ({
       if (totalDinners > 0)    included.push(`• ${totalDinners} Dinner(s)`);
       if (!totalBreakfasts && !totalLunches && !totalDinners) included.push("• No meals included (EP Plan)");
       if (selectedTransport?.selectedVehicle) { const v = selectedTransport.selectedVehicle; included.push(`• Private ${v.type || v.name}${v.ac ? " (AC)" : ""}.`); included.push("• Toll, parking fees, driver allowance, and permits."); }
-      selectedActivities?.forEach((a) => included.push(`• ${a.name} (${a.city}) - ${a.participants} Person(s)`));
+      selectedActivities?.forEach((a) => included.push(`• ${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`));
       const excluded = ["• Train / Flight Fare.", "• Early check-in & late check-out.", "• Anything not in the Included list."];
       const colW = 85;
-      const body = Array.from({ length: Math.max(included.length, excluded.length) }, (_, i) => [included[i] ? pdfdoc.splitTextToSize(included[i], colW) : "", excluded[i] ? pdfdoc.splitTextToSize(excluded[i], colW) : ""]);
+      const body = Array.from({ length: Math.max(included.length, excluded.length) }, (_, i) => [
+        included[i] ? pdfdoc.splitTextToSize(included[i], colW) : "",
+        excluded[i] ? pdfdoc.splitTextToSize(excluded[i], colW) : "",
+      ]);
       autoTable(pdfdoc, {
         startY: y + 5, head: [["INCLUDED", "EXCLUDED"]], body,
         headStyles: { fillColor: BRAND, halign: "center" }, theme: "grid",
@@ -1166,7 +1418,6 @@ const Create_new_package = ({
     img.onerror = () => alert("Could not load company logo.");
   };
 
-  // ── Save package ──
   const handleSavePackage = async () => {
     if (!packageName.trim())  { alert("Please enter a package name."); return; }
     if (!customerName.trim()) { alert("Please enter a customer name."); return; }
@@ -1204,33 +1455,42 @@ const Create_new_package = ({
 
   const showRightPanel = selectedActivities.length > 0 || hotelEntries.length > 0 || selectedTransport;
 
-  // ─────────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen pb-12">
       <div className="mx-auto p-0 md:px-4 lg:px-8">
         <div className="flex flex-col lg:flex-row lg:gap-8 xl:gap-10">
 
-          {/* ── LEFT COLUMN ── */}
+          {/* ══ LEFT COLUMN ══════════════════════════════════════════════════ */}
           <div className="flex-1 space-y-6 lg:pr-4 pb-8 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
 
-            {/* 1. Date + nights + state */}
+            {/* 1. Date + Nights + State */}
             <Card className="border-slate-200 shadow-sm">
               <CardContent className="p-3 sm:p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-sm flex items-center gap-1.5"><Calendar className="h-4 w-4 text-theme-primary" /> Check-in</Label>
-                    <Input type="date" value={checkInDate} min={new Date().toISOString().split("T")[0]} onChange={(e) => setCheckInDate(e.target.value)} />
+                    <Label className="text-sm flex items-center gap-1.5 font-medium">
+                      <Calendar className="h-4 w-4 text-theme-primary" /> Check-in
+                    </Label>
+                    <Input type="date" value={checkInDate} min={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => setCheckInDate(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">Nights</Label>
+                    <Label className="text-sm font-medium flex items-center gap-1.5">
+                      <Moon className="h-4 w-4 text-theme-primary" /> Nights
+                    </Label>
                     <Input type="number" min={1} value={nights} onChange={(e) => setNights(parseInt(e.target.value) || 1)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">Check-out</Label>
+                    <Label className="text-sm font-medium flex items-center gap-1.5">
+                      <Sun className="h-4 w-4 text-theme-primary" /> Check-out
+                    </Label>
                     <Input type="date" value={checkOutDate} readOnly className="bg-slate-50 cursor-not-allowed" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm flex items-center gap-1.5"><MapPin className="h-4 w-4 text-theme-primary" /> State</Label>
+                    <Label className="text-sm font-medium flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4 text-theme-primary" /> Destination State
+                    </Label>
                     <Select value={selectedState} onValueChange={(v) => { setSelectedState(v); setSelectedHotelId(null); setShowCustomHotelForm(false); }}>
                       <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
                       <SelectContent>
@@ -1242,66 +1502,95 @@ const Create_new_package = ({
               </CardContent>
             </Card>
 
-            {/* 2. Hotel selection */}
+            {/* 2. Hotel Selection */}
             {selectedState && (
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="p-3 sm:p-6 pb-2">
+                <CardHeader className="p-3 sm:p-5 pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Hotel className="h-5 w-5 text-theme-primary" /> Hotels in {selectedState}
+                    <Hotel className="h-5 w-5 text-theme-primary" />
+                    Hotels in <span className="text-theme-primary">{selectedState}</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-6 pt-2 space-y-4">
+                <CardContent className="p-3 sm:p-5 pt-2 space-y-4">
                   {filteredHotels.length === 0 ? (
-                    <div className="text-center py-6 space-y-3">
-                      <p className="text-muted-foreground text-sm">No hotels found in {selectedState}.</p>
+                    <div className="text-center py-8 space-y-3">
+                      <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
+                        <Hotel className="h-7 w-7 text-slate-400" />
+                      </div>
+                      <p className="text-slate-500 text-sm">No hotels found in {selectedState}.</p>
                       <Button onClick={() => setShowCustomHotelForm(true)} className="bg-theme-primary hover:bg-theme-secondary" size="sm">
                         <PenLine className="h-4 w-4 mr-2" /> Add Custom Hotel
                       </Button>
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
                         {Object.keys(groupedHotels).map((city) => (
                           <div key={city} className="space-y-1.5">
-                            <p className="text-xs font-bold uppercase tracking-wider text-theme-secondary">{city}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-theme-secondary px-1">
+                              📍 {city}
+                            </p>
                             {groupedHotels[city].map((h) => (
-                              <label key={h.id} className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${selectedHotelId === h.id ? "border-theme-primary bg-theme-muted/20" : "border-slate-100 hover:border-theme-primary/40 hover:bg-slate-50"}`}>
-                                <input type="radio" name="hotel" value={h.id} checked={selectedHotelId === h.id} onChange={() => { setSelectedHotelId(h.id); setShowCustomHotelForm(false); }} className="accent-theme-primary" />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium truncate">{h.name}</p>
-                                  <p className="text-[11px] text-muted-foreground">⭐ {h.GoogleReviewRating || "N/A"} • {h.city}</p>
+                              <label
+                                key={h.id}
+                                className={`flex items-center gap-2.5 p-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+                                  selectedHotelId === h.id
+                                    ? "border-theme-primary bg-theme-primary/5 shadow-sm"
+                                    : "border-slate-100 hover:border-theme-primary/30 hover:bg-slate-50"
+                                }`}
+                              >
+                                <input type="radio" name="hotel" value={h.id} checked={selectedHotelId === h.id}
+                                  onChange={() => { setSelectedHotelId(h.id); setShowCustomHotelForm(false); }}
+                                  className="accent-theme-primary flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-slate-800 truncate">{h.name}</p>
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
+                                    <span className="text-[10px] text-slate-500">{h.GoogleReviewRating || "N/A"}</span>
+                                    <span className="text-[10px] text-slate-400">· {h.city}</span>
+                                  </div>
                                 </div>
                               </label>
                             ))}
                           </div>
                         ))}
                       </div>
+
                       <div className="flex justify-end">
-                        <Button variant="outline" size="sm" onClick={() => setShowCustomHotelForm((p) => !p)} className="text-xs border-theme-primary/40 text-theme-primary">
-                          <PenLine className="h-3.5 w-3.5 mr-1" /> {showCustomHotelForm ? "Hide" : "Add Custom Hotel"}
+                        <Button variant="outline" size="sm"
+                          onClick={() => setShowCustomHotelForm((p) => !p)}
+                          className="text-xs border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5">
+                          <PenLine className="h-3.5 w-3.5 mr-1" />
+                          {showCustomHotelForm ? "Hide Custom Form" : "Add Custom Hotel"}
                         </Button>
                       </div>
                     </>
                   )}
 
                   {showCustomHotelForm && (
-                    <CustomHotelForm defaultState={selectedState} onAdd={handleCustomHotelAdd} onCancel={() => setShowCustomHotelForm(false)} />
+                    <CustomHotelForm
+                      defaultState={selectedState}
+                      onAdd={handleCustomHotelAdd}
+                      onCancel={() => setShowCustomHotelForm(false)}
+                    />
                   )}
                 </CardContent>
               </Card>
             )}
 
-            {/* 3. Room selector (only for DB hotels) */}
+            {/* 3. Room Selector (DB hotel) */}
             {selectedHotelData && !showCustomHotelForm && (
-              <Card className="border-theme-primary/20 shadow-sm">
-                <CardHeader className="p-3 sm:p-6 pb-3">
+              <Card className="border-2 border-theme-primary/20 shadow-sm">
+                <CardHeader className="p-3 sm:p-5 pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Hotel className="h-5 w-5 text-theme-primary" />
-                    {selectedHotelData.name}
-                    <span className="text-sm font-normal text-muted-foreground">— {selectedHotelData.city}</span>
+                    <div>
+                      <span className="text-theme-dark">{selectedHotelData.name}</span>
+                      <span className="text-sm font-normal text-slate-500 ml-2">— {selectedHotelData.city}</span>
+                    </div>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-6 pt-0">
+                <CardContent className="p-3 sm:p-5 pt-0">
                   <HotelRoomSelector
                     hotel={selectedHotelData}
                     checkInDate={checkInDate}
@@ -1312,13 +1601,12 @@ const Create_new_package = ({
                     onGuestsChange={setGuests}
                     initial={editingIndex !== null ? hotelEntries[editingIndex] : {}}
                   />
-
                   <div className="flex flex-wrap gap-3 mt-6 pt-5 border-t">
-                    <Button onClick={handleSaveHotel} className="bg-theme-primary hover:bg-theme-secondary">
-                      {editingIndex !== null ? "Update Hotel" : "Save Hotel"}
+                    <Button onClick={handleSaveHotel} className="bg-theme-primary hover:bg-theme-secondary shadow-sm">
+                      {editingIndex !== null ? "✏️ Update Hotel" : "💾 Save Hotel"}
                     </Button>
                     {isReadyToAddAnother && (
-                      <Button variant="outline" onClick={handleAddAnotherHotel} className="border-theme-primary text-theme-primary">
+                      <Button variant="outline" onClick={handleAddAnotherHotel} className="border-theme-primary text-theme-primary hover:bg-theme-primary/5">
                         <Plus className="h-4 w-4 mr-1" /> Add Another Hotel
                       </Button>
                     )}
@@ -1327,81 +1615,100 @@ const Create_new_package = ({
               </Card>
             )}
 
-            {/* 4. Saved itinerary */}
+            {/* 4. Saved Hotel Itinerary */}
             {hotelEntries.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-base font-semibold flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" /> Saved Hotels
-                </h3>
-                {hotelEntries.map((entry, idx) => (
-                  <Card key={idx} className={`border-slate-200 shadow-sm ${entry.isCustom ? "border-l-4 border-l-theme-primary/40" : ""}`}>
-                    <CardContent className="p-3 sm:p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-bold text-theme-dark">{entry.hotel}</p>
-                            {entry.isCustom && <Badge variant="outline" className="text-[10px] px-1.5">Custom</Badge>}
-                          </div>
-                          {entry.rating && <div className="flex gap-0.5">{renderStars(entry.rating)}</div>}
-                          <p className="text-sm text-muted-foreground">{entry.city}, {entry.state}</p>
-                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                            <span>{formatDate(entry.checkInDate)} → {formatDate(entry.checkOutDate)}</span>
-                            <span>• {entry.nights} night{entry.nights > 1 ? "s" : ""}</span>
-                            <span>• {entry.selectedRoomCategory}</span>
-                            <span>• {entry.selectedMealPlan}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground">Total</p>
-                            <p className="text-xl font-bold text-theme-primary">₹{Number(entry.hotelTotal || 0).toLocaleString("en-IN")}</p>
-                          </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => handleEditHotel(idx)} className="p-2 text-muted-foreground hover:text-theme-primary hover:bg-theme-muted/30 rounded-lg">
-                              <Edit3 className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => dispatch(deleteHotelEntry(idx))} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <h3 className="text-base font-bold text-slate-800">
+                    Hotel Itinerary
+                    <span className="ml-2 text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {hotelEntries.length} hotel{hotelEntries.length > 1 ? "s" : ""}
+                    </span>
+                  </h3>
+                </div>
+
+                {/* Timeline connector */}
+                <div className="space-y-3 relative">
+                  {hotelEntries.length > 1 && (
+                    <div className="absolute left-7 top-14 bottom-14 w-0.5 bg-gradient-to-b from-theme-primary/30 via-theme-primary/20 to-transparent z-0 hidden sm:block" />
+                  )}
+                  {hotelEntries.map((entry, idx) => (
+                    <div key={idx} className="relative z-10">
+                      <HotelItineraryCard
+                        entry={entry}
+                        index={idx}
+                        onEdit={handleEditHotel}
+                        onDelete={(i) => dispatch(deleteHotelEntry(i))}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Hotel total summary bar */}
+                <div className="flex items-center justify-between bg-theme-primary/5 border border-theme-primary/20 rounded-xl px-4 py-3">
+                  <span className="text-sm font-semibold text-slate-700">Hotels Subtotal</span>
+                  <span className="text-lg font-black text-theme-primary">₹{hotelTotalPrice.toLocaleString("en-IN")}</span>
+                </div>
               </div>
             )}
 
             {/* 5. Transport */}
             <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="p-3 sm:p-6 pb-3">
-                <CardTitle className="text-base flex items-center gap-2"><Car className="h-5 w-5 text-theme-primary" /> Transport</CardTitle>
+              <CardHeader className="p-3 sm:p-5 pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Car className="h-5 w-5 text-theme-primary" /> Transport
+                </CardTitle>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0">
-                {!showTransportSection ? (
+              <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
+                {/* Summary card if transport already selected */}
+                {selectedTransport?.selectedVehicle && (
+                  <TransportSummaryCard
+                    transport={selectedTransport}
+                    onEdit={() => setShowTransportSection(true)}
+                  />
+                )}
+
+                {!showTransportSection && !selectedTransport?.selectedVehicle ? (
                   <Button onClick={() => setShowTransportSection(true)} className="w-full bg-theme-primary hover:bg-theme-secondary">
                     <Plus className="h-4 w-4 mr-2" /> Add Transport
                   </Button>
-                ) : (
-                  <TransportSelector onTransportSelect={(t) => dispatch(setSelectedTransport(t))} />
-                )}
+                ) : showTransportSection ? (
+                  <div className="mt-2">
+                    <TransportSelector onTransportSelect={(t) => {
+                      dispatch(setSelectedTransport(t));
+                      setShowTransportSection(false);
+                    }} />
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 
             {/* 6. Activities */}
             <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="p-3 sm:p-6 pb-3">
-                <CardTitle className="text-base flex items-center gap-2"><Palmtree className="h-5 w-5 text-theme-primary" /> Activities</CardTitle>
+              <CardHeader className="p-3 sm:p-5 pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Palmtree className="h-5 w-5 text-theme-primary" /> Activities & Sightseeing
+                </CardTitle>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0">
-                {!showActivitiesSection ? (
+              <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
+                {/* Summary card if activities already selected */}
+                {selectedActivities.length > 0 && (
+                  <ActivitySummaryCard
+                    activities={selectedActivities}
+                    totalPrice={activityTotalPrice}
+                    onEdit={() => setShowActivitiesSection(true)}
+                  />
+                )}
+
+                {!showActivitiesSection && selectedActivities.length === 0 ? (
                   <Button onClick={() => setShowActivitiesSection(true)} className="w-full bg-theme-primary hover:bg-theme-secondary">
                     <Plus className="h-4 w-4 mr-2" /> Add Activities
                   </Button>
-                ) : (
-                  <div className="space-y-3">
+                ) : showActivitiesSection ? (
+                  <div className="space-y-3 mt-2">
                     <div className="space-y-1.5">
-                      <Label className="text-sm">Select State for Activities</Label>
+                      <Label className="text-sm font-medium">State for Activities</Label>
                       <Select value={selectedState} onValueChange={setSelectedState}>
                         <SelectTrigger className="text-sm"><SelectValue placeholder="Select state" /></SelectTrigger>
                         <SelectContent>
@@ -1416,100 +1723,187 @@ const Create_new_package = ({
                         onDone={handleActivitiesDone}
                       />
                     )}
+                    {selectedActivities.length > 0 && (
+                      <Button variant="outline" size="sm" onClick={() => setShowActivitiesSection(false)}
+                        className="text-xs border-green-300 text-green-700 hover:bg-green-50">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Done — Collapse Activities
+                      </Button>
+                    )}
                   </div>
+                ) : (
+                  /* Show "Edit Activities" button when collapsed but activities exist */
+                  <Button variant="outline" size="sm" onClick={() => setShowActivitiesSection(true)}
+                    className="text-xs border-theme-primary/40 text-theme-primary">
+                    <PenLine className="h-3.5 w-3.5 mr-1" /> Edit Activities
+                  </Button>
                 )}
               </CardContent>
             </Card>
 
             {/* Export buttons */}
-            <div className="flex flex-wrap gap-3 pt-4 border-t">
-              <button onClick={handleCopyToClipboard} className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-black text-sm shadow-sm">
-                <Copy className="h-4 w-4" /> Copy Summary
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200">
+              <button onClick={handleCopyToClipboard}
+                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-black text-sm shadow-sm font-medium transition-all">
+                <Copy className="h-4 w-4" /> Copy WhatsApp Summary
               </button>
-              <button onClick={handleExportToPDF} className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm shadow-sm">
+              <button onClick={handleExportToPDF}
+                className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm shadow-sm font-medium transition-all">
                 <FileText className="h-4 w-4" /> Export PDF
               </button>
             </div>
           </div>
 
-          {/* ── RIGHT COLUMN — sticky pricing panel ── */}
+          {/* ══ RIGHT COLUMN — Sticky Pricing Panel ══════════════════════════ */}
           {showRightPanel && (
             <div className="lg:w-96 xl:w-[420px] lg:min-w-[360px] lg:sticky lg:top-6 lg:self-start space-y-5 pt-6 lg:pt-0">
 
-              {/* Markup */}
-              <Card className="shadow-md">
-                <CardHeader className="p-4 sm:p-6 pb-3">
-                  <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-5 w-5 text-theme-primary" /> Add Markup</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6 pt-0">
-                  <div className="flex flex-wrap gap-3 items-end">
-                    <div className="flex-1 min-w-[120px] space-y-1">
-                      <Label className="text-xs">Amount / %</Label>
-                      <Input type="number" value={markupAmount} onChange={(e) => setMarkupAmount(Number(e.target.value))} />
+              {/* Quick package summary */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 text-sm">Package Breakdown</h3>
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                    {hotelEntries.length}H · {selectedTransport ? "1T" : "0T"} · {selectedActivities.length}A
+                  </span>
+                </div>
+                <div className="p-4 space-y-2.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <Hotel className="h-3.5 w-3.5 text-blue-600" />
+                      </div>
+                      Hotels ({hotelEntries.length})
                     </div>
+                    <span className="font-semibold">₹{hotelTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
+                        <Car className="h-3.5 w-3.5 text-indigo-600" />
+                      </div>
+                      Transport
+                    </div>
+                    <span className="font-semibold">₹{transportTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
+                        <Palmtree className="h-3.5 w-3.5 text-emerald-600" />
+                      </div>
+                      Activities ({selectedActivities.length})
+                    </div>
+                    <span className="font-semibold">₹{activityTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                  </div>
+                  {confirmedMarkup > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
+                          <Wallet className="h-3.5 w-3.5 text-amber-600" />
+                        </div>
+                        Markup
+                      </div>
+                      <span className="font-semibold text-amber-600">+₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Markup section */}
+              <Card className="shadow-sm border-slate-200">
+                <CardHeader className="p-4 sm:p-5 pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-theme-primary" /> Add Markup
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-5 pt-0">
+                  <div className="flex gap-2">
+                    <Input type="number" value={markupAmount}
+                      onChange={(e) => setMarkupAmount(Number(e.target.value))}
+                      className="flex-1 text-sm" placeholder="0" />
                     <Select value={markupType} onValueChange={setMarkupType}>
-                      <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-32 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="lumpsum">Lumpsum (₹)</SelectItem>
-                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        <SelectItem value="percentage">Percent (%)</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button onClick={handleApplyMarkup} className="bg-theme-secondary hover:bg-theme-secondary/90">Apply</Button>
+                    <Button onClick={handleApplyMarkup} size="sm" className="bg-theme-secondary hover:bg-theme-secondary/90 px-4">
+                      Apply
+                    </Button>
                   </div>
-                  <p className="mt-3 text-sm font-bold text-theme-dark">
-                    Confirmed Markup: ₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                  </p>
+                  {confirmedMarkup > 0 && (
+                    <p className="mt-2.5 text-xs text-slate-500">
+                      Markup applied: <span className="font-bold text-theme-dark">₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Grand total */}
-              <div className="p-5 bg-theme-dark text-white rounded-xl shadow-xl space-y-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <IndianRupee className="h-5 w-5" /> Grand Total
-                </h3>
-                <div className="space-y-2.5 text-sm opacity-90">
-                  {[
-                    ["Hotels", `₹${hotelTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`],
-                    ["Transport", `₹${transportTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`],
-                    ["Activities", `₹${activityTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`],
-                    ["Markup", `₹${confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`],
-                  ].map(([label, val]) => (
-                    <div key={label} className="flex justify-between items-center">
-                      <span>{label}</span><span className="font-medium">{val}</span>
-                    </div>
-                  ))}
+              {/* Grand Total */}
+              <div className="relative overflow-hidden rounded-2xl bg-theme-dark text-white shadow-2xl">
+                {/* Decorative */}
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+                <div className="relative p-5 sm:p-6">
+                  <div className="flex items-center gap-2 mb-5">
+                    <IndianRupee className="h-5 w-5 opacity-70" />
+                    <h3 className="text-lg font-bold">Grand Total</h3>
+                  </div>
+
+                  <div className="text-center mb-6">
+                    <p className="text-xs text-white/60 uppercase tracking-widest font-medium mb-1">Total Package Cost</p>
+                    <p className="text-5xl font-black tracking-tight">
+                      ₹{grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    </p>
+                    {hotelEntries.length > 0 && (
+                      <p className="text-xs text-white/50 mt-1">
+                        for {hotelEntries.reduce((sum, e) => sum + (parseInt(e.nights) || 0), 0)} nights · {hotelEntries[0]?.numDouble || 0} room{(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    onClick={() => setShowSaveModal(true)}
+                    className="w-full py-6 bg-theme-primary hover:bg-theme-secondary font-bold text-base shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Save className="h-5 w-5 mr-2" /> Save Package
+                  </Button>
                 </div>
-                <hr className="border-white/20" />
-                <div className="flex justify-between items-baseline">
-                  <span className="font-bold text-base">Final Total</span>
-                  <span className="text-3xl font-black">₹{grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
-                </div>
-                <Button onClick={() => setShowSaveModal(true)} className="w-full py-6 bg-theme-primary hover:bg-theme-secondary font-bold text-base shadow-md">
-                  <Save className="h-5 w-5 mr-2" /> Save Package
-                </Button>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Save modal ── */}
+      {/* ══ Save Modal ═══════════════════════════════════════════════════════ */}
       {showSaveModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50">
-          <div className="bg-white p-7 rounded-xl w-full max-w-md shadow-2xl space-y-5 mx-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h2 className="text-lg font-bold text-theme-dark">Finalize Package</h2>
-              <button onClick={() => setShowSaveModal(false)} className="text-muted-foreground hover:text-slate-800">
-                <X className="h-5 w-5" />
-              </button>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-theme-dark text-white px-6 py-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">Finalize Package</h2>
+                <button onClick={() => setShowSaveModal(false)} className="text-white/70 hover:text-white transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-white/60 text-sm mt-1">Fill in details to save this package</p>
             </div>
-            <div className="space-y-3">
+
+            <div className="p-6 space-y-4">
+              {/* Package summary preview */}
+              <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs text-slate-600">
+                <div className="flex justify-between"><span>Hotels</span><span className="font-semibold">₹{hotelTotalPrice.toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between"><span>Transport</span><span className="font-semibold">₹{transportTotalPrice.toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between"><span>Activities</span><span className="font-semibold">₹{activityTotalPrice.toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between border-t pt-1.5 font-bold text-sm text-slate-800"><span>Grand Total</span><span className="text-theme-primary">₹{grandTotal.toLocaleString("en-IN")}</span></div>
+              </div>
+
               <div className="space-y-1.5">
-                <Label className="text-sm">Package Name</Label>
+                <Label className="text-sm font-medium">Package Name *</Label>
                 <Input value={packageName} onChange={(e) => dispatch(setPackageName(e.target.value))} placeholder="e.g. Goa Delight 4N/5D" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">Customer Name</Label>
+                <Label className="text-sm font-medium">Customer Name *</Label>
                 <Input
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
@@ -1518,15 +1912,16 @@ const Create_new_package = ({
                   className={customerId ? "bg-slate-100 cursor-not-allowed" : ""}
                 />
                 {(customerId || leadId) && (
-                  <p className="text-xs text-muted-foreground">
-                    {customerId ? "Linked to customer" : "Linked to lead"} — name auto-filled.
+                  <p className="text-xs text-slate-400">
+                    ✓ Auto-filled from {customerId ? "customer" : "lead"} record
                   </p>
                 )}
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
+
+            <div className="px-6 pb-6 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowSaveModal(false)}>Cancel</Button>
-              <Button onClick={handleSavePackage} className="bg-green-600 hover:bg-green-700 text-white">
+              <Button onClick={handleSavePackage} className="bg-green-600 hover:bg-green-700 text-white px-6">
                 <Save className="h-4 w-4 mr-2" /> Save Package
               </Button>
             </div>
