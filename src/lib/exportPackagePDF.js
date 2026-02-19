@@ -118,9 +118,14 @@ export const exportPackagePDF = ({
         [
           "Package Name:", packageName || "N/A",
           "Guests:",
-          `${hotelEntries[0]?.numDouble     || 0} Couple(s), ` +
-          `${hotelEntries[0]?.numExtraAdult || 0} Adult(s), ` +
-          `${hotelEntries[0]?.numExtraChild || 0} Child(ren)`,
+          [
+            `${hotelEntries[0]?.numDouble     || 0} Couple(s)`,
+            `${hotelEntries[0]?.numExtraAdult || 0} Extra Adult(s)`,
+            `${hotelEntries[0]?.numExtraChild || 0} Child(ren)`,
+            ...(hotelEntries[0]?.numCNB > 0
+              ? [`${hotelEntries[0].numCNB} CNB`]
+              : []),
+          ].join(", "),
         ],
       ],
       theme: "plain",
@@ -140,15 +145,24 @@ export const exportPackagePDF = ({
 
     autoTable(pdfdoc, {
       startY: y + 5,
-      head: [["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan"]],
-      body: hotelEntries.map((h) => [
-        h.hotel,
-        h.city,
-        h.selectedRoomCategory,
-        `${formatDate(h.checkInDate)} - ${formatDate(h.checkOutDate)}`,
-        h.nights,
-        MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan,
-      ]),
+      head: [["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan", "Guests"]],
+      body: hotelEntries.map((h) => {
+        const guestParts = [
+          `${h.numDouble || 0} Rm`,
+          ...(h.numExtraAdult > 0 ? [`${h.numExtraAdult} Ext.Adult`] : []),
+          ...(h.numExtraChild > 0 ? [`${h.numExtraChild} Child`]     : []),
+          ...(h.numCNB        > 0 ? [`${h.numCNB} CNB`]              : []),
+        ];
+        return [
+          h.hotel,
+          h.city,
+          h.selectedRoomCategory,
+          `${formatDate(h.checkInDate)} - ${formatDate(h.checkOutDate)}`,
+          h.nights,
+          MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan,
+          guestParts.join("\n"),
+        ];
+      }),
       theme: "grid",
       headStyles: { fillColor: BRAND },
       styles: { fontSize: 9, cellPadding: 2 },

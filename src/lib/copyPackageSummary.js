@@ -57,15 +57,22 @@ export const buildPackageSummary = ({
   let s = `Dear Guests,\n\nGreetings from Adwait Tours!!\n`;
   s += `Kindly find the best possible rates for your requirement starting ${formatDate(first.checkInDate)}\n`;
   s += `${first.numDouble     || 0} Couple\n`;
+  s += `${first.numExtraAdult || 0} Extra Adult\n`;
   s += `${first.numExtraChild || 0} Extra Child\n`;
-  s += `${first.numExtraAdult || 0} Extra Adult\n\n`;
+  if ((first.numCNB || 0) > 0)
+    s += `${first.numCNB} Child With No Bed (CNB)\n`;
+  s += `\n`;
   s += ` *HOTELS*\n`;
 
   hotelEntries.forEach((e, idx) => {
     const fullH = hotels.find((h) => h.name === e.hotel && h.city === e.city);
     s += `${idx + 1}. ${e.hotel.toUpperCase()} ${fullH?.GoogleListingURL || ""}\n`;
     s += ` ⇒ ${e.city}, ${e.state}\n`;
-    s += ` ⇒ Hotel Room Count: ${e.numDouble || 0} Room Category: ${(e.selectedRoomCategory || "").toUpperCase()}\n`;
+    s += ` ⇒ Rooms: ${e.numDouble || 0}`;
+    if ((e.numExtraAdult || 0) > 0) s += ` | Extra Adult: ${e.numExtraAdult}`;
+    if ((e.numExtraChild || 0) > 0) s += ` | Extra Child: ${e.numExtraChild}`;
+    if ((e.numCNB        || 0) > 0) s += ` | CNB: ${e.numCNB}`;
+    s += ` | Category: ${(e.selectedRoomCategory || "").toUpperCase()}\n`;
     s += ` ⇒ ${formatDate(e.checkInDate)} to ${formatDate(e.checkOutDate)} (${e.nights} Nights, ${MEAL_PLAN_LABELS[e.selectedMealPlan] || e.selectedMealPlan})\n\n`;
   });
 
