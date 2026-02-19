@@ -27,10 +27,11 @@ import {
   setPackageName,
   setCustomerName,
 } from "@/store/packageSlice";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import "jspdf-autotable";
 import toast from "react-hot-toast";
+
+// ── Modularised utilities (PDF + clipboard) ───────────────────────────────────
+import { exportPackagePDF }   from "@/lib/exportPackagePDF";
+import { copyPackageSummary } from "@/lib/copyPackageSummary";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,12 +66,9 @@ import {
   BedDouble,
   Utensils,
   Users,
-  User,
   BusFront,
-  Flame,
   Moon,
   Sun,
-  ArrowRight,
   Activity,
   CheckCircle2,
   Info,
@@ -899,18 +897,16 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── TransportSummaryCard — beautiful display of selected transport ─────────
+// ── TransportSummaryCard ──────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 const TransportSummaryCard = ({ transport, onEdit }) => {
   if (!transport?.selectedVehicle) return null;
   const v = transport.selectedVehicle;
   return (
     <div className="relative overflow-hidden rounded-2xl border-2 border-theme-primary/20 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-sm">
-      {/* Decorative background icon */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-5">
         <BusFront className="h-28 w-28 text-theme-primary" />
       </div>
-
       <div className="relative p-5">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -926,7 +922,6 @@ const TransportSummaryCard = ({ transport, onEdit }) => {
             <Edit3 className="h-3 w-3" /> Change
           </button>
         </div>
-
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white/80 rounded-xl p-3 border border-white shadow-sm">
             <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">Vehicle</p>
@@ -949,7 +944,7 @@ const TransportSummaryCard = ({ transport, onEdit }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── ActivitySummaryCard — display of all selected activities ──────────────
+// ── ActivitySummaryCard ───────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 const ActivitySummaryCard = ({ activities, totalPrice, onEdit }) => {
   if (!activities || activities.length === 0) return null;
@@ -978,7 +973,6 @@ const ActivitySummaryCard = ({ activities, totalPrice, onEdit }) => {
           </button>
         </div>
       </div>
-
       <div className="p-3 space-y-2">
         {visible.map((act, i) => (
           <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl p-2.5 border border-white shadow-sm">
@@ -998,7 +992,6 @@ const ActivitySummaryCard = ({ activities, totalPrice, onEdit }) => {
             </div>
           </div>
         ))}
-
         {activities.length > 3 && (
           <button onClick={() => setExpanded(p => !p)}
             className="w-full text-xs text-theme-primary hover:text-theme-secondary flex items-center justify-center gap-1 py-1">
@@ -1011,7 +1004,7 @@ const ActivitySummaryCard = ({ activities, totalPrice, onEdit }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ── HotelItineraryCard — rich display of a saved hotel entry ─────────────
+// ── HotelItineraryCard ────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
   const mealEmoji = MEAL_PLAN_ICONS[entry.selectedMealPlan] || "🍽️";
@@ -1021,14 +1014,11 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
     <div className={`relative overflow-hidden rounded-2xl border-2 shadow-sm transition-all hover:shadow-md
       ${entry.isCustom ? "border-theme-primary/30 bg-gradient-to-br from-purple-50 via-white to-theme-primary/5" : "border-slate-200 bg-white"}`}
     >
-      {/* Night indicator badge */}
       <div className="absolute top-3 right-3 flex items-center gap-1 bg-theme-dark text-white text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm">
         <Moon className="h-3 w-3" />
         {entry.nights}N
       </div>
-
       <div className="p-4 sm:p-5">
-        {/* Header */}
         <div className="flex items-start gap-3 mb-4 pr-14">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${entry.isCustom ? "bg-purple-100" : "bg-theme-primary/10"}`}>
             <Hotel className={`h-5 w-5 ${entry.isCustom ? "text-purple-600" : "text-theme-primary"}`} />
@@ -1046,8 +1036,6 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
             </p>
           </div>
         </div>
-
-        {/* Info grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
             <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Check-in</p>
@@ -1066,8 +1054,6 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
             <p className="text-xs font-bold text-theme-primary mt-0.5">{mealEmoji} {entry.selectedMealPlan} <span className="font-normal opacity-70">— {mealLabel}</span></p>
           </div>
         </div>
-
-        {/* Guest pills */}
         <div className="flex flex-wrap gap-1.5 mb-4">
           {entry.numDouble > 0 && (
             <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full font-medium">
@@ -1090,8 +1076,6 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
             </span>
           )}
         </div>
-
-        {/* Footer: price + actions */}
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
           <div>
             <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Total Cost</p>
@@ -1144,12 +1128,12 @@ const Create_new_package = ({
     customerName: reduxCustomerName,
   } = useSelector((state) => state.package);
 
-  const checkInDate    = propCheckInDate;
-  const setCheckInDate = propSetCheckInDate;
-  const checkOutDate   = propCheckOutDate;
+  const checkInDate     = propCheckInDate;
+  const setCheckInDate  = propSetCheckInDate;
+  const checkOutDate    = propCheckOutDate;
   const setCheckOutDate = propSetCheckOutDate;
-  const saveChanges    = propSaveChanges;
-  const setSaveChanges = propSetSaveChanges;
+  const saveChanges     = propSaveChanges;
+  const setSaveChanges  = propSetSaveChanges;
 
   const [hotels, setHotels]             = useState([]);
   const [states, setStates]             = useState([]);
@@ -1209,12 +1193,12 @@ const Create_new_package = ({
     setCheckOutDate(d.toISOString().split("T")[0]);
   }, [checkInDate, nights]);
 
-  const filteredHotels = useMemo(() => hotels.filter((h) => h.state?.toLowerCase() === selectedState.toLowerCase()), [hotels, selectedState]);
-  const groupedHotels  = useMemo(() => filteredHotels.reduce((acc, h) => { const c = h.city || "Other"; if (!acc[c]) acc[c] = []; acc[c].push(h); return acc; }, {}), [filteredHotels]);
+  const filteredHotels    = useMemo(() => hotels.filter((h) => h.state?.toLowerCase() === selectedState.toLowerCase()), [hotels, selectedState]);
+  const groupedHotels     = useMemo(() => filteredHotels.reduce((acc, h) => { const c = h.city || "Other"; if (!acc[c]) acc[c] = []; acc[c].push(h); return acc; }, {}), [filteredHotels]);
   const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
   const hotelTotalPrice   = hotelEntries.reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
   const transportTotalPrice = selectedTransport?.selectedVehicle?.price ? Number(selectedTransport.selectedVehicle.price) : 0;
-  const grandTotal = hotelTotalPrice + transportTotalPrice + activityTotalPrice + confirmedMarkup;
+  const grandTotal          = hotelTotalPrice + transportTotalPrice + activityTotalPrice + confirmedMarkup;
 
   const handleSaveHotel = () => {
     if (!selectedHotelData) { alert("Please select a hotel."); return; }
@@ -1275,148 +1259,30 @@ const Create_new_package = ({
   };
 
   const handleApplyMarkup = () => {
-    const base = hotelTotalPrice + transportTotalPrice + activityTotalPrice;
+    const base   = hotelTotalPrice + transportTotalPrice + activityTotalPrice;
     const markup = markupType === "percentage" ? (markupAmount / 100) * base : markupAmount;
     dispatch(setConfirmedMarkup(markup));
   };
 
-  const calculateTotalMeals = (entries) => {
-    let totalBreakfasts = 0, totalLunches = 0, totalDinners = 0;
-    entries.forEach(({ selectedMealPlan, nights }) => {
-      const n = parseInt(nights, 10);
-      if (isNaN(n)) return;
-      if (selectedMealPlan === "CP")  { totalBreakfasts += n; }
-      if (selectedMealPlan === "MAP") { totalBreakfasts += n; totalDinners += n; }
-      if (selectedMealPlan === "AP")  { totalBreakfasts += n; totalLunches += n; totalDinners += n; }
+  // ── Handlers that delegate to the utility modules ─────────────────────────
+  const handleCopyToClipboard = () =>
+    copyPackageSummary({
+      hotelEntries,
+      selectedTransport,
+      selectedActivities,
+      grandTotal,
+      hotels,          // needed for GoogleListingURL lookup
     });
-    return { totalBreakfasts, totalLunches, totalDinners };
-  };
 
-  const generatePackageSummary = () => {
-    if (!hotelEntries.length) return "Hotel details not available.";
-    const first = hotelEntries[0];
-    let s = `Dear Guests,\n\nGreetings from Adwait Tours!!\n`;
-    s += `Kindly find the best possible rates for your requirement starting ${formatDate(first.checkInDate)}\n`;
-    s += `${first.numDouble || 0} Couple\n${first.numExtraChild || 0} Extra Child\n${first.numExtraAdult || 0} Extra Adult\n\n *HOTELS*\n`;
-    hotelEntries.forEach((e, idx) => {
-      const fullH = hotels.find((h) => h.name === e.hotel && h.city === e.city);
-      s += `${idx + 1}. ${e.hotel.toUpperCase()} ${fullH?.GoogleListingURL || ""}\n`;
-      s += ` ⇒ ${e.city}, ${e.state}\n`;
-      s += ` ⇒ Hotel Room Count: ${e.numDouble || 0} Room Category: ${(e.selectedRoomCategory || "").toUpperCase()}\n`;
-      s += ` ⇒ ${formatDate(e.checkInDate)} to ${formatDate(e.checkOutDate)} (${e.nights} Nights, ${MEAL_PLAN_LABELS[e.selectedMealPlan] || e.selectedMealPlan})\n\n`;
+  const handleExportToPDF = () =>
+    exportPackagePDF({
+      hotelEntries,
+      selectedTransport,
+      selectedActivities,
+      grandTotal,
+      customerName,
+      packageName,
     });
-    s += `*TOTAL TOUR COST = ₹${grandTotal.toLocaleString("en-IN")}/-*\n\n*INCLUDED*\n`;
-    const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(hotelEntries);
-    if (totalBreakfasts > 0) s += `✅ ${totalBreakfasts} Breakfast(s)\n`;
-    if (totalLunches > 0)    s += `✅ ${totalLunches} Lunch(es)\n`;
-    if (totalDinners > 0)    s += `✅ ${totalDinners} Dinner(s)\n`;
-    if (!totalBreakfasts && !totalLunches && !totalDinners) s += `✅ No meals included (EP Plan)\n`;
-    if (selectedTransport?.selectedVehicle) {
-      const v = selectedTransport.selectedVehicle;
-      s += `✅ ${v.type || v.name} ${v.ac ? "AC" : "Non-AC"} for all sightseeing and transfer\n`;
-      s += `✅ Toll, Parking, Driver Allowance, Permits\n`;
-    }
-    selectedActivities?.forEach((act) => { s += `✅ ${act.name.toUpperCase()} (${act.city}) - ${act.participants} Person\n`; });
-    s += `\n*EXCLUDED*\n❌ Train / Flight Fare\n❌ Early check in and late check out as per hotel policy\n❌ Medical, Emergency, Entry Tickets, activities, expenses\n❌ Anything not mentioned in included\n`;
-    return s;
-  };
-
-  const handleCopyToClipboard = () => {
-    const summary = generatePackageSummary();
-    const ta = document.createElement("textarea");
-    ta.value = summary;
-    ta.style.cssText = "position:fixed;left:-9999px;top:-9999px";
-    document.body.appendChild(ta);
-    try {
-      ta.select();
-      ta.setSelectionRange(0, ta.value.length);
-      const ok = document.execCommand("copy");
-      if (!ok && navigator.clipboard) { navigator.clipboard.writeText(summary).then(() => toast("Copied!")).catch(() => toast.error("Copy failed")); return; }
-      if (ok) toast("Package summary copied!"); else toast.error("Copy failed.");
-    } catch { toast.error("Copy error."); }
-    finally { document.body.removeChild(ta); }
-  };
-
-  const handleExportToPDF = () => {
-    if (!hotelEntries.length) { alert("Add at least one hotel before exporting."); return; }
-    const pdfdoc = new jsPDF();
-    const BRAND = "#0D47A1";
-    const img = new Image();
-    img.src = "./adwait-logo.jpg";
-    img.onload = () => {
-      const addHeader = () => {
-        const lw = 40, lh = (img.height * lw) / img.width;
-        pdfdoc.addImage(img, "PNG", 15, 10, lw, lh);
-        pdfdoc.setFont("helvetica", "bold"); pdfdoc.setFontSize(16); pdfdoc.setTextColor(BRAND);
-        pdfdoc.text("Adwait Tours", 60, 18);
-        pdfdoc.setFont("helvetica", "normal"); pdfdoc.setFontSize(10); pdfdoc.setTextColor("#444");
-        pdfdoc.text("Travel Package Quotation", 60, 25);
-        pdfdoc.setFontSize(8);
-        pdfdoc.text("Phone: +91 9884798483", 160, 14);
-        pdfdoc.text("Email: sales@adwaittours.com", 160, 19);
-        pdfdoc.text("Web: www.adwaittours.com", 160, 24);
-        pdfdoc.setDrawColor("#CCC"); pdfdoc.setLineWidth(0.2); pdfdoc.line(15, 32, 200, 32);
-      };
-      const addFooter = () => {
-        pdfdoc.setDrawColor("#CCC"); pdfdoc.setLineWidth(0.2); pdfdoc.line(15, 282, 200, 282);
-        pdfdoc.setFontSize(8); pdfdoc.setTextColor("#444");
-        pdfdoc.text("Thank you for choosing Adwait Tours!", 107, 287, { align: "center" });
-        pdfdoc.text("For Reviews: Google Page | Follow Us: Instagram", 107, 291, { align: "center" });
-      };
-      addHeader();
-      let y = 42;
-      autoTable(pdfdoc, {
-        startY: y,
-        body: [
-          ["Customer Name:", customerName || "N/A", "Date:", formatDate(new Date().toISOString())],
-          ["Package Name:", packageName || "N/A", "Guests:", `${hotelEntries[0]?.numDouble || 0} Couple(s), ${hotelEntries[0]?.numExtraAdult || 0} Adult(s), ${hotelEntries[0]?.numExtraChild || 0} Child(ren)`],
-        ],
-        theme: "plain", styles: { fontSize: 9 },
-        columnStyles: { 0: { fontStyle: "bold", cellWidth: 35 }, 2: { fontStyle: "bold", cellWidth: 35 } },
-        margin: { left: 15, right: 15 },
-      });
-      y = pdfdoc.lastAutoTable.finalY + 8;
-      pdfdoc.setFont("helvetica", "bold"); pdfdoc.setFontSize(11); pdfdoc.text("Hotel Details", 15, y);
-      autoTable(pdfdoc, {
-        startY: y + 5,
-        head: [["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan"]],
-        body: hotelEntries.map((h) => [h.hotel, h.city, h.selectedRoomCategory, `${formatDate(h.checkInDate)} - ${formatDate(h.checkOutDate)}`, h.nights, MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan]),
-        theme: "grid", headStyles: { fillColor: BRAND }, styles: { fontSize: 9, cellPadding: 2 },
-        margin: { left: 15, right: 15 }, didDrawPage: () => addHeader(),
-      });
-      y = pdfdoc.lastAutoTable.finalY;
-      autoTable(pdfdoc, {
-        startY: y + 10,
-        body: [[{ content: "Grand Total Tour Cost:", styles: { fontStyle: "bold", textColor: BRAND } }, { content: `Rs. ${grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`, styles: { halign: "right", fontStyle: "bold", textColor: BRAND } }]],
-        theme: "grid", styles: { fontSize: 11, cellPadding: 3 },
-        columnStyles: { 0: { cellWidth: 120 } }, margin: { left: 15, right: 15 }, didDrawPage: () => addHeader(),
-      });
-      y = pdfdoc.lastAutoTable.finalY + 12;
-      pdfdoc.setFont("helvetica", "bold"); pdfdoc.setFontSize(11); pdfdoc.text("Inclusions & Exclusions", 15, y);
-      const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(hotelEntries);
-      const included = ["• Hotel accommodation as specified."];
-      if (totalBreakfasts > 0) included.push(`• ${totalBreakfasts} Breakfast(s)`);
-      if (totalLunches > 0)    included.push(`• ${totalLunches} Lunch(es)`);
-      if (totalDinners > 0)    included.push(`• ${totalDinners} Dinner(s)`);
-      if (!totalBreakfasts && !totalLunches && !totalDinners) included.push("• No meals included (EP Plan)");
-      if (selectedTransport?.selectedVehicle) { const v = selectedTransport.selectedVehicle; included.push(`• Private ${v.type || v.name}${v.ac ? " (AC)" : ""}.`); included.push("• Toll, parking fees, driver allowance, and permits."); }
-      selectedActivities?.forEach((a) => included.push(`• ${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`));
-      const excluded = ["• Train / Flight Fare.", "• Early check-in & late check-out.", "• Anything not in the Included list."];
-      const colW = 85;
-      const body = Array.from({ length: Math.max(included.length, excluded.length) }, (_, i) => [
-        included[i] ? pdfdoc.splitTextToSize(included[i], colW) : "",
-        excluded[i] ? pdfdoc.splitTextToSize(excluded[i], colW) : "",
-      ]);
-      autoTable(pdfdoc, {
-        startY: y + 5, head: [["INCLUDED", "EXCLUDED"]], body,
-        headStyles: { fillColor: BRAND, halign: "center" }, theme: "grid",
-        styles: { fontSize: 9, cellPadding: 2 }, margin: { left: 15, right: 15 }, didDrawPage: () => addHeader(),
-      });
-      addFooter();
-      pdfdoc.save("Travel_Package_Quotation.pdf");
-    };
-    img.onerror = () => alert("Could not load company logo.");
-  };
 
   const handleSavePackage = async () => {
     if (!packageName.trim())  { alert("Please enter a package name."); return; }
@@ -1555,7 +1421,6 @@ const Create_new_package = ({
                           </div>
                         ))}
                       </div>
-
                       <div className="flex justify-end">
                         <Button variant="outline" size="sm"
                           onClick={() => setShowCustomHotelForm((p) => !p)}
@@ -1566,7 +1431,6 @@ const Create_new_package = ({
                       </div>
                     </>
                   )}
-
                   {showCustomHotelForm && (
                     <CustomHotelForm
                       defaultState={selectedState}
@@ -1627,8 +1491,6 @@ const Create_new_package = ({
                     </span>
                   </h3>
                 </div>
-
-                {/* Timeline connector */}
                 <div className="space-y-3 relative">
                   {hotelEntries.length > 1 && (
                     <div className="absolute left-7 top-14 bottom-14 w-0.5 bg-gradient-to-b from-theme-primary/30 via-theme-primary/20 to-transparent z-0 hidden sm:block" />
@@ -1644,8 +1506,6 @@ const Create_new_package = ({
                     </div>
                   ))}
                 </div>
-
-                {/* Hotel total summary bar */}
                 <div className="flex items-center justify-between bg-theme-primary/5 border border-theme-primary/20 rounded-xl px-4 py-3">
                   <span className="text-sm font-semibold text-slate-700">Hotels Subtotal</span>
                   <span className="text-lg font-black text-theme-primary">₹{hotelTotalPrice.toLocaleString("en-IN")}</span>
@@ -1661,14 +1521,12 @@ const Create_new_package = ({
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
-                {/* Summary card if transport already selected */}
                 {selectedTransport?.selectedVehicle && (
                   <TransportSummaryCard
                     transport={selectedTransport}
                     onEdit={() => setShowTransportSection(true)}
                   />
                 )}
-
                 {!showTransportSection && !selectedTransport?.selectedVehicle ? (
                   <Button onClick={() => setShowTransportSection(true)} className="w-full bg-theme-primary hover:bg-theme-secondary">
                     <Plus className="h-4 w-4 mr-2" /> Add Transport
@@ -1692,7 +1550,6 @@ const Create_new_package = ({
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
-                {/* Summary card if activities already selected */}
                 {selectedActivities.length > 0 && (
                   <ActivitySummaryCard
                     activities={selectedActivities}
@@ -1700,7 +1557,6 @@ const Create_new_package = ({
                     onEdit={() => setShowActivitiesSection(true)}
                   />
                 )}
-
                 {!showActivitiesSection && selectedActivities.length === 0 ? (
                   <Button onClick={() => setShowActivitiesSection(true)} className="w-full bg-theme-primary hover:bg-theme-secondary">
                     <Plus className="h-4 w-4 mr-2" /> Add Activities
@@ -1731,7 +1587,6 @@ const Create_new_package = ({
                     )}
                   </div>
                 ) : (
-                  /* Show "Edit Activities" button when collapsed but activities exist */
                   <Button variant="outline" size="sm" onClick={() => setShowActivitiesSection(true)}
                     className="text-xs border-theme-primary/40 text-theme-primary">
                     <PenLine className="h-3.5 w-3.5 mr-1" /> Edit Activities
@@ -1757,7 +1612,7 @@ const Create_new_package = ({
           {showRightPanel && (
             <div className="lg:w-96 xl:w-[420px] lg:min-w-[360px] lg:sticky lg:top-6 lg:self-start space-y-5 pt-6 lg:pt-0">
 
-              {/* Quick package summary */}
+              {/* Package breakdown */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 text-sm">Package Breakdown</h3>
@@ -1807,7 +1662,7 @@ const Create_new_package = ({
                 </div>
               </div>
 
-              {/* Markup section */}
+              {/* Markup */}
               <Card className="shadow-sm border-slate-200">
                 <CardHeader className="p-4 sm:p-5 pb-3">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -1840,16 +1695,13 @@ const Create_new_package = ({
 
               {/* Grand Total */}
               <div className="relative overflow-hidden rounded-2xl bg-theme-dark text-white shadow-2xl">
-                {/* Decorative */}
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-
                 <div className="relative p-5 sm:p-6">
                   <div className="flex items-center gap-2 mb-5">
                     <IndianRupee className="h-5 w-5 opacity-70" />
                     <h3 className="text-lg font-bold">Grand Total</h3>
                   </div>
-
                   <div className="text-center mb-6">
                     <p className="text-xs text-white/60 uppercase tracking-widest font-medium mb-1">Total Package Cost</p>
                     <p className="text-5xl font-black tracking-tight">
@@ -1861,7 +1713,6 @@ const Create_new_package = ({
                       </p>
                     )}
                   </div>
-
                   <Button
                     onClick={() => setShowSaveModal(true)}
                     className="w-full py-6 bg-theme-primary hover:bg-theme-secondary font-bold text-base shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
@@ -1888,16 +1739,13 @@ const Create_new_package = ({
               </div>
               <p className="text-white/60 text-sm mt-1">Fill in details to save this package</p>
             </div>
-
             <div className="p-6 space-y-4">
-              {/* Package summary preview */}
               <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs text-slate-600">
                 <div className="flex justify-between"><span>Hotels</span><span className="font-semibold">₹{hotelTotalPrice.toLocaleString("en-IN")}</span></div>
                 <div className="flex justify-between"><span>Transport</span><span className="font-semibold">₹{transportTotalPrice.toLocaleString("en-IN")}</span></div>
                 <div className="flex justify-between"><span>Activities</span><span className="font-semibold">₹{activityTotalPrice.toLocaleString("en-IN")}</span></div>
                 <div className="flex justify-between border-t pt-1.5 font-bold text-sm text-slate-800"><span>Grand Total</span><span className="text-theme-primary">₹{grandTotal.toLocaleString("en-IN")}</span></div>
               </div>
-
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Package Name *</Label>
                 <Input value={packageName} onChange={(e) => dispatch(setPackageName(e.target.value))} placeholder="e.g. Goa Delight 4N/5D" />
@@ -1918,7 +1766,6 @@ const Create_new_package = ({
                 )}
               </div>
             </div>
-
             <div className="px-6 pb-6 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowSaveModal(false)}>Cancel</Button>
               <Button onClick={handleSavePackage} className="bg-green-600 hover:bg-green-700 text-white px-6">

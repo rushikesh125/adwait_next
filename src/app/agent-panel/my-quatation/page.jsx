@@ -1,9 +1,8 @@
 "use client";
-import React from "react";
+import React, { useMemo } from "react";
 import "@/app/globals.css";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-// import { useQuotationState } from "@/app/useQuotationState";
 import QuotationsTable from "./QuotationsTable";
 import QuotationModals from "./QuotationModals";
 import { generateAndDownloadQuotationPDF } from "@/lib/my-quotation-pdf";
@@ -14,6 +13,17 @@ const MyQuotations = () => {
   const searchParams = useSearchParams();
   const editId = searchParams.get("editId");
 
+  // --- SORTING LOGIC ---
+  // We use useMemo to ensure sorting only happens when the quotations change.
+  // This sorts by createdAt.seconds in descending order (Newest first).
+  const sortedQuotations = useMemo(() => {
+    return [...state.filteredQuotations].sort((a, b) => {
+      const dateA = a.createdAt?.seconds || 0;
+      const dateB = b.createdAt?.seconds || 0;
+      return dateB - dateA; // Descending order
+    });
+  }, [state.filteredQuotations]);
+
   // Auto-open edit modal if editId is in URL
   useEffect(() => {
     if (editId && state.quotations.length > 0) {
@@ -22,21 +32,22 @@ const MyQuotations = () => {
         state.handleEditClick(quoteToEdit);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editId, state.quotations]);
+  }, [editId, state.quotations, state.handleEditClick]);
 
   const handleDownloadPDF = (quotation) => {
     generateAndDownloadQuotationPDF(quotation, state.allHotels);
   };
 
-  if (state.loading) return <p>Authenticating...</p>;
-  if (state.isFetchingQuotations) return <p>Loading quotations...</p>;
-  if (!state.isFetchingQuotations && state.quotations.length === 0) return <p>No quotations found.</p>;
+  if (state.loading) return <p className="p-8 text-center">Authenticating...</p>;
+  if (state.isFetchingQuotations) return <p className="p-8 text-center">Loading quotations...</p>;
+  if (!state.isFetchingQuotations && state.quotations.length === 0) {
+    return <p className="p-8 text-center">No quotations found.</p>;
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <QuotationsTable
-        filteredQuotations={state.filteredQuotations}
+        filteredQuotations={sortedQuotations} // Passing sorted data here
         searchTerm={state.searchTerm}
         setSearchTerm={state.setSearchTerm}
         filterDestination={state.filterDestination}

@@ -59,7 +59,6 @@ const QuotationsTable = ({
 
   return (
     <>
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-theme-primary">My Quotations</h1>
@@ -73,9 +72,8 @@ const QuotationsTable = ({
       <Card className="border-theme-muted shadow-sm">
         <CardHeader className="pb-4 border-b">
           <div className="flex flex-col gap-4">
-            <CardTitle className="text-xl text-theme-primary">All Quotations</CardTitle>
+            <CardTitle className="text-xl text-theme-primary">All Quotations (Newest First)</CardTitle>
 
-            {/* Filters */}
             <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-end">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="search" className="text-sm">Search</Label>
@@ -125,11 +123,11 @@ const QuotationsTable = ({
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="rounded-b-md">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-theme-muted/30 hover:bg-theme-muted/50">
-                  <TableHead className="w-24">Quote No.</TableHead>
+                  <TableHead className="w-24">Order</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Package</TableHead>
                   <TableHead>Destination</TableHead>
@@ -231,7 +229,7 @@ const QuotationsTable = ({
                                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                 <AlertDialogDescription>
                                   This will permanently delete the quotation for &quot;
-                                  {q.customerName}&quot;. This action cannot be undone.
+                                  {q.customerName || q.leadName}&quot;. This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
