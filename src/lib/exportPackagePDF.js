@@ -100,7 +100,7 @@ export const exportPackagePDF = ({
 
   const pdfdoc = new jsPDF();
   const img = new Image();
-  img.src = "./adwait-logo.jpg";
+  img.src = "/adwait-logo.jpg";
 
   img.onload = () => {
     // ── Page 1 header ──────────────────────────────────────────────────────

@@ -5,49 +5,60 @@ import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import QuotationsTable from "./QuotationsTable";
 import QuotationModals from "./QuotationModals";
-import { generateAndDownloadQuotationPDF } from "@/lib/my-quotation-pdf";
 import { useQuotationState } from "@/app/hooks/useQuotationState";
+
+// ── Shared utilities (same ones used in Create_new_package) ───────────────────
+import { exportPackagePDF }   from "@/lib/exportPackagePDF";
+import { copyPackageSummary } from "@/lib/copyPackageSummary";
+import { normaliseQuotation } from "@/lib/quotationAdapter";
 
 const MyQuotations = () => {
   const state = useQuotationState();
   const searchParams = useSearchParams();
   const editId = searchParams.get("editId");
 
-  // --- SORTING LOGIC ---
-  // We use useMemo to ensure sorting only happens when the quotations change.
-  // This sorts by createdAt.seconds in descending order (Newest first).
+  // ── Sort: newest first ────────────────────────────────────────────────────
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
       const dateA = a.createdAt?.seconds || 0;
       const dateB = b.createdAt?.seconds || 0;
-      return dateB - dateA; // Descending order
+      return dateB - dateA;
     });
   }, [state.filteredQuotations]);
 
-  // Auto-open edit modal if editId is in URL
+  // ── Auto-open edit modal when editId is in URL ────────────────────────────
   useEffect(() => {
     if (editId && state.quotations.length > 0) {
       const quoteToEdit = state.quotations.find((q) => q.id === editId);
-      if (quoteToEdit) {
-        state.handleEditClick(quoteToEdit);
-      }
+      if (quoteToEdit) state.handleEditClick(quoteToEdit);
     }
   }, [editId, state.quotations, state.handleEditClick]);
 
+  // ── PDF download — uses shared exportPackagePDF via adapter ───────────────
   const handleDownloadPDF = (quotation) => {
-    generateAndDownloadQuotationPDF(quotation, state.allHotels);
+    exportPackagePDF(normaliseQuotation(quotation));
   };
 
-  if (state.loading) return <p className="p-8 text-center">Authenticating...</p>;
-  if (state.isFetchingQuotations) return <p className="p-8 text-center">Loading quotations...</p>;
-  if (!state.isFetchingQuotations && state.quotations.length === 0) {
+  // ── WhatsApp copy — uses shared copyPackageSummary via adapter ────────────
+  const handleCopyToClipboard = (quotation) => {
+    copyPackageSummary({
+      ...normaliseQuotation(quotation),
+      hotels: state.allHotels, // needed for GoogleListingURL lookup
+    });
+  };
+
+  // ── Loading / empty states ────────────────────────────────────────────────
+  if (state.loading)
+    return <p className="p-8 text-center">Authenticating...</p>;
+  if (state.isFetchingQuotations)
+    return <p className="p-8 text-center">Loading quotations...</p>;
+  if (!state.isFetchingQuotations && state.quotations.length === 0)
     return <p className="p-8 text-center">No quotations found.</p>;
-  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <QuotationsTable
-        filteredQuotations={sortedQuotations} // Passing sorted data here
+        filteredQuotations={sortedQuotations}
         searchTerm={state.searchTerm}
         setSearchTerm={state.setSearchTerm}
         filterDestination={state.filterDestination}
@@ -59,9 +70,9 @@ const MyQuotations = () => {
         getDestinationOfpkg={state.getDestinationOfpkg}
         handleViewClick={state.handleViewClick}
         handleEditClick={state.handleEditClick}
-        handleDownloadPDF={handleDownloadPDF}
+        handleDownloadPDF={handleDownloadPDF}           // ← shared util
         handleDeleteQuotation={state.handleDeleteQuotation}
-        handleCopyToClipboard={state.handleCopyToClipboard}
+        handleCopyToClipboard={handleCopyToClipboard}  // ← shared util
       />
 
       <QuotationModals
