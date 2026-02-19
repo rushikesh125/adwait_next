@@ -328,13 +328,37 @@ export default function Dashboard() {
   );
 
   /* ── Handlers ── */
-  const handleApprove = async (type, id) => {
+ const handleApprove = async (type, id) => {
+    const userToApprove = [...admins, ...agents].find(u => u.id === id);
+    if (!userToApprove) return;
+
+    const loadingToast = toast.loading("Approving and notifying...");
+
     try {
+      // 1. Update Firestore
       await updateDoc(doc(db, type, id), { approved: "accepted" });
-      toast.success("User approved");
+
+      // 2. Send via EmailJS
+      const emailParams = {
+        to_name: userToApprove.name,
+        to_email: userToApprove.email,
+        user_role: type === "admins" ? "Administrator" : "Agent",
+        status: "Approved", // Dynamic status
+        admin_message: "Your application has been reviewed and approved. You now have full access to the platform.",
+      };
+
+      await emailjs.send(
+        "service_gmfmqbu",
+        "template_1tiwdgl",
+        emailParams,
+        "GjevhIIhLITokCOAK"
+      );
+
+      toast.success("User approved and notified", { id: loadingToast });
       fetchUsers();
-    } catch {
-      toast.error("Update failed");
+    } catch (error) {
+      console.error("Approval Error:", error);
+      toast.error("Status updated, but notification failed.", { id: loadingToast });
     }
   };
 
@@ -349,43 +373,41 @@ export default function Dashboard() {
   };
 
  const handleRejectConfirm = async () => {
-  if (!rejectReason.trim()) return toast.error("Please provide a reason");
+    if (!rejectReason.trim()) return toast.error("Please provide a reason");
 
-  const loadingToast = toast.loading("Processing rejection...");
+    const loadingToast = toast.loading("Processing rejection...");
 
-  try {
-    // 1. Update Firestore (Keep the admin record accurate)
-    await updateDoc(doc(db, selectedUser.type, selectedUser.id), {
-      approved: "rejected",
-    });
+    try {
+      // 1. Update Firestore
+      await updateDoc(doc(db, selectedUser.type, selectedUser.id), {
+        approved: "rejected",
+      });
 
-    // 2. Prepare Data for the User
-    const userEmailParams = {
-      to_name: selectedUser.name,     // Name of the User/Agent
-      to_email: selectedUser.email,   // Email of the User/Agent
-      user_role: selectedUser.type === "admins" ? "Administrator" : "Agent",
-      admin_message: rejectReason,    // The reason you typed in the modal
-    };
+      // 2. Send via EmailJS
+      const emailParams = {
+        to_name: selectedUser.name,
+        to_email: selectedUser.email,
+        user_role: selectedUser.type === "admins" ? "Administrator" : "Agent",
+        status: "Rejected", // Dynamic status
+        admin_message: rejectReason,
+      };
 
-    // 3. Send via EmailJS
-    await emailjs.send(
-      "service_gmfmqbu",
-      "template_1tiwdgl", // Make sure this ID matches your dashboard
-      userEmailParams,
-      "GjevhIIhLITokCOAK"
-    );
+      await emailjs.send(
+        "service_gmfmqbu",
+        "template_1tiwdgl",
+        emailParams,
+        "GjevhIIhLITokCOAK"
+      );
 
-    toast.success(`Notification sent to ${selectedUser.name}`, { id: loadingToast });
-    setIsRejectModalOpen(false);
-    setRejectReason("");
-    fetchUsers();
-  } catch (error) {
-    console.error("Email Error:", error);
-    toast.error("Status updated, but the user could not be notified.", {
-      id: loadingToast,
-    });
-  }
-};
+      toast.success(`Notification sent to ${selectedUser.name}`, { id: loadingToast });
+      setIsRejectModalOpen(false);
+      setRejectReason("");
+      fetchUsers();
+    } catch (error) {
+      console.error("Email Error:", error);
+      toast.error("Status updated, but notification failed.", { id: loadingToast });
+    }
+  };
   const handleDelete = async (type, id) => {
     if (!confirm("Permanently delete this user?")) return;
     try {
