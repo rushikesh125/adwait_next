@@ -1,6 +1,10 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
+=======
+/* eslint-disable */
+>>>>>>> Stashed changes
 =======
 /* eslint-disable */
 >>>>>>> Stashed changes
@@ -79,6 +83,10 @@ import {
 import toast from "react-hot-toast";
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+import eslintConfig from "eslint.config.mjs";
+>>>>>>> Stashed changes
 =======
 import eslintConfig from "eslint.config.mjs";
 >>>>>>> Stashed changes
@@ -266,10 +274,13 @@ const hotelTotalPrice = hotelEntries.reduce(
 
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   const transportTotalPrice = selectedTransport?.selectedVehicle?.price
     ? Number(selectedTransport.selectedVehicle.price)
     : 0;
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
  const transportTotalPrice = (() => {
@@ -302,6 +313,9 @@ const hotelTotalPrice = hotelEntries.reduce(
   return 0;
 })();
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -892,6 +906,7 @@ const hotelTotalPrice = hotelEntries.reduce(
         transportSummary: selectedTransport
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
           ? {
               vehicles: selectedTransport.vehicles || [],
               allPkgs: selectedTransport.allPkgs || [],
@@ -905,6 +920,8 @@ const hotelTotalPrice = hotelEntries.reduce(
             }
           : null,
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
   ? {
@@ -921,6 +938,9 @@ const hotelTotalPrice = hotelEntries.reduce(
     }
   : null,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -1393,6 +1413,7 @@ const hotelTotalPrice = hotelEntries.reduce(
                   </select>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
                   <button
                     className="bg-theme-secondary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-theme-secondary/90 transition-colors whitespace-nowrap"
@@ -1417,6 +1438,8 @@ const hotelTotalPrice = hotelEntries.reduce(
 =======
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 <button
   className="bg-theme-secondary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-theme-secondary/90 transition-colors whitespace-nowrap"
   onClick={() => {
@@ -1436,6 +1459,9 @@ const hotelTotalPrice = hotelEntries.reduce(
   Apply
 </button>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
