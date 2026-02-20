@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 
+=======
+/* eslint-disable */
+>>>>>>> Stashed changes
 "use client";
 // src/components/Create_new_package.jsx
 import React, { useEffect, useState, useMemo } from "react";
@@ -69,6 +73,10 @@ import {
   setCustomerName,
 } from "@/store/packageSlice";
 import toast from "react-hot-toast";
+<<<<<<< Updated upstream
+=======
+import eslintConfig from "eslint.config.mjs";
+>>>>>>> Stashed changes
 
 const Create_new_package = ({
   userData,
@@ -248,9 +256,41 @@ const hotelTotalPrice = hotelEntries.reduce(
 );
 
 
+<<<<<<< Updated upstream
   const transportTotalPrice = selectedTransport?.selectedVehicle?.price
     ? Number(selectedTransport.selectedVehicle.price)
     : 0;
+=======
+ const transportTotalPrice = (() => {
+  if (!selectedTransport?.selectedVehicle) return 0;
+
+  const vehicle = selectedTransport.selectedVehicle;
+
+  const totalNights = hotelEntries.reduce(
+    (acc, entry) => acc + Number(entry.nights || 0),
+    0
+  );
+
+  const days = totalNights > 0 ? totalNights + 1 : 1; // fallback 1 day
+  const minKm = 300;
+
+  const perKm = Number(vehicle.perKmprice || 0);
+  const lumpsum = Number(vehicle.price || 0);
+  const allowance = Number(vehicle.driverAllowance || 0);
+
+  // PER KM calculation
+  if (perKm > 0) {
+    return (minKm * perKm * days) + (allowance * days);
+  }
+
+  // LUMPSUM calculation
+  if (lumpsum > 0) {
+    return (lumpsum * days) + (allowance * days);
+  }
+
+  return 0;
+})();
+>>>>>>> Stashed changes
 
   const grandTotal =
     hotelTotalPrice +
@@ -836,6 +876,7 @@ const hotelTotalPrice = hotelEntries.reduce(
         hotelSummary: hotelEntries,
         activitySummary: selectedActivities,
         transportSummary: selectedTransport
+<<<<<<< Updated upstream
           ? {
               vehicles: selectedTransport.vehicles || [],
               allPkgs: selectedTransport.allPkgs || [],
@@ -848,6 +889,21 @@ const hotelTotalPrice = hotelEntries.reduce(
               perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
             }
           : null,
+=======
+  ? {
+      vehicles: selectedTransport.vehicles || [],
+      allPkgs: selectedTransport.allPkgs || [],
+      packageName: selectedTransport.name || "Custom",
+      vehicleName: selectedTransport.selectedVehicle?.type || "",
+      seats: selectedTransport.selectedVehicle?.seating || "",
+      price: selectedTransport.selectedVehicle?.price || 0,
+      perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
+      driverAllowance: selectedTransport.selectedVehicle?.driverAllowance || 0,
+      ac: selectedTransport.selectedVehicle?.ac || false,
+      isCustom: selectedTransport.selectedVehicle?.isCustom || false,
+    }
+  : null,
+>>>>>>> Stashed changes
       };
 
       await addDoc(packagesCollectionRef, packageData);
@@ -1315,6 +1371,7 @@ const hotelTotalPrice = hotelEntries.reduce(
                     <option value="lumpsum">Lumpsum (₹)</option>
                     <option value="percentage">Percentage (%)</option>
                   </select>
+<<<<<<< Updated upstream
 
                   <button
                     className="bg-theme-secondary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-theme-secondary/90 transition-colors whitespace-nowrap"
@@ -1336,6 +1393,26 @@ const hotelTotalPrice = hotelEntries.reduce(
                   >
                     Apply
                   </button>
+=======
+<button
+  className="bg-theme-secondary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-theme-secondary/90 transition-colors whitespace-nowrap"
+  onClick={() => {
+    const base =
+      hotelTotalPrice +
+      transportTotalPrice +
+      activityTotalPrice;
+
+    const markup =
+      markupType === "percentage"
+        ? (markupAmount / 100) * base
+        : markupAmount;
+
+    dispatch(setConfirmedMarkup(markup));
+  }}
+>
+  Apply
+</button>
+>>>>>>> Stashed changes
                 </div>
 
                 <p className="mt-4 text-sm font-bold text-theme-dark">

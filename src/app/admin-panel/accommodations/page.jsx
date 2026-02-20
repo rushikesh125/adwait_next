@@ -232,7 +232,7 @@ const Accommodation = () => {
                     <div className="p-4 bg-slate-50 rounded-full">
                       <Search className="h-8 w-8 text-slate-300" />
                     </div>
-                    <p className="text-slate-500 font-medium">No results found for "{searchQuery}"</p>
+                    <p className="text-slate-500 font-medium">No results found for {searchQuery}</p>
                     <Button variant="link" onClick={() => {setSearchQuery(""); setStateFilter("all");}} className="text-theme-primary font-bold">Clear all filters</Button>
                   </div>
                 </TableCell>

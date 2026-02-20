@@ -43,7 +43,7 @@ export default function UnauthorizedPage() {
             Access <span className="text-red-500">Denied</span>
           </h1>
           <p className="text-slate-500 font-medium leading-relaxed">
-            Oops! It looks like you don't have the necessary permissions to view this page. This area is restricted to <span className="text-theme-primary font-bold uppercase underline underline-offset-4">Authorized Personnel</span> only.
+            Oops! It looks like you dont have the necessary permissions to view this page. This area is restricted to <span className="text-theme-primary font-bold uppercase underline underline-offset-4">Authorized Personnel</span> only.
           </p>
         </div>
 
