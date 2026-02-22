@@ -42,17 +42,16 @@ import {
 } from "lucide-react";
 
 const defaultVehicles = [
-  { type: "Sedan", price: null, seating: null, ac: true, perKmprice: null, driverAllowance: null },
-  { type: "Ertiga", price: null, seating: null, ac: true, perKmprice: null,  driverAllowance: null },
-  { type: "Innova", price: null, seating: null, ac: true, perKmprice: null ,  driverAllowance: null},
-  { type: "Crysta", price: null, seating: null, ac: true, perKmprice: null, driverAllowance : null},
+  { type: "Sedan", price: null, seating: null, ac: true, perKmprice: null },
+  { type: "Ertiga", price: null, seating: null, ac: true, perKmprice: null },
+  { type: "Innova", price: null, seating: null, ac: true, perKmprice: null },
+  { type: "Crysta", price: null, seating: null, ac: true, perKmprice: null },
   {
     type: "Innova 7 Seater",
     price: null,
     seating: 7,
     ac: true,
     perKmprice: null,
-      driverAllowance: null,
   },
   {
     type: "Crysta 7 Seater",
@@ -60,7 +59,6 @@ const defaultVehicles = [
     seating: 7,
     ac: true,
     perKmprice: null,
-      driverAllowance: null,
   },
   {
     type: "Tempo Traveller - Non AC",
@@ -68,7 +66,6 @@ const defaultVehicles = [
     seating: null,
     ac: false,
     perKmprice: null,
-      driverAllowance: null,
   },
   {
     type: "Tempo Traveller - AC",
@@ -76,7 +73,6 @@ const defaultVehicles = [
     seating: null,
     ac: true,
     perKmprice: null,
-      driverAllowance: null,
   },
 ];
 
@@ -91,15 +87,6 @@ const Createpackage = ({ onClose }) => {
   const [vehicles, setVehicles] = useState(defaultVehicles);
   const [nights, setNights] = useState("");
   const [loading, setLoading] = useState(false);
-  const resetForm = () => {
-  setSelectedState("");
-  setSelectedPricingType("");
-  setPackageName("");
-  setPackageDescription("");
-  setStep(1);
-  setVehicles(defaultVehicles.map(v => ({ ...v })));
-  setNights("");
-};
 
   // Fetch states
   useEffect(() => {
@@ -117,12 +104,7 @@ const Createpackage = ({ onClose }) => {
     };
     fetchStates();
   }, []);
-  
 
-  //use effect for reset form 
-  useEffect(() => {
-  resetForm();
-}, []);
   // Update pricing options
   useEffect(() => {
     if (selectedState) {
@@ -137,7 +119,7 @@ const Createpackage = ({ onClose }) => {
   const handleVehicleChange = (index, key, value) => {
     const updatedVehicles = [...vehicles]; // or [...formData.vehicles] for Edit component
 
-    if (key === "price" || key === "seating" || key === "perKmprice" || key == "driverAllowance") {
+    if (key === "price" || key === "seating" || key === "perKmprice") {
       // Parse the value and ensure it's at least 0
       const numValue = parseInt(value);
       updatedVehicles[index][key] = isNaN(numValue)
@@ -159,7 +141,6 @@ const Createpackage = ({ onClose }) => {
         seating: null,
         ac: true,
         perKmprice: null,
-        driverAllowance: null,
       },
     ]);
     toast.success("New vehicle row added");
@@ -179,32 +160,17 @@ const Createpackage = ({ onClose }) => {
       toast.error("Missing required fields");
       return;
     }
-   const hasInvalidValues = vehicles.some((v) => {
-  //  Vehicle type empty
-  if (!v.type || v.type.trim() === "") return true;
+    const hasNegativeValues = vehicles.some(
+      (v) =>
+        (v.price !== null && v.price < 0) ||
+        (v.perKmprice !== null && v.perKmprice < 0) ||
+        (v.seating !== null && v.seating < 0),
+    );
 
-  //  Driver allowance missing or <= 0
-  if (v.driverAllowance === null || v.driverAllowance <= 0) return true;
-
-  //  Seating negative
-  if (v.seating !== null && v.seating < 0) return true;
-
-  //  Pricing validation
-  if (selectedPricingType === "perKm") {
-    if (v.perKmprice === null || v.perKmprice <= 0) return true;
-  }
-
-  if (selectedPricingType === "lumpsum") {
-    if (v.price === null || v.price <= 0) return true;
-  }
-
-  return false;
-});
-
-if (hasInvalidValues) {
-  toast.error(" Some fileds are empty, Fill it correctly .");
-  return;
-}
+    if (hasNegativeValues) {
+      toast.error("Pricing and seating values cannot be negative.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -252,7 +218,6 @@ if (hasInvalidValues) {
     } finally {
       setLoading(false);
     }
-  
   };
 
   return (
@@ -430,12 +395,8 @@ if (hasInvalidValues) {
                       <th className="px-4 py-3 text-left font-semibold">
                         Rate (₹)
                       </th>
-                      <th className="px-4 py-3 text-left font-semibold">
-  Driver Allowance (₹ / Day) </th>
-                    
                       <th className="px-4 py-3 text-center font-semibold w-16"></th>
-</tr>
-                      
+                    </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {vehicles.map((v, i) => (
@@ -503,17 +464,6 @@ if (hasInvalidValues) {
                             className="h-9 font-medium text-theme-primary"
                           />
                         </td>
-                        <td className="px-4 py-2">
-  <Input
-    type="number"
-    placeholder="Per day"
-    value={v.driverAllowance ?? ""}
-    onChange={(e) =>
-      handleVehicleChange(i, "driverAllowance", e.target.value)
-    }
-    className="h-9 font-medium text-theme-primary"
-  />
-</td>
                         <td className="px-4 py-2 text-center">
                           <Button
                             variant="ghost"

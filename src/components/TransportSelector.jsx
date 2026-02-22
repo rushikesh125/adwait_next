@@ -28,21 +28,13 @@ import { Separator } from "@/components/ui/separator";
 // Redux
 import { setSelectedTransport } from "@/store/packageSlice";
 
-
-
-
 // Firebase helpers (assumed)
 import { fetchTransportStates, fetchPackagesByState } from "@/firebase/transportFeatures";
 
-
-
-
 const TransportSelector = () => {
   const dispatch = useDispatch();
-const { 
-  selectedTransport: savedTransport,
-  hotelEntries
-} = useSelector((state) => state.package);
+  const { selectedTransport: savedTransport } = useSelector((state) => state.package);
+
   const [states, setStates] = useState([]);
   const [showSelectionUI, setShowSelectionUI] = useState(!savedTransport);
   const [selectedStateId, setSelectedStateId] = useState("");
@@ -50,7 +42,6 @@ const {
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState(null);
   const [isCustomizing, setIsCustomizing] = useState(false);
-  
 
   // Custom vehicle form
   const [customVehicle, setCustomVehicle] = useState({
@@ -98,7 +89,7 @@ const {
   // ────────────────────────────────────────────────
   // Confirm & save to Redux
   // ────────────────────────────────────────────────
-  const handleConfirmSelection = () => {  
+  const handleConfirmSelection = () => {
     let finalVehicle = null;
 
     if (isCustomizing) {
@@ -112,30 +103,20 @@ const {
         isCustom: true,
       };
     } else if (selectedPackage && selectedVehicleIndex !== null) {
-      //vehicle data 
-  const vehicleData = selectedPackage.vehicles[selectedVehicleIndex];
-
-      finalVehicle = {    
-  ...vehicleData,
-  price: Number(vehicleData.price || 0),
-  perKmprice: Number(vehicleData.perKmprice || 0),
-  driverAllowance: Number(vehicleData.driverAllowance || 0),
-  isCustom: false,
-};
+      finalVehicle = {
+        ...selectedPackage.vehicles[selectedVehicleIndex],
+        isCustom: false,
+      };
     } else {
       alert("Please select a vehicle or fill custom details.");
       return;
     }
-    
 
     const finalSelection = {
       ...selectedPackage,
       selectedVehicle: finalVehicle,
       allPkgs: packages,
-      totalPrice:
-  finalVehicle.perKmprice > 0
-    ? Number(finalVehicle.perKmprice)
-    : Number(finalVehicle.price || 0),
+      totalPrice: Number(finalVehicle.price),
     };
 
     dispatch(setSelectedTransport(finalSelection));
@@ -207,13 +188,11 @@ const {
 
           <div>
             <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-              Price 
+              Price
             </div>
             <div className="font-bold text-theme-primary text-xl">
-₹{Number(vehicle.perKmprice > 0 
-  ? vehicle.perKmprice 
-  : vehicle.price || 0
-).toLocaleString("en-IN")}            </div>
+              ₹{Number(vehicle.price || 0).toLocaleString("en-IN")}
+            </div>
           </div>
 
           <div>
@@ -388,12 +367,8 @@ const {
                               )}
                             </div>
                             <span className="font-semibold text-theme-primary">
- ₹{
-    selectedPackage.pricingType === "perKm"
-      ? Number(v.perKmprice || 0).toLocaleString("en-IN")
-      : Number(v.price || 0).toLocaleString("en-IN")
-  }
-  {selectedPackage.pricingType === "perKm" ? " /km" : ""}                            </span>
+                              ₹{Number(v.price || v.perKmprice || 0).toLocaleString()}
+                            </span>
                           </div>
                         </SelectItem>
                       ))}

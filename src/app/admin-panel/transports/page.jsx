@@ -182,14 +182,9 @@ const Transport = () => {
                             <div className="text-right">
                               <p className="text-sm font-bold text-theme-primary">
                                 ₹{pkg.pricingType === "lumpsum" ? v.price : v.perKmprice}
-                                {pkg.pricingType === "perKm" && ( <span className="text-[10px] font-normal text-slate-400">/km</span> )}
-                        
-                            </p>
-                            {v.driverAllowance && (
-                              <p className="text-[11px] text-slate-500"> Driver : ₹{v.driverAllowance}</p>
-                            )}
+                                {pkg.pricingType === "perKm" && <span className="text-[10px] font-normal text-slate-400">/km</span>}
+                              </p>
                             </div>
-
                           </div>
                         ))}
                       </div>
@@ -212,13 +207,7 @@ const Transport = () => {
       </main>
 
       {/* --- MODALS --- */}
-      {showModal && (
-  <Createpackage
-    key={Date.now()}
-    onClose={() => setShowModal(false)}
-  />
-)}
-
+      {showModal && <Createpackage onClose={() => setShowModal(false)} />}
 
       {editingData && (
         <EditPackage

@@ -53,16 +53,7 @@ const EditPackage = ({
 
   useEffect(() => {
     if (originalPackage) {
-      //set form of so allownace will be null
-      const updatedVehicles = originalPackage.vehicles.map(v => ({
-  driverAllowance: null,
-  ...v,
-}));
-
-setFormData({
-  ...originalPackage,
-  vehicles: updatedVehicles,
-});
+      setFormData(originalPackage);
     } else {
       const fetchPackage = async () => {
         try {
@@ -87,7 +78,7 @@ setFormData({
     // Correctly access vehicles from formData
     const updatedVehicles = [...formData.vehicles];
     
-    if (key === 'price' || key === 'seating' || key === 'perKmprice' ||  key === 'driverAllowance') {
+    if (key === 'price' || key === 'seating' || key === 'perKmprice') {
       // Convert to number and ensure it's at least 0
       // We use value === "" check to allow users to clear the input
       const numValue = value === "" ? 0 : parseInt(value);
@@ -119,46 +110,20 @@ setFormData({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (formData.vehicles.length === 0) {
       toast.error("Please add at least one vehicle");
       return;
     }
+    const hasNegativeValues = formData.vehicles.some(v => 
+        (v.price !== null && v.price < 0) || 
+        (v.perKmprice !== null && v.perKmprice < 0) || 
+        (v.seating !== null && v.seating < 0)
+    );
 
-    const hasInvalidValues = vehicles.some((v) => {
-  // Driver Allowance must exist and be > 0
-  if (v.driverAllowance === null || v.driverAllowance <= 0) {
-    return true;
-  }
-
-  // Seating cannot be negative
-  if (v.seating !== null && v.seating < 0) {
-    return true;
-  }
-
-  // Pricing validation based on pricing type
-  if (selectedPricingType === "perKm") {
-    if (v.perKmprice === null || v.perKmprice <= 0) {
-      return true;
+    if (hasNegativeValues) {
+        toast.error("Pricing and seating values cannot be negative.");
+        return;
     }
-  }
-
-  if (selectedPricingType === "lumpsum") {
-    if (v.price === null || v.price <= 0) {
-      return true;
-    }
-  }
-
-  return false;
-});
-
-if (hasInvalidValues) {
-  toast.error(
-    "All vehicles must have valid rate and driver allowance (greater than 0)."
-  );
-  return;
-}
-
 
     setIsSubmitting(true);
     try {
@@ -278,8 +243,6 @@ if (hasInvalidValues) {
                     <th className="px-4 py-3 text-left font-semibold text-slate-600">
                       {formData.pricingType === "lumpsum" ? "Rate (₹)" : "Rate/Km (₹)"}
                     </th>
-                    
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600"> Driver Allowance (₹/Day)</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-600 w-24">Seats</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-600 w-32">Climate</th>
                     <th className="px-4 py-3 text-center font-semibold text-slate-600 w-12"></th>
@@ -303,16 +266,6 @@ if (hasInvalidValues) {
                           className="h-9 border-slate-200 font-medium text-theme-primary"
                         />
                       </td>
-                      <td className="px-4 py-2">
-  <Input
-    type="number"
-    value={vehicle.driverAllowance ?? ""}
-    onChange={(e) =>
-      handleVehicleChange(idx, "driverAllowance", e.target.value)
-    }
-    className="h-9 border-slate-200"
-  />
-</td>
                       <td className="px-4 py-2">
                         <Input
                           type="number"
@@ -352,7 +305,7 @@ if (hasInvalidValues) {
               </table>
               {formData.vehicles.length === 0 && (
                 <div className="py-10 text-center text-slate-400 text-sm">
-                  No vehicles listed. Click Add Vehicle to begin.
+                  No vehicles listed. Click "Add Vehicle" to begin.
                 </div>
               )}
             </div>
