@@ -155,7 +155,7 @@ const Createpackage = ({ onClose }) => {
     if (
       !stateDoc ||
       !selectedPricingType ||
-      (selectedPricingType === "lumpsum" && !packageName.trim())
+      !packageName.trim()
     ) {
       toast.error("Missing required fields");
       return;
@@ -178,10 +178,7 @@ const Createpackage = ({ onClose }) => {
       const stateSnapshot = await getDoc(stateDocRef);
       const existingPackagesArray = stateSnapshot.data()?.packages || [];
 
-      if (
-        selectedPricingType === "lumpsum" &&
-        existingPackagesArray.some((pkg) => pkg.name === packageName.trim())
-      ) {
+      if (existingPackagesArray.some((pkg) => pkg.name === packageName.trim())) {
         toast.error("Package name already exists");
         setLoading(false);
         return;
@@ -189,15 +186,13 @@ const Createpackage = ({ onClose }) => {
 
       const newPackage = {
         id: uuidv4(),
+        name: packageName.trim(),
+        description: packageDescription.trim(),
         pricingType: selectedPricingType,
         vehicles: vehicles,
         createdAt: new Date().toISOString(),
-        ...(selectedPricingType === "lumpsum" && {
-          name: packageName.trim(),
-          description: packageDescription.trim(),
-          nights: parseInt(nights),
-          days: parseInt(nights) + 1,
-        }),
+        nights: nights ? parseInt(nights) : null,
+        days: nights ? parseInt(nights) + 1 : null,
       };
 
       await setDoc(
@@ -308,48 +303,49 @@ const Createpackage = ({ onClose }) => {
                 </div>
               </div>
 
-              {selectedPricingType === "lumpsum" && (
-                <div className="space-y-5 p-5 bg-theme-muted/30 rounded-xl border border-theme-primary/10">
-                  <div className="space-y-2">
-                    <Label className="text-theme-dark font-semibold">
-                      Package Display Name
-                    </Label>
+              {/* ADDED NAME AND DESCRIPTION FIELDS FOR ALL PACKAGE TYPES */}
+              <div className="space-y-5 p-5 bg-theme-muted/30 rounded-xl border border-theme-primary/10">
+                <div className="space-y-2">
+                  <Label className="text-theme-dark font-semibold">
+                    Package Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    value={packageName}
+                    onChange={(e) => setPackageName(e.target.value)}
+                    placeholder="e.g. Kerala Backwater Special"
+                    className="bg-white border-slate-200"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-theme-dark font-semibold">
+                    Package Description
+                  </Label>
+                  <Textarea
+                    value={packageDescription}
+                    onChange={(e) => setPackageDescription(e.target.value)}
+                    placeholder="Include tour highlights, inclusions, exclusions..."
+                    className="bg-white border-slate-200 resize-none min-h-[100px]"
+                  />
+                </div>
+                <div className="w-1/2 space-y-2">
+                  <Label className="text-theme-dark font-semibold">
+                    Duration (Nights)
+                  </Label>
+                  <div className="flex items-center gap-3">
                     <Input
-                      value={packageName}
-                      onChange={(e) => setPackageName(e.target.value)}
-                      placeholder="e.g. Kerala Backwater Special"
+                      type="number"
+                      min="0"
+                      value={nights}
+                      onChange={(e) => setNights(e.target.value)}
                       className="bg-white border-slate-200"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-theme-dark font-semibold">
-                      Description
-                    </Label>
-                    <Textarea
-                      value={packageDescription}
-                      onChange={(e) => setPackageDescription(e.target.value)}
-                      placeholder="Include tour highlights..."
-                      className="bg-white border-slate-200 resize-none"
-                    />
-                  </div>
-                  <div className="w-1/2 space-y-2">
-                    <Label className="text-theme-dark font-semibold">
-                      Duration (Nights)
-                    </Label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="number"
-                        value={nights}
-                        onChange={(e) => setNights(e.target.value)}
-                        className="bg-white border-slate-200"
-                      />
-                      <span className="text-sm text-slate-500 whitespace-nowrap">
-                        = {nights ? parseInt(nights) + 1 : "0"} Days
-                      </span>
-                    </div>
+                    <span className="text-sm text-slate-500 whitespace-nowrap">
+                      = {nights ? parseInt(nights) + 1 : "0"} Days
+                    </span>
                   </div>
                 </div>
-              )}
+              </div>
 
               {!selectedPricingType && (
                 <div className="flex flex-col items-center justify-center py-10 text-slate-400 italic text-sm">
@@ -501,7 +497,7 @@ const Createpackage = ({ onClose }) => {
 
           {step === 1 ? (
             <Button
-              disabled={!selectedPricingType}
+              disabled={!selectedPricingType || !packageName.trim()}
               onClick={() => setStep(2)}
               className="bg-theme-primary hover:bg-theme-secondary text-white px-8"
             >
