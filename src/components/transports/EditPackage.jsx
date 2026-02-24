@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import toast from "react-hot-toast";
 
@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -26,14 +26,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 // Icons
-import { 
-  Trash2, 
-  Save, 
-  Car, 
-  Settings2, 
-  Info,
+import {
+  Trash2,
+  Save,
+  Car,
+  Settings2,
   Loader2,
-  Plus
+  Plus,
 } from "lucide-react";
 
 const EditPackage = ({
@@ -61,11 +60,11 @@ const EditPackage = ({
           const snapshot = await getDoc(stateRef);
           if (snapshot.exists()) {
             const data = snapshot.data();
-            const pkg = data.packages.find(p => p.id === packageId);
+            const pkg = data.packages.find((p) => p.id === packageId);
             if (pkg) setFormData(pkg);
             else throw new Error("Package not found");
           }
-        } catch (err) {
+        } catch {
           toast.error("Package not found");
           onClose();
         }
@@ -74,20 +73,14 @@ const EditPackage = ({
     }
   }, [originalPackage, stateId, packageId, onClose]);
 
- const handleVehicleChange = (index, key, value) => {
-    // Correctly access vehicles from formData
+  const handleVehicleChange = (index, key, value) => {
     const updatedVehicles = [...formData.vehicles];
-    
-    if (key === 'price' || key === 'seating' || key === 'perKmprice') {
-      // Convert to number and ensure it's at least 0
-      // We use value === "" check to allow users to clear the input
+    if (key === "price" || key === "seating" || key === "perKmprice") {
       const numValue = value === "" ? 0 : parseInt(value);
       updatedVehicles[index][key] = Math.max(0, numValue || 0);
     } else {
       updatedVehicles[index][key] = value;
     }
-    
-    // Correctly update the formData state
     setFormData({ ...formData, vehicles: updatedVehicles });
   };
 
@@ -96,7 +89,7 @@ const EditPackage = ({
       type: "New Vehicle",
       seating: 4,
       ac: true,
-      ...(formData.pricingType === "lumpsum" ? { price: 0 } : { perKmprice: 0 })
+      ...(formData.pricingType === "lumpsum" ? { price: 0 } : { perKmprice: 0 }),
     };
     setFormData({ ...formData, vehicles: [...formData.vehicles, newVehicle] });
     toast.success("New vehicle row added");
@@ -114,15 +107,19 @@ const EditPackage = ({
       toast.error("Please add at least one vehicle");
       return;
     }
-    const hasNegativeValues = formData.vehicles.some(v => 
-        (v.price !== null && v.price < 0) || 
-        (v.perKmprice !== null && v.perKmprice < 0) || 
+    if (!formData.name?.trim()) {
+      toast.error("Package name is required");
+      return;
+    }
+    const hasNegativeValues = formData.vehicles.some(
+      (v) =>
+        (v.price !== null && v.price < 0) ||
+        (v.perKmprice !== null && v.perKmprice < 0) ||
         (v.seating !== null && v.seating < 0)
     );
-
     if (hasNegativeValues) {
-        toast.error("Pricing and seating values cannot be negative.");
-        return;
+      toast.error("Pricing and seating values cannot be negative.");
+      return;
     }
 
     setIsSubmitting(true);
@@ -140,7 +137,13 @@ const EditPackage = ({
         pkg.id === packageId ? { ...pkg, ...formData } : pkg
       );
 
+      // Update both the state doc array AND the subcollection document
       await updateDoc(stateRef, { packages: updatedPackages });
+      await updateDoc(
+        doc(db, "transport", stateId, "packages", packageId),
+        formData
+      );
+
       toast.success("Package updated successfully!");
       onSuccess();
       onClose();
@@ -153,21 +156,26 @@ const EditPackage = ({
   };
 
   const handleDeletePackage = async () => {
-    if (!window.confirm("Are you sure? This action will delete the entire package.")) return;
-    
+    if (!window.confirm("Are you sure? This action will permanently delete the entire package.")) return;
+
     setIsSubmitting(true);
     try {
       const stateRef = doc(db, "transport", stateId);
       const stateSnapshot = await getDoc(stateRef);
       const stateData = stateSnapshot.data();
 
+      // 1. Remove from the packages array on the state document
       const updatedPackages = stateData.packages.filter((pkg) => pkg.id !== packageId);
-
       await updateDoc(stateRef, { packages: updatedPackages });
-      toast.success("Package removed from database");
+
+      // 2. Delete the actual subcollection document — this was the missing step
+      await deleteDoc(doc(db, "transport", stateId, "packages", packageId));
+
+      toast.success("Package permanently deleted");
       onSuccess();
       onClose();
     } catch (error) {
+      console.error(error);
       toast.error("Delete failed");
     } finally {
       setIsSubmitting(false);
@@ -190,44 +198,67 @@ const EditPackage = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
-          {/* Section 1: Basic Info */}
-          {formData.pricingType !== "perKm" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
-              <div className="space-y-2">
-                <Label className="text-theme-dark font-semibold">Package Name</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Manali Sightseeing"
-                  className="focus-visible:ring-theme-primary"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-theme-dark font-semibold">Short Description</Label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="What's included?"
-                  className="focus-visible:ring-theme-primary resize-none"
-                  rows={1}
-                  required
-                />
-              </div>
+          {/* Section 1: Basic Info — shown for ALL pricing types */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-500">
+            <div className="space-y-2">
+              <Label className="text-theme-dark font-semibold">
+                Package Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={formData.name || ""}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Manali Sightseeing"
+                className="focus-visible:ring-theme-primary"
+                required
+              />
             </div>
-          )}
+            <div className="space-y-2">
+              <Label className="text-theme-dark font-semibold">Short Description</Label>
+              <Textarea
+                value={formData.description || ""}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="What's included?"
+                className="focus-visible:ring-theme-primary resize-none"
+                rows={1}
+              />
+            </div>
+
+            {/* Nights/Days — only for lumpsum */}
+            {formData.pricingType === "lumpsum" && (
+              <div className="space-y-2">
+                <Label className="text-theme-dark font-semibold">Duration (Nights)</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    value={formData.nights ?? ""}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value) || 0;
+                      setFormData({ ...formData, nights: n, days: n + 1 });
+                    }}
+                    className="focus-visible:ring-theme-primary"
+                    min={0}
+                  />
+                  <span className="text-sm text-slate-500 whitespace-nowrap">
+                    = {formData.nights ? formData.nights + 1 : "0"} Days
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Section 2: Vehicles */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Car className="w-4 h-4 text-theme-primary" />
-                <h3 className="font-bold text-theme-dark uppercase text-xs tracking-wider">Fleet Configuration</h3>
+                <h3 className="font-bold text-theme-dark uppercase text-xs tracking-wider">
+                  Fleet Configuration
+                </h3>
               </div>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={addVehicleRow}
                 className="h-8 text-theme-primary border-theme-primary/20 hover:bg-theme-primary hover:text-white"
               >
@@ -261,8 +292,18 @@ const EditPackage = ({
                       <td className="px-4 py-2">
                         <Input
                           type="number"
-                          value={formData.pricingType === "lumpsum" ? vehicle.price ?? "" : vehicle.perKmprice ?? ""}
-                          onChange={(e) => handleVehicleChange(idx, formData.pricingType === "lumpsum" ? "price" : "perKmprice", e.target.value)}
+                          value={
+                            formData.pricingType === "lumpsum"
+                              ? (vehicle.price ?? "")
+                              : (vehicle.perKmprice ?? "")
+                          }
+                          onChange={(e) =>
+                            handleVehicleChange(
+                              idx,
+                              formData.pricingType === "lumpsum" ? "price" : "perKmprice",
+                              e.target.value
+                            )
+                          }
                           className="h-9 border-slate-200 font-medium text-theme-primary"
                         />
                       </td>
@@ -326,16 +367,16 @@ const EditPackage = ({
             </Button>
 
             <div className="flex gap-3 w-full sm:w-auto">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={onClose}
                 className="border-slate-200"
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isSubmitting}
                 className="bg-theme-primary hover:bg-theme-secondary text-white min-w-[140px] shadow-lg shadow-theme-primary/20"
               >
