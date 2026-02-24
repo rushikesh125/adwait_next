@@ -954,3 +954,4 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
 };
 
 export default AddHotel;
+
