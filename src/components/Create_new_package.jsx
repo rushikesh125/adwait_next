@@ -1,6 +1,5 @@
 "use client";
-// src/components/Create_new_package.jsx
-// Enhanced UI with full functionality preserved
+
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
