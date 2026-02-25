@@ -15,6 +15,7 @@ import {
   X,
   Bell,
   Briefcase,
+  Component,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -54,6 +55,8 @@ const AgentPanelLayout = ({ children }) => {
     { name: "My Qutations", href: "/agent-panel/my-quatation", icon: Map },
     { name: "Customers", href: "/agent-panel/customers", icon: Users },
     { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
+    { name: "Booking Form", href: "/agent-panel/bookingform", icon: Component  },
+    { name: "Created Forms", href: "/agent-panel/createdforms", icon: Component  },
 
   ];
 
