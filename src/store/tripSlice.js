@@ -4,7 +4,7 @@ const initialState = {
   tripName: '',
   journeys: [
     { 
-      id: crypto.randomUUID(), 
+      id: typeof window !== 'undefined' ? crypto.randomUUID() : '1', 
       trainNo: '', 
       trainName: '', 
       date: '', 
@@ -22,6 +22,10 @@ const tripSlice = createSlice({
   reducers: {
     setTripName: (state, action) => {
       state.tripName = action.payload;
+    },
+    // New action to specifically set journeys from DB
+    setJourneys: (state, action) => {
+      state.journeys = action.payload;
     },
     addJourney: (state) => {
       if (state.journeys.length < 6) {
@@ -49,19 +53,25 @@ const tripSlice = createSlice({
         state.journeys = state.journeys.filter((j) => j.id !== action.payload);
       }
     },
-    // THIS IS THE MISSING PIECE
     loadTripForEdit: (state, action) => {
       state.tripName = action.payload.tripName;
       state.journeys = action.payload.journeys;
     },
     resetForm: (state) => {
-      return initialState;
+      return {
+        ...initialState,
+        journeys: [{ 
+          id: crypto.randomUUID(), 
+          trainNo: '', trainName: '', date: '', class: 'SL', seats: '', from: '', to: '' 
+        }]
+      };
     },
   },
 });
 
 export const { 
   setTripName, 
+  setJourneys, // Exported now
   addJourney, 
   updateJourney, 
   removeJourney, 

@@ -2,16 +2,16 @@
 import React, { use, useEffect, useState } from "react";
 import { db } from "@/firebase/config";
 import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { Train, UserPlus, Trash2, Calendar, Loader2, CheckCircle2, Info } from "lucide-react";
+import { Train, UserPlus, Trash2, Loader2, Lock, FileText, AlertCircle, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
-// shadcn/ui inspired components (standard paths)
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function PublicBookingPage({ params: paramsPromise }) {
   const params = use(paramsPromise);
@@ -21,10 +21,10 @@ export default function PublicBookingPage({ params: paramsPromise }) {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [focusedSection, setFocusedSection] = useState(null);
+  const [errors, setErrors] = useState({});
 
   const [passengers, setPassengers] = useState([{
-    name: "", age: "", gender: "M",
+    name: "", age: "", gender: "Male",
     preference: "No Preference",
     address: "", mobile: "", email: ""
   }]);
@@ -33,26 +33,44 @@ export default function PublicBookingPage({ params: paramsPromise }) {
     const fetchTrip = async () => {
       try {
         const docSnap = await getDoc(doc(db, "trips", tripId));
-        if (docSnap.exists()) setTrip(docSnap.data());
-        else toast.error("Trip not found");
-      } catch { toast.error("Error loading trip"); }
-      finally { setLoading(false); }
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setTrip(data);
+        } else {
+          setTrip("not-found");
+        }
+      } catch {
+        toast.error("Error loading trip");
+      } finally {
+        setLoading(false);
+      }
     };
     fetchTrip();
   }, [tripId]);
 
-  const updatePassenger = (index, field, value) => {
-    const newP = [...passengers];
-    newP[index][field] = value;
-    setPassengers(newP);
+  const validate = () => {
+    let newErrors = {};
+    let isValid = true;
+    passengers.forEach((p, i) => {
+      const pErr = {};
+      if (!p.name.trim()) pErr.name = "Full Name is required";
+      if (!p.age || p.age < 1) pErr.age = "Invalid age";
+      if (!p.address.trim()) pErr.address = "Address is required";
+      if (!/^\d{10}$/.test(p.mobile)) pErr.mobile = "Invalid 10-digit number";
+      if (!/^\S+@\S+\.\S+$/.test(p.email)) pErr.email = "Invalid email";
+      if (Object.keys(pErr).length > 0) { newErrors[i] = pErr; isValid = false; }
+    });
+    setErrors(newErrors);
+    return isValid;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return toast.error("Please fix errors");
     setIsSubmitting(true);
     try {
       await addDoc(collection(db, "submissions"), {
-        tripId, agentId: trip.agentId, tripName: trip.tripName,
+        tripId, tripName: trip.tripName,
         passengers, submittedAt: serverTimestamp(),
       });
       setSubmitted(true);
@@ -60,218 +78,216 @@ export default function PublicBookingPage({ params: paramsPromise }) {
     finally { setIsSubmitting(false); }
   };
 
+  // 1. LOADING STATE
   if (loading) return (
-    <div className="min-h-screen bg-theme-muted flex items-center justify-center">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
       <Loader2 className="w-8 h-8 animate-spin text-theme-primary" />
     </div>
   );
 
-  if (submitted) return (
-    <div className="min-h-screen bg-theme-muted flex flex-col items-center pt-12 p-4">
-      <Card className="w-full max-w-2xl border-t-8 border-t-theme-primary shadow-sm">
-        <CardHeader className="pt-8">
-          <CardTitle className="text-3xl font-normal tracking-tight">{trip?.tripName}</CardTitle>
-          <CardDescription className="text-base pt-2">Your response has been recorded.</CardDescription>
-        </CardHeader>
-        <CardContent className="pb-8">
-          <Button variant="link" className="p-0 text-theme-primary h-auto" onClick={() => window.location.reload()}>
-            Submit another response
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+  // 2. TRIP NOT FOUND
+  if (trip === "not-found") return (
+    <StatusMessage 
+      icon={<AlertCircle className="w-12 h-12 text-red-500" />}
+      title="Trip Not Found"
+      description="The link you followed may be broken or the trip has been deleted."
+    />
   );
 
+  // 3. STATUS: DRAFT OR CLOSED
+  if (trip.status === "draft") return (
+    <StatusMessage 
+      icon={<FileText className="w-12 h-12 text-slate-400" />}
+      title="Form under Review"
+      description="This booking form is currently in draft mode and not accepting public responses."
+    />
+  );
+
+  if (trip.status === "closed") return (
+    <StatusMessage 
+      icon={<Lock className="w-12 h-12 text-amber-500" />}
+      title="Bookings Closed"
+      description="We are no longer accepting responses for this specific trip."
+    />
+  );
+
+  // 4. SUBMITTED SUCCESS
+  if (submitted) return (
+    <StatusMessage 
+      icon={<CheckCircle className="w-12 h-12 text-green-500" />}
+      title="Booking Received!"
+      description="Your details have been sent to the agent. We will contact you soon."
+      action={<Button className="bg-theme-primary" onClick={() => window.location.reload()}>Submit Another</Button>}
+    />
+  );
+
+  // 5. ACTIVE PUBLIC FORM
   return (
-    <div className="min-h-screen bg-theme-muted py-8 px-4 font-sans selection:bg-theme-accent/30">
-      <div className="max-w-2xl mx-auto space-y-4">
-        
-        {/* Header Card */}
-        <Card className="border-t-8 border-t-theme-primary shadow-sm overflow-hidden">
-          <CardHeader className="space-y-4">
-            <CardTitle className="text-3xl font-normal">{trip?.tripName || "Trip Details"}</CardTitle>
-            <div className="space-y-3">
-              <div className="p-4 bg-white border border-slate-200 rounded-lg space-y-3">
-                {trip?.journeys.map((j, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                    <Train className="w-4 h-4 text-theme-primary" />
-                    <span className="font-bold text-slate-900">{j.trainNo}</span>
-                    <span className="text-slate-400">|</span>
-                    <span>{j.from} → {j.to}</span>
-                    <span className="bg-theme-muted text-theme-dark px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                      {j.class}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <Separator />
-              <div className="flex items-center gap-2 text-red-600 text-xs">
-                <span>* Indicates required question</span>
-              </div>
+    <div className="min-h-screen bg-slate-50 py-8 px-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Card className="border-t-8 border-t-theme-primary shadow-sm bg-white overflow-hidden">
+          <CardHeader>
+            <div className="flex items-center gap-2 mb-2">
+                <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-tighter">Live Form</span>
+            </div>
+            <CardTitle className="text-3xl font-black text-slate-900 tracking-tight">{trip?.tripName}</CardTitle>
+            <div className="mt-4 space-y-2">
+              {trip?.journeys?.map((j, i) => (
+                <div key={i} className="flex items-center gap-3 text-xs font-medium text-slate-500 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <Train className="w-4 h-4 text-theme-primary" />
+                  <span className="font-bold text-slate-700 underline decoration-theme-primary/30">{j.trainNo}</span>
+                  <span className="flex-1">{j.from} → {j.to}</span>
+                  <span className="text-slate-400 font-bold">{j.date}</span>
+                </div>
+              ))}
             </div>
           </CardHeader>
         </Card>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-6">
           {passengers.map((p, index) => (
-            <div key={index} className="space-y-4">
-              {/* Passenger Header Divider */}
-              <div className="flex items-center gap-4 px-2 pt-4">
-                <span className="bg-theme-primary text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-tighter">
+            <div key={index} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-4">
+                <div className="bg-slate-900 text-white text-[10px] font-black px-3 py-1 rounded uppercase tracking-widest">
                   Passenger {index + 1}
-                </span>
-                <Separator className="flex-1 bg-slate-300" />
+                </div>
+                <Separator className="flex-1" />
               </div>
 
-              {/* Name Section */}
-              <FormSection 
-                title="Full Name (as per Aadhaar)" 
-                required 
-                isFocused={focusedSection === `name-${index}`}
-                onFocus={() => setFocusedSection(`name-${index}`)}
-              >
-                <div className="relative group">
-                  <Input 
-                    required
-                    placeholder="Your answer"
-                    className="border-0 border-b-2 border-slate-200 rounded-none px-0 focus-visible:ring-0 focus-visible:border-theme-primary transition-all duration-300 bg-transparent"
-                    value={p.name}
-                    onChange={(e) => updatePassenger(index, 'name', e.target.value)}
-                  />
-                </div>
-              </FormSection>
-
-              {/* Age Section */}
-              <FormSection 
-                title="Age" 
-                required 
-                isFocused={focusedSection === `age-${index}`}
-                onFocus={() => setFocusedSection(`age-${index}`)}
-              >
+              <FormSection title="Full Name (as per Aadhaar)" required error={errors[index]?.name}>
                 <Input 
-                  required
-                  type="number"
-                  placeholder="Your answer"
-                  className="w-full sm:w-1/3 border-0 border-b-2 border-slate-200 rounded-none px-0 focus-visible:ring-0 focus-visible:border-theme-primary bg-transparent"
-                  value={p.age}
-                  onChange={(e) => updatePassenger(index, 'age', e.target.value)}
+                  autoComplete="one-time-code"
+                  placeholder="Enter full name"
+                  className="theme-input text-base font-semibold"
+                  value={p.name}
+                  onChange={(e) => {
+                    const newP = [...passengers];
+                    newP[index].name = e.target.value;
+                    setPassengers(newP);
+                  }}
                 />
               </FormSection>
 
-              {/* Gender Section */}
-              <FormSection title="Gender" required>
-                <RadioGroup 
-                  defaultValue={p.gender} 
-                  onValueChange={(val) => updatePassenger(index, 'gender', val)}
-                  className="space-y-3 pt-2"
-                >
-                  {["Male", "Female", "Transgender"].map((g) => (
-                    <div key={g} className="flex items-center space-x-3 group">
-                      <RadioGroupItem value={g[0]} id={`${g}-${index}`} className="border-slate-400 text-theme-primary focus:ring-theme-primary" />
-                      <Label htmlFor={`${g}-${index}`} className="font-normal text-slate-700 cursor-pointer">{g}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+              <div className="grid grid-cols-2 gap-4">
+                <FormSection title="Age" required error={errors[index]?.age}>
+                  <Input type="number" placeholder="Years" className="theme-input font-bold" value={p.age} onChange={(e) => {
+                    const newP = [...passengers];
+                    newP[index].age = e.target.value;
+                    setPassengers(newP);
+                  }} />
+                </FormSection>
+                <FormSection title="Gender" required>
+                  <RadioGroup value={p.gender} onValueChange={(v) => {
+                    const newP = [...passengers];
+                    newP[index].gender = v;
+                    setPassengers(newP);
+                  }} className="flex h-10 items-center gap-4">
+                    {["Male", "Female"].map((g) => (
+                      <div key={g} className="flex items-center space-x-2">
+                        <RadioGroupItem value={g} id={`${g}-${index}`} />
+                        <Label htmlFor={`${g}-${index}`} className="text-sm font-medium">{g}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </FormSection>
+              </div>
+
+              <FormSection title="Seat Preference">
+                <Select value={p.preference} onValueChange={(v) => {
+                  const newP = [...passengers];
+                  newP[index].preference = v;
+                  setPassengers(newP);
+                }}>
+                  <SelectTrigger className="theme-input font-medium bg-transparent">
+                    <SelectValue placeholder="Select Seat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["No Preference", "Lower", "Middle", "Upper", "Side Lower", "Side Upper"].map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormSection>
 
-              {/* Contact Grid */}
-              <FormSection title="Contact Details" required>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-slate-400">Mobile Number</Label>
-                    <Input 
-                      required
-                      placeholder="10-digit number"
-                      className="border-0 border-b-2 border-slate-200 rounded-none px-0 focus-visible:ring-0 focus-visible:border-theme-primary bg-transparent"
-                      value={p.mobile}
-                      onChange={(e) => updatePassenger(index, 'mobile', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-slate-400">Email Address</Label>
-                    <Input 
-                      required
-                      type="email"
-                      placeholder="email@example.com"
-                      className="border-0 border-b-2 border-slate-200 rounded-none px-0 focus-visible:ring-0 focus-visible:border-theme-primary bg-transparent"
-                      value={p.email}
-                      onChange={(e) => updatePassenger(index, 'email', e.target.value)}
-                    />
-                  </div>
-                </div>
+              <FormSection title="Residential Address" required error={errors[index]?.address}>
+                <Input placeholder="City, State" className="theme-input" value={p.address} onChange={(e) => {
+                    const newP = [...passengers];
+                    newP[index].address = e.target.value;
+                    setPassengers(newP);
+                }} />
               </FormSection>
 
-              {/* Action Buttons for Passenger */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormSection title="Mobile Number" required error={errors[index]?.mobile}>
+                  <Input placeholder="10 digit number" className="theme-input" value={p.mobile} onChange={(e) => {
+                    const newP = [...passengers];
+                    newP[index].mobile = e.target.value;
+                    setPassengers(newP);
+                  }} />
+                </FormSection>
+                <FormSection title="Email Address" required error={errors[index]?.email}>
+                  <Input type="email" placeholder="personal@email.com" className="theme-input font-medium" value={p.email} onChange={(e) => {
+                    const newP = [...passengers];
+                    newP[index].email = e.target.value;
+                    setPassengers(newP);
+                  }} />
+                </FormSection>
+              </div>
+
               {passengers.length > 1 && (
-                <div className="flex justify-end px-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    type="button"
-                    className="text-slate-400 hover:text-red-500 hover:bg-red-50"
-                    onClick={() => setPassengers(passengers.filter((_, i) => i !== index))}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" /> Remove Passenger
-                  </Button>
-                </div>
+                <Button variant="ghost" className="text-red-500 hover:bg-red-50 w-full text-[10px] font-bold uppercase tracking-tighter" onClick={() => setPassengers(passengers.filter((_, i) => i !== index))}>
+                  <Trash2 className="w-3 h-3 mr-2" /> Remove Passenger
+                </Button>
               )}
             </div>
           ))}
 
-          {/* Form Actions */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 pb-12">
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <Button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="bg-theme-primary hover:bg-theme-secondary text-white px-8"
-              >
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit"}
-              </Button>
-              <Button 
-                variant="ghost" 
-                type="button"
-                className="text-theme-primary hover:bg-theme-muted"
-                onClick={() => setPassengers([...passengers, { name: "", age: "", gender: "M", preference: "No Preference", address: "", mobile: "", email: "" }])}
-              >
-                <UserPlus className="mr-2 h-4 w-4" /> Add Passenger
-              </Button>
-            </div>
-            <p className="text-[11px] text-slate-400">Never submit passwords through Google Forms.</p>
+          <div className="flex flex-col sm:flex-row gap-4 pt-4 pb-20">
+            <Button type="submit" disabled={isSubmitting} className="flex-[2] bg-theme-primary hover:bg-theme-dark text-white font-bold h-12 shadow-md">
+              {isSubmitting ? <Loader2 className="animate-spin" /> : "Submit Details"}
+            </Button>
+            <Button type="button" variant="outline" className="flex-1 border-slate-200 text-slate-600 h-12 font-bold" onClick={() => setPassengers([...passengers, { name: "", age: "", gender: "Male", preference: "No Preference", address: "", mobile: "", email: "" }])}>
+              <UserPlus className="mr-2 h-4 w-4" /> Add Person
+            </Button>
           </div>
         </form>
-
-        <footer className="text-center space-y-4 pb-12">
-          <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold opacity-60">Google Forms</p>
-          <div className="text-[11px] text-slate-400 space-x-2">
-            <span className="hover:underline cursor-pointer">Report Abuse</span>
-            <span>•</span>
-            <span className="hover:underline cursor-pointer">Terms of Service</span>
-            <span>•</span>
-            <span className="hover:underline cursor-pointer">Privacy Policy</span>
-          </div>
-        </footer>
       </div>
+
+      <style jsx global>{`
+        .theme-input {
+          border-radius: 0 !important; border: none !important;
+          border-bottom: 2px solid #f1f5f9 !important;
+          padding-left: 0 !important; padding-right: 0 !important;
+          transition: all 0.3s ease !important;
+        }
+        .theme-input:focus { border-bottom-color: var(--theme-primary, #2563eb) !important; box-shadow: none !important; }
+      `}</style>
     </div>
   );
 }
 
-// ── Internal Helper Component ─────────────────────────────────────
-
-function FormSection({ title, required, children, isFocused, onFocus }) {
+// Reusable Status Message component for 404, Closed, Draft, and Success
+function StatusMessage({ icon, title, description, action }) {
   return (
-    <Card 
-      onClick={onFocus}
-      className={`transition-all duration-200 border-l-4 ${
-        isFocused ? "border-l-theme-primary shadow-md" : "border-l-transparent shadow-sm"
-      }`}
-    >
-      <CardContent className="pt-6">
-        <Label className="text-base font-normal text-slate-900 block mb-4">
-          {title} {required && <span className="text-red-500 ml-1">*</span>}
-        </Label>
-        {children}
-      </CardContent>
-    </Card>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md text-center p-8 border-none shadow-sm">
+        <div className="flex justify-center mb-6">{icon}</div>
+        <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">{title}</h2>
+        <p className="text-slate-500 text-sm mb-8 leading-relaxed">{description}</p>
+        {action}
+      </Card>
+    </div>
+  );
+}
+
+function FormSection({ title, required, children, error }) {
+  return (
+    <div className={`p-5 rounded-xl bg-white border border-slate-100 shadow-sm transition-all ${error ? "border-red-200 bg-red-50/10" : ""}`}>
+      <Label className="text-[10px] font-black text-theme-primary uppercase tracking-widest block mb-2">
+        {title} {required && <span className="text-red-500">*</span>}
+      </Label>
+      {children}
+      {error && <p className="mt-2 text-[10px] font-bold text-red-500 uppercase tracking-tighter italic">{error}</p>}
+    </div>
   );
 }

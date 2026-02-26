@@ -5,11 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDispatch } from "react-redux";
 import { updateJourney, removeJourney } from "@/store/tripSlice";
+import toast from "react-hot-toast";
 
 export default function JourneyCard({ journey, index, total }) {
   const dispatch = useDispatch();
 
   const handleChange = (field, value) => {
+    if(value<0){
+      toast.error("Seats value cannot be negative")
+      return 
+    }
     dispatch(updateJourney({ id: journey.id, field, value }));
   };
 
