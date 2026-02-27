@@ -189,7 +189,7 @@ export default function PublicBookingPage({ params: paramsPromise }) {
                 <SelectValue placeholder="Select Seat" />
               </SelectTrigger>
               <SelectContent>
-                {["No Preference", "Lower", "Middle", "Upper", "Side Lower", "Side Upper"].map(s => (
+                {["No Preference", "Lower", "Middle", "Upper"].map(s => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
               </SelectContent>

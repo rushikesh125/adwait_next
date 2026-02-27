@@ -24,6 +24,9 @@ import {
   ArrowRight,
   Ticket,
 } from "lucide-react";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import { GroupBookingPDF } from "@/components/forms/GroupBookingPDF";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -155,13 +158,24 @@ export default function TripViewPage({ params: paramsPromise }) {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button
-              onClick={() => window.print()}
-              variant="outline"
-              className="bg-white font-bold text-xs h-10 px-4"
+            <PDFDownloadLink
+              document={<GroupBookingPDF trip={trip} responses={responses} />}
+              fileName={`${trip?.tripName?.replace(/\s+/g, "_")}_Group_Booking.pdf`}
             >
-              <Printer className="w-4 h-4 mr-2" /> PRINT
-            </Button>
+              {({ loading }) => (
+                <Button
+                  disabled={loading || responses.length === 0}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs h-10 px-6"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-2" />
+                  )}
+                  EXPORT RAILWAY PDF
+                </Button>
+              )}
+            </PDFDownloadLink>
             <Button
               onClick={exportToExcel}
               className="bg-slate-900 text-white font-bold text-xs h-10 px-6"
