@@ -1,6 +1,6 @@
 "use client";
 
-
+/* eslint-disable */
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   collection,
@@ -908,11 +908,24 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
     </div>
   );
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
 // ── TransportSummaryCard ──────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-const TransportSummaryCard = ({ transport, totalPrice, onEdit }) => {
+
+  const  TransportSummaryCard = ({
+  transport,
+  totalPrice,
+  transportBreakdown,
+  minKm,
+  setMinKm,
+  tollCharges,
+  setTollCharges,
+  permitCharges,
+  setPermitCharges,
+  otherCharges,
+  setOtherCharges,
+  editableBaseCost,
+  setEditableBaseCost,
+  onEdit
+}) => {
   if (!transport?.selectedVehicle) return null;
   const v = transport.selectedVehicle;
   // ── FIX: show correct price field in summary card ─────────────────────────
@@ -959,6 +972,89 @@ const TransportSummaryCard = ({ transport, totalPrice, onEdit }) => {
             </p>
           </div>
         </div>
+        {transportBreakdown?.isPerKm && (
+  <div className="mt-4 p-4 border rounded-xl bg-slate-50 space-y-3">
+
+    <div className="flex justify-between items-center">
+      <span className="text-sm">Min KM / Day</span>
+      <Input
+        type="number"
+        min="0"
+        value={minKm}
+        onChange={(e) => setMinKm(Math.max(0, Number(e.target.value)))}
+        className="w-28 text-right"
+      />
+    </div>
+
+    <div className="flex justify-between items-center">
+      <span className="text-sm">Vehicle Cost</span>
+      <Input
+        type="number"
+        min="0"
+        value={editableBaseCost ?? transportBreakdown.baseCost}
+        onChange={(e) =>
+          setEditableBaseCost(Math.max(0, Number(e.target.value)))
+        }
+        className="w-28 text-right"
+      />
+    </div>
+
+    <div className="flex justify-between items-center">
+      <span className="text-sm">Driver Allowance</span>
+      <Input
+        value={transportBreakdown.driverAllowance}
+        readOnly
+        className="w-28 text-right bg-slate-100 cursor-not-allowed"
+      />
+    </div>
+
+    <div className="flex justify-between items-center">
+      <span className="text-sm">Toll Charges</span>
+      <Input
+        type="number"
+        min="0"
+        value={tollCharges}
+        onChange={(e) =>
+          setTollCharges(Math.max(0, Number(e.target.value)))
+        }
+        className="w-28 text-right"
+      />
+    </div>
+
+    <div className="flex justify-between items-center">
+      <span className="text-sm">Permit Charges</span>
+      <Input
+        type="number"
+        min="0"
+        value={permitCharges}
+        onChange={(e) =>
+          setPermitCharges(Math.max(0, Number(e.target.value)))
+        }
+        className="w-28 text-right"
+      />
+    </div>
+
+    <div className="flex justify-between items-center">
+      <span className="text-sm">Other Charges</span>
+      <Input
+        type="number"
+        min="0"
+        value={otherCharges}
+        onChange={(e) =>
+          setOtherCharges(Math.max(0, Number(e.target.value)))
+        }
+        className="w-28 text-right"
+      />
+    </div>
+
+    <div className="border-t pt-2 flex justify-between font-bold text-theme-primary">
+      <span>Total Transport Cost</span>
+      <span>₹{transportBreakdown.total.toLocaleString("en-IN")}</span>
+    </div>
+
+  </div>
+)}
+        
         {/* Calculated total shown separately */}
         <div className="mt-3 pt-3 border-t border-theme-primary/10 flex items-center justify-between">
           <p className="text-xs text-slate-500">Estimated transport cost</p>
@@ -1173,6 +1269,11 @@ const Create_new_package = ({
   const [showTransportSection, setShowTransportSection] = useState(false);
   const [showActivitiesSection, setShowActivitiesSection] = useState(false);
   const [showCustomHotelForm, setShowCustomHotelForm] = useState(false);
+  const [tollCharges, setTollCharges] = useState(0);
+const [permitCharges, setPermitCharges] = useState(0);
+const [otherCharges, setOtherCharges] = useState(0);
+const [minKm, setMinKm] = useState(300);
+const [editableBaseCost, setEditableBaseCost] = useState(null);
   const [markupAmount, setMarkupAmount] = useState(0);
   const [markupType, setMarkupType]     = useState("lumpsum");
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -1226,26 +1327,83 @@ const Create_new_package = ({
   const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
   const hotelTotalPrice   = hotelEntries.reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
 
-  const transportTotalPrice = (() => {
-    if (!selectedTransport?.selectedVehicle) return 0;
-    const vehicle = selectedTransport.selectedVehicle;
-    const totalNights = hotelEntries.reduce((acc, entry) => acc + Number(entry.nights || 0), 0);
-    const days = totalNights > 0 ? totalNights + 1 : 1;
-    const minKm = 300;
-    // ── FIX: use > 0 check to avoid 0-valued fields masking the real price ──
-    const perKm    = Number(vehicle.perKmprice) > 0 ? Number(vehicle.perKmprice) : 0;
-    const lumpsum  = Number(vehicle.price) > 0 ? Number(vehicle.price) : 0;
-    const allowance = Number(vehicle.driverAllowance || 0);
+  const transportBreakdown = useMemo(() => {
+  if (!selectedTransport?.selectedVehicle) return null;
 
-    if (perKm > 0) {
-      return (minKm * perKm * days) + (allowance * days);
-    }
-    if (lumpsum > 0) {
-      return (lumpsum * days) + (allowance * days);
-    }
-    return 0;
-  })();
+  const vehicle = selectedTransport.selectedVehicle;
 
+  const totalNights = hotelEntries.reduce(
+    (sum, entry) => sum + (Number(entry.nights) || 0),
+    0
+  );
+
+  const days = totalNights > 0 ? totalNights + 1 : 1;
+
+  const perKm = Number(vehicle.perKmprice || 0);
+  const lumpsum = Number(vehicle.price || 0);
+  const allowancePerDay = Number(vehicle.driverAllowance || 0);
+
+  // ── PER KM LOGIC ─────────────────────────
+  if (perKm > 0) {
+    const calculatedBaseCost = Number(minKm || 0) * perKm * days;
+
+    const baseCost =
+      editableBaseCost !== null
+        ? Number(editableBaseCost)
+        : calculatedBaseCost;
+
+    const driverAllowance = allowancePerDay * days;
+
+    const toll = Math.max(0, Number(tollCharges || 0));
+    const permit = Math.max(0, Number(permitCharges || 0));
+    const other = Math.max(0, Number(otherCharges || 0));
+
+      
+
+    const total =
+      baseCost +
+      driverAllowance +
+      toll +
+      permit +
+      other;
+
+    return {
+      baseCost,
+      driverAllowance,
+      toll,
+      permit,
+      other,
+      total,
+      isPerKm: true,
+    };
+  }
+
+  // ── LUMPSUM LOGIC ────────────────────────
+  if (lumpsum > 0) {
+    return {
+      baseCost: lumpsum,
+      driverAllowance: 0,
+      toll: 0,
+      permit: 0,
+      other: 0,
+      total: lumpsum,
+      isPerKm: false,
+    };
+  }
+
+  return null;
+}, [
+  selectedTransport,
+  hotelEntries,
+  minKm,
+  editableBaseCost,
+  tollCharges,
+  permitCharges,
+  otherCharges,
+]);
+
+
+const transportTotalPrice = transportBreakdown?.total || 0;
   const grandTotal = hotelTotalPrice + transportTotalPrice + activityTotalPrice + confirmedMarkup;
 
   const handleSaveHotel = () => {
@@ -1557,10 +1715,21 @@ const Create_new_package = ({
               <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
                 {selectedTransport?.selectedVehicle && (
                   <TransportSummaryCard
-                    transport={selectedTransport}
-                    totalPrice={transportTotalPrice}
-                    onEdit={() => setShowTransportSection(true)}
-                  />
+  transport={selectedTransport}
+  totalPrice={transportTotalPrice}
+  transportBreakdown={transportBreakdown}
+  minKm={minKm}
+  setMinKm={setMinKm}
+  tollCharges={tollCharges}
+  setTollCharges={setTollCharges}
+  permitCharges={permitCharges}
+  setPermitCharges={setPermitCharges}
+  otherCharges={otherCharges}
+  setOtherCharges={setOtherCharges}
+  editableBaseCost={editableBaseCost}
+  setEditableBaseCost={setEditableBaseCost}
+  onEdit={() => setShowTransportSection(true)}
+/>
                 )}
                 {!showTransportSection && !selectedTransport?.selectedVehicle ? (
                   <Button onClick={() => setShowTransportSection(true)} className="w-full bg-theme-primary hover:bg-theme-secondary">
