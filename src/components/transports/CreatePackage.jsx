@@ -47,16 +47,15 @@ import {
 } from "lucide-react";
 
 const defaultVehicles = [
-  { type: "Sedan",                    price: 0, seating: 4,  ac: true,  perKmprice: 0 },
-  { type: "Ertiga",                   price: 0, seating: 6,  ac: true,  perKmprice: 0 },
-  { type: "Innova",                   price: 0, seating: 6,  ac: true,  perKmprice: 0 },
-  { type: "Crysta",                   price: 0, seating: 6,  ac: true,  perKmprice: 0 },
-  { type: "Innova 7 Seater",          price: 0, seating: 7,  ac: true,  perKmprice: 0 },
-  { type: "Crysta 7 Seater",          price: 0, seating: 7,  ac: true,  perKmprice: 0 },
-  { type: "Tempo Traveller - Non AC", price: 0, seating: 12, ac: false, perKmprice: 0 },
-  { type: "Tempo Traveller - AC",     price: 0, seating: 12, ac: true,  perKmprice: 0 },
+  { type: "Sedan", price: 0, seating: 4, ac: true, perKmprice: 0, driverAllowance: 0 },
+  { type: "Ertiga", price: 0, seating: 6, ac: true, perKmprice: 0, driverAllowance: 0 },
+  { type: "Innova", price: 0, seating: 6, ac: true, perKmprice: 0, driverAllowance: 0 },
+  { type: "Crysta", price: 0, seating: 6, ac: true, perKmprice: 0, driverAllowance: 0 },
+  { type: "Innova 7 Seater", price: 0, seating: 7, ac: true, perKmprice: 0, driverAllowance: 0 },
+  { type: "Crysta 7 Seater", price: 0, seating: 7, ac: true, perKmprice: 0, driverAllowance: 0 },
+  { type: "Tempo Traveller - Non AC", price: 0, seating: 12, ac: false, perKmprice: 0, driverAllowance: 0 },
+  { type: "Tempo Traveller - AC", price: 0, seating: 12, ac: true, perKmprice: 0, driverAllowance: 0 },
 ];
-
 const Createpackage = ({ onClose }) => {
   const [states, setStates] = useState([]);
   const [selectedState, setSelectedState] = useState("");
@@ -106,6 +105,7 @@ const Createpackage = ({ onClose }) => {
       type: "New Vehicle",
       seating: 4,
       ac: true,
+       driverAllowance: 0,
       ...(selectedPricingType === "lumpsum" ? { price: 0 } : { perKmprice: 0 }),
     };
     setVehicles([...vehicles, newVehicle]);
@@ -135,7 +135,9 @@ const Createpackage = ({ onClose }) => {
       (v) =>
         (v.price !== null && v.price < 0) ||
         (v.perKmprice !== null && v.perKmprice < 0) ||
-        (v.seating !== null && v.seating < 0)
+         (v.driverAllowance !== null && v.driverAllowance < 0)||
+        (v.seating !== null && v.seating < 0) 
+       
     );
     if (hasNegativeValues) {
       toast.error("Pricing and seating values cannot be negative.");
@@ -346,6 +348,8 @@ const Createpackage = ({ onClose }) => {
                       <th className="px-4 py-3 text-left font-semibold text-slate-600">
                         {selectedPricingType === "lumpsum" ? "Rate (₹)" : "Rate/Km (₹)"}
                       </th>
+                      <th className="px-4 py-3 text-left font-semibold text-slate-600"> Driver Allowance (₹)</th>
+
                       <th className="px-4 py-3 text-left font-semibold text-slate-600 w-24">Seats</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-600 w-32">Climate</th>
                       <th className="px-4 py-3 text-center font-semibold text-slate-600 w-12"></th>
@@ -376,6 +380,16 @@ const Createpackage = ({ onClose }) => {
                           />
                         </td>
                         <td className="px-4 py-2">
+  <Input
+    type="number"
+    value={v.driverAllowance ?? ""}
+    onChange={(e) =>
+      handleVehicleChange(idx, "driverAllowance", e.target.value)
+    }
+    className="h-9 border-slate-200"
+  />
+</td>
+                        <td className="px-4 py-2">
                           <Input
                             type="number"
                             value={v.seating ?? ""}
@@ -383,6 +397,7 @@ const Createpackage = ({ onClose }) => {
                             className="h-9 border-slate-200"
                           />
                         </td>
+                        
                         <td className="px-4 py-2">
                           <Select
                             value={String(v.ac)}
@@ -414,7 +429,7 @@ const Createpackage = ({ onClose }) => {
                 </table>
                 {vehicles.length === 0 && (
                   <div className="py-10 text-center text-slate-400 text-sm">
-                    No vehicles listed. Click "Add Vehicle" to begin.
+                    No vehicles listed. Click Add Vehicle to begin.
                   </div>
                 )}
               </div>

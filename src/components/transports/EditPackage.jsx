@@ -75,7 +75,7 @@ const EditPackage = ({
 
   const handleVehicleChange = (index, key, value) => {
     const updatedVehicles = [...formData.vehicles];
-    if (key === "price" || key === "seating" || key === "perKmprice") {
+    if (key === "price" || key === "seating" || key === "perKmprice" ||  key === "driverAllowance") {
       const numValue = value === "" ? 0 : parseInt(value);
       updatedVehicles[index][key] = Math.max(0, numValue || 0);
     } else {
@@ -89,6 +89,7 @@ const EditPackage = ({
       type: "New Vehicle",
       seating: 4,
       ac: true,
+        driverAllowance: 0,
       ...(formData.pricingType === "lumpsum" ? { price: 0 } : { perKmprice: 0 }),
     };
     setFormData({ ...formData, vehicles: [...formData.vehicles, newVehicle] });
@@ -115,6 +116,7 @@ const EditPackage = ({
       (v) =>
         (v.price !== null && v.price < 0) ||
         (v.perKmprice !== null && v.perKmprice < 0) ||
+        (v.driverAllowance !== null && v.driverAllowance < 0) ||
         (v.seating !== null && v.seating < 0)
     );
     if (hasNegativeValues) {
@@ -274,6 +276,9 @@ const EditPackage = ({
                     <th className="px-4 py-3 text-left font-semibold text-slate-600">
                       {formData.pricingType === "lumpsum" ? "Rate (₹)" : "Rate/Km (₹)"}
                     </th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-600">
+  Driver Allowance (₹)
+</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-600 w-24">Seats</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-600 w-32">Climate</th>
                     <th className="px-4 py-3 text-center font-semibold text-slate-600 w-12"></th>
@@ -307,6 +312,16 @@ const EditPackage = ({
                           className="h-9 border-slate-200 font-medium text-theme-primary"
                         />
                       </td>
+                      <td className="px-4 py-2">
+  <Input
+    type="number"
+    value={vehicle.driverAllowance ?? ""}
+    onChange={(e) =>
+      handleVehicleChange(idx, "driverAllowance", e.target.value)
+    }
+    className="h-9 border-slate-200"
+  />
+</td>
                       <td className="px-4 py-2">
                         <Input
                           type="number"
@@ -346,7 +361,7 @@ const EditPackage = ({
               </table>
               {formData.vehicles.length === 0 && (
                 <div className="py-10 text-center text-slate-400 text-sm">
-                  No vehicles listed. Click "Add Vehicle" to begin.
+                  No vehicles listed. Click Add Vehicle to begin.
                 </div>
               )}
             </div>
