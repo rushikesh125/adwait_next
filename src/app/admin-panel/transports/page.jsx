@@ -184,6 +184,11 @@ const Transport = () => {
                                 ₹{pkg.pricingType === "lumpsum" ? v.price : v.perKmprice}
                                 {pkg.pricingType === "perKm" && <span className="text-[10px] font-normal text-slate-400">/km</span>}
                               </p>
+                          {pkg.pricingType === "perKm" && v.driverAllowance > 0 && (
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Driver: ₹{v.driverAllowance}
+                              </p>
+                            )}
                             </div>
                           </div>
                         ))}
