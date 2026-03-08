@@ -5,18 +5,18 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    fontSize: 11,
+    fontSize:11,
     fontFamily: 'Helvetica',
-    lineHeight: 1.6,
+    lineHeight: 1.4,
   },
   h1: {
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: 10,
     fontFamily: 'Helvetica-Bold',
     fontSize: 18,
     textDecoration: 'underline',
   },
-  subject: {
+ subject: {
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 10,
@@ -32,7 +32,6 @@ const styles = StyleSheet.create({
   metaSection: { marginTop: 15, marginBottom: 10 },
   metaRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'flex-end' },
   fieldLabel: { fontSize: 11 },
-  // FIX 1: Gray underlines on page 1
   shortUnderline: {
     borderBottomWidth: 1,
     borderBottomColor: '#aaaaaa',
@@ -40,10 +39,9 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
 
-  // Name & Address block — inline label + underlines on same row then second line
-  nameAddressBlock: { marginBottom: 12 },
+  // Name & Address block
+  nameAddressBlock: { marginBottom: 10 },
   nameAddressRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 0 },
-  // FIX 1: Gray underlines on page 1
   inlineUnderline: {
     borderBottomWidth: 1,
     borderBottomColor: '#aaaaaa',
@@ -51,8 +49,6 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     marginBottom: 1,
   },
-  // FIX 1: Gray underlines on page 1
-  // FIX 3: Extra space between the two Name & Address underlines
   secondUnderline: {
     borderBottomWidth: 1,
     borderBottomColor: '#aaaaaa',
@@ -60,21 +56,21 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 
-  // Journey section
+  // Journey section (compact)
   journeyTitle: {
     textAlign: 'center',
     fontFamily: 'Helvetica-Bold',
-    fontSize: 13,
-    marginBottom: 8,
+    fontSize: 11,
+    marginBottom: 5,
     textDecoration: 'underline',
   },
   journeyRow: {
     flexDirection: 'row',
-    marginBottom: 5,
+    marginBottom: 3,
   },
   journeyCell: {
     width: '50%',
-    fontSize: 11,
+    fontSize: 9,
     paddingRight: 8,
   },
 
@@ -115,7 +111,7 @@ export const GroupBookingPDF = ({ trip, responses }) => {
       const group = responses.slice(i, i + 6);
       let lowerCount = 0;
       const baseAddress = group[0]?.address || "";
-      const baseMobile = group[0]?.mobile || "";
+      const baseMobile  = group[0]?.mobile  || "";
 
       const processedGroup = group.map((p) => {
         let finalChoice = p.preference || "None";
@@ -131,29 +127,24 @@ export const GroupBookingPDF = ({ trip, responses }) => {
   };
 
   const groupedData = processGroups();
-
-  // Calculate total passenger rows height to determine address col min height for last group
-  const ROW_HEIGHT = 28;
+  const ROW_HEIGHT    = 28;
   const SPACER_HEIGHT = 14;
 
   return (
-    // FIX 4: Single page instead of multiple pages — all content flows continuously
     <Document>
       <Page size="A4" style={styles.page}>
 
         {/* ─── SECTION 1: Letter ─────────────────────────────────────── */}
         <Text style={styles.h1}>GROUP BOOKING APPLICATION</Text>
 
-        <Text style={{ marginBottom: 2 }}>To,</Text>
-        <Text style={{ marginBottom: 2 }}>Station Master,</Text>
+        <Text style={{ marginBottom: 2, }}>To,</Text>
+        <Text style={{ marginBottom: 2, }}>Station Master,</Text>
 
-        {/* Railway Station with fill-in underline */}
-        <View style={[styles.metaRow, { marginBottom: 10 }]}>
+        <View style={[styles.metaRow, { marginBottom: 6 }]}>
           <Text style={styles.fieldLabel}>Railway Station,</Text>
           <View style={styles.shortUnderline} />
         </View>
 
-        {/* Subject – centered, not bold */}
         <Text style={styles.subject}>Subject: Permission for group booking.</Text>
 
         <Text style={{ marginBottom: 4 }}>Respected Sir,</Text>
@@ -161,32 +152,26 @@ export const GroupBookingPDF = ({ trip, responses }) => {
           Request you to kindly grant permission for group booking of railway tickets.
         </Text>
 
-        {/* FIX 2: No extra line space after Reason for Travel */}
-        <Text style={{ marginBottom: 4 }}>Reason for Travel: TOURISM</Text>
+        {/* No marginBottom — metaSection's marginTop provides the gap */}
+        <Text >Reason for Travel: TOURISM</Text>
 
-        {/* Meta fields – each on its own line */}
         <View style={styles.metaSection}>
-
-          {/* Place */}
           <View style={styles.metaRow}>
             <Text style={styles.fieldLabel}>Place :</Text>
             <View style={styles.shortUnderline} />
           </View>
 
-          {/* Date */}
           <View style={styles.metaRow}>
             <Text style={styles.fieldLabel}>Date :</Text>
             <View style={styles.shortUnderline} />
           </View>
 
-          {/* Signature */}
           <View style={styles.metaRow}>
             <Text style={styles.fieldLabel}>Signature :</Text>
             <View style={styles.shortUnderline} />
           </View>
 
-          {/* FIX 3: Name & Address – extra space between the two underlines */}
-          <View style={[styles.nameAddressBlock, { marginBottom: 12 }]}>
+          <View style={[styles.nameAddressBlock, { marginBottom: 10 }]}>
             <View style={styles.nameAddressRow}>
               <Text style={styles.fieldLabel}>Name & Address :</Text>
               <View style={styles.inlineUnderline} />
@@ -194,45 +179,41 @@ export const GroupBookingPDF = ({ trip, responses }) => {
             <View style={styles.secondUnderline} />
           </View>
 
-          {/* Mobile Number */}
           <View style={styles.metaRow}>
             <Text style={styles.fieldLabel}>Mobile Number :</Text>
             <View style={styles.shortUnderline} />
           </View>
-
         </View>
 
-        {/* ─── SECTION 2: Journey Details ────────────────────────────── */}
-        <View style={{ marginTop: 16 }}>
+        {/* ─── SECTION 2: Journey Details (compact 3-line layout) ─────── */}
+        <View style={{ marginTop: 12 }}>
           {trip?.journeys?.map((j, idx) => (
-            <View key={idx} style={{ marginBottom: 12 }}>
+            <View key={idx} style={{ marginBottom: 10 }}>
+
               <Text style={styles.journeyTitle}>
                 DETAILS OF {idx === 0 ? "OUTWARD" : "RETURN / ONWARD"} JOURNEY
               </Text>
 
-              {/* Row 1: Train Number | Train Name */}
+              {/* Line 1: Train Number | Train Name */}
               <View style={styles.journeyRow}>
                 <Text style={styles.journeyCell}>Train Number : {j.trainNo}</Text>
                 <Text style={styles.journeyCell}>Train Name : {j.trainName}</Text>
               </View>
 
-              {/* Row 2: Journey Date | Class */}
+              {/* Line 2: Journey Date | Class */}
               <View style={styles.journeyRow}>
                 <Text style={styles.journeyCell}>Journey Date : {j.date}</Text>
                 <Text style={styles.journeyCell}>Class : {j.class || "2S"}</Text>
               </View>
 
-              {/* Row 3: No of Seats */}
+              {/* Line 3: Station From | Station To + Seats */}
               <View style={styles.journeyRow}>
-                <Text style={styles.journeyCell}>No. of Seats / Berths : {j.seats || ""}</Text>
-                <Text style={styles.journeyCell}></Text>
+                <Text style={styles.journeyCell}>Station From : {j.from}</Text>
+                <Text style={styles.journeyCell}>
+                  Station To : {j.to}{"   "}Seats : {j.seats || ""}
+                </Text>
               </View>
 
-              {/* Row 4: Station From | Station To */}
-              <View style={[styles.journeyRow, { marginBottom: 0 }]}>
-                <Text style={styles.journeyCell}>Station From : {j.from}</Text>
-                <Text style={styles.journeyCell}>Station To : {j.to}</Text>
-              </View>
             </View>
           ))}
         </View>
@@ -258,57 +239,34 @@ export const GroupBookingPDF = ({ trip, responses }) => {
                   {/* Left 5 columns stacked per member */}
                   <View style={{ width: '60%' }}>
                     {group.members.map((p, pIdx) => (
-                      <View
-                        key={pIdx}
-                        style={{
-                          flexDirection: 'row',
-                          height: ROW_HEIGHT,
-                        }}
-                      >
-                        {/* Sr */}
+                      <View key={pIdx} style={{ flexDirection: 'row', height: ROW_HEIGHT }}>
                         <Text style={[styles.tableCol, { width: '11.67%' }]}>
                           {gIdx * 6 + pIdx + 1}
                         </Text>
-                        {/* Name */}
-                        <Text style={[styles.tableCol, { width: '41.67%' }]}>
-                          {p.name}
-                        </Text>
-                        {/* Gender */}
-                        <Text style={[styles.tableCol, { width: '13.33%', textAlign: 'center' }]}>
-                          {p.gender}
-                        </Text>
-                        {/* Age */}
-                        <Text style={[styles.tableCol, { width: '11.67%', textAlign: 'center' }]}>
-                          {p.age}
-                        </Text>
-                        {/* Berth */}
-                        <Text style={[styles.tableCol, { width: '21.67%' }]}>
-                          {p.allocatedChoice}
-                        </Text>
+                        <Text style={[styles.tableCol, { width: '41.67%' }]}>{p.name}</Text>
+                        <Text style={[styles.tableCol, { width: '13.33%', textAlign: 'center' }]}>{p.gender}</Text>
+                        <Text style={[styles.tableCol, { width: '11.67%', textAlign: 'center' }]}>{p.age}</Text>
+                        <Text style={[styles.tableCol, { width: '21.67%' }]}>{p.allocatedChoice}</Text>
                       </View>
                     ))}
                   </View>
 
-                  {/* FIX 5: Address column — borderWidth on all sides ensures right border
-                      always shows regardless of how many passengers are in the group.
-                      minHeight guarantees it covers all member rows. */}
+                  {/* Address column */}
                   <View
-                    style={[
-                      {
-                        width: '40%',
-                        borderStyle: 'solid',
-                        borderRightWidth: 1,
-                        borderRightColor: '#000',
-                        borderBottomWidth: 1,
-                        borderBottomColor: '#000',
-                        borderLeftWidth: 1,
-                        padding: 4,
-                        fontSize: 10,
-                        minHeight: group.members.length * ROW_HEIGHT,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      },
-                    ]}
+                    style={{
+                      width: '40%',
+                      borderStyle: 'solid',
+                      borderRightWidth: 1,
+                      borderRightColor: '#000',
+                      borderBottomWidth: 1,
+                      borderBottomColor: '#000',
+                      borderLeftWidth: 1,
+                      padding: 4,
+                      fontSize: 10,
+                      minHeight: group.members.length * ROW_HEIGHT,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
                   >
                     <Text style={{ fontSize: 9, textAlign: 'center' }}>{group.address}</Text>
                     <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 9, marginTop: 4, textAlign: 'center' }}>
