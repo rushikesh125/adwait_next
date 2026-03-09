@@ -1,12 +1,15 @@
 "use client";
 import React, { use, useEffect, useState } from "react";
 import { db } from "@/firebase/config";
-import {
-  doc,
-  getDoc,
-  collection,
-  addDoc,
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
   serverTimestamp,
+  doc,
+  getDoc 
 } from "firebase/firestore";
 import {
   Train,
@@ -104,40 +107,60 @@ export default function PublicBookingPage({ params: paramsPromise }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) return toast.error("Please fix errors");
+  e.preventDefault();
+  if (!validate()) return toast.error("Please fix errors");
 
-    setIsSubmitting(true);
-    try {
-      const commonData = {
-        ...passenger,
-        tripId,
-        tripName: trip.tripName,
-        agentId: trip.agentId,
-        updatedAt: serverTimestamp(),
-      };
+  setIsSubmitting(true);
 
-      // 1. Save to Submissions collection
-      await addDoc(collection(db, "submissions"), {
-        ...commonData,
-        submittedAt: serverTimestamp(),
-      });
+  try {
+    // 1. Normalize the email (lowercase and trim spaces)
+    const userEmail = passenger.email.toLowerCase().trim();
 
-      // 2. Save to Customers collection
-      await addDoc(collection(db, "customers"), {
-        ...commonData,
-        createdAt: serverTimestamp(),
-      });
+    // 2. Check if this email already exists FOR THIS SPECIFIC TRIP
+    const submissionsRef = collection(db, "submissions");
+    const q = query(
+      submissionsRef,
+      where("tripId", "==", tripId), // Scope to this form only
+      where("email", "==", userEmail) // Check for this email
+    );
 
-      setSubmitted(true);
-      toast.success("Booking confirmed!");
-    } catch (error) {
-      console.error("Firebase Error:", error);
-      toast.error("Submission failed.");
-    } finally {
+    const querySnapshot = await getDocs(q);
+
+    // 3. If a document is found, alert the user and stop the process
+    if (!querySnapshot.empty) {
       setIsSubmitting(false);
+      return toast.error("A submission with this email is already done for this trip.");
     }
-  };
+
+    // 4. If no duplicate, proceed with submission
+    const commonData = {
+      ...passenger,
+      email: userEmail,
+      tripId,
+      tripName: trip.tripName,
+      agentId: trip.agentId,
+      updatedAt: serverTimestamp(),
+    };
+
+    await addDoc(collection(db, "submissions"), {
+      ...commonData,
+      submittedAt: serverTimestamp(),
+    });
+
+    await addDoc(collection(db, "customers"), {
+      ...commonData,
+      createdAt: serverTimestamp(),
+    });
+
+    setSubmitted(true);
+    toast.success("Booking confirmed!");
+  } catch (error) {
+    console.error("Firebase Error:", error);
+    toast.error("Submission failed.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   if (loading)
     return (
