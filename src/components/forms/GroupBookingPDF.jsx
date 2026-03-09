@@ -78,10 +78,10 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
 
-  // Passenger list page
+  // Passenger list page — tighter padding to fit 30 rows at font 11
   listPage: {
-    padding: 28,
-    fontSize: 9.5,
+    padding: 20,
+    fontSize: 11,
     fontFamily: "Helvetica",
     lineHeight: 1.2,
   },
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     fontSize: 13,
     textDecoration: "underline",
-    marginBottom: 10,
+    marginBottom: 6,
   },
 
   // Table
@@ -108,13 +108,13 @@ const styles = StyleSheet.create({
     borderRightColor: "#000",
     borderBottomWidth: 1,
     borderBottomColor: "#000",
-    padding: 3,
-    fontSize: 9.5,
+    padding: 2,           // tighter padding vs original 3
+    fontSize: 11,
   },
   tableHeader: {
     fontFamily: "Helvetica-Bold",
     backgroundColor: "#dddddd",
-    fontSize: 9.5,
+    fontSize: 11,
   },
   colSr:     { width: "6%" },
   colName:   { width: "24%" },
@@ -124,8 +124,8 @@ const styles = StyleSheet.create({
   colAddress:{ width: "44%" },
 });
 
-const ROW_HEIGHT  = 22;   // fits 30 passengers on A4 at font size 9.5
-const SPACER_HEIGHT = 10; // px between groups
+const ROW_HEIGHT   = 22;  // tight enough for 30 rows at font 11 on A4
+const SPACER_HEIGHT = 4;  // reduced from 10 to save vertical space
 
 // ── Helper: split groupedData into pages of max 30 passengers ──
 function paginateGroups(groupedData, maxPassengersPerPage = 30) {
@@ -197,16 +197,16 @@ const GroupBlock = ({ group, globalStartIdx }) => (
           borderBottomColor: "#000",
           borderLeftWidth: 1,
           padding: 4,
-          fontSize: 9.5,
+          fontSize: 11,
           minHeight: group.members.length * ROW_HEIGHT,
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Text style={{ fontSize: 9.5, textAlign: "center" }}>
+        <Text style={{ fontSize: 11, textAlign: "center" }}>
           {group.address}
         </Text>
-        <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 9.5, marginTop: 3, textAlign: "center" }}>
+        <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 11, marginTop: 2, textAlign: "center" }}>
           Mob: {group.mobile}
         </Text>
       </View>
@@ -372,7 +372,7 @@ export const GroupBookingPDF = ({ trip, responses }) => {
               style={{
                 textAlign: "right",
                 fontSize: 8,
-                marginTop: 6,
+                marginTop: 4,
                 color: "#666",
               }}
             >
