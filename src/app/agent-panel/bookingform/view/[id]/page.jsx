@@ -9,6 +9,7 @@ import {
   where,
   orderBy,
   getDocs,
+  deleteDoc,
 } from "firebase/firestore";
 import {
   ArrowLeft,
@@ -23,6 +24,8 @@ import {
   Train,
   ArrowRight,
   Ticket,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { GroupBookingPDF } from "@/components/forms/GroupBookingPDF";
@@ -36,6 +39,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
@@ -47,6 +60,10 @@ export default function TripViewPage({ params: paramsPromise }) {
   const [trip, setTrip] = useState(null);
   const [responses, setResponses] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Delete dialog state
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,13 +90,29 @@ export default function TripViewPage({ params: paramsPromise }) {
     };
     fetchData();
   }, [tripId]);
+
+  const handleDeletePassenger = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteDoc(doc(db, "submissions", deleteTarget.id));
+      setResponses((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      toast.success(`${deleteTarget.name} removed from manifest`);
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("Failed to delete passenger");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
+
   const exportToExcel = () => {
     if (responses.length === 0) {
       toast.error("No data to export");
       return;
     }
 
-    // 2. Prepare the data for Excel (Cleaning up the JSON)
     const excelData = responses.map((res, index) => ({
       "S.No": index + 1,
       "Passenger Name": res.name,
@@ -93,34 +126,29 @@ export default function TripViewPage({ params: paramsPromise }) {
       "Submission Time": res.submittedAt?.toDate().toLocaleTimeString(),
     }));
 
-    // 3. Create Worksheet
     const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-    // Set Column Widths (Optional but makes it look professional)
     const columnWidths = [
-      { wch: 5 }, // S.No
-      { wch: 25 }, // Name
-      { wch: 25 }, // Email
-      { wch: 10 }, // Gender
-      { wch: 5 }, // Age
-      { wch: 15 }, // Mobile
-      { wch: 20 }, // Preference
-      { wch: 40 }, // Address
-      { wch: 15 }, // Date
-      { wch: 15 }, // Time
+      { wch: 5 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 10 },
+      { wch: 5 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 40 },
+      { wch: 15 },
+      { wch: 15 },
     ];
     worksheet["!cols"] = columnWidths;
 
-    // 4. Create Workbook and Download
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Passengers");
 
-    // Use the trip name for the filename
     const fileName = `${trip?.tripName?.replace(/\s+/g, "_")}_Manifest.xlsx`;
     XLSX.writeFile(workbook, fileName);
-
     toast.success("Excel file downloaded!");
   };
+
   if (loading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-slate-50">
@@ -210,7 +238,7 @@ export default function TripViewPage({ params: paramsPromise }) {
           />
         </div>
 
-        {/* NEW: Journey Details Section */}
+        {/* Journey Details Section */}
         <div className="mb-8">
           <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">
             Journey Itinerary
@@ -289,6 +317,9 @@ export default function TripViewPage({ params: paramsPromise }) {
             <h2 className="text-xs font-black text-slate-600 uppercase tracking-widest">
               Passenger Manifest
             </h2>
+            <span className="ml-auto text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+              {responses.length} passenger{responses.length !== 1 ? "s" : ""}
+            </span>
           </div>
           <Table>
             <TableHeader>
@@ -311,13 +342,16 @@ export default function TripViewPage({ params: paramsPromise }) {
                 <TableHead className="font-black text-slate-500 text-[10px] uppercase text-right pr-8">
                   Time Stamp
                 </TableHead>
+                <TableHead className="w-14 font-black text-slate-500 text-[10px] uppercase text-center">
+                  Del
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {responses.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="text-center py-20 text-slate-300 font-bold uppercase text-xs tracking-widest"
                   >
                     No Submissions Found
@@ -375,6 +409,17 @@ export default function TripViewPage({ params: paramsPromise }) {
                         })}
                       </p>
                     </TableCell>
+                    <TableCell className="text-center">
+                      <button
+                        onClick={() =>
+                          setDeleteTarget({ id: res.id, name: res.name })
+                        }
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-500 transition-colors"
+                        title="Remove passenger"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -382,6 +427,52 @@ export default function TripViewPage({ params: paramsPromise }) {
           </Table>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <AlertDialogContent className="rounded-2xl border border-slate-200 shadow-xl max-w-sm">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="bg-red-50 p-2 rounded-xl">
+                <AlertTriangle size={18} className="text-red-500" />
+              </div>
+              <AlertDialogTitle className="text-base font-black text-slate-900">
+                Remove Passenger?
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-sm text-slate-500 leading-relaxed">
+              This will permanently delete{" "}
+              <span className="font-bold text-slate-800">
+                {deleteTarget?.name}
+              </span>{" "}
+              from the manifest. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 mt-2">
+            <AlertDialogCancel
+              disabled={deleting}
+              className="rounded-xl text-xs font-bold h-9"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={handleDeletePassenger}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold h-9 px-5"
+            >
+              {deleting ? (
+                <Loader2 size={13} className="animate-spin mr-1.5" />
+              ) : (
+                <Trash2 size={13} className="mr-1.5" />
+              )}
+              {deleting ? "Removing..." : "Yes, Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
