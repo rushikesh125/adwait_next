@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   // Passenger list page
   listPage: {
     padding: 28,
-    fontSize: 9,
+    fontSize: 9.5,
     fontFamily: "Helvetica",
     lineHeight: 1.2,
   },
@@ -109,12 +109,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#000",
     padding: 3,
-    fontSize: 8,
+    fontSize: 9.5,
   },
   tableHeader: {
     fontFamily: "Helvetica-Bold",
     backgroundColor: "#dddddd",
-    fontSize: 8,
+    fontSize: 9.5,
   },
   colSr:     { width: "6%" },
   colName:   { width: "24%" },
@@ -124,10 +124,10 @@ const styles = StyleSheet.create({
   colAddress:{ width: "44%" },
 });
 
-const ROW_HEIGHT  = 20;   // px per passenger row
+const ROW_HEIGHT  = 22;   // fits 30 passengers on A4 at font size 9.5
 const SPACER_HEIGHT = 10; // px between groups
 
-// ── Helper: split groupedData into pages of max 30 passengers (5 groups of 6) ──
+// ── Helper: split groupedData into pages of max 30 passengers ──
 function paginateGroups(groupedData, maxPassengersPerPage = 30) {
   const pages = [];
   let currentPage = [];
@@ -197,16 +197,16 @@ const GroupBlock = ({ group, globalStartIdx }) => (
           borderBottomColor: "#000",
           borderLeftWidth: 1,
           padding: 4,
-          fontSize: 8,
+          fontSize: 9.5,
           minHeight: group.members.length * ROW_HEIGHT,
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Text style={{ fontSize: 8, textAlign: "center" }}>
+        <Text style={{ fontSize: 9.5, textAlign: "center" }}>
           {group.address}
         </Text>
-        <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 8, marginTop: 3, textAlign: "center" }}>
+        <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 9.5, marginTop: 3, textAlign: "center" }}>
           Mob: {group.mobile}
         </Text>
       </View>
@@ -253,7 +253,7 @@ export const GroupBookingPDF = ({ trip, responses }) => {
   };
 
   const groupedData = processGroups();
-  const pages       = paginateGroups(groupedData, 30); // max 30 passengers per page
+  const pages       = paginateGroups(groupedData, 30); // 30 passengers per page
 
   // Compute global passenger start index per page
   const pageStartIndices = pages.reduce((acc, page, i) => {
