@@ -10,6 +10,7 @@ import {
   orderBy,
   getDocs,
   deleteDoc,
+  updateDoc,
 } from "firebase/firestore";
 import {
   ArrowLeft,
@@ -26,11 +27,15 @@ import {
   Ticket,
   Trash2,
   AlertTriangle,
+  Pencil,
+  X,
 } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { GroupBookingPDF } from "@/components/forms/GroupBookingPDF";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -49,6 +54,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
@@ -64,6 +75,11 @@ export default function TripViewPage({ params: paramsPromise }) {
   // Delete dialog state
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
   const [deleting, setDeleting] = useState(false);
+
+  // Edit dialog state
+  const [editTarget, setEditTarget] = useState(null); // full passenger object
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,6 +122,61 @@ export default function TripViewPage({ params: paramsPromise }) {
       setDeleteTarget(null);
     }
   };
+
+  // ── Edit handlers ──────────────────────────────────────────────────────────
+
+  const openEditModal = (passenger) => {
+    setEditTarget(passenger);
+    setEditForm({
+      name: passenger.name || "",
+      email: passenger.email || "",
+      gender: passenger.gender || "",
+      age: passenger.age || "",
+      mobile: passenger.mobile || "",
+      preference: passenger.preference || "",
+      address: passenger.address || "",
+    });
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    if (!editForm.name?.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const ref = doc(db, "submissions", editTarget.id);
+      await updateDoc(ref, {
+        name: editForm.name.trim(),
+        email: editForm.email.trim(),
+        gender: editForm.gender,
+        age: editForm.age,
+        mobile: editForm.mobile.trim(),
+        preference: editForm.preference,
+        address: editForm.address.trim(),
+      });
+      setResponses((prev) =>
+        prev.map((r) =>
+          r.id === editTarget.id ? { ...r, ...editForm } : r
+        )
+      );
+      toast.success(`${editForm.name} updated successfully`);
+      setEditTarget(null);
+    } catch (error) {
+      console.error("Update error:", error);
+      toast.error("Failed to update passenger");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────────────────────
 
   const exportToExcel = () => {
     if (responses.length === 0) {
@@ -342,8 +413,8 @@ export default function TripViewPage({ params: paramsPromise }) {
                 <TableHead className="font-black text-slate-500 text-[10px] uppercase text-right pr-8">
                   Time Stamp
                 </TableHead>
-                <TableHead className="w-14 font-black text-slate-500 text-[10px] uppercase text-center">
-                  Del
+                <TableHead className="w-20 font-black text-slate-500 text-[10px] uppercase text-center">
+                  Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -410,15 +481,24 @@ export default function TripViewPage({ params: paramsPromise }) {
                       </p>
                     </TableCell>
                     <TableCell className="text-center">
-                      <button
-                        onClick={() =>
-                          setDeleteTarget({ id: res.id, name: res.name })
-                        }
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-500 transition-colors"
-                        title="Remove passenger"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => openEditModal(res)}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 cursor-pointer text-blue-400 hover:text-blue-500 transition-colors"
+                          title="Edit passenger"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={() =>
+                            setDeleteTarget({ id: res.id, name: res.name })
+                          }
+                          className="p-1.5 rounded-lg hover:bg-red-50 cursor-pointer text-red-400 hover:text-red-500 transition-colors"
+                          title="Remove passenger"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -428,7 +508,160 @@ export default function TripViewPage({ params: paramsPromise }) {
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* ── Edit Passenger Modal ─────────────────────────────────────────── */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent className="rounded-2xl border border-slate-200 shadow-xl max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
+                <div className="bg-blue-50 p-2 rounded-xl">
+                  <Pencil size={15} className="text-blue-500" />
+                </div>
+                Edit Passenger
+              </DialogTitle>
+            </div>
+            <p className="text-xs text-slate-400 font-medium mt-1">
+              Editing details for{" "}
+              <span className="font-bold text-slate-600">{editTarget?.name}</span>
+            </p>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            {/* Name */}
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Full Name *
+              </Label>
+              <Input
+                name="name"
+                value={editForm.name || ""}
+                onChange={handleEditFormChange}
+                className="h-9 text-sm font-medium"
+                placeholder="Passenger name"
+              />
+            </div>
+
+            {/* Email */}
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Email
+              </Label>
+              <Input
+                name="email"
+                value={editForm.email || ""}
+                onChange={handleEditFormChange}
+                className="h-9 text-sm"
+                placeholder="email@example.com"
+              />
+            </div>
+
+            {/* Gender */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Gender
+              </Label>
+              <select
+                name="gender"
+                value={editForm.gender || ""}
+                onChange={handleEditFormChange}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* Age */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Age
+              </Label>
+              <Input
+                name="age"
+                type="number"
+                value={editForm.age || ""}
+                onChange={handleEditFormChange}
+                className="h-9 text-sm"
+                placeholder="Age"
+                min={1}
+                max={120}
+              />
+            </div>
+
+            {/* Mobile */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Mobile
+              </Label>
+              <Input
+                name="mobile"
+                value={editForm.mobile || ""}
+                onChange={handleEditFormChange}
+                className="h-9 text-sm"
+                placeholder="Mobile number"
+              />
+            </div>
+
+            {/* Seat Preference */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Seat Preference
+              </Label>
+              <select
+                name="preference"
+                value={editForm.preference || ""}
+                onChange={handleEditFormChange}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select</option>
+                <option value="Lower">Lower</option>
+                <option value="Middle">Middle</option>
+                <option value="Upper">Upper</option>
+              </select>
+            </div>
+
+            {/* Address */}
+            <div className="col-span-2 space-y-1.5">
+              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Address
+              </Label>
+              <Input
+                name="address"
+                value={editForm.address || ""}
+                onChange={handleEditFormChange}
+                className="h-9 text-sm"
+                placeholder="Full address"
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 mt-1">
+            <Button
+              variant="outline"
+              onClick={() => setEditTarget(null)}
+              disabled={saving}
+              className="rounded-xl text-xs font-bold h-9 px-4"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold h-9 px-5"
+            >
+              {saving ? (
+                <Loader2 size={13} className="animate-spin mr-1.5" />
+              ) : null}
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirmation Dialog ──────────────────────────────────── */}
       <AlertDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
