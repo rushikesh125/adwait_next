@@ -434,14 +434,33 @@ export function useQuotationState() {
       return newToggleValue;
     });
   };
+const handleTransportSummaryChange = (field, value) => {
+  setEditingQuotation((prev) => {
+    const updatedTransport = {
+      ...prev.transportSummary,
+      [field]: value,
+    };
 
-  const handleTransportSummaryChange = (name, value) => {
-    setEditingQuotation((prev) => {
-      const updatedTransport = { ...(prev.transportSummary || {}), [name]: value };
-      const updated = { ...prev, transportSummary: updatedTransport };
-      return { ...updated, grandTotal: recalculateGrandTotal(updated) };
-    });
-  };
+    const total =
+      (updatedTransport.vehicleCost || 0) +
+      (updatedTransport.driverAllowance || 0) +
+      (updatedTransport.tollCharges || 0) +
+      (updatedTransport.permitCharges || 0) +
+      (updatedTransport.otherCharges || 0);
+
+    updatedTransport.totalTransportCost = total;
+
+    const updated = {
+      ...prev,
+      transportSummary: updatedTransport,
+    };
+
+    return {
+      ...updated,
+      grandTotal: recalculateGrandTotal(updated),
+    };
+  });
+};
 
   const handlePackageChange = (e) => {
     const newPackageId = e.target.value;

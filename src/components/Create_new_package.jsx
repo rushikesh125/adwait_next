@@ -913,7 +913,7 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
   const  TransportSummaryCard = ({
   transport,
   totalPrice,
-  transportBreakdown,
+ transportBreakdown,
   minKm,
   setMinKm,
   tollCharges,
@@ -965,14 +965,14 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
           </div>
           <div className="bg-white/80 rounded-xl p-3 border border-white shadow-sm">
             <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">
-              {Number(v.perKmprice) > 0 ? "Rate/km" : "Total"}
+              {Number(v.perKmprice) > 0 ? "Rate" : "Total"}
             </p>
             <p className="font-black text-theme-primary text-base">
               ₹{Number(displayPrice).toLocaleString("en-IN")}{displaySuffix}
             </p>
           </div>
         </div>
-        {transportBreakdown?.isPerKm && (
+       {transportBreakdown?.isPerKm && (
   <div className="mt-4 p-4 border rounded-xl bg-slate-50 space-y-3">
 
     <div className="flex justify-between items-center">
@@ -1326,8 +1326,7 @@ const [editableBaseCost, setEditableBaseCost] = useState(null);
   const groupedHotels     = useMemo(() => filteredHotels.reduce((acc, h) => { const c = h.city || "Other"; if (!acc[c]) acc[c] = []; acc[c].push(h); return acc; }, {}), [filteredHotels]);
   const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
   const hotelTotalPrice   = hotelEntries.reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
-
-  const transportBreakdown = useMemo(() => {
+const transportBreakdown = useMemo(() => {
   if (!selectedTransport?.selectedVehicle) return null;
 
   const vehicle = selectedTransport.selectedVehicle;
@@ -1405,7 +1404,6 @@ const [editableBaseCost, setEditableBaseCost] = useState(null);
 
 const transportTotalPrice = transportBreakdown?.total || 0;
   const grandTotal = hotelTotalPrice + transportTotalPrice + activityTotalPrice + confirmedMarkup;
-
   const handleSaveHotel = () => {
     if (!selectedHotelData) { alert("Please select a hotel."); return; }
     if (!mealPlan) { alert("Please select a meal plan."); return; }
@@ -1492,17 +1490,27 @@ const transportTotalPrice = transportBreakdown?.total || 0;
         markup: confirmedMarkup || 0, grandTotal: grandTotal || 0,
         hotelSummary: hotelEntries, activitySummary: selectedActivities,
         transportSummary: selectedTransport ? {
-          vehicles: selectedTransport.vehicles || [],
-          allPkgs: selectedTransport.allPkgs || [],
-          packageName: selectedTransport.name || "Custom",
-          vehicleName: selectedTransport.selectedVehicle?.type || "",
-          seats: selectedTransport.selectedVehicle?.seating || "",
-          price: selectedTransport.selectedVehicle?.price || 0,
-          ac: selectedTransport.selectedVehicle?.ac || false,
-          isCustom: selectedTransport.selectedVehicle?.isCustom || false,
-          perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
-          pricingType: selectedTransport.pricingType || "fixed",
-        } : null,
+  packageName: selectedTransport.name || "Custom",
+
+  vehicleName: selectedTransport.selectedVehicle?.type || "",
+  seats: selectedTransport.selectedVehicle?.seating || "",
+  ac: selectedTransport.selectedVehicle?.ac || false,
+
+  pricingType: selectedTransport.pricingType || "fixed",
+  perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
+
+  minKm: minKm || 0,
+
+  vehicleCost: transportBreakdown?.baseCost || 0,
+  driverAllowance: transportBreakdown?.driverAllowance || 0,
+  tollCharges: transportBreakdown?.toll || 0,
+  permitCharges: transportBreakdown?.permit || 0,
+  otherCharges: transportBreakdown?.other || 0,
+
+  totalTransportCost: transportBreakdown?.total || 0,
+
+  isCustom: selectedTransport.selectedVehicle?.isCustom || false,
+} : null,
       });
       toast("Package saved successfully! ✅");
       router.push("./agent-panel/my-quatation");

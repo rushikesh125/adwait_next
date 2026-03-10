@@ -219,28 +219,22 @@ const EditQuotationPage = () => {
     return (doublePrice + adultPrice + childPrice + cnbPrice) * nights;
   }, []);
 
-  const recalculateGrandTotal = useCallback((data) => {
-    let hotelTotal =
-      data.hotelSummary?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0) || 0;
-    let transportTotal = 0;
+ const recalculateGrandTotal = useCallback((data) => {
 
-    if (data.transportSummary) {
-      if (data.transportSummary.pricingType === "perKm") {
-        transportTotal =
-          (data.transportSummary.kms || 0) *
-          (data.transportSummary.perKmprice || 0);
-      } else {
-        transportTotal = data.transportSummary.price || 0;
-      }
-    }
+  let hotelTotal =
+    data.hotelSummary?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0) || 0;
 
-    const activityTotal =
-      data.activitySummary?.reduce((sum, a) => sum + (a.totalPrice || 0), 0) ||
-      0;
-    const markup = data.markup || 0;
+  let transportTotal =
+    data.transportSummary?.totalTransportCost || 0;
 
-    return hotelTotal + transportTotal + activityTotal + markup;
-  }, []);
+  const activityTotal =
+    data.activitySummary?.reduce((sum, a) => sum + (a.totalPrice || 0), 0) || 0;
+
+  const markup = data.markup || 0;
+
+  return hotelTotal + transportTotal + activityTotal + markup;
+
+}, []);
 
   // ────────────────────────────────────────────────
   // Fetch Logic
@@ -312,54 +306,59 @@ const EditQuotationPage = () => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    if (!editingQuotation) return;
 
-    if (isFirstEdit) {
-      setSelectedTransportStateId(editingQuotation?.transportSummary?.state || "");
-      setToggleValue(editingQuotation?.transportSummary?.isCustom || false);
-      setisFirstEdit(false);
-    }
+ const fetchTransportPackages = async (stateId) => {
+  try {
+    const ref = collection(db, "transport", stateId, "packages");
+    const snap = await getDocs(ref);
 
-    // Fetch activities
-    const currentState = SelectedDestination;
-    if (currentState && currentState !== "N/A") {
-      const fetchActs = async () => {
-        setIsFetchingActivities(true);
-        try {
-          const q = query(collection(db, "activities"), where("state", "==", currentState));
-          const snap = await getDocs(q);
-          setAvailableActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        } catch (err) {
-          console.error("Activities fetch error:", err);
-        } finally {
-          setIsFetchingActivities(false);
-        }
-      };
-      fetchActs();
-    } else {
-      setAvailableActivities([]);
-    }
+    setAvailableTransportPackagesForSelectedState(
+      snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }))
+    );
+  } catch (err) {
+    console.error("Transport packages fetch error:", err);
+  }
+}; 
+useEffect(() => {
+  if (!editingQuotation) return;
 
-    // Fetch transport packages
-    const fetchTrans = async () => {
-      if (!selectedTransportStateId) {
-        setAvailableTransportPackagesForSelectedState([]);
-        return;
-      }
+  if (isFirstEdit) {
+    setSelectedTransportStateId(editingQuotation?.transportSummary?.state || "");
+    setToggleValue(editingQuotation?.transportSummary?.isCustom || false);
+    setisFirstEdit(false);
+  }
+
+  // Fetch activities
+  const currentState = SelectedDestination;
+
+  if (currentState && currentState !== "N/A") {
+    const fetchActs = async () => {
+      setIsFetchingActivities(true);
       try {
-        const ref = collection(db, "transport", selectedTransportStateId, "packages");
-        const snap = await getDocs(ref);
-        setAvailableTransportPackagesForSelectedState(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() })),
-        );
+        const q = query(collection(db, "activities"), where("state", "==", currentState));
+        const snap = await getDocs(q);
+        setAvailableActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
-        console.error("Transport packages fetch error:", err);
-        setAvailableTransportPackagesForSelectedState([]);
+        console.error("Activities fetch error:", err);
+      } finally {
+        setIsFetchingActivities(false);
       }
     };
-    fetchTrans();
-  }, [editingQuotation, SelectedDestination, selectedTransportStateId, isFirstEdit]);
+
+    fetchActs();
+  } else {
+    setAvailableActivities([]);
+  }
+
+  // Fetch transport packages
+  if (selectedTransportStateId) {
+    fetchTransportPackages(selectedTransportStateId);
+  }
+
+}, [editingQuotation, SelectedDestination, selectedTransportStateId, isFirstEdit]);
 
   // ────────────────────────────────────────────────
   // Handlers
@@ -371,30 +370,8 @@ const EditQuotationPage = () => {
   };
 
   const handleToggle = () => {
-    setToggleValue((prev) => {
-      const nowPackage = !prev;
-      setEditingQuotation((q) => {
-        const trans = { ...q.transportSummary };
-        if (nowPackage) {
-          trans.isCustom = true;
-          trans.packageName = "";
-          trans.id = "";
-          trans.vehicles = [];
-          trans.selectedVehicle = null;
-          trans.pricingType = "fixed";
-          trans.price = 0;
-          trans.perKmprice = 0;
-          trans.ac = false;
-          trans.totalPrice = 0;
-        } else {
-          trans.isCustom = false;
-        }
-        const updated = { ...q, transportSummary: trans };
-        return { ...updated, grandTotal: recalculateGrandTotal(updated) };
-      });
-      return nowPackage;
-    });
-  };
+setToggleValue(prev => !prev)
+}
 
   const handleAddHotel = () => {
     if (!selectedHotelToAdd) {
@@ -557,15 +534,33 @@ const EditQuotationPage = () => {
   };
 
   const handleTransportSummaryChange = (field, value) => {
-    setEditingQuotation((prev) => {
-      const trans = { ...prev.transportSummary, [field]: value };
-      const updated = { ...prev, transportSummary: trans };
-      return {
-        ...updated,
-        grandTotal: recalculateGrandTotal(updated),
-      };
-    });
-  };
+  setEditingQuotation((prev) => {
+
+    const updatedTransport = {
+      ...prev.transportSummary,
+      [field]: value
+    };
+
+    const total =
+      (updatedTransport.vehicleCost || 0) +
+      (updatedTransport.driverAllowance || 0) +
+      (updatedTransport.tollCharges || 0) +
+      (updatedTransport.permitCharges || 0) +
+      (updatedTransport.otherCharges || 0);
+
+    updatedTransport.totalTransportCost = total;
+
+    const updated = {
+      ...prev,
+      transportSummary: updatedTransport
+    };
+
+    return {
+      ...updated,
+      grandTotal: recalculateGrandTotal(updated)
+    };
+  });
+};
 
   const handlePackageChange = (e) => {
     const pkgId = e.target.value;
@@ -611,7 +606,10 @@ const EditQuotationPage = () => {
         price: vehicle.price ?? 0,
         perKmprice: vehicle.perKmprice ?? 0,
         ac: vehicle.ac ?? false,
-        totalPrice: vehicle.price ?? vehicle.perKmprice ?? 0,
+        totalPrice:
+  prev.transportSummary.pricingType === "perKm"
+    ? vehicle.perKmprice ?? 0
+    : vehicle.price ?? 0  
       };
 
       const updated = { ...prev, transportSummary: trans };
@@ -1140,186 +1138,141 @@ const EditQuotationPage = () => {
               </TabsContent>
 
               {/* ─── TRANSPORT TAB ─── */}
-              <TabsContent value="transport" className="p-4 sm:p-8 space-y-6">
-                <Card className="border-slate-200 overflow-hidden rounded-2xl shadow-sm">
-                  <CardHeader className="bg-slate-50 border-b p-6 sm:p-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-theme-primary/10 rounded-2xl">
-                          <Car className="h-6 w-6 text-theme-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-xl font-bold">
-                            Transportation Details
-                          </CardTitle>
-                          <p className="text-sm text-slate-500 mt-1">
-                            Manage vehicle and route pricing
-                          </p>
-                        </div>
-                      </div>
+              {/* ─── TRANSPORT TAB ─── */}
+<TabsContent value="transport" className="p-6 sm:p-8 space-y-6">
 
-                      <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border">
-                        <button
-                          onClick={() => toggleValue && handleToggle(false)}
-                          className={`px-5 py-2 text-sm font-medium rounded-xl transition-all ${
-                            !toggleValue
-                              ? "bg-theme-primary text-white shadow-sm"
-                              : "text-slate-600 hover:bg-slate-100"
-                          }`}
-                        >
-                          Custom
-                        </button>
-                        <Switch
-                          checked={toggleValue}
-                          onCheckedChange={handleToggle}
-                          className="data-[state=checked]:bg-theme-primary"
-                        />
-                        <button
-                          onClick={() => !toggleValue && handleToggle(true)}
-                          className={`px-5 py-2 text-sm font-medium rounded-xl transition-all ${
-                            toggleValue
-                              ? "bg-theme-primary text-white shadow-sm"
-                              : "text-slate-600 hover:bg-slate-100"
-                          }`}
-                        >
-                          Package
-                        </button>
-                      </div>
-                    </div>
-                  </CardHeader>
+{/* TRANSPORT SUMMARY CARD */}
+<Card className="border-slate-200 shadow-sm">
+<CardHeader className="bg-slate-50 border-b">
+<CardTitle>Transport Summary</CardTitle>
+</CardHeader>
 
-                  <CardContent className="p-6 sm:p-8">
-                    {!toggleValue ? (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                          <Label>Vehicle Name</Label>
-                          <Input
-                            value={editingQuotation?.transportSummary?.vehicleName || ""}
-                            onChange={(e) => handleTransportSummaryChange("vehicleName", e.target.value)}
-                            placeholder="e.g. Innova Crysta"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Price (₹)</Label>
-                          <Input
-                            type="number"
-                            value={editingQuotation?.transportSummary?.price || 0}
-                            onChange={(e) =>
-                              handleTransportSummaryChange("price", Number(e.target.value) || 0)
-                            }
-                          />
-                        </div>
-                        <div className="flex items-end space-x-2">
-                          <input
-                            type="checkbox"
-                            id="ac"
-                            checked={editingQuotation?.transportSummary?.ac || false}
-                            onChange={(e) => handleTransportSummaryChange("ac", e.target.checked)}
-                            className="h-5 w-5 rounded border-slate-300 text-theme-primary"
-                          />
-                          <Label htmlFor="ac" className="text-sm font-medium">
-                            AC Vehicle
-                          </Label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <Label>Select State</Label>
-                            <Select
-                              value={selectedTransportStateId}
-                              onValueChange={setSelectedTransportStateId}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select state" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {transportStates.map((s) => (
-                                  <SelectItem key={s.id} value={s.id}>
-                                    {toTitleCase(s.id)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+<CardContent className="space-y-4">
 
-                          {selectedTransportStateId && (
-                            <div className="space-y-2">
-                              <Label>Transport Package</Label>
-                              <Select
-                                value={editingQuotation?.transportSummary?.id || ""}
-                                onValueChange={(v) => handlePackageChange({ target: { value: v } })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select package" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableTransportPackagesForSelectedState.map((pkg) => (
-                                    <SelectItem key={pkg.id} value={pkg.id}>
-                                      {pkg.name || pkg.id}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        </div>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                        {editingQuotation?.transportSummary?.vehicles?.length > 0 && (
-                          <div className="space-y-2">
-                            <Label>Vehicle Options</Label>
-                            <Select
-                              value={editingQuotation?.transportSummary?.selectedVehicle?.type || ""}
-                              onValueChange={(v) => {
-                                const veh = editingQuotation.transportSummary.vehicles.find(
-                                  (x) => x.type === v,
-                                );
-                                if (veh) handleVehicleChange(veh);
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select vehicle" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {editingQuotation.transportSummary.vehicles.map((v, i) => (
-                                  <SelectItem key={i} value={v.type}>
-                                    {v.type} – ₹{v.price ?? v.perKmprice}{" "}
-                                    {v.ac ? "(AC)" : "(Non-AC)"}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
+<div>
+<Label className="text-xs text-slate-500">Vehicle</Label>
+<p className="font-medium mt-1">
+{editingQuotation?.transportSummary?.vehicleName || "-"}
+{editingQuotation?.transportSummary?.ac ? " (AC)" : ""}
+</p>
+</div>
 
-                        {selectedTransportStateId && (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t">
-                            <div className="bg-slate-50 p-5 rounded-xl border">
-                              <p className="text-sm text-slate-500">Package</p>
-                              <p className="mt-1 font-medium">
-                                {editingQuotation?.transportSummary?.packageName || "—"}
-                              </p>
-                            </div>
-                            <div className="bg-slate-50 p-5 rounded-xl border">
-                              <p className="text-sm text-slate-500">AC Status</p>
-                              <p className="mt-1 font-medium">
-                                {editingQuotation?.transportSummary?.ac ? "Yes" : "No"}
-                              </p>
-                            </div>
-                            <div className="bg-theme-primary/5 p-5 rounded-xl border border-theme-primary/20">
-                              <p className="text-sm text-theme-primary">Total Cost</p>
-                              <p className="mt-1 text-2xl font-bold text-theme-primary">
-                                ₹{editingQuotation?.transportSummary?.totalPrice?.toLocaleString() || 0}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+<div>
+<Label className="text-xs text-slate-500">Total Transport Cost</Label>
+<p className="font-bold text-theme-primary text-lg mt-1">
+₹{editingQuotation?.transportSummary?.totalTransportCost || 0}
+</p>
+</div>
+
+<div>
+<Label className="text-xs text-slate-500">Package</Label>
+<p className="font-medium mt-1">
+{editingQuotation?.transportSummary?.packageName || "Custom"}
+</p>
+</div>
+
+</div>
+
+</CardContent>
+</Card>
+
+
+{/* EDIT TRANSPORT CARD */}
+<Card className="border-slate-200 shadow-sm">
+<CardHeader className="bg-slate-50 border-b">
+<CardTitle>Add / Edit Transport</CardTitle>
+</CardHeader>
+
+<CardContent className="space-y-6">
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+<div>
+<Label>Vehicle Name</Label>
+<Input
+value={editingQuotation?.transportSummary?.vehicleName || ""}
+onChange={(e)=>
+handleTransportSummaryChange("vehicleName", e.target.value)
+}
+/>
+</div>
+
+<div className="flex items-center gap-2 pt-6">
+<Switch
+checked={editingQuotation?.transportSummary?.ac || false}
+onCheckedChange={(val)=>handleTransportSummaryChange("ac", val)}
+/>
+<Label>AC Vehicle</Label>
+</div>
+
+</div>
+
+
+<div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+
+<div>
+<Label className="text-xs">Vehicle Cost</Label>
+<Input
+type="number"
+value={editingQuotation?.transportSummary?.vehicleCost || 0}
+onChange={(e)=>
+handleTransportSummaryChange("vehicleCost", Number(e.target.value) || 0)
+}
+/>
+</div>
+
+<div>
+<Label className="text-xs">Driver Allowance</Label>
+<Input
+type="number"
+value={editingQuotation?.transportSummary?.driverAllowance || 0}
+onChange={(e)=>
+handleTransportSummaryChange("driverAllowance", Number(e.target.value) || 0)
+}
+/>
+</div>
+
+<div>
+<Label className="text-xs">Toll Charges</Label>
+<Input
+type="number"
+value={editingQuotation?.transportSummary?.tollCharges || 0}
+onChange={(e)=>
+handleTransportSummaryChange("tollCharges", Number(e.target.value) || 0)
+}
+/>
+</div>
+
+<div>
+<Label className="text-xs">Permit Charges</Label>
+<Input
+type="number"
+value={editingQuotation?.transportSummary?.permitCharges || 0}
+onChange={(e)=>
+handleTransportSummaryChange("permitCharges", Number(e.target.value) || 0)
+}
+/>
+</div>
+
+<div>
+<Label className="text-xs">Other Charges</Label>
+<Input
+type="number"
+value={editingQuotation?.transportSummary?.otherCharges || 0}
+onChange={(e)=>
+handleTransportSummaryChange("otherCharges", Number(e.target.value) || 0)
+}
+/>
+</div>
+
+</div>
+
+</CardContent>
+</Card>
+
+</TabsContent>
 
               {/* ─── ACTIVITIES TAB ─── */}
               <TabsContent value="activities" className="p-4 sm:p-8 space-y-8">
@@ -1497,11 +1450,7 @@ const EditQuotationPage = () => {
                   <p className="text-sm text-slate-500">Transport</p>
                   <p className="text-xl font-bold mt-1">
                     ₹
-                    {(editingQuotation?.transportSummary?.pricingType === "perKm"
-                      ? (editingQuotation.transportSummary?.kms || 0) *
-                        (editingQuotation.transportSummary?.perKmprice || 0)
-                      : editingQuotation?.transportSummary?.price || 0
-                    ).toLocaleString()}
+                   { (editingQuotation?.transportSummary?.totalTransportCost || 0).toLocaleString()}
                   </p>
                 </div>
                 <div>

@@ -171,15 +171,9 @@ export const recalculateGrandTotal = (data) => {
     0
   );
 
-  let transportTotal = 0;
-  if (data.transportSummary) {
-    if (data.transportSummary.pricingType === "perKm") {
-      transportTotal =
-        (data.transportSummary.kms || 0) * (data.transportSummary.perKmprice || 0);
-    } else {
-      transportTotal = data.transportSummary.price || 0;
-    }
-  }
+  
+  const transportTotal =
+    data.transportSummary?.totalTransportCost || 0;
 
   const activityTotal = (data.activitySummary || []).reduce(
     (sum, a) => sum + (a.totalPrice || 0),

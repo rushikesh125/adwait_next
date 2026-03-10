@@ -590,18 +590,32 @@ const QuotationModals = ({
 
   // Compute base total (ex-markup) for percentage markup calculation
   const baseTotal = useMemo(() => {
-    if (!editingQuotation) return 0;
-    const hotelTotal = editingQuotation.hotelSummary?.reduce((s, h) => s + (h.hotelTotal || 0), 0) || 0;
-    let transportTotal = 0;
-    if (editingQuotation.transportSummary) {
-      transportTotal =
-        editingQuotation.transportSummary.pricingType === "perKm"
-          ? (editingQuotation.transportSummary.kms || 0) * (editingQuotation.transportSummary.perKmprice || 0)
-          : editingQuotation.transportSummary.price || 0;
-    }
-    const activityTotal = editingQuotation.activitySummary?.reduce((s, a) => s + (a.totalPrice || 0), 0) || 0;
-    return hotelTotal + transportTotal + activityTotal;
-  }, [editingQuotation]);
+  if (!editingQuotation) return 0;
+
+  const hotelTotal = editingQuotation.hotelSummary?.reduce(
+    (s, h) => s + (h.hotelTotal || 0), 0
+  ) || 0;
+
+  let transportTotal = 0;
+
+if (editingQuotation.transportSummary) {
+  const t = editingQuotation.transportSummary;
+
+  transportTotal =
+    (t.vehicleCost || 0) +
+    (t.driverAllowance || 0) +
+    (t.tollCharges || 0) +
+    (t.permitCharges || 0) +
+    (t.otherCharges || 0);
+} 
+
+  const activityTotal =
+    editingQuotation.activitySummary?.reduce(
+      (s, a) => s + (a.totalPrice || 0), 0
+    ) || 0;
+
+  return hotelTotal + transportTotal + activityTotal;
+}, [editingQuotation]);
 
   // The "raw" markup input value (could be % or amount)
   const markupInputValue = editingQuotation?.markupValue ?? editingQuotation?.markup ?? 0;
@@ -720,21 +734,59 @@ const QuotationModals = ({
                 <Card>
                   <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
                     <div className="space-y-3 text-sm sm:text-base">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground flex-shrink-0">Vehicle:</span>
-                        <span className="font-medium text-right truncate" title={viewingQuotation?.transportSummary?.vehicleName}>
-                          {truncateText(viewingQuotation?.transportSummary?.vehicleName || "—", 20)}
-                          {viewingQuotation?.transportSummary?.ac && " (AC)"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground flex-shrink-0">Cost:</span>
-                        <span className="font-medium text-theme-primary">
-                          ₹{viewingQuotation?.transportSummary?.pricingType === "perKm"
-                            ? ((viewingQuotation.transportSummary?.perKmprice || 0) * (viewingQuotation.transportSummary?.kms || 0)).toFixed(0)
-                            : (viewingQuotation?.transportSummary?.price || 0).toFixed(0)}
-                        </span>
-                      </div>
+                      <div className="space-y-2 text-sm">
+
+  <div className="flex justify-between">
+    <span className="text-sm  font-bold">Vehicle:</span>
+    <span className="font-medium">
+      {viewingQuotation?.transportSummary?.vehicleName}
+      {viewingQuotation?.transportSummary?.ac ? " (AC)" : ""}
+    </span>
+  </div>
+
+  <div className="flex justify-between">
+    <span>Vehicle Cost:</span>
+    <span>
+      ₹{viewingQuotation?.transportSummary?.vehicleCost || 0}
+    </span>
+  </div>
+
+  <div className="flex justify-between">
+    <span>Driver Allowance:</span>
+    <span>
+      ₹{viewingQuotation?.transportSummary?.driverAllowance || 0}
+    </span>
+  </div>
+
+  <div className="flex justify-between">
+    <span>Toll Charges:</span>
+    <span>
+      ₹{viewingQuotation?.transportSummary?.tollCharges || 0}
+    </span>
+  </div>
+
+  <div className="flex justify-between">
+    <span>Permit Charges:</span>
+    <span>
+      ₹{viewingQuotation?.transportSummary?.permitCharges || 0}
+    </span>
+  </div>
+
+  <div className="flex justify-between">
+    <span>Other Charges:</span>
+    <span>
+      ₹{viewingQuotation?.transportSummary?.otherCharges || 0}
+    </span>
+  </div>
+
+  <div className="border-t pt-2 flex justify-between font-bold ">
+    <span>Total Transport</span>
+    <span>
+      ₹{(viewingQuotation?.transportSummary?.totalTransportCost || 0).toLocaleString("en-IN")}
+    </span>
+  </div>
+
+</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -793,9 +845,9 @@ const QuotationModals = ({
                   </div>
                   <div className="flex justify-between gap-2">
                     <span>Transport Total:</span>
-                    <span>₹{viewingQuotation?.transportSummary?.pricingType === "perKm"
-                      ? ((viewingQuotation.transportSummary?.perKmprice || 0) * (viewingQuotation.transportSummary?.kms || 0)).toFixed(0)
-                      : (viewingQuotation?.transportSummary?.price || 0).toFixed(0)}</span>
+                    <span>
+                      ₹{(viewingQuotation?.transportSummary?.totalTransportCost || 0).toFixed(0)}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span>Activity Total:</span>
@@ -1352,25 +1404,86 @@ const QuotationModals = ({
                               </Select>
                             </div>
                             {selectedTransportStateId && (
-                              <div className="space-y-2">
-                                <Label className="text-sm">Change Package</Label>
-                                <Select
-                                  value={editingQuotation?.transportSummary?.id || ""}
-                                  onValueChange={(val) => handlePackageChange({ target: { value: val } })}
-                                >
-                                  <SelectTrigger className="text-sm">
-                                    <SelectValue placeholder="Select package" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {availableTransportPackagesForSelectedState.map((pkg) => (
-                                      <SelectItem key={pkg.id} value={pkg.id}>
-                                        {truncateText(pkg.name || pkg.packageName || pkg.id, 30)}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
+  <div className="space-y-4 pt-4 border-t">
+
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <Label className="text-xs text-muted-foreground">Current Package</Label>
+        <p className="font-medium mt-1 text-sm">
+          {editingQuotation?.transportSummary?.packageName || "—"}
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-xs text-muted-foreground">AC Status</Label>
+        <p className="font-medium mt-1 text-sm">
+          {editingQuotation?.transportSummary?.ac ? "Available" : "Not Available"}
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-xs text-muted-foreground">Vehicle Cost</Label>
+        <Input
+          type="number"
+          value={editingQuotation?.transportSummary?.vehicleCost || 0}
+          onChange={(e) =>
+            handleTransportSummaryChange("vehicleCost", Number(e.target.value))
+          }
+        />
+      </div>
+    </div>
+
+    {/* TRANSPORT BREAKDOWN */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
+      <div>
+        <Label className="text-xs">Driver Allowance</Label>
+        <Input
+          type="number"
+          value={editingQuotation?.transportSummary?.driverAllowance || 0}
+          onChange={(e) =>
+            handleTransportSummaryChange("driverAllowance", Number(e.target.value))
+          }
+        />
+      </div>
+
+      <div>
+        <Label className="text-xs">Toll Charges</Label>
+        <Input
+          type="number"
+          value={editingQuotation?.transportSummary?.tollCharges || 0}
+          onChange={(e) =>
+            handleTransportSummaryChange("tollCharges", Number(e.target.value))
+          }
+        />
+      </div>
+
+      <div>
+        <Label className="text-xs">Permit Charges</Label>
+        <Input
+          type="number"
+          value={editingQuotation?.transportSummary?.permitCharges || 0}
+          onChange={(e) =>
+            handleTransportSummaryChange("permitCharges", Number(e.target.value))
+          }
+        />
+      </div>
+
+      <div>
+        <Label className="text-xs">Other Charges</Label>
+        <Input
+          type="number"
+          value={editingQuotation?.transportSummary?.otherCharges || 0}
+          onChange={(e) =>
+            handleTransportSummaryChange("otherCharges", Number(e.target.value))
+          }
+        />
+      </div>
+
+    </div>
+
+  </div>
+)}
                           </div>
 
                           {editingQuotation?.transportSummary?.vehicles?.length > 0 && (
@@ -1676,9 +1789,7 @@ const QuotationModals = ({
                     <div className="text-center p-2 rounded-md bg-background border">
                       <p className="text-xs text-muted-foreground mb-0.5">Transport</p>
                       <p className="font-semibold text-theme-primary">
-                        ₹{editingQuotation?.transportSummary?.pricingType === "perKm"
-                          ? ((editingQuotation.transportSummary.kms || 0) * (editingQuotation.transportSummary.perKmprice || 0)).toFixed(0)
-                          : (editingQuotation?.transportSummary?.price || 0).toFixed(0)}
+                        ₹{(editingQuotation?.transportSummary?.totalTransportCost || 0).toFixed(0)}
                       </p>
                     </div>
                     <div className="text-center p-2 rounded-md bg-background border">
