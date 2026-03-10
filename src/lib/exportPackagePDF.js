@@ -145,7 +145,7 @@ export const exportPackagePDF = ({
 
     autoTable(pdfdoc, {
       startY: y + 5,
-      head: [["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan", "Guests"]],
+      head: [["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan"]],
       body: hotelEntries.map((h) => {
         const guestParts = [
           `${h.numDouble || 0} Rm`,

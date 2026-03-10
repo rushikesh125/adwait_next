@@ -1,7 +1,8 @@
 // utils.js
 
-import { collection, doc, getDoc, getDocs, query, where, setDoc, orderBy } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, setDoc, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/config'; // Adjust path to your firebase config
+import toast from 'react-hot-toast';
 
 // --- Data Fetching Functions ---
 
@@ -242,3 +243,25 @@ export function toTitleCase(str) {
 // This utils file focuses on pure logic and data interactions.
 // The page.jsx component provided earlier integrates these utility functions
 // into its local state management and event handlers.
+
+
+
+export const createTripForm = async (agentId, tripData) => {
+  try {
+    // Validate that we have at least one journey
+    if (tripData.journeys.length === 0) throw new Error("Add at least one journey");
+
+    const docRef = await addDoc(collection(db, "trips"), {
+      ...tripData,
+      agentId, // Ownership link
+      createdAt: serverTimestamp(),
+      status: "active",
+    });
+
+    toast.success("Form created successfully!");
+    return docRef.id;
+  } catch (error) {
+    toast.error(error.message || "Failed to create trip");
+    return null;
+  }
+};
