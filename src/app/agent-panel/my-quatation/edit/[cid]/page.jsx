@@ -1138,141 +1138,141 @@ setToggleValue(prev => !prev)
               </TabsContent>
 
               {/* ─── TRANSPORT TAB ─── */}
-              {/* ─── TRANSPORT TAB ─── */}
-<TabsContent value="transport" className="p-6 sm:p-8 space-y-6">
+       
+                          <TabsContent value="transport" className="p-6 sm:p-8 space-y-6">
 
-{/* TRANSPORT SUMMARY CARD */}
-<Card className="border-slate-200 shadow-sm">
-<CardHeader className="bg-slate-50 border-b">
-<CardTitle>Transport Summary</CardTitle>
-</CardHeader>
+                          {/* TRANSPORT SUMMARY CARD */}
+                          <Card className="border-slate-200 shadow-sm">
+                          <CardHeader className="bg-slate-50 border-b">
+                          <CardTitle>Transport Summary</CardTitle>
+                          </CardHeader>
 
-<CardContent className="space-y-4">
+                          <CardContent className="space-y-4">
 
-<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-<div>
-<Label className="text-xs text-slate-500">Vehicle</Label>
-<p className="font-medium mt-1">
-{editingQuotation?.transportSummary?.vehicleName || "-"}
-{editingQuotation?.transportSummary?.ac ? " (AC)" : ""}
-</p>
-</div>
+                          <div>
+                          <Label className="text-xs text-slate-500">Vehicle</Label>
+                          <p className="font-medium mt-1">
+                          {editingQuotation?.transportSummary?.vehicleName || "-"}
+                          {editingQuotation?.transportSummary?.ac ? " (AC)" : ""}
+                          </p>
+                          </div>
 
-<div>
-<Label className="text-xs text-slate-500">Total Transport Cost</Label>
-<p className="font-bold text-theme-primary text-lg mt-1">
-₹{editingQuotation?.transportSummary?.totalTransportCost || 0}
-</p>
-</div>
+                          <div>
+                          <Label className="text-xs text-slate-500">Total Transport Cost</Label>
+                          <p className="font-bold text-theme-primary text-lg mt-1">
+                          ₹{editingQuotation?.transportSummary?.totalTransportCost || 0}
+                          </p>
+                          </div>
 
-<div>
-<Label className="text-xs text-slate-500">Package</Label>
-<p className="font-medium mt-1">
-{editingQuotation?.transportSummary?.packageName || "Custom"}
-</p>
-</div>
+                          <div>
+                          <Label className="text-xs text-slate-500">Package</Label>
+                          <p className="font-medium mt-1">
+                          {editingQuotation?.transportSummary?.packageName || "Custom"}
+                          </p>
+                          </div>
 
-</div>
+                          </div>
 
-</CardContent>
-</Card>
-
-
-{/* EDIT TRANSPORT CARD */}
-<Card className="border-slate-200 shadow-sm">
-<CardHeader className="bg-slate-50 border-b">
-<CardTitle>Add / Edit Transport</CardTitle>
-</CardHeader>
-
-<CardContent className="space-y-6">
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-<div>
-<Label>Vehicle Name</Label>
-<Input
-value={editingQuotation?.transportSummary?.vehicleName || ""}
-onChange={(e)=>
-handleTransportSummaryChange("vehicleName", e.target.value)
-}
-/>
-</div>
-
-<div className="flex items-center gap-2 pt-6">
-<Switch
-checked={editingQuotation?.transportSummary?.ac || false}
-onCheckedChange={(val)=>handleTransportSummaryChange("ac", val)}
-/>
-<Label>AC Vehicle</Label>
-</div>
-
-</div>
+                          </CardContent>
+                          </Card>
 
 
-<div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                          {/* EDIT TRANSPORT CARD */}
+                          <Card className="border-slate-200 shadow-sm">
+                          <CardHeader className="bg-slate-50 border-b">
+                          <CardTitle>Add / Edit Transport</CardTitle>
+                          </CardHeader>
 
-<div>
-<Label className="text-xs">Vehicle Cost</Label>
-<Input
-type="number"
-value={editingQuotation?.transportSummary?.vehicleCost || 0}
-onChange={(e)=>
-handleTransportSummaryChange("vehicleCost", Number(e.target.value) || 0)
-}
-/>
-</div>
+                          <CardContent className="space-y-6">
 
-<div>
-<Label className="text-xs">Driver Allowance</Label>
-<Input
-type="number"
-value={editingQuotation?.transportSummary?.driverAllowance || 0}
-onChange={(e)=>
-handleTransportSummaryChange("driverAllowance", Number(e.target.value) || 0)
-}
-/>
-</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-<div>
-<Label className="text-xs">Toll Charges</Label>
-<Input
-type="number"
-value={editingQuotation?.transportSummary?.tollCharges || 0}
-onChange={(e)=>
-handleTransportSummaryChange("tollCharges", Number(e.target.value) || 0)
-}
-/>
-</div>
+                          <div>
+                          <Label>Vehicle Name</Label>
+                          <Input
+                          value={editingQuotation?.transportSummary?.vehicleName || ""}
+                          onChange={(e)=>
+                          handleTransportSummaryChange("vehicleName", e.target.value)
+                          }
+                          />
+                          </div>
 
-<div>
-<Label className="text-xs">Permit Charges</Label>
-<Input
-type="number"
-value={editingQuotation?.transportSummary?.permitCharges || 0}
-onChange={(e)=>
-handleTransportSummaryChange("permitCharges", Number(e.target.value) || 0)
-}
-/>
-</div>
+                          <div className="flex items-center gap-2 pt-6">
+                          <Switch
+                          checked={editingQuotation?.transportSummary?.ac || false}
+                          onCheckedChange={(val)=>handleTransportSummaryChange("ac", val)}
+                          />
+                          <Label>AC Vehicle</Label>
+                          </div>
 
-<div>
-<Label className="text-xs">Other Charges</Label>
-<Input
-type="number"
-value={editingQuotation?.transportSummary?.otherCharges || 0}
-onChange={(e)=>
-handleTransportSummaryChange("otherCharges", Number(e.target.value) || 0)
-}
-/>
-</div>
+                          </div>
 
-</div>
 
-</CardContent>
-</Card>
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
 
-</TabsContent>
+                          <div>
+                          <Label className="text-xs">Vehicle Cost</Label>
+                          <Input
+                          type="number"
+                          value={editingQuotation?.transportSummary?.vehicleCost || 0}
+                          onChange={(e)=>
+                          handleTransportSummaryChange("vehicleCost", Number(e.target.value) || 0)
+                          }
+                          />
+                          </div>
+
+                          <div>
+                          <Label className="text-xs">Driver Allowance</Label>
+                          <Input
+                          type="number"
+                          value={editingQuotation?.transportSummary?.driverAllowance || 0}
+                          onChange={(e)=>
+                          handleTransportSummaryChange("driverAllowance", Number(e.target.value) || 0)
+                          }
+                          />
+                          </div>
+
+                          <div>
+                          <Label className="text-xs">Toll Charges</Label>
+                          <Input
+                          type="number"
+                          value={editingQuotation?.transportSummary?.tollCharges || 0}
+                          onChange={(e)=>
+                          handleTransportSummaryChange("tollCharges", Number(e.target.value) || 0)
+                          }
+                          />
+                          </div>
+
+                          <div>
+                          <Label className="text-xs">Permit Charges</Label>
+                          <Input
+                          type="number"
+                          value={editingQuotation?.transportSummary?.permitCharges || 0}
+                          onChange={(e)=>
+                          handleTransportSummaryChange("permitCharges", Number(e.target.value) || 0)
+                          }
+                          />
+                          </div>
+
+                          <div>
+                          <Label className="text-xs">Other Charges</Label>
+                          <Input
+                          type="number"
+                          value={editingQuotation?.transportSummary?.otherCharges || 0}
+                          onChange={(e)=>
+                          handleTransportSummaryChange("otherCharges", Number(e.target.value) || 0)
+                          }
+                          />
+                          </div>
+
+                          </div>
+
+                          </CardContent>
+                          </Card>
+
+                          </TabsContent>
 
               {/* ─── ACTIVITIES TAB ─── */}
               <TabsContent value="activities" className="p-4 sm:p-8 space-y-8">

@@ -47,6 +47,7 @@ export const updateHotelComplete = async (hotelId, hotelData) => {
         name: season.name?.trim() || "",
         start: season.start || "",
         end: season.end || "",
+        priority: season.priority !== null && season.priority !== undefined ? Number(season.priority) : null,
         pricing: {
           ...(season.pricing?.ep && {
             ep: {
@@ -119,6 +120,7 @@ export const updateHotelRooms = async (hotelId, rooms) => {
         name: season.name?.trim() || "",
         start: season.start || "",
         end: season.end || "",
+        priority: season.priority !== null && season.priority !== undefined ? Number(season.priority) : null,
         pricing: {
           ...(season.pricing?.ep && {
             ep: {
@@ -221,6 +223,7 @@ export const addRoomCategory = async (hotelId, newRoom) => {
         name: season.name?.trim() || "",
         start: season.start || "",
         end: season.end || "",
+        priority: season.priority !== null && season.priority !== undefined ? Number(season.priority) : null,
         pricing: {
           ...(season.pricing?.ep && {
             ep: {

@@ -144,16 +144,25 @@ const HotelRoomSelector = ({
   const [numExtraChild, setNumExtraChild] = useState(initial.numExtraChild ?? 0);
   const [numCNB, setNumCNB]             = useState(initial.numCNB         ?? 0);
 
-  const getApplicableSeason = useCallback((roomData) => {
-    if (!roomData?.seasons || !checkInDate) return null;
-    const d = new Date(checkInDate);
-    d.setHours(0, 0, 0, 0);
-    return roomData.seasons.find((s) => {
-      const start = new Date(s.start); start.setHours(0, 0, 0, 0);
-      const end   = new Date(s.end);   end.setHours(23, 59, 59, 999);
-      return d >= start && d <= end;
-    }) || null;
-  }, [checkInDate]);
+const getApplicableSeason = useCallback((roomData) => {
+  if (!roomData?.seasons || !checkInDate) return null;
+  const d = new Date(checkInDate);
+  d.setHours(0, 0, 0, 0);
+
+  // 1. Find all seasons that cover the selected date
+  const matchingSeasons = roomData.seasons.filter((s) => {
+    const start = new Date(s.start); start.setHours(0, 0, 0, 0);
+    const end   = new Date(s.end);   end.setHours(23, 59, 59, 999);
+    return d >= start && d <= end;
+  });
+
+  if (matchingSeasons.length === 0) return null;
+
+  // 2. Sort by priority ascending  and return the first one
+  return matchingSeasons.sort((a, b) => 
+    (Number(a.priority) || 99) - (Number(b.priority) || 99)
+  )[0];
+}, [checkInDate]);
 
   const roomData = hotel?.rooms?.find((r) => r.categoryName === selectedRoomCategory);
   const season   = getApplicableSeason(roomData);

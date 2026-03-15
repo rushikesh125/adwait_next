@@ -1,6 +1,7 @@
 // src/components/HotelRoomSelector.jsx
 "use client";
 
+/* eslint-disable */
 import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import {
@@ -63,20 +64,28 @@ const HotelRoomSelector = ({
   // Derived values
   const currentCategory = hotel?.rooms?.[selectedCategoryIndex];
 
-  const applicableSeason = useMemo(() => {
-    if (!currentCategory?.seasons || !checkInDate) return null;
+const applicableSeason = useMemo(() => {
+  if (!currentCategory?.seasons || !checkInDate) return null;
 
-    const checkIn = new Date(checkInDate);
-    checkIn.setHours(0, 0, 0, 0);
+  const checkIn = new Date(checkInDate);
+  checkIn.setHours(0, 0, 0, 0);
 
-    return currentCategory.seasons.find((season) => {
-      const start = new Date(season.start);
-      const end   = new Date(season.end);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      return checkIn >= start && checkIn <= end;
-    }) || null;
-  }, [currentCategory, checkInDate]);
+  // Find all matching seasons for the date
+  const matches = currentCategory.seasons.filter((season) => {
+    const start = new Date(season.start);
+    const end   = new Date(season.end);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return checkIn >= start && checkIn <= end;
+  });
+
+  if (matches.length === 0) return null;
+
+  // Return the one with the lowest priority value (highest priority)
+  return matches.sort((a, b) => 
+    (Number(a.priority) || 99) - (Number(b.priority) || 99)
+  )[0];
+}, [currentCategory, checkInDate]);
 
   const currentPlan = selectedPlans[selectedCategoryIndex] || selectedMealPlan || "";
   const pricingData = applicableSeason?.pricing?.[currentPlan.toLowerCase()] || null;

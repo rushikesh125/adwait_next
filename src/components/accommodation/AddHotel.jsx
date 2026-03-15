@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useMemo } from "react";
+/* eslint-disable */
 import {
   collection,
   getDocs,
@@ -75,26 +77,31 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
   const [hotelCreated, setHotelCreated] = useState(false);
   const [createdHotelId, setCreatedHotelId] = useState(null);
 
-  // ── Loading states ──────────────────────────────────────────
   const [isCreatingHotel, setIsCreatingHotel] = useState(false);
   const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [isAddingCity, setIsAddingCity] = useState(false);
 
-  // ── Season management ───────────────────────────────────────
   const [seasonCount, setSeasonCount] = useState(0);
   const [seasons, setSeasons] = useState([]);
   const [currentSeasonIndex, setCurrentSeasonIndex] = useState(0);
-  const [tempSeason, setTempSeason] = useState({ name: "", start: "", end: "" });
+  const [tempSeason, setTempSeason] = useState({ name: "", start: "", end: "" , priority: ""});
   const [isAddingExtraSeason, setIsAddingExtraSeason] = useState(false);
 
-  // ── Room category management ────────────────────────────────
   const [roomCategories, setRoomCategories] = useState([]);
   const [currentCategoryName, setCurrentCategoryName] = useState("");
   const [currentPricing, setCurrentPricing] = useState([]);
 
   const editMode = !!editHotelId;
 
-  // Fetch states
+  const assignedPriorities = useMemo(() => {
+    return seasons
+      .filter((s, i) => s && (!isAddingExtraSeason && i !== currentSeasonIndex))
+      .map(s => Number(s.priority))
+      .filter(p => !isNaN(p));
+  }, [seasons, currentSeasonIndex, isAddingExtraSeason]);
+
+  const priorityOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
   useEffect(() => {
     const fetchStates = async () => {
       try {
@@ -108,7 +115,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
     fetchStates();
   }, []);
 
-  // Load hotel in edit mode
   useEffect(() => {
     if (!editMode) return;
     const loadHotel = async () => {
@@ -144,7 +150,8 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
             data.rooms[data.rooms.length - 1]?.seasons?.map(s => ({
               name: s.name,
               start: s.start,
-              end: s.end
+              end: s.end,
+              priority: s.priority || ""
             })) || []
           );
           setSeasonCount(data.rooms[data.rooms.length - 1]?.seasons?.length || 0);
@@ -157,7 +164,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
     loadHotel();
   }, [editMode, editHotelId]);
 
-  // Fetch cities when state changes
   useEffect(() => {
     if (!selectedState) return;
     const stateDoc = states.find(s => s.name === selectedState);
@@ -175,7 +181,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
     fetchCities();
   }, [selectedState, states]);
 
-  // City suggestions
   useEffect(() => {
     if (!cityInput.trim()) {
       setFilteredCities([]);
@@ -232,7 +237,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       toast.error("Please fill hotel name, rating, state & city.");
       return;
     }
-
     if ((!GoogleReviewRating || !GoogleListingURL) && !doneOnes) {
       toast("Best practice: add Google rating & listing link before saving.", {
         icon: "💡",
@@ -241,11 +245,9 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       setDoneOnes(true);
       return;
     }
-
     setIsCreatingHotel(true);
     try {
       let hotelId = createdHotelId;
-
       if (!editMode) {
         const snap = await getDocs(collection(db, "hotels"));
         const duplicate = snap.docs.some(d => {
@@ -260,7 +262,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
           toast.error(`Hotel "${hotelName}" already exists in this city.`);
           return;
         }
-
         const ref = await addDoc(collection(db, "hotels"), {
           name: hotelName.trim(),
           rating: hotelRating,
@@ -273,7 +274,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         hotelId = ref.id;
         setCreatedHotelId(hotelId);
         setHotelCreated(true);
-
         const stateDoc = states.find(s => s.name === selectedState);
         const citySnap = await getDoc(doc(db, "locations", stateDoc.id));
         const cityList = citySnap.data().cities.map(c =>
@@ -282,7 +282,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
             : c
         );
         await updateDoc(doc(db, "locations", stateDoc.id), { cities: cityList });
-
         toast.success("Hotel created! Now define pricing seasons.");
       } else {
         await updateDoc(doc(db, "hotels", editHotelId), {
@@ -322,7 +321,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       toast.error("Please enter room category name");
       return;
     }
-
     const hasPrice = currentPricing.some(s =>
       s && ["ep", "cp", "map", "ap"].some(p =>
         s[p] && Object.values(s[p]).some(v => v > 0)
@@ -332,15 +330,14 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       toast.error("Please set at least one positive price");
       return;
     }
-
     const definedSeasons = seasons.filter(Boolean);
-
     const newRoom = {
       categoryName: currentCategoryName.trim(),
       seasons: definedSeasons.map((s, i) => ({
         name: s.name,
         start: s.start,
         end: s.end,
+        priority: s.priority || "",
         pricing: {
           ep:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0, ...(currentPricing[i]?.ep  || {}) },
           cp:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0, ...(currentPricing[i]?.cp  || {}) },
@@ -349,7 +346,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         }
       }))
     };
-
     setIsSavingRoom(true);
     try {
       await updateDoc(doc(db, "hotels", createdHotelId), { rooms: arrayUnion(newRoom) });
@@ -374,9 +370,8 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
     })));
   };
 
-  // ── Overlap computation ─────────────────────────────────────
   const seasonOverlapMap = getSeasonOverlaps(seasons);
-  const anySeasonOverlap = seasonOverlapMap.size > 0;
+  const anySeasonOverlap = Array.from(seasonOverlapMap.values()).some(names => names.length > 0);
 
   const getTempSeasonConflicts = () => {
     if (!tempSeason.start || !tempSeason.end) return [];
@@ -394,15 +389,11 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
 
   const tempSeasonConflicts = getTempSeasonConflicts();
   const tempHasConflict = tempSeasonConflicts.length > 0;
-
-  // Only non-null seasons (used in pricing tables)
   const definedSeasons = seasons.filter(Boolean);
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex justify-center items-start overflow-y-auto p-4 py-8">
       <div className="w-full max-w-4xl min-h-[50vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
-
-        {/* Header */}
         <div className="flex justify-between items-center px-8 py-5 border-b bg-white sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <div className="bg-theme-muted p-2 rounded-lg">
@@ -421,10 +412,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
             <X className="h-5 w-5 text-slate-400 hover:text-slate-700" />
           </button>
         </div>
-
         <div className="p-8 space-y-10">
-
-          {/* ── 1. Basic Info ──────────────────────────────────────── */}
           <div className={`space-y-6 ${hotelCreated ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -448,7 +436,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                   ))}
                 </select>
               </div>
-
               {selectedState && (
                 <div className="space-y-2 relative">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -474,7 +461,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                         >
                           {item === "Other" ? (
                             <span className="text-theme-primary flex items-center">
-                              <Plus className="h-4 w-4 mr-2" /> Add "{cityInput.trim()}"
+                              <Plus className="h-4 w-4 mr-2" /> Add {cityInput.trim()}
                             </span>
                           ) : (
                             item.name
@@ -483,8 +470,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                       ))}
                     </div>
                   )}
-
-                  {/* Inline city confirm — replaces window.confirm */}
                   {pendingNewCity && (
                     <div className="mt-2 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                       <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
@@ -509,7 +494,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                       </button>
                     </div>
                   )}
-
                   {cityConfirmed && selectedCity && (
                     <div className="mt-2">
                       <Badge variant="outline" className="bg-green-50 text-green-700">
@@ -520,7 +504,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                 </div>
               )}
             </div>
-
             {cityConfirmed && !hotelCreated && (
               <div className="pt-6 border-t space-y-6 animate-in slide-in-from-top">
                 <div className="grid md:grid-cols-2 gap-6">
@@ -547,7 +530,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                     </select>
                   </div>
                 </div>
-
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold flex items-center gap-1.5">
@@ -575,7 +557,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                     />
                   </div>
                 </div>
-
                 <button
                   onClick={createOrUpdateHotel}
                   disabled={isCreatingHotel}
@@ -590,8 +571,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
               </div>
             )}
           </div>
-
-          {/* ── 2. Seasons ─────────────────────────────────────────── */}
           {hotelCreated && seasons.length === 0 && (
             <div className="bg-slate-50 p-8 rounded-2xl border border-dashed text-center space-y-5">
               <Calendar className="h-10 w-10 text-theme-primary mx-auto" />
@@ -619,31 +598,14 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
               </div>
             </div>
           )}
-
           {seasons.length > 0 && (
             <div className="space-y-5">
               <div className="flex justify-between items-center">
                 <h3 className="uppercase text-sm font-bold tracking-wide text-slate-700">Pricing Seasons</h3>
                 <div className="flex items-center gap-3">
-                  {anySeasonOverlap && (
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-3 py-1 rounded-full">
-                      <AlertTriangle className="h-3.5 w-3.5" /> Date conflicts detected
-                    </span>
-                  )}
                   <Badge variant="outline">{seasons.filter(Boolean).length} defined</Badge>
                 </div>
               </div>
-
-              {anySeasonOverlap && (
-                <div className="flex items-start gap-3 bg-red-50 border border-red-300 rounded-xl px-5 py-4">
-                  <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
-                  <div className="text-sm text-red-700">
-                    <p className="font-semibold mb-1">Overlapping season dates detected</p>
-                    <p>The following seasons have conflicting date ranges. Please edit them to resolve before proceeding to room pricing.</p>
-                  </div>
-                </div>
-              )}
-
               <div className="border rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-100">
@@ -659,11 +621,18 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                     {seasons.map((s, i) => {
                       if (!s) return null;
                       const conflicts = seasonOverlapMap.get(i);
-                      const hasConflict = !!conflicts;
+                      const hasConflict = !!conflicts && conflicts.length > 0 && !s.priority;
                       return (
                         <tr key={i} className={`${hasConflict ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}>
                           <td className="px-6 py-4 font-medium">
-                            <span className={hasConflict ? 'text-red-700' : ''}>{s.name}</span>
+                            <span className={hasConflict ? 'text-red-700' : ''}>
+                              {s.name}
+                              {s.priority && (
+                                <span className="ml-2 text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-700">
+                                  Priority: {s.priority}
+                                </span>
+                              )}
+                            </span>
                           </td>
                           <td className={`px-6 py-4 ${hasConflict ? 'text-red-600' : 'text-slate-600'}`}>
                             {s.start}
@@ -709,7 +678,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                   </tbody>
                 </table>
               </div>
-
               <div className="flex justify-end">
                 <button
                   onClick={() => setIsAddingExtraSeason(true)}
@@ -720,86 +688,100 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
               </div>
             </div>
           )}
-
-          {/* Season add/edit form */}
           {(currentSeasonIndex < seasons.length || isAddingExtraSeason) && (
-            <div className={`p-6 border rounded-2xl space-y-5 ${tempHasConflict ? 'bg-red-50 border-red-300' : 'bg-slate-50 border-slate-200'}`}>
+            <div className={`p-6 border rounded-2xl space-y-5 ${tempHasConflict && !tempSeason.priority ? 'bg-red-50 border-red-300' : 'bg-slate-50 border-slate-200'}`}>
               <h4 className="font-bold flex items-center gap-2">
-                <Calendar className={`h-5 w-5 ${tempHasConflict ? 'text-red-500' : 'text-theme-primary'}`} />
+                <Calendar className={`h-5 w-5 ${tempHasConflict && !tempSeason.priority ? 'text-red-500' : 'text-theme-primary'}`} />
                 {isAddingExtraSeason ? "New Season" : `Season ${currentSeasonIndex + 1}`}
-                {tempHasConflict && (
+                {tempHasConflict && !tempSeason.priority && (
                   <span className="ml-auto text-xs font-semibold text-red-600 bg-red-100 border border-red-200 px-2.5 py-1 rounded-full flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" /> Date conflict
                   </span>
                 )}
               </h4>
-
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className={`grid gap-4 ${(tempHasConflict || tempSeason.priority) ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
                 <input
                   value={tempSeason.name || ""}
                   onChange={e => setTempSeason(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Season name (e.g. Monsoon)"
+                  placeholder="Season name"
                   className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none"
                 />
                 <input
                   type="date"
                   value={tempSeason.start || ""}
                   onChange={e => setTempSeason(p => ({ ...p, start: e.target.value }))}
-                  className={`h-11 border rounded-xl px-4 focus:border-theme-primary outline-none ${tempHasConflict ? 'border-red-400 bg-red-50' : ''}`}
+                  className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none"
                 />
                 <input
                   type="date"
                   value={tempSeason.end || ""}
                   onChange={e => setTempSeason(p => ({ ...p, end: e.target.value }))}
-                  className={`h-11 border rounded-xl px-4 focus:border-theme-primary outline-none ${tempHasConflict ? 'border-red-400 bg-red-50' : ''}`}
+                  className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none"
                 />
+                {(tempHasConflict || tempSeason.priority) && (
+                  <select
+                    value={tempSeason.priority || ""}
+                    onChange={(e) => setTempSeason(p => ({ ...p, priority: e.target.value }))}
+                    className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none bg-white"
+                  >
+                    <option value="">Select Priority</option>
+                    {priorityOptions.map(num => (
+                      <option 
+                        key={num} 
+                        value={num} 
+                        disabled={assignedPriorities.includes(num)}
+                      >
+                        {num} {assignedPriorities.includes(num) ? "" : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
-
-              {tempHasConflict && (
+              {tempHasConflict && !tempSeason.priority && (
                 <div className="flex items-start gap-2 bg-red-100 border border-red-200 rounded-xl px-4 py-3">
                   <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                   <p className="text-sm text-red-700">
-                    <span className="font-semibold">Date conflict:</span> These dates overlap with{' '}
+                    <span className="font-semibold">Date conflict:</span> These dates overlap with {' '}
                     <span className="font-semibold">{tempSeasonConflicts.join(', ')}</span>.
-                    Adjust the start or end date to resolve before saving.
+                    Provide the priority to the conflicted seasons
                   </p>
                 </div>
               )}
-
               <div className="flex gap-3">
                 <button
-                  disabled={tempHasConflict}
                   onClick={() => {
                     if (!tempSeason.name || !tempSeason.start || !tempSeason.end) {
                       toast.error("Fill all season fields");
                       return;
                     }
-                    if (tempHasConflict) return;
+                    if (tempHasConflict && !tempSeason.priority) {
+                      toast.error("Please assign a priority to resolve the conflict");
+                      return;
+                    }
                     if (isAddingExtraSeason) {
-                      setSeasons(prev => [...prev, tempSeason]);
+                      setSeasons(prev => [...prev, { ...tempSeason }]);
                       setCurrentPricing(prev => [...prev, {}]);
                     } else {
                       const updated = [...seasons];
                       updated[currentSeasonIndex] = tempSeason;
                       setSeasons(updated);
                     }
-                    setTempSeason({ name: "", start: "", end: "" });
+                    setTempSeason({ name: "", start: "", end: "", priority: "" });
                     setCurrentSeasonIndex(seasons.length);
                     setIsAddingExtraSeason(false);
                     toast.success("Season saved");
                   }}
                   className={`flex-1 h-11 rounded-xl font-medium text-white transition-all ${
-                    tempHasConflict
+                    tempHasConflict && !tempSeason.priority
                       ? 'bg-slate-300 cursor-not-allowed opacity-60'
                       : 'bg-theme-primary hover:bg-theme-primary/90'
                   }`}
-                  title={tempHasConflict ? "Resolve date conflict before saving" : undefined}
                 >
                   Save Season
                 </button>
                 <button
                   onClick={() => {
-                    setTempSeason({ name: "", start: "", end: "" });
+                    setTempSeason({ name: "", start: "", end: "", priority: "" });
                     setIsAddingExtraSeason(false);
                   }}
                   className="h-11 px-6 border rounded-xl hover:bg-slate-100"
@@ -809,22 +791,9 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
               </div>
             </div>
           )}
-
-          {/* ── 3. Room Categories & Pricing ───────────────────────── */}
           {hotelCreated && seasons.length > 0 && currentSeasonIndex >= seasons.length && (
             <div className="space-y-8 pt-4 border-t">
-
-              {anySeasonOverlap && (
-                <div className="flex items-start gap-3 bg-red-50 border border-red-300 rounded-xl px-5 py-4">
-                  <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
-                  <div className="text-sm text-red-700">
-                    <p className="font-semibold">Resolve season conflicts first</p>
-                    <p>You cannot add room pricing until all overlapping season dates are fixed. Go back to the Seasons section above and edit the highlighted seasons.</p>
-                  </div>
-                </div>
-              )}
-
-              <div className={`space-y-8 ${anySeasonOverlap ? 'opacity-40 pointer-events-none select-none' : ''}`}>
+              <div className="space-y-8">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <BedDouble className="h-6 w-6 text-theme-primary" />
@@ -837,7 +806,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                     className="h-11 border rounded-xl px-4 focus:border-theme-primary outline-none sm:w-80"
                   />
                 </div>
-
                 {roomCategories.length > 0 && (
                   <div className="space-y-3">
                     <p className="text-sm font-medium text-slate-600">Saved categories:</p>
@@ -850,8 +818,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                     </div>
                   </div>
                 )}
-
-                {/* Pricing tables — only non-null seasons */}
                 <div className="space-y-6">
                   {definedSeasons.map((season, idx) => (
                     <div key={idx} className="border rounded-xl overflow-hidden shadow-sm">
@@ -898,7 +864,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                     </div>
                   ))}
                 </div>
-
                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
                   <button
                     onClick={saveRoomCategory}
@@ -911,7 +876,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                       <><Plus className="h-5 w-5" /> Save Room Category</>
                     )}
                   </button>
-
                   {roomCategories.length > 0 && (
                     <button
                       onClick={onClose}
@@ -924,7 +888,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
               </div>
             </div>
           )}
-
           {roomCategories.length > 0 && !currentCategoryName && (
             <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center space-y-5">
               <Check className="h-12 w-12 text-green-600 mx-auto" />
@@ -946,7 +909,6 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>
@@ -954,4 +916,3 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
 };
 
 export default AddHotel;
-

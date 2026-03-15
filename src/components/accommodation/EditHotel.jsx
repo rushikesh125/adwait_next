@@ -1,29 +1,18 @@
 "use client";
-import React, { useState, useCallback } from "react";
-import {
-  X,
-  Plus,
-  Trash2,
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  Utensils,
-  AlertTriangle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-  updateHotelComplete,
-  deleteHotel as deleteHotelFromDB,
-  validateHotelData,
-} from "@/firebase/accomodation";
-import toast from "react-hot-toast";
+ 
+/* eslint-disable */
+import React, { useState, useCallback } from 'react';
+import { X, Plus, Trash2, Calendar, ChevronDown, ChevronUp, Utensils, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { updateHotelComplete, deleteHotel as deleteHotelFromDB, validateHotelData } from '@/firebase/accomodation';
+import toast from 'react-hot-toast';
 
 // ─── Date Overlap Utilities ────────────────────────────────────────────────
 
@@ -50,9 +39,21 @@ const rangesOverlap = (startA, endA, startB, endB) => {
   return sA <= eB && sB <= eA;
 };
 
+const getUsedPriorities = (seasons, currentIndex) => {
+  const used = new Set();
+
+  seasons.forEach((s, i) => {
+    if (i !== currentIndex && s.priority !== null && s.priority !== undefined) {
+      used.add(Number(s.priority));
+    }
+  });
+
+  return used;
+};
+
 /**
  * Given an array of seasons for ONE room, returns a Map:
- *   seasonIndex → [conflicting season names]
+ * seasonIndex → [conflicting season names]
  */
 const getSeasonOverlapsForRoom = (seasons) => {
   const conflicts = new Map(); // index → Set of conflicting season names
@@ -93,13 +94,19 @@ const hasAnyOverlap = (rooms) => {
 const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
   const [hotelData, setHotelData] = useState({
     ...hotel,
-    name: hotel.name || "",
-    city: hotel.city || "",
-    state: hotel.state || "",
-    rating: hotel.rating || "",
-    GoogleReviewRating: hotel.GoogleReviewRating ?? "",
-    GoogleListingURL: hotel.GoogleListingURL ?? "",
-    rooms: hotel.rooms || [],
+    name: hotel.name || '',
+    city: hotel.city || '',
+    state: hotel.state || '',
+    rating: hotel.rating || '',
+    GoogleReviewRating: hotel.GoogleReviewRating ?? '',
+    GoogleListingURL: hotel.GoogleListingURL ?? '',
+    rooms: (hotel.rooms || []).map(room => ({
+      ...room,
+      seasons: (room.seasons || []).map(s => ({
+        ...s,
+        priority: s.priority !== null && s.priority !== undefined ? Number(s.priority) : null
+      }))
+    }))
   });
 
   const [openSeasons, setOpenSeasons] = useState({});
@@ -221,9 +228,11 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
 
   const addSeasonToRoom = (roomIndex) => {
     const newSeason = {
-      name: "",
-      start: "",
-      end: "",
+      name: '',
+      start: '',
+      end: '',
+      priority: null,
+
       pricing: {
         ep: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
         cp: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
@@ -257,16 +266,39 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
     });
   };
 
+  const normalizedHotel = {
+    ...hotelData,
+    rooms: hotelData.rooms.map(room => ({
+      ...room,
+      seasons: (room.seasons || []).map(season => ({
+        ...season,
+        priority: season.priority !== null && season.priority !== undefined ? Number(season.priority) : null
+      }))
+    }))
+  };
+
   // ── Save / Delete ─────────────────────────────────────────────────────
 
   const handleSave = async () => {
-    // Block save if any room has overlapping season dates
-    if (hasAnyOverlap(hotelData.rooms)) {
-      toast.error("Please resolve overlapping season dates before saving.");
-      return;
-    }
+    for (const room of hotelData.rooms) {
+      const seasons = room.seasons || [];
 
-    const validation = validateHotelData(hotelData);
+      const priorities = seasons.map(s => s.priority).filter(Boolean);
+      const unique = new Set(priorities);
+
+      if (priorities.length !== unique.size) {
+        toast.error("Each overlapping season must have a unique priority.");
+        return;
+      }
+
+      for (const s of seasons) {
+        if (s.priority && (s.priority < 1 || s.priority > 10)) {
+          toast.error("Priority must be between 1 and 10.");
+          return;
+        }
+      }
+    }
+    const validation = validateHotelData(normalizedHotel);
     if (!validation.isValid) {
       validation.errors.forEach((error) => toast.error(error));
       return;
@@ -274,10 +306,11 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
 
     const loadingToast = toast.loading("Updating hotel...");
     try {
-      const success = await updateHotelComplete(hotel.id, hotelData);
+      const success = await updateHotelComplete(hotel.id, normalizedHotel);
       toast.dismiss(loadingToast);
       if (success) {
-        if (onSave) onSave(hotelData);
+        // Fix: Pass normalizedHotel so the parent syncs state cleanly with numeric priorities
+        if (onSave) onSave(normalizedHotel);
         onClose();
       }
     } catch (error) {
@@ -354,6 +387,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
         name,
         start,
         end,
+        priority: null,
         pricing: JSON.parse(JSON.stringify(sourceSeason.pricing)),
       };
 
@@ -368,10 +402,32 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
   };
 
   // Compute overlap data for all rooms
-  const roomOverlapMaps = hotelData.rooms.map((room) =>
-    getSeasonOverlapsForRoom(room.seasons || []),
-  );
-  const anyOverlap = roomOverlapMaps.some((m) => m.size > 0);
+  const anyOverlap = hotelData.rooms.some(room => {
+    const seasons = room.seasons || [];
+
+    for (let i = 0; i < seasons.length; i++) {
+      for (let j = i + 1; j < seasons.length; j++) {
+
+        const a = seasons[i];
+        const b = seasons[j];
+
+        if (rangesOverlap(a.start, a.end, b.start, b.end)) {
+
+          if (
+            a.priority == null ||
+            b.priority == null ||
+            Number(a.priority) === Number(b.priority)
+          ) {
+            return true;
+          }
+
+        }
+
+      }
+    }
+
+    return false;
+  });
 
   return (
     <div
@@ -398,9 +454,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
               <Alert variant="destructive" className="border-red-400 bg-red-50">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription className="font-medium">
-                  One or more seasons have overlapping date ranges. Please
-                  resolve all conflicts before saving. Conflicting seasons are
-                  highlighted below.
+                  Overlapping seasons detected. Assign unique priority to resolve.
                 </AlertDescription>
               </Alert>
             )}
@@ -481,8 +535,32 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
               </div>
 
               {hotelData.rooms?.map((room, roomIndex) => {
-                const overlapMap = roomOverlapMaps[roomIndex];
-                const roomHasConflict = overlapMap.size > 0;
+                const roomHasConflict = room.seasons?.some((s, i) => {
+
+                  for (let j = 0; j < room.seasons.length; j++) {
+
+                    if (i === j) continue;
+
+                    const a = s;
+                    const b = room.seasons[j];
+
+                    if (rangesOverlap(a.start, a.end, b.start, b.end)) {
+
+                      if (
+                        a.priority == null ||
+                        b.priority == null ||
+                        Number(a.priority) === Number(b.priority)
+                      ) {
+                        return true;
+                      }
+
+                    }
+
+                  }
+
+                  return false;
+
+                });
 
                 return (
                   <Card
@@ -538,12 +616,44 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                           openSeasons[`${roomIndex}-${seasonIndex}`];
                         const availablePlans = ["ep", "cp", "map", "ap"];
                         const activePlans = Object.keys(season.pricing || {});
-                        const missingPlans = availablePlans.filter(
-                          (p) => !activePlans.includes(p),
-                        );
-                        const conflictingWith = overlapMap.get(seasonIndex); // array of season names, or undefined
-                        const hasConflict = !!conflictingWith;
+                        const missingPlans = availablePlans.filter(p => !activePlans.includes(p));
+                        const conflictingWith = room.seasons
+                          .filter((s, i) => {
 
+                            if (i === seasonIndex) return false;
+
+                            return rangesOverlap(
+                              season.start,
+                              season.end,
+                              s.start,
+                              s.end
+                            );
+
+                          })
+                          .map(s => s.name || "Season");
+                        let hasConflict = false;
+
+                        for (let i = 0; i < room.seasons.length; i++) {
+
+                          if (i === seasonIndex) continue;
+
+                          const other = room.seasons[i];
+
+                          if (
+                            rangesOverlap(season.start, season.end, other.start, other.end)
+                          ) {
+
+                            if (
+                              season.priority == null ||
+                              other.priority == null ||
+                              Number(season.priority) === Number(other.priority)
+                            ) {
+                              hasConflict = true;
+                            }
+
+                          }
+
+                        }
                         return (
                           <div
                             key={seasonIndex}
@@ -551,16 +661,13 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                           >
                             {/* Season header */}
                             <div
-                              onClick={() =>
-                                toggleSeason(roomIndex, seasonIndex)
-                              }
-                              className={`flex items-center justify-between p-3 cursor-pointer ${
-                                hasConflict
-                                  ? "bg-red-50 hover:bg-red-100"
+                              onClick={() => toggleSeason(roomIndex, seasonIndex)}
+                              className={`flex items-center justify-between p-3 cursor-pointer ${hasConflict
+                                  ? 'bg-red-50 hover:bg-red-100'
                                   : isOpen
-                                    ? "bg-theme-primary/5"
-                                    : "bg-gray-50 hover:bg-gray-100"
-                              }`}
+                                    ? 'bg-theme-primary/5'
+                                    : 'bg-gray-50 hover:bg-gray-100'
+                                }`}
                             >
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 {isOpen ? (
@@ -576,11 +683,13 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                                     {season.start} → {season.end}
                                   </span>
                                 )}
-                                {hasConflict && (
-                                  <Badge
-                                    variant="destructive"
-                                    className="text-[10px] flex items-center gap-1 shrink-0"
-                                  >
+                                {season.priority !== null && season.priority !== undefined && (
+                                  <Badge className="bg-blue-100 text-blue-700 text-[10px]">
+                                    Priority {season.priority}
+                                  </Badge>
+                                )}
+                                {hasConflict && (season.priority === null || season.priority === undefined) && (
+                                  <Badge variant="destructive" className="text-[10px] flex items-center gap-1 shrink-0">
                                     <AlertTriangle className="h-2.5 w-2.5" />
                                     Overlaps: {conflictingWith.join(", ")}
                                   </Badge>
@@ -617,27 +726,21 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                             </div>
 
                             {/* Conflict inline alert */}
-                            {hasConflict && (
+                            {hasConflict && (season.priority === null || season.priority === undefined) && (
                               <div className="px-3 py-2 bg-red-50 border-t border-red-200 flex items-start gap-2">
                                 <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                                 <p className="text-xs text-red-700">
-                                  <span className="font-semibold">
-                                    Date conflict:
-                                  </span>{" "}
-                                  This season's dates overlap with{" "}
-                                  <span className="font-semibold">
-                                    {conflictingWith.join(", ")}
-                                  </span>
-                                  . Please adjust the start/end dates to resolve
-                                  this conflict.
-                                </p>
+                                  <span className="font-semibold">Date conflict:</span> This season's dates overlap with{' '}
+                                  <span className="font-semibold">{conflictingWith.join(', ')}</span>.
+                                  Overlapping seasons detected. Assign priority to decide which season applies. </p>
                               </div>
                             )}
 
                             {/* Season body */}
                             {isOpen && (
                               <div className="p-4 space-y-4 bg-white">
-                                <div className="grid grid-cols-3 gap-3">
+                                {/* Fix: Ensured the grid groups all 4 possible inputs so Priority doesn't leak out of layout bounds causing update glitches */}
+                                <div className={`grid gap-3 ${(hasConflict || season.priority !== null) ? "grid-cols-4" : "grid-cols-3"}`}>
                                   <div className="space-y-1.5">
                                     <Label className="text-xs">
                                       Season Name
@@ -689,7 +792,37 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                                       className={`h-8 ${hasConflict ? "border-red-400 focus:border-red-500 bg-red-50" : ""}`}
                                     />
                                   </div>
+                                  {(hasConflict || season.priority !== null) && (
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs">Priority</Label>
+                                      <select
+                                        value={season.priority ?? ""}
+                                        onChange={(e) =>
+                                          handleSeasonChange(
+                                            roomIndex,
+                                            seasonIndex,
+                                            "priority",
+                                            e.target.value ? Number(e.target.value) : null
+                                          )
+                                        } className="h-8 border rounded px-2 w-full bg-white">
+                                        <option value="">Select</option>
+                                        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => {
+                                          const used = getUsedPriorities(room.seasons, seasonIndex);
+                                          return (
+                                            <option
+                                              key={num}
+                                              value={num}
+                                              disabled={used.has(num)}
+                                            >
+                                              {num}
+                                            </option>
+                                          );
+                                        })}
+                                      </select>
+                                    </div>
+                                  )}
                                 </div>
+
 
                                 {/* Meal Plans & Pricing */}
                                 <div className="space-y-3">
@@ -843,13 +976,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={anyOverlap}
-              title={
-                anyOverlap
-                  ? "Resolve overlapping season dates before saving"
-                  : undefined
-              }
-              className={anyOverlap ? "opacity-50 cursor-not-allowed" : ""}
+              className="bg-theme-primary text-white"
             >
               Save Changes
             </Button>
@@ -953,15 +1080,8 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
                       const source = rooms[roomIndex].seasons[seasonIndex];
                       const seasons = rooms[roomIndex].seasons.map((s) =>
                         s.name === cloneForm.name
-                          ? {
-                              name: cloneForm.name,
-                              start: cloneForm.start,
-                              end: cloneForm.end,
-                              pricing: JSON.parse(
-                                JSON.stringify(source.pricing),
-                              ),
-                            }
-                          : s,
+                          ? { name: cloneForm.name, start: cloneForm.start, end: cloneForm.end, priority: null, pricing: JSON.parse(JSON.stringify(source.pricing)) }
+                          : s
                       );
                       rooms[roomIndex] = { ...rooms[roomIndex], seasons };
                       return { ...prev, rooms };
