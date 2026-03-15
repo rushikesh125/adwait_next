@@ -191,21 +191,29 @@ export function useQuotationState() {
   }, []);
 
   const recalculateGrandTotal = useCallback((data) => {
-    const hotelTotal = data.hotelSummary?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0) || 0;
-    let transportTotal = 0;
-    if (data.transportSummary) {
-      if (data.transportSummary.pricingType === "perKm") {
-        transportTotal =
-          (data.transportSummary.kms || 0) * (data.transportSummary.perKmprice || 0);
-      } else {
-        transportTotal = data.transportSummary.price || 0;
-      }
+  const hotelTotal = data.hotelSummary?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0) || 0;
+  let transportTotal = 0;
+  if (data.transportSummary) {
+    const t = data.transportSummary;
+    const hasBreakdown =
+      t.vehicleCost || t.driverAllowance || t.tollCharges || t.permitCharges || t.otherCharges;
+    if (hasBreakdown) {
+      transportTotal =
+        (Number(t.vehicleCost) || 0) +
+        (Number(t.driverAllowance) || 0) +
+        (Number(t.tollCharges) || 0) +
+        (Number(t.permitCharges) || 0) +
+        (Number(t.otherCharges) || 0);
+    } else if (t.pricingType === "perKm") {
+      transportTotal = (t.kms || 0) * (t.perKmprice || 0);
+    } else {
+      transportTotal = t.price || 0;
     }
-    const activityTotal =
-      data.activitySummary?.reduce((sum, a) => sum + (a.totalPrice || 0), 0) || 0;
-    const markup = data.markup || 0;
-    return hotelTotal + transportTotal + activityTotal + markup;
-  }, []);
+  }
+  const activityTotal = data.activitySummary?.reduce((sum, a) => sum + (a.totalPrice || 0), 0) || 0;
+  const markup = data.markup || 0;
+  return hotelTotal + transportTotal + activityTotal + markup;
+}, []);
 
   const getAvailableMealPlans = useCallback(
     (hotelSummaryEntry) => {
