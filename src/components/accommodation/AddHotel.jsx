@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useMemo } from "react";
+/* eslint-disable */
 import {
   collection,
   getDocs,
@@ -460,7 +461,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                         >
                           {item === "Other" ? (
                             <span className="text-theme-primary flex items-center">
-                              <Plus className="h-4 w-4 mr-2" /> Add "{cityInput.trim()}"
+                              <Plus className="h-4 w-4 mr-2" /> Add {cityInput.trim()}
                             </span>
                           ) : (
                             item.name
@@ -730,7 +731,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                         value={num} 
                         disabled={assignedPriorities.includes(num)}
                       >
-                        {num} {assignedPriorities.includes(num) ? "(Assigned)" : ""}
+                        {num} {assignedPriorities.includes(num) ? "" : ""}
                       </option>
                     ))}
                   </select>

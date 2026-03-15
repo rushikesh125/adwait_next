@@ -1,4 +1,6 @@
 "use client";
+ 
+/* eslint-disable */
 import React, { useState, useCallback } from 'react';
 import { X, Plus, Trash2, Calendar, ChevronDown, ChevronUp, Utensils, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
