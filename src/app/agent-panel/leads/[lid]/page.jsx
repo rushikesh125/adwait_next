@@ -4,7 +4,6 @@ import React, { useEffect, useState, use } from "react";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import {
-  
   Mail,
   Phone,
   MapPin,
@@ -234,65 +233,65 @@ export default function LeadProfilePage({ params }) {
               <CardContent className=" space-y-4">
                 <div className="space-y-4">
                   {[
-                   {
-    icon: MapPin,
-    label: "Destination",
-    value: lead?.destination || "-",
-  },
-  {
-    icon: Calendar,
-    label: "Travel Date",
-    value: formatDate(lead?.travelDate),
-  },
-  {
-    icon: Clock,
-    label: "Duration",
-    value: lead?.days ? `${lead.days} Days` : "-",
-  },
-  {
-    icon: MapPin,
-    label: "Departure City",
-    value: lead?.departureCity || "-",
-  },
-  {
-    icon: Users,
-    label: "Trip Type",
-    value: lead?.tripType || "-",
-  },
-  {
-    icon: Users,
-    label: "Adults",
-    value: lead?.adults ?? "-",
-  },
-  {
-    icon: Users,
-    label: "Children",
-    value: lead?.children ?? "0",
-  },
-  {
-    icon: Hotel,
-    label: "Hotel Preference",
-    value: lead?.hotelPreference || "-",
-  },
-  {
-    icon: Hotel,
-    label: "Rooms Required",
-    value: lead?.rooms ? `${lead.rooms}` : "-",
-  },
-  {
-    icon: Car,
-    label: "Sightseeing Vehicle",
-    value: lead?.sightseeingVehicle || "-",
-  },
-  {
-    icon: Train,
-    label: "Booking Help",
-    value:
-      Array.isArray(lead?.ticketHelp) && lead.ticketHelp.length > 0
-        ? lead.ticketHelp.join(", ")
-        : "-",
-  },
-                   
+                    {
+                      icon: MapPin,
+                      label: "Destination",
+                      value: lead?.destination || "-",
+                    },
+                    {
+                      icon: Calendar,
+                      label: "Travel Date",
+                      value: formatDate(lead?.travelDate),
+                    },
+                    {
+                      icon: Clock,
+                      label: "Duration",
+                      value: lead?.days ? `${lead.days} Days` : "-",
+                    },
+                    {
+                      icon: MapPin,
+                      label: "Departure City",
+                      value: lead?.departureCity || "-",
+                    },
+                    {
+                      icon: Users,
+                      label: "Trip Type",
+                      value: lead?.tripType || "-",
+                    },
+                    {
+                      icon: Users,
+                      label: "Adults",
+                      value: lead?.adults ?? "-",
+                    },
+                    {
+                      icon: Users,
+                      label: "Children",
+                      value: lead?.children ?? "0",
+                    },
+                    {
+                      icon: Hotel,
+                      label: "Hotel Preference",
+                      value: lead?.hotelPreference || "-",
+                    },
+                    {
+                      icon: Hotel,
+                      label: "Rooms Required",
+                      value: lead?.rooms ? `${lead.rooms}` : "-",
+                    },
+                    {
+                      icon: Car,
+                      label: "Sightseeing Vehicle",
+                      value: lead?.sightseeingVehicle || "-",
+                    },
+                    {
+                      icon: Train,
+                      label: "Booking Help",
+                      value:
+                        Array.isArray(lead?.ticketHelp) &&
+                        lead.ticketHelp.length > 0
+                          ? lead.ticketHelp.join(", ")
+                          : "-",
+                    },
                   ].map((item, idx) => (
                     <div
                       key={idx}
@@ -399,19 +398,24 @@ export default function LeadProfilePage({ params }) {
                         <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-theme-primary">
                           <FileText className="h-6 w-6" />
                         </div>
-                        <div className="space-y-1">
+                        <div className="flex items-center gap-3">
                           <h4 className="font-bold text-slate-800 text-lg">
                             {quote.packageName}
                           </h4>
-                          <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(quote.createdAt)}
-                            </span>
-                            <span className="flex items-center gap-1 text-slate-900 font-bold">
-                              <Wallet className="h-3 w-3" /> ₹{quote.grandTotal}
-                            </span>
-                          </div>
+                          <Badge
+                            className={`
+      text-[10px] px-2 py-0 border-none uppercase tracking-wider
+      ${
+        quote.status === "confirmed"
+          ? "bg-emerald-50 text-emerald-600"
+          : quote.status === "rejected"
+            ? "bg-rose-50 text-rose-600"
+            : "bg-blue-50 text-blue-600"
+      }
+    `}
+                          >
+                            {quote.status || "Draft"}
+                          </Badge>
                         </div>
                       </div>
 
@@ -440,7 +444,11 @@ export default function LeadProfilePage({ params }) {
                                 size="icon"
                                 variant="ghost"
                                 className="rounded-lg hover:bg-theme-primary hover:text-white"
-                                onClick={() => router.push(`/agent-panel/my-quatation/edit/${lid}`)}
+                                onClick={() =>
+                                  router.push(
+                                    `/agent-panel/my-quatation/edit/${lid}`,
+                                  )
+                                }
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
@@ -469,7 +477,6 @@ export default function LeadProfilePage({ params }) {
         </div>
       </main>
       <QuotationModals
-       
         isViewModalOpen={isModalOpen}
         setIsViewModalOpen={setIsModalOpen}
         viewingQuotation={selectedQuote}
