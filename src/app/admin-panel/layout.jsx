@@ -11,7 +11,8 @@ import {
   BarChart3, Settings, LogOut, Menu, X, Bell, Lock, Globe, 
   TruckElectric,
   ActivityIcon,
-  HardDriveUpload
+  HardDriveUpload,
+  BookPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -54,6 +55,7 @@ const AdminPanelLayout = ({ children }) => {
     { name: "Transports", href: "/admin-panel/transports", icon: TruckElectric },
     { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
     { name: "Bulk Hotels Upload", href: "/admin-panel/hotels-builk-upload", icon: HardDriveUpload },
+    { name: "Itinerary", href: "/admin-panel/itinerary", icon: BookPlus },
     // { name: "Settings", href: "/admin-panel/settings", icon: Settings },
   ];
 
