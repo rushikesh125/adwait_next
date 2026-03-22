@@ -525,7 +525,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
                     >
                       <option value="">Select rating</option>
                       {[5, 4, 3, 2, 1].map(n => (
-                        <option key={n} value={`${n}-star`}>{"★".repeat(n)} {n} Star</option>
+                        <option key={n} value={`${n}-star`}>{n} Star {"★".repeat(n)}</option>
                       ))}
                     </select>
                   </div>
