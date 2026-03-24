@@ -31,8 +31,8 @@ export default function CustomerForm({ form, onChange, onSubmit, editMode }) {
             </Label>
             <Input
               id="name"
-              name="name"
-              value={form.name}
+              name="name" 
+              value={form.name || " "}
               placeholder="John Doe"
               onChange={onChange}
               className="border-slate-200 focus-visible:ring-theme-primary h-11"
