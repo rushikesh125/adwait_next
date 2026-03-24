@@ -41,19 +41,18 @@ import {
   AudioLinesIcon,
 } from "lucide-react";
 
-import { Button }   from "@/components/ui/button";
-import { Input }    from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label }    from "@/components/ui/label";
-import { Badge }    from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
+import { useSelector } from "react-redux";
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-const mkId = () =>
-  `id-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const mkId = () => `id-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Default checklist data  (mirrors ItineraryForm exactly)
@@ -101,16 +100,23 @@ const DEFAULT_IMP_INFO = [
 // Tabs config
 // ─────────────────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: "itinerary",  label: "Itinerary & Days",          icon: MapPin      },
-  { id: "inclusions", label: "Inclusions & Exclusions",   icon: ListChecks  },
-  { id: "tnc",        label: "T&C's & Cancellation",      icon: FileText    },
-  { id: "impinfo",    label: "Important Information",      icon: Info        },
+  { id: "itinerary", label: "Itinerary & Days", icon: MapPin },
+  { id: "inclusions", label: "Inclusions & Exclusions", icon: ListChecks },
+  { id: "tnc", label: "T&C's & Cancellation", icon: FileText },
+  { id: "impinfo", label: "Important Information", icon: Info },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ChecklistSection  (identical logic to ItineraryForm)
 // ─────────────────────────────────────────────────────────────────────────────
-function ChecklistSection({ items, onToggle, onSelectAll, onAdd, onRemove, addLabel = "Add Item" }) {
+function ChecklistSection({
+  items,
+  onToggle,
+  onSelectAll,
+  onAdd,
+  onRemove,
+  addLabel = "Add Item",
+}) {
   const [newItem, setNewItem] = useState("");
   const allSelected = items.length > 0 && items.every((i) => i.selected);
 
@@ -181,7 +187,10 @@ function ChecklistSection({ items, onToggle, onSelectAll, onAdd, onRemove, addLa
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleAdd();
+            }
           }}
           placeholder="Type and press Enter or click Add…"
           className="text-sm h-9"
@@ -202,9 +211,14 @@ function ChecklistSection({ items, onToggle, onSelectAll, onAdd, onRemove, addLa
 // ─────────────────────────────────────────────────────────────────────────────
 // ActivityDropdown  (native select, no search — mirrors ItineraryForm)
 // ─────────────────────────────────────────────────────────────────────────────
-function ActivityDropdown({ dayIdx, activityIds, availableActivities, onToggle }) {
+function ActivityDropdown({
+  dayIdx,
+  activityIds,
+  availableActivities,
+  onToggle,
+}) {
   const unselected = availableActivities.filter(
-    (a) => !(activityIds || []).includes(a.id)
+    (a) => !(activityIds || []).includes(a.id),
   );
 
   const handleChange = (e) => {
@@ -222,10 +236,14 @@ function ActivityDropdown({ dayIdx, activityIds, availableActivities, onToggle }
       className="w-full px-3 py-2 text-sm border rounded-md bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
     >
       <option value="" disabled>
-        {unselected.length === 0 ? "All activities added" : "Select an activity to add…"}
+        {unselected.length === 0
+          ? "All activities added"
+          : "Select an activity to add…"}
       </option>
       {unselected.map((a) => (
-        <option key={a.id} value={a.id}>{a.name}</option>
+        <option key={a.id} value={a.id}>
+          {a.name}
+        </option>
       ))}
     </select>
   );
@@ -235,7 +253,7 @@ function ActivityDropdown({ dayIdx, activityIds, availableActivities, onToggle }
 // MAIN: ItineraryEditor
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ItineraryEditor({
-  initialData  = null,
+  initialData = null,
   onChange,
   onCancel,
   availableActivities = [],
@@ -244,66 +262,154 @@ export default function ItineraryEditor({
   const init = useCallback(() => {
     if (initialData) {
       return {
-        title:        initialData.title        || "",
-        state:        initialData.state        || "",
-        cities:       initialData.cities       || [],
-        tags:         initialData.tags         || [],
-        days:         (initialData.days || []).map((d) => ({
+        title: initialData.title || "",
+        state: initialData.state || "",
+        cities: initialData.cities || [],
+        tags: initialData.tags || [],
+        days: (initialData.days || []).map((d) => ({
           ...d,
-          id:          d.id          || mkId(),
+          id: d.id || mkId(),
           activityIds: d.activityIds || [],
         })),
-        inclusions:   initialData.inclusions   || DEFAULT_INCLUSIONS.map((i) => ({ ...i, id: mkId() })),
-        exclusions:   initialData.exclusions   || DEFAULT_EXCLUSIONS.map((i) => ({ ...i, id: mkId() })),
-        tnc:          initialData.tnc          || DEFAULT_TNC.map((i)         => ({ ...i, id: mkId() })),
-        cancellation: initialData.cancellation || DEFAULT_CANCELLATION.map((i) => ({ ...i, id: mkId() })),
-        impInfo:      initialData.impInfo      || DEFAULT_IMP_INFO.map((i)    => ({ ...i, id: mkId() })),
+        inclusions:
+          initialData.inclusions ||
+          DEFAULT_INCLUSIONS.map((i) => ({ ...i, id: mkId() })),
+        exclusions:
+          initialData.exclusions ||
+          DEFAULT_EXCLUSIONS.map((i) => ({ ...i, id: mkId() })),
+        tnc: initialData.tnc || DEFAULT_TNC.map((i) => ({ ...i, id: mkId() })),
+        cancellation:
+          initialData.cancellation ||
+          DEFAULT_CANCELLATION.map((i) => ({ ...i, id: mkId() })),
+        impInfo:
+          initialData.impInfo ||
+          DEFAULT_IMP_INFO.map((i) => ({ ...i, id: mkId() })),
       };
     }
     return {
-      title: "", state: "", cities: [], tags: [],
-      days: [{
-        id: mkId(), dayNumber: 1, title: "", description: "", activityIds: [],
-      }],
-      inclusions:   DEFAULT_INCLUSIONS.map((i)   => ({ ...i, id: mkId() })),
-      exclusions:   DEFAULT_EXCLUSIONS.map((i)   => ({ ...i, id: mkId() })),
-      tnc:          DEFAULT_TNC.map((i)           => ({ ...i, id: mkId() })),
+      title: "",
+      state: "",
+      cities: [],
+      tags: [],
+      days: [
+        {
+          id: mkId(),
+          dayNumber: 1,
+          title: "",
+          description: "",
+          activityIds: [],
+        },
+      ],
+      inclusions: DEFAULT_INCLUSIONS.map((i) => ({ ...i, id: mkId() })),
+      exclusions: DEFAULT_EXCLUSIONS.map((i) => ({ ...i, id: mkId() })),
+      tnc: DEFAULT_TNC.map((i) => ({ ...i, id: mkId() })),
       cancellation: DEFAULT_CANCELLATION.map((i) => ({ ...i, id: mkId() })),
-      impInfo:      DEFAULT_IMP_INFO.map((i)     => ({ ...i, id: mkId() })),
+      impInfo: DEFAULT_IMP_INFO.map((i) => ({ ...i, id: mkId() })),
     };
   }, [initialData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initState = init();
 
-  const [activeTab,    setActiveTab]    = useState("itinerary");
-  const [title,        setTitle]        = useState(initState.title);
-  const [itinState,    setItinState]    = useState(initState.state);
-  const [cities,       setCities]       = useState(initState.cities);
-  const [cityInput,    setCityInput]    = useState("");
-  const [days,         setDays]         = useState(initState.days);
-  const [inclusions,   setInclusions]   = useState(initState.inclusions);
-  const [exclusions,   setExclusions]   = useState(initState.exclusions);
-  const [tnc,          setTnc]          = useState(initState.tnc);
+  const [activeTab, setActiveTab] = useState("itinerary");
+  const [title, setTitle] = useState(initState.title);
+  const [itinState, setItinState] = useState(initState.state);
+  const [cities, setCities] = useState(initState.cities);
+  const [cityInput, setCityInput] = useState("");
+  const [days, setDays] = useState(initState.days);
+  const [inclusions, setInclusions] = useState(initState.inclusions);
+  const [exclusions, setExclusions] = useState(initState.exclusions);
+  const [tnc, setTnc] = useState(initState.tnc);
   const [cancellation, setCancellation] = useState(initState.cancellation);
-  const [impInfo,      setImpInfo]      = useState(initState.impInfo);
+  const [impInfo, setImpInfo] = useState(initState.impInfo);
+  const packageContext = useSelector((state) => state.package.packageContext);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiError, setAiError] = useState(null);
 
   // ── Bubble up every change ───────────────────────────────────────────────
   useEffect(() => {
     onChange?.({
-      title, state: itinState, cities, tags: [],
-      days, inclusions, exclusions, tnc, cancellation, impInfo,
+      title,
+      state: itinState,
+      cities,
+      tags: [],
+      days,
+      inclusions,
+      exclusions,
+      tnc,
+      cancellation,
+      impInfo,
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, itinState, cities, days, inclusions, exclusions, tnc, cancellation, impInfo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    title,
+    itinState,
+    cities,
+    days,
+    inclusions,
+    exclusions,
+    tnc,
+    cancellation,
+    impInfo,
+  ]);
 
   // ── Generic checklist handlers factory ──────────────────────────────────
   const makeHandlers = (setter) => ({
-    toggle:    (id)      => setter((prev) => prev.map((i) => i.id === id ? { ...i, selected: !i.selected } : i)),
-    selectAll: (checked) => setter((prev) => prev.map((i) => ({ ...i, selected: !!checked }))),
-    add:       (text)    => setter((prev) => [...prev, { id: mkId(), text, selected: true, isDefault: false }]),
-    remove:    (id)      => setter((prev) => prev.filter((i) => i.id !== id)),
+    toggle: (id) =>
+      setter((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, selected: !i.selected } : i)),
+      ),
+    selectAll: (checked) =>
+      setter((prev) => prev.map((i) => ({ ...i, selected: !!checked }))),
+    add: (text) =>
+      setter((prev) => [
+        ...prev,
+        { id: mkId(), text, selected: true, isDefault: false },
+      ]),
+    remove: (id) => setter((prev) => prev.filter((i) => i.id !== id)),
   });
+// ADD handler after moveDayDown:
+const handleGenerateWithAI = async () => {
+  setIsGenerating(true);
+  setAiError(null);
+  try {
+    const res = await fetch("/api/ai-itinerary", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ packageContext }),
+    });
 
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || `Failed (${res.status})`);
+    }
+
+    const data = await res.json();
+
+    if (data.title)          setTitle(data.title);
+    if (data.state)          setItinState(data.state);
+    if (data.cities?.length) setCities(data.cities);
+    if (data.days?.length) {
+      setDays(data.days.map((d, i) => ({
+        id:          mkId(),
+        dayNumber:   d.dayNumber ?? i + 1,
+        title:       d.title       || "",
+        description: d.description || "",
+        activityIds: [],
+      })));
+    }
+    if (data.inclusions?.length)   setInclusions(data.inclusions.map((i)   => ({ ...i, id: mkId() })));
+    if (data.exclusions?.length)   setExclusions(data.exclusions.map((i)   => ({ ...i, id: mkId() })));
+    if (data.tnc?.length)          setTnc(data.tnc.map((i)                 => ({ ...i, id: mkId() })));
+    if (data.cancellation?.length) setCancellation(data.cancellation.map((i) => ({ ...i, id: mkId() })));
+    if (data.impInfo?.length)      setImpInfo(data.impInfo.map((i)          => ({ ...i, id: mkId() })));
+
+  } catch (err) {
+    console.error("[AI Itinerary]", err);
+    setAiError(err.message || "Generation failed. You can still fill in manually.");
+  } finally {
+    setIsGenerating(false);
+  }
+};
   const incH = makeHandlers(setInclusions);
   const excH = makeHandlers(setExclusions);
   const tncH = makeHandlers(setTnc);
@@ -319,19 +425,28 @@ export default function ItineraryEditor({
       setCityInput("");
     }
   };
-  const removeCity = (city) => setCities((prev) => prev.filter((c) => c !== city));
+  const removeCity = (city) =>
+    setCities((prev) => prev.filter((c) => c !== city));
 
   // ── Day handlers ─────────────────────────────────────────────────────────
   const addDay = () =>
     setDays((prev) => [
       ...prev,
-      { id: mkId(), dayNumber: prev.length + 1, title: "", description: "", activityIds: [] },
+      {
+        id: mkId(),
+        dayNumber: prev.length + 1,
+        title: "",
+        description: "",
+        activityIds: [],
+      },
     ]);
 
   const removeDay = (idx) => {
     if (days[idx].title && !window.confirm("Delete this day?")) return;
     setDays((prev) =>
-      prev.filter((_, i) => i !== idx).map((d, i) => ({ ...d, dayNumber: i + 1 }))
+      prev
+        .filter((_, i) => i !== idx)
+        .map((d, i) => ({ ...d, dayNumber: i + 1 })),
     );
   };
 
@@ -371,7 +486,7 @@ export default function ItineraryEditor({
             ? cur.filter((id) => id !== actId)
             : [...cur, actId],
         };
-      })
+      }),
     );
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -379,7 +494,6 @@ export default function ItineraryEditor({
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-0">
-
       {/* ── Tab strip ── */}
       <div className="flex gap-1 flex-wrap pb-4 border-b border-slate-200 mb-4">
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -398,17 +512,36 @@ export default function ItineraryEditor({
           </button>
         ))}
       </div>
-        <div>
-          <Button className="rounded-full px-6 py-2 bg-linear-to-r from-theme-gradient-from to-theme-gradient-to transition  cursor-pointer my-2">
-           <AudioLinesIcon /> Generate with AI
-          </Button>
-        </div>
+      <div className="space-y-2">
+  <Button
+    type="button"
+    onClick={handleGenerateWithAI}
+    disabled={isGenerating}
+    className="rounded-full px-6 py-2 bg-linear-to-r from-theme-gradient-from to-theme-gradient-to transition cursor-pointer my-2 disabled:opacity-60"
+  >
+    {isGenerating ? (
+      <>
+        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Generating…
+      </>
+    ) : (
+      <><AudioLinesIcon className="mr-2 h-4 w-4" /> Generate with AI</>
+    )}
+  </Button>
+  {aiError && (
+    <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+      ⚠ {aiError}
+    </p>
+  )}
+</div>
       {/* ══════════════════════════════════════════════════════════════════
           TAB 1 — ITINERARY & DAYS
       ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "itinerary" && (
         <div className="space-y-5">
-
           {/* ── Header info ── */}
           <Card className="border border-slate-200 shadow-none">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -417,7 +550,6 @@ export default function ItineraryEditor({
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-4">
-
               {/* Title */}
               <div className="space-y-1">
                 <Label className="text-xs font-medium">Itinerary Title</Label>
@@ -432,7 +564,9 @@ export default function ItineraryEditor({
               {/* State (read-only display — inherited from hotel selection) */}
               {itinState && (
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-slate-500">Base State</Label>
+                  <Label className="text-xs font-medium text-slate-500">
+                    Base State
+                  </Label>
                   <div className="text-sm px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-slate-700">
                     {itinState}
                   </div>
@@ -442,7 +576,8 @@ export default function ItineraryEditor({
               {/* Cities */}
               <div className="space-y-1">
                 <Label className="text-xs font-medium">
-                  Cities Covered <span className="text-slate-400">(type and press Enter)</span>
+                  Cities Covered{" "}
+                  <span className="text-slate-400">(type and press Enter)</span>
                 </Label>
                 <div className="flex flex-wrap gap-1.5 p-2 border border-slate-200 rounded-md bg-white min-h-[42px] focus-within:ring-1 focus-within:ring-blue-500">
                   {cities.map((city) => (
@@ -474,7 +609,9 @@ export default function ItineraryEditor({
 
           {/* ── Day program ── */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-slate-700">Day-wise Program</h3>
+            <h3 className="text-sm font-bold text-slate-700">
+              Day-wise Program
+            </h3>
 
             {days.map((day, idx) => (
               <Card
@@ -531,7 +668,9 @@ export default function ItineraryEditor({
                   <Textarea
                     placeholder="What happens today? Describe the plan, transfers, meals, sightseeing…"
                     value={day.description}
-                    onChange={(e) => updateDay(idx, "description", e.target.value)}
+                    onChange={(e) =>
+                      updateDay(idx, "description", e.target.value)
+                    }
                     className="min-h-[90px] text-sm resize-y"
                   />
 
@@ -546,14 +685,22 @@ export default function ItineraryEditor({
                       {(day.activityIds || []).length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {day.activityIds.map((actId) => {
-                            const act = availableActivities.find((a) => a.id === actId);
+                            const act = availableActivities.find(
+                              (a) => a.id === actId,
+                            );
                             return (
                               <Badge
                                 key={actId}
                                 variant="outline"
                                 className="flex items-center gap-1 pr-1 bg-blue-50 border-blue-200 text-blue-700 text-xs"
                               >
-                                {act ? act.name : <span className="italic text-slate-400">Loading…</span>}
+                                {act ? (
+                                  act.name
+                                ) : (
+                                  <span className="italic text-slate-400">
+                                    Loading…
+                                  </span>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => toggleActivity(idx, actId)}
@@ -614,7 +761,9 @@ export default function ItineraryEditor({
         <Card className="border border-slate-200 shadow-none">
           <CardContent className="p-4 space-y-8">
             <div className="space-y-3">
-              <h3 className="text-sm font-bold text-slate-700 border-b pb-2">Inclusions</h3>
+              <h3 className="text-sm font-bold text-slate-700 border-b pb-2">
+                Inclusions
+              </h3>
               <ChecklistSection
                 items={inclusions}
                 onToggle={incH.toggle}
@@ -625,7 +774,9 @@ export default function ItineraryEditor({
               />
             </div>
             <div className="space-y-3">
-              <h3 className="text-sm font-bold text-slate-700 border-b pb-2">Exclusions</h3>
+              <h3 className="text-sm font-bold text-slate-700 border-b pb-2">
+                Exclusions
+              </h3>
               <ChecklistSection
                 items={exclusions}
                 onToggle={excH.toggle}

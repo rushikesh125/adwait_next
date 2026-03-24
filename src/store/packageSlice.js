@@ -1,5 +1,5 @@
 // src/redux/slices/packageSlice.js
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   hotelEntries: [],
@@ -7,13 +7,14 @@ const initialState = {
   selectedActivities: [],
   activityTotalPrice: 0,
   confirmedMarkup: 0,
-  packageName: '',
-  customerName: '',
-  itinerary: null,  
+  packageName: "",
+  customerName: "",
+  itinerary: null,
+  packageContext: {},
 };
 
 const packageSlice = createSlice({
-  name: 'package',
+  name: "package",
   initialState,
   reducers: {
     addHotelEntry: (state, action) => {
@@ -26,7 +27,9 @@ const packageSlice = createSlice({
       }
     },
     deleteHotelEntry: (state, action) => {
-      state.hotelEntries = state.hotelEntries.filter((_, i) => i !== action.payload);
+      state.hotelEntries = state.hotelEntries.filter(
+        (_, i) => i !== action.payload,
+      );
     },
     setSelectedTransport: (state, action) => {
       state.selectedTransport = action.payload;
@@ -47,6 +50,9 @@ const packageSlice = createSlice({
     setItinerary(state, action) {
       state.itinerary = action.payload; // null to clear, or full itinerary object
     },
+    setPackageContext: (state, action) => {
+      state.packageContext = action.payload;
+    },
     resetPackage: () => initialState,
   },
 });
@@ -61,7 +67,8 @@ export const {
   setPackageName,
   setCustomerName,
   resetPackage,
-  setItinerary, 
+  setItinerary,
+  setPackageContext
 } = packageSlice.actions;
 
 export default packageSlice.reducer;
