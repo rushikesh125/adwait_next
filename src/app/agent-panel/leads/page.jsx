@@ -222,6 +222,7 @@ export default function LeadsPage() {
                 onChange={(e) =>
                   setCustomerForm({
                     ...customerForm,
+              
                     [e.target.name]: e.target.value,
                   })
                 }
@@ -311,11 +312,17 @@ export default function LeadsPage() {
                     {/* This button stays visible even if filteredCustomers is empty */}
                     <Button
                       type="button"
-                      onClick={() => setShowQuickAddCustomer(true)}
+                     onClick={() => {
+  setCustomerForm((prev) => ({
+    ...prev,
+    name: form.name, 
+  }));
+  setShowQuickAddCustomer(true);
+}}
                       className="w-full bg-theme-primary hover:bg-theme-dark text-white rounded-t-none rounded-b-xl py-6 cursor-pointer"
                     >
                       <PlusSquare className="mr-2 h-4 w-4" />
-                      Add New Customer "{form.name}"
+                      Add New Customer {form.name}
                     </Button>
                   </div>
                 )}
