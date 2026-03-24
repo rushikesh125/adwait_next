@@ -38,6 +38,7 @@ import {
   Info,
   ChevronUp,
   ChevronDown,
+  AudioLinesIcon,
 } from "lucide-react";
 
 import { Button }   from "@/components/ui/button";
@@ -397,7 +398,11 @@ export default function ItineraryEditor({
           </button>
         ))}
       </div>
-
+        <div>
+          <Button className="rounded-full px-6 py-2 bg-linear-to-r from-theme-gradient-from to-theme-gradient-to transition  cursor-pointer my-2">
+           <AudioLinesIcon /> Generate with AI
+          </Button>
+        </div>
       {/* ══════════════════════════════════════════════════════════════════
           TAB 1 — ITINERARY & DAYS
       ══════════════════════════════════════════════════════════════════ */}
