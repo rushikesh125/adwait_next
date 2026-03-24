@@ -9,6 +9,7 @@ const initialState = {
   confirmedMarkup: 0,
   packageName: '',
   customerName: '',
+  itinerary: null,  
 };
 
 const packageSlice = createSlice({
@@ -43,6 +44,9 @@ const packageSlice = createSlice({
     setCustomerName: (state, action) => {
       state.customerName = action.payload;
     },
+    setItinerary(state, action) {
+      state.itinerary = action.payload; // null to clear, or full itinerary object
+    },
     resetPackage: () => initialState,
   },
 });
@@ -57,6 +61,7 @@ export const {
   setPackageName,
   setCustomerName,
   resetPackage,
+  setItinerary, 
 } = packageSlice.actions;
 
 export default packageSlice.reducer;

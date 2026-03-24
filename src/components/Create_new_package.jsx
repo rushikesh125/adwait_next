@@ -29,7 +29,7 @@ import {
 import toast from "react-hot-toast";
 
 // ── Modularised utilities (PDF + clipboard) ───────────────────────────────────
-import { exportPackagePDF }   from "@/lib/exportPackagePDF";
+import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import { copyPackageSummary } from "@/lib/copyPackageSummary";
 
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-
+import ItinerarySection from "./ItinerarySection";
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,27 +94,37 @@ const MEAL_PLAN_ICONS = {
 const STAR_RATINGS = ["1", "2", "3", "4", "5"];
 
 const EMPTY_PRICING = () => ({
-  ep:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
-  cp:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+  ep: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+  cp: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
   map: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
-  ap:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
+  ap: { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
 });
 
-const calcCustomHotelNightPrice = (pricing, plan, { numDouble, numExtraAdult, numExtraChild, numCNB }) => {
+const calcCustomHotelNightPrice = (
+  pricing,
+  plan,
+  { numDouble, numExtraAdult, numExtraChild, numCNB },
+) => {
   if (!pricing || !plan) return 0;
   const p = pricing[plan.toLowerCase()];
   if (!p) return 0;
   return (
-    (p.double      || 0) * (numDouble      || 0) +
-    (p.extraAdult  || 0) * (numExtraAdult  || 0) +
-    (p.extraChild  || 0) * (numExtraChild  || 0) +
-    (p.cnb         || 0) * (numCNB         || 0)
+    (p.double || 0) * (numDouble || 0) +
+    (p.extraAdult || 0) * (numExtraAdult || 0) +
+    (p.extraChild || 0) * (numExtraChild || 0) +
+    (p.cnb || 0) * (numCNB || 0)
   );
 };
 
 const formatDate = (dateStr) => {
   const d = new Date(dateStr);
-  return isNaN(d) ? "—" : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return isNaN(d)
+    ? "—"
+    : d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 };
 
 const renderStars = (rating) => {
@@ -137,35 +147,50 @@ const HotelRoomSelector = ({
   onGuestsChange,
   initial = {},
 }) => {
-  const [selectedRoomCategory, setSelectedRoomCategory] = useState(initial.selectedRoomCategory || "");
-  const [selectedMealPlan, setSelectedMealPlan] = useState(initial.selectedMealPlan || "");
-  const [numDouble, setNumDouble]       = useState(initial.numDouble      ?? 1);
-  const [numExtraAdult, setNumExtraAdult] = useState(initial.numExtraAdult ?? 0);
-  const [numExtraChild, setNumExtraChild] = useState(initial.numExtraChild ?? 0);
-  const [numCNB, setNumCNB]             = useState(initial.numCNB         ?? 0);
+  const [selectedRoomCategory, setSelectedRoomCategory] = useState(
+    initial.selectedRoomCategory || "",
+  );
+  const [selectedMealPlan, setSelectedMealPlan] = useState(
+    initial.selectedMealPlan || "",
+  );
+  const [numDouble, setNumDouble] = useState(initial.numDouble ?? 1);
+  const [numExtraAdult, setNumExtraAdult] = useState(
+    initial.numExtraAdult ?? 0,
+  );
+  const [numExtraChild, setNumExtraChild] = useState(
+    initial.numExtraChild ?? 0,
+  );
+  const [numCNB, setNumCNB] = useState(initial.numCNB ?? 0);
 
-const getApplicableSeason = useCallback((roomData) => {
-  if (!roomData?.seasons || !checkInDate) return null;
-  const d = new Date(checkInDate);
-  d.setHours(0, 0, 0, 0);
+  const getApplicableSeason = useCallback(
+    (roomData) => {
+      if (!roomData?.seasons || !checkInDate) return null;
+      const d = new Date(checkInDate);
+      d.setHours(0, 0, 0, 0);
 
-  // 1. Find all seasons that cover the selected date
-  const matchingSeasons = roomData.seasons.filter((s) => {
-    const start = new Date(s.start); start.setHours(0, 0, 0, 0);
-    const end   = new Date(s.end);   end.setHours(23, 59, 59, 999);
-    return d >= start && d <= end;
-  });
+      // 1. Find all seasons that cover the selected date
+      const matchingSeasons = roomData.seasons.filter((s) => {
+        const start = new Date(s.start);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(s.end);
+        end.setHours(23, 59, 59, 999);
+        return d >= start && d <= end;
+      });
 
-  if (matchingSeasons.length === 0) return null;
+      if (matchingSeasons.length === 0) return null;
 
-  // 2. Sort by priority ascending  and return the first one
-  return matchingSeasons.sort((a, b) => 
-    (Number(a.priority) || 99) - (Number(b.priority) || 99)
-  )[0];
-}, [checkInDate]);
+      // 2. Sort by priority ascending  and return the first one
+      return matchingSeasons.sort(
+        (a, b) => (Number(a.priority) || 99) - (Number(b.priority) || 99),
+      )[0];
+    },
+    [checkInDate],
+  );
 
-  const roomData = hotel?.rooms?.find((r) => r.categoryName === selectedRoomCategory);
-  const season   = getApplicableSeason(roomData);
+  const roomData = hotel?.rooms?.find(
+    (r) => r.categoryName === selectedRoomCategory,
+  );
+  const season = getApplicableSeason(roomData);
 
   const availableMealPlans = useMemo(() => {
     if (!season?.pricing) return MEAL_PLANS;
@@ -176,7 +201,10 @@ const getApplicableSeason = useCallback((roomData) => {
   }, [season]);
 
   useEffect(() => {
-    if (availableMealPlans.length && !availableMealPlans.includes(selectedMealPlan)) {
+    if (
+      availableMealPlans.length &&
+      !availableMealPlans.includes(selectedMealPlan)
+    ) {
       setSelectedMealPlan(availableMealPlans[0]);
     }
   }, [availableMealPlans, selectedMealPlan]);
@@ -192,18 +220,32 @@ const getApplicableSeason = useCallback((roomData) => {
     const pr = season.pricing[selectedMealPlan.toLowerCase()];
     if (!pr) return 0;
     const perNight =
-      (pr.double     || 0) * numDouble +
+      (pr.double || 0) * numDouble +
       (pr.extraAdult || 0) * numExtraAdult +
       (pr.extraChild || 0) * numExtraChild +
-      (pr.cnb        || 0) * numCNB;
+      (pr.cnb || 0) * numCNB;
     return perNight * (parseInt(nights) || 1);
-  }, [season, selectedMealPlan, numDouble, numExtraAdult, numExtraChild, numCNB, nights]);
+  }, [
+    season,
+    selectedMealPlan,
+    numDouble,
+    numExtraAdult,
+    numExtraChild,
+    numCNB,
+    nights,
+  ]);
 
   const total = calculateTotal();
 
-  useEffect(() => { onTotalChange?.(total); }, [total]);
-  useEffect(() => { onRoomCategoryChange?.(selectedRoomCategory); }, [selectedRoomCategory]);
-  useEffect(() => { onMealPlanChange?.(selectedMealPlan); }, [selectedMealPlan]);
+  useEffect(() => {
+    onTotalChange?.(total);
+  }, [total]);
+  useEffect(() => {
+    onRoomCategoryChange?.(selectedRoomCategory);
+  }, [selectedRoomCategory]);
+  useEffect(() => {
+    onMealPlanChange?.(selectedMealPlan);
+  }, [selectedMealPlan]);
   useEffect(() => {
     onGuestsChange?.({ numDouble, numExtraAdult, numExtraChild, numCNB });
   }, [numDouble, numExtraAdult, numExtraChild, numCNB]);
@@ -255,7 +297,9 @@ const getApplicableSeason = useCallback((roomData) => {
               >
                 <div className="text-lg mb-0.5">{MEAL_PLAN_ICONS[plan]}</div>
                 <div className="font-bold text-sm">{plan}</div>
-                <div className={`text-[10px] leading-tight mt-0.5 ${selectedMealPlan === plan ? "text-white/80" : "text-slate-500"}`}>
+                <div
+                  className={`text-[10px] leading-tight mt-0.5 ${selectedMealPlan === plan ? "text-white/80" : "text-slate-500"}`}
+                >
                   {MEAL_PLAN_LABELS[plan]}
                 </div>
               </button>
@@ -277,17 +321,46 @@ const getApplicableSeason = useCallback((roomData) => {
         </Label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Rooms (Double)", val: numDouble, set: setNumDouble, icon: "🛏️" },
-            { label: "Extra Adults", val: numExtraAdult, set: setNumExtraAdult, icon: "👤" },
-            { label: "Extra Children", val: numExtraChild, set: setNumExtraChild, icon: "👧" },
+            {
+              label: "Rooms (Double)",
+              val: numDouble,
+              set: setNumDouble,
+              icon: "🛏️",
+            },
+            {
+              label: "Extra Adults",
+              val: numExtraAdult,
+              set: setNumExtraAdult,
+              icon: "👤",
+            },
+            {
+              label: "Extra Children",
+              val: numExtraChild,
+              set: setNumExtraChild,
+              icon: "👧",
+            },
             { label: "CNB", val: numCNB, set: setNumCNB, icon: "🛌" },
           ].map(({ label, val, set, icon }) => (
             <div key={label} className="space-y-1">
-              <Label className="text-xs text-slate-500">{icon} {label}</Label>
+              <Label className="text-xs text-slate-500">
+                {icon} {label}
+              </Label>
               <div className="flex items-center border-2 border-slate-200 rounded-xl overflow-hidden focus-within:border-theme-primary transition-colors">
-                <button onClick={() => set(Math.max(0, val - 1))} className="px-2.5 py-2 text-slate-600 hover:bg-slate-100 text-sm font-bold">−</button>
-                <span className="flex-1 text-center text-sm font-semibold">{val}</span>
-                <button onClick={() => set(val + 1)} className="px-2.5 py-2 text-slate-600 hover:bg-slate-100 text-sm font-bold">+</button>
+                <button
+                  onClick={() => set(Math.max(0, val - 1))}
+                  className="px-2.5 py-2 text-slate-600 hover:bg-slate-100 text-sm font-bold"
+                >
+                  −
+                </button>
+                <span className="flex-1 text-center text-sm font-semibold">
+                  {val}
+                </span>
+                <button
+                  onClick={() => set(val + 1)}
+                  className="px-2.5 py-2 text-slate-600 hover:bg-slate-100 text-sm font-bold"
+                >
+                  +
+                </button>
               </div>
             </div>
           ))}
@@ -298,14 +371,22 @@ const getApplicableSeason = useCallback((roomData) => {
       <div className="rounded-xl border-2 border-theme-primary/20 bg-gradient-to-br from-theme-primary/5 to-theme-primary/10 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-slate-500">{season ? `${season.name || "Current"} season` : "Pricing"}</p>
+            <p className="text-xs text-slate-500">
+              {season ? `${season.name || "Current"} season` : "Pricing"}
+            </p>
             <p className="text-sm text-slate-600 mt-0.5">
-              ₹{pricePerNight.toLocaleString("en-IN", { maximumFractionDigits: 0 })} / night × {nights} night{nights !== 1 ? "s" : ""}
+              ₹
+              {pricePerNight.toLocaleString("en-IN", {
+                maximumFractionDigits: 0,
+              })}{" "}
+              / night × {nights} night{nights !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="text-right">
             <p className="text-xs text-slate-500">Est. Total</p>
-            <p className="text-2xl font-black text-theme-primary">₹{total.toLocaleString("en-IN")}</p>
+            <p className="text-2xl font-black text-theme-primary">
+              ₹{total.toLocaleString("en-IN")}
+            </p>
           </div>
         </div>
       </div>
@@ -316,32 +397,46 @@ const getApplicableSeason = useCallback((roomData) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // ── CustomHotelForm (inline) ──────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
-const PLAN_DESCRIPTIONS = { ep: "Accommodation only", cp: "Bed + Breakfast", map: "Breakfast + Dinner", ap: "All Meals" };
+const PLAN_DESCRIPTIONS = {
+  ep: "Accommodation only",
+  cp: "Bed + Breakfast",
+  map: "Breakfast + Dinner",
+  ap: "All Meals",
+};
 
 const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
   const [hotelName, setHotelName] = useState("");
-  const [city, setCity]           = useState("");
-  const [state, setState]         = useState(defaultState);
-  const [rating, setRating]       = useState("3");
-  const [roomType, setRoomType]   = useState("");
-  const [pricing, setPricing]     = useState(EMPTY_PRICING());
+  const [city, setCity] = useState("");
+  const [state, setState] = useState(defaultState);
+  const [rating, setRating] = useState("3");
+  const [roomType, setRoomType] = useState("");
+  const [pricing, setPricing] = useState(EMPTY_PRICING());
   const [selectedMealPlan, setSelectedMealPlan] = useState("EP");
-  const [nights, setNights]             = useState(1);
-  const [numDouble, setNumDouble]       = useState(1);
+  const [nights, setNights] = useState(1);
+  const [numDouble, setNumDouble] = useState(1);
   const [numExtraAdult, setNumExtraAdult] = useState(0);
   const [numExtraChild, setNumExtraChild] = useState(0);
-  const [numCNB, setNumCNB]             = useState(0);
-  const [checkInDate, setCheckInDate]   = useState(new Date().toISOString().split("T")[0]);
+  const [numCNB, setNumCNB] = useState(0);
+  const [checkInDate, setCheckInDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [existingDocId, setExistingDocId] = useState(null);
-  const [isSaving, setIsSaving]         = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const name = hotelName.trim(); const c = city.trim(); const s = state.trim();
+    const name = hotelName.trim();
+    const c = city.trim();
+    const s = state.trim();
     if (!name || !c || !s) return;
     let cancelled = false;
     (async () => {
       try {
-        const q = query(collection(db, "custom_hotels"), where("name", "==", name), where("city", "==", c), where("state", "==", s));
+        const q = query(
+          collection(db, "custom_hotels"),
+          where("name", "==", name),
+          where("city", "==", c),
+          where("state", "==", s),
+        );
         const snap = await getDocs(q);
         if (cancelled || snap.empty) return;
         const d = snap.docs[0];
@@ -351,9 +446,13 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
         setRoomType(data.roomType || "");
         setPricing(data.pricing || EMPTY_PRICING());
         setSelectedMealPlan(data.lastUsedMealPlan || "EP");
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [hotelName, city, state]);
 
   const handlePricingChange = (plan, type, raw) => {
@@ -366,42 +465,85 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
     return row && Object.values(row).some((v) => v > 0);
   });
 
-  const pricePerNight = calcCustomHotelNightPrice(pricing, selectedMealPlan, { numDouble, numExtraAdult, numExtraChild, numCNB });
+  const pricePerNight = calcCustomHotelNightPrice(pricing, selectedMealPlan, {
+    numDouble,
+    numExtraAdult,
+    numExtraChild,
+    numCNB,
+  });
   const estimatedTotal = pricePerNight * nights;
 
   const handleSubmit = async () => {
-    if (!hotelName.trim()) { alert("Hotel name is required."); return; }
-    if (!city.trim())      { alert("City is required."); return; }
-    if (!state.trim())     { alert("State is required."); return; }
-    if (!roomType.trim())  { alert("Room type is required."); return; }
-    if (plansWithPrice.length === 0) { alert("Enter at least one price in the pricing table."); return; }
+    if (!hotelName.trim()) {
+      alert("Hotel name is required.");
+      return;
+    }
+    if (!city.trim()) {
+      alert("City is required.");
+      return;
+    }
+    if (!state.trim()) {
+      alert("State is required.");
+      return;
+    }
+    if (!roomType.trim()) {
+      alert("Room type is required.");
+      return;
+    }
+    if (plansWithPrice.length === 0) {
+      alert("Enter at least one price in the pricing table.");
+      return;
+    }
 
     setIsSaving(true);
     try {
       const payload = {
-        name: hotelName.trim(), city: city.trim(), state: state.trim(),
-        rating, roomType: roomType.trim(), pricing,
-        lastUsedMealPlan: selectedMealPlan, updatedAt: new Date(),
+        name: hotelName.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        rating,
+        roomType: roomType.trim(),
+        pricing,
+        lastUsedMealPlan: selectedMealPlan,
+        updatedAt: new Date(),
       };
       if (existingDocId) {
         await updateDoc(doc(db, "custom_hotels", existingDocId), payload);
       } else {
-        const ref = await addDoc(collection(db, "custom_hotels"), { ...payload, createdAt: new Date() });
+        const ref = await addDoc(collection(db, "custom_hotels"), {
+          ...payload,
+          createdAt: new Date(),
+        });
         setExistingDocId(ref.id);
       }
-    } catch (e) { console.error("Custom hotel save failed:", e); }
-    finally { setIsSaving(false); }
+    } catch (e) {
+      console.error("Custom hotel save failed:", e);
+    } finally {
+      setIsSaving(false);
+    }
 
-    const checkIn  = new Date(checkInDate);
+    const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkIn);
     checkOut.setDate(checkOut.getDate() + (nights || 1));
 
     onAdd({
-      hotel: hotelName.trim(), city: city.trim(), state: state.trim(),
-      rating, selectedRoomCategory: roomType.trim(),
-      nights, numDouble, numExtraAdult, numExtraChild, numCNB,
-      selectedMealPlan, pricing, pricePerNight, hotelTotal: estimatedTotal,
-      checkInDate, checkOutDate: checkOut.toISOString().split("T")[0], isCustom: true,
+      hotel: hotelName.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      rating,
+      selectedRoomCategory: roomType.trim(),
+      nights,
+      numDouble,
+      numExtraAdult,
+      numExtraChild,
+      numCNB,
+      selectedMealPlan,
+      pricing,
+      pricePerNight,
+      hotelTotal: estimatedTotal,
+      checkInDate,
+      checkOutDate: checkOut.toISOString().split("T")[0],
+      isCustom: true,
     });
   };
 
@@ -422,15 +564,30 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div className="sm:col-span-2 space-y-1">
             <Label className="text-xs">Hotel Name *</Label>
-            <Input value={hotelName} onChange={(e) => setHotelName(e.target.value)} placeholder="e.g. Hotel Paradise" className="text-sm" />
+            <Input
+              value={hotelName}
+              onChange={(e) => setHotelName(e.target.value)}
+              placeholder="e.g. Hotel Paradise"
+              className="text-sm"
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">City *</Label>
-            <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Lonavala" className="text-sm" />
+            <Input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Lonavala"
+              className="text-sm"
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">State *</Label>
-            <Input value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g. Maharashtra" className="text-sm" />
+            <Input
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              placeholder="e.g. Maharashtra"
+              className="text-sm"
+            />
           </div>
         </div>
 
@@ -438,52 +595,89 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
           <div className="space-y-1">
             <Label className="text-xs">Star Rating</Label>
             <Select value={rating} onValueChange={setRating}>
-              <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="text-sm h-9">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {STAR_RATINGS.map((r) => <SelectItem key={r} value={r}>{r} Star{r !== "1" ? "s" : ""}</SelectItem>)}
+                {STAR_RATINGS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r} Star{r !== "1" ? "s" : ""}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="sm:col-span-3 space-y-1">
             <Label className="text-xs">Room Type * (free text)</Label>
-            <Input value={roomType} onChange={(e) => setRoomType(e.target.value)} placeholder="e.g. Premium Deluxe, Suite, Cottage…" className="text-sm" />
+            <Input
+              value={roomType}
+              onChange={(e) => setRoomType(e.target.value)}
+              placeholder="e.g. Premium Deluxe, Suite, Cottage…"
+              className="text-sm"
+            />
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Pricing Table — rates per guest type (₹)</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+            Pricing Table — rates per guest type (₹)
+          </Label>
           <div className="rounded-lg border overflow-x-auto">
             <table className="w-full text-xs min-w-[460px]">
               <thead>
                 <tr className="bg-muted/50 text-muted-foreground">
                   <th className="px-3 py-2 text-left font-medium w-24">Plan</th>
                   <th className="px-3 py-2 text-left font-medium">Double</th>
-                  <th className="px-3 py-2 text-left font-medium">Extra Adult</th>
-                  <th className="px-3 py-2 text-left font-medium">Extra Child</th>
-                  <th className="px-3 py-2 text-left font-medium text-theme-primary">CNB</th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    Extra Adult
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    Extra Child
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium text-theme-primary">
+                    CNB
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {Object.entries({ ep: "EP", cp: "CP", map: "MAP", ap: "AP" }).map(([planKey, planLabel]) => (
+                {Object.entries({
+                  ep: "EP",
+                  cp: "CP",
+                  map: "MAP",
+                  ap: "AP",
+                }).map(([planKey, planLabel]) => (
                   <tr key={planKey} className="hover:bg-muted/20">
                     <td className="px-3 py-2">
                       <div className="font-bold text-xs">{planLabel}</div>
-                      <div className="text-muted-foreground text-[10px]">{PLAN_DESCRIPTIONS[planKey]}</div>
+                      <div className="text-muted-foreground text-[10px]">
+                        {PLAN_DESCRIPTIONS[planKey]}
+                      </div>
                     </td>
-                    {["double", "extraAdult", "extraChild", "cnb"].map((type) => (
-                      <td key={type} className="px-3 py-2">
-                        <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">₹</span>
-                          <input
-                            type="number" min="0"
-                            value={pricing[planKey]?.[type] || ""}
-                            onChange={(e) => handlePricingChange(planKey, type, e.target.value)}
-                            className="w-full h-8 pl-5 pr-2 border rounded text-right text-xs outline-none focus:ring-1 focus:ring-theme-primary border-input"
-                            placeholder="0"
-                          />
-                        </div>
-                      </td>
-                    ))}
+                    {["double", "extraAdult", "extraChild", "cnb"].map(
+                      (type) => (
+                        <td key={type} className="px-3 py-2">
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">
+                              ₹
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={pricing[planKey]?.[type] || ""}
+                              onChange={(e) =>
+                                handlePricingChange(
+                                  planKey,
+                                  type,
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full h-8 pl-5 pr-2 border rounded text-right text-xs outline-none focus:ring-1 focus:ring-theme-primary border-input"
+                              placeholder="0"
+                            />
+                          </div>
+                        </td>
+                      ),
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -492,22 +686,31 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Active Meal Plan for this stay</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+            Active Meal Plan for this stay
+          </Label>
           <div className="flex flex-wrap gap-2">
             {MEAL_PLANS.map((plan) => {
               const hasPrice = plansWithPrice.includes(plan);
               return (
                 <button
-                  key={plan} type="button" onClick={() => setSelectedMealPlan(plan)} disabled={!hasPrice}
+                  key={plan}
+                  type="button"
+                  onClick={() => setSelectedMealPlan(plan)}
+                  disabled={!hasPrice}
                   className={`px-4 py-1.5 rounded-lg text-xs font-semibold border transition-all
-                    ${selectedMealPlan === plan
-                      ? "bg-theme-primary text-white border-theme-primary shadow-sm"
-                      : hasPrice
-                        ? "bg-white border-input text-slate-700 hover:border-theme-primary/60"
-                        : "bg-muted/30 border-muted text-muted-foreground cursor-not-allowed opacity-50"
+                    ${
+                      selectedMealPlan === plan
+                        ? "bg-theme-primary text-white border-theme-primary shadow-sm"
+                        : hasPrice
+                          ? "bg-white border-input text-slate-700 hover:border-theme-primary/60"
+                          : "bg-muted/30 border-muted text-muted-foreground cursor-not-allowed opacity-50"
                     }`}
                 >
-                  {plan}{hasPrice && <span className="ml-1 text-[10px] opacity-70">✓</span>}
+                  {plan}
+                  {hasPrice && (
+                    <span className="ml-1 text-[10px] opacity-70">✓</span>
+                  )}
                 </button>
               );
             })}
@@ -516,30 +719,91 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
 
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {[
-            { label: "Check-in", type: "date", val: checkInDate, set: setCheckInDate },
-            { label: "Nights", type: "number", val: nights, set: (v) => setNights(parseInt(v)||1) },
-            { label: "Rooms", type: "number", val: numDouble, set: (v) => setNumDouble(parseInt(v)||0) },
-            { label: "Ex. Adults", type: "number", val: numExtraAdult, set: (v) => setNumExtraAdult(parseInt(v)||0) },
-            { label: "Ex. Children", type: "number", val: numExtraChild, set: (v) => setNumExtraChild(parseInt(v)||0) },
-            { label: "CNB", type: "number", val: numCNB, set: (v) => setNumCNB(parseInt(v)||0) },
+            {
+              label: "Check-in",
+              type: "date",
+              val: checkInDate,
+              set: setCheckInDate,
+            },
+            {
+              label: "Nights",
+              type: "number",
+              val: nights,
+              set: (v) => setNights(parseInt(v) || 1),
+            },
+            {
+              label: "Rooms",
+              type: "number",
+              val: numDouble,
+              set: (v) => setNumDouble(parseInt(v) || 0),
+            },
+            {
+              label: "Ex. Adults",
+              type: "number",
+              val: numExtraAdult,
+              set: (v) => setNumExtraAdult(parseInt(v) || 0),
+            },
+            {
+              label: "Ex. Children",
+              type: "number",
+              val: numExtraChild,
+              set: (v) => setNumExtraChild(parseInt(v) || 0),
+            },
+            {
+              label: "CNB",
+              type: "number",
+              val: numCNB,
+              set: (v) => setNumCNB(parseInt(v) || 0),
+            },
           ].map(({ label, type, val, set }) => (
             <div key={label} className="space-y-1">
               <Label className="text-xs">{label}</Label>
-              <input type={type} min={type === "number" ? 0 : undefined} value={val} onChange={(e) => set(e.target.value)}
-                className="w-full h-8 border rounded px-2 text-xs outline-none focus:ring-1 focus:ring-theme-primary" />
+              <input
+                type={type}
+                min={type === "number" ? 0 : undefined}
+                value={val}
+                onChange={(e) => set(e.target.value)}
+                className="w-full h-8 border rounded px-2 text-xs outline-none focus:ring-1 focus:ring-theme-primary"
+              />
             </div>
           ))}
         </div>
 
         <div className="flex items-center justify-between pt-1 border-t gap-4">
           <div className="text-sm space-y-0.5">
-            <div>Per night: <span className="font-bold text-theme-primary">₹{pricePerNight.toFixed(0)}</span> <span className="text-xs text-muted-foreground">({selectedMealPlan})</span></div>
-            <div>Est. total: <span className="font-bold text-theme-primary">₹{estimatedTotal.toFixed(0)}</span></div>
+            <div>
+              Per night:{" "}
+              <span className="font-bold text-theme-primary">
+                ₹{pricePerNight.toFixed(0)}
+              </span>{" "}
+              <span className="text-xs text-muted-foreground">
+                ({selectedMealPlan})
+              </span>
+            </div>
+            <div>
+              Est. total:{" "}
+              <span className="font-bold text-theme-primary">
+                ₹{estimatedTotal.toFixed(0)}
+              </span>
+            </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">Cancel</Button>
-            <Button size="sm" onClick={handleSubmit} disabled={isSaving} className="bg-theme-primary hover:bg-theme-secondary text-xs">
-              <Plus className="h-3 w-3 mr-1" />{isSaving ? "Saving…" : "Add Hotel"}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSubmit}
+              disabled={isSaving}
+              className="bg-theme-primary hover:bg-theme-secondary text-xs"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              {isSaving ? "Saving…" : "Add Hotel"}
             </Button>
           </div>
         </div>
@@ -554,34 +818,46 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
 const TransportSelector = ({ onTransportSelect }) => {
   const [transportStates, setTransportStates] = useState([]);
   const [selectedStateId, setSelectedStateId] = useState("");
-  const [packages, setPackages]               = useState([]);
-  const [selectedPkg, setSelectedPkg]         = useState(null);
+  const [packages, setPackages] = useState([]);
+  const [selectedPkg, setSelectedPkg] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [isCustom, setIsCustom]               = useState(false);
+  const [isCustom, setIsCustom] = useState(false);
   const [customVehicleName, setCustomVehicleName] = useState("");
-  const [customPrice, setCustomPrice]             = useState("");
-  const [customAC, setCustomAC]                   = useState(false);
+  const [customPrice, setCustomPrice] = useState("");
+  const [customAC, setCustomAC] = useState(false);
 
   useEffect(() => {
     getDocs(collection(db, "transport"))
-      .then((snap) => setTransportStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+      .then((snap) =>
+        setTransportStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      )
       .catch(console.error);
   }, []);
 
   useEffect(() => {
-    if (!selectedStateId) { setPackages([]); setSelectedPkg(null); setSelectedVehicle(null); return; }
+    if (!selectedStateId) {
+      setPackages([]);
+      setSelectedPkg(null);
+      setSelectedVehicle(null);
+      return;
+    }
     getDocs(collection(db, "transport", selectedStateId, "packages"))
-      .then((snap) => setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+      .then((snap) =>
+        setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      )
       .catch(console.error);
   }, [selectedStateId]);
 
-  const toTitleCase = (s) => s?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || s;
+  const toTitleCase = (s) =>
+    s?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || s;
 
   const handleVehicleSelect = (vehicle, pkg) => {
     setSelectedVehicle(vehicle);
     onTransportSelect({
-      id: pkg.id, name: pkg.name || pkg.packageName || pkg.id,
-      vehicles: pkg.vehicles || [], allPkgs: packages,
+      id: pkg.id,
+      name: pkg.name || pkg.packageName || pkg.id,
+      vehicles: pkg.vehicles || [],
+      allPkgs: packages,
       pricingType: pkg.pricingType,
       selectedVehicle: vehicle,
       isCustom: false,
@@ -589,14 +865,25 @@ const TransportSelector = ({ onTransportSelect }) => {
   };
 
   const handleCustomApply = () => {
-    const v = { type: customVehicleName, price: parseFloat(customPrice) || 0, ac: customAC, isCustom: true };
-    onTransportSelect({ name: "Custom", selectedVehicle: v, vehicles: [v], isCustom: true });
+    const v = {
+      type: customVehicleName,
+      price: parseFloat(customPrice) || 0,
+      ac: customAC,
+      isCustom: true,
+    };
+    onTransportSelect({
+      name: "Custom",
+      selectedVehicle: v,
+      vehicles: [v],
+      isCustom: true,
+    });
     setSelectedVehicle(v);
   };
 
   // ── FIX: use > 0 check instead of ?? to correctly detect perKm vs lumpsum ──
   const getVehicleDisplayPrice = (v) => {
-    if (Number(v.perKmprice) > 0) return { amount: Number(v.perKmprice), suffix: "/km" };
+    if (Number(v.perKmprice) > 0)
+      return { amount: Number(v.perKmprice), suffix: "/km" };
     return { amount: Number(v.price) || 0, suffix: "" };
   };
 
@@ -622,12 +909,19 @@ const TransportSelector = ({ onTransportSelect }) => {
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label className="text-sm flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 text-theme-primary" /> Transport State
+              <MapPin className="h-3.5 w-3.5 text-theme-primary" /> Transport
+              State
             </Label>
             <Select value={selectedStateId} onValueChange={setSelectedStateId}>
-              <SelectTrigger className="text-sm"><SelectValue placeholder="Select state" /></SelectTrigger>
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="Select state" />
+              </SelectTrigger>
               <SelectContent>
-                {transportStates.map((s) => <SelectItem key={s.id} value={s.id}>{toTitleCase(s.id)}</SelectItem>)}
+                {transportStates.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {toTitleCase(s.id)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -639,15 +933,22 @@ const TransportSelector = ({ onTransportSelect }) => {
                 {packages.map((pkg) => (
                   <button
                     key={pkg.id}
-                    onClick={() => { setSelectedPkg(pkg); setSelectedVehicle(null); }}
+                    onClick={() => {
+                      setSelectedPkg(pkg);
+                      setSelectedVehicle(null);
+                    }}
                     className={`text-left p-3 rounded-xl border-2 text-sm transition-all ${
                       selectedPkg?.id === pkg.id
                         ? "border-theme-primary bg-theme-primary/5"
                         : "border-slate-200 hover:border-theme-primary/40"
                     }`}
                   >
-                    <p className="font-semibold">{pkg.name || pkg.packageName || pkg.id}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{pkg.vehicles?.length || 0} vehicle(s) available</p>
+                    <p className="font-semibold">
+                      {pkg.name || pkg.packageName || pkg.id}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {pkg.vehicles?.length || 0} vehicle(s) available
+                    </p>
                   </button>
                 ))}
               </div>
@@ -673,12 +974,16 @@ const TransportSelector = ({ onTransportSelect }) => {
                     >
                       <div className="flex items-center justify-between">
                         <p className="font-semibold">🚗 {v.type}</p>
-                        <Badge variant={v.ac ? "default" : "outline"} className={`text-xs ${v.ac ? "bg-green-100 text-green-800 border-green-200" : ""}`}>
+                        <Badge
+                          variant={v.ac ? "default" : "outline"}
+                          className={`text-xs ${v.ac ? "bg-green-100 text-green-800 border-green-200" : ""}`}
+                        >
                           {v.ac ? "AC" : "Non-AC"}
                         </Badge>
                       </div>
                       <p className="text-sm font-bold text-theme-primary mt-1">
-                        ₹{amount.toLocaleString("en-IN")}{suffix}
+                        ₹{amount.toLocaleString("en-IN")}
+                        {suffix}
                       </p>
                     </button>
                   );
@@ -691,7 +996,9 @@ const TransportSelector = ({ onTransportSelect }) => {
             <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
               <span className="font-medium">{selectedVehicle.type}</span>
-              <span className="text-green-600">{selectedVehicle.ac ? "(AC)" : "(Non-AC)"}</span>
+              <span className="text-green-600">
+                {selectedVehicle.ac ? "(AC)" : "(Non-AC)"}
+              </span>
               <span>—</span>
               {/* ── FIX applied here too ────────────────────────────────── */}
               <span className="font-bold">
@@ -707,24 +1014,48 @@ const TransportSelector = ({ onTransportSelect }) => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 space-y-1.5">
               <Label className="text-sm">Vehicle Name</Label>
-              <Input value={customVehicleName} onChange={(e) => setCustomVehicleName(e.target.value)} placeholder="e.g. Toyota Innova Crysta" className="text-sm" />
+              <Input
+                value={customVehicleName}
+                onChange={(e) => setCustomVehicleName(e.target.value)}
+                placeholder="e.g. Toyota Innova Crysta"
+                className="text-sm"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Price (₹)</Label>
-              <Input type="number" min="0" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)} className="text-sm" />
+              <Input
+                type="number"
+                min="0"
+                value={customPrice}
+                onChange={(e) => setCustomPrice(e.target.value)}
+                className="text-sm"
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="customAC" checked={customAC} onChange={(e) => setCustomAC(e.target.checked)} className="h-4 w-4 rounded border-gray-300 accent-theme-primary" />
-            <Label htmlFor="customAC" className="text-sm cursor-pointer">AC Vehicle</Label>
+            <input
+              type="checkbox"
+              id="customAC"
+              checked={customAC}
+              onChange={(e) => setCustomAC(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 accent-theme-primary"
+            />
+            <Label htmlFor="customAC" className="text-sm cursor-pointer">
+              AC Vehicle
+            </Label>
           </div>
-          <Button onClick={handleCustomApply} className="bg-theme-primary hover:bg-theme-secondary text-sm">
+          <Button
+            onClick={handleCustomApply}
+            className="bg-theme-primary hover:bg-theme-secondary text-sm"
+          >
             <CheckCircle2 className="h-4 w-4 mr-2" /> Apply Custom Transport
           </Button>
           {selectedVehicle?.isCustom && (
             <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
-              <span className="font-medium">{selectedVehicle.type}</span> {selectedVehicle.ac ? "(AC)" : "(Non-AC)"} — ₹{selectedVehicle.price} applied ✓
+              <span className="font-medium">{selectedVehicle.type}</span>{" "}
+              {selectedVehicle.ac ? "(AC)" : "(Non-AC)"} — ₹
+              {selectedVehicle.price} applied ✓
             </div>
           )}
         </div>
@@ -736,21 +1067,33 @@ const TransportSelector = ({ onTransportSelect }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // ── ActivitySelector (inline) ─────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
-const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => {
-  const [activities, setActivities]   = useState([]);
-  const [isFetching, setIsFetching]   = useState(false);
-  const [selected, setSelected]       = useState(initialActivities);
+const ActivitySelector = ({
+  selectedState,
+  initialActivities = [],
+  onDone,
+}) => {
+  const [activities, setActivities] = useState([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [selected, setSelected] = useState(initialActivities);
   const [showCustomForm, setShowCustomForm] = useState(false);
-  const [customForm, setCustomForm]   = useState({
-    name: "", city: "", state: selectedState || "",
-    description: "", participants: 1, pricePerPerson: 0,
+  const [customForm, setCustomForm] = useState({
+    name: "",
+    city: "",
+    state: selectedState || "",
+    description: "",
+    participants: 1,
+    pricePerPerson: 0,
   });
 
   useEffect(() => {
     if (!selectedState) return;
     setIsFetching(true);
-    getDocs(query(collection(db, "activities"), where("state", "==", selectedState)))
-      .then((snap) => setActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+    getDocs(
+      query(collection(db, "activities"), where("state", "==", selectedState)),
+    )
+      .then((snap) =>
+        setActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      )
       .catch(console.error)
       .finally(() => setIsFetching(false));
   }, [selectedState]);
@@ -758,18 +1101,28 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
   const totalPrice = selected.reduce((s, a) => s + (a.totalPrice || 0), 0);
 
   const addActivity = (act) => {
-    if (selected.some((a) => a.name === act.name)) { alert("Already added."); return; }
+    if (selected.some((a) => a.name === act.name)) {
+      alert("Already added.");
+      return;
+    }
     const entry = {
-      name: act.name, city: act.city, state: act.state,
+      name: act.name,
+      city: act.city,
+      state: act.state,
       fitRatePerPerson: act.fitRatePerPerson || 0,
       groupRatePerPerson: act.groupRatePerPerson || 0,
       participants: 1,
-      totalPrice: parseFloat(act.fitRatePerPerson || act.groupRatePerPerson || 0),
+      totalPrice: parseFloat(
+        act.fitRatePerPerson || act.groupRatePerPerson || 0,
+      ),
       isCustom: false,
     };
     const updated = [...selected, entry];
     setSelected(updated);
-    onDone?.(updated, updated.reduce((s, a) => s + (a.totalPrice || 0), 0));
+    onDone?.(
+      updated,
+      updated.reduce((s, a) => s + (a.totalPrice || 0), 0),
+    );
   };
 
   const updateParticipants = (idx, val) => {
@@ -778,33 +1131,61 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
       if (i !== idx) return a;
       const rate = a.isCustom
         ? a.pricePerPerson || 0
-        : n > 10 ? a.groupRatePerPerson : a.fitRatePerPerson;
+        : n > 10
+          ? a.groupRatePerPerson
+          : a.fitRatePerPerson;
       return { ...a, participants: n, totalPrice: rate * n };
     });
     setSelected(updated);
-    onDone?.(updated, updated.reduce((s, a) => s + (a.totalPrice || 0), 0));
+    onDone?.(
+      updated,
+      updated.reduce((s, a) => s + (a.totalPrice || 0), 0),
+    );
   };
 
   const removeActivity = (idx) => {
     const updated = selected.filter((_, i) => i !== idx);
     setSelected(updated);
-    onDone?.(updated, updated.reduce((s, a) => s + (a.totalPrice || 0), 0));
+    onDone?.(
+      updated,
+      updated.reduce((s, a) => s + (a.totalPrice || 0), 0),
+    );
   };
 
   const addCustomActivity = () => {
-    if (!customForm.name.trim()) { alert("Activity name is required."); return; }
-    if (!customForm.city.trim()) { alert("City is required."); return; }
-    const totalPrice = (parseFloat(customForm.pricePerPerson) || 0) * (parseInt(customForm.participants) || 1);
+    if (!customForm.name.trim()) {
+      alert("Activity name is required.");
+      return;
+    }
+    if (!customForm.city.trim()) {
+      alert("City is required.");
+      return;
+    }
+    const totalPrice =
+      (parseFloat(customForm.pricePerPerson) || 0) *
+      (parseInt(customForm.participants) || 1);
     const entry = {
-      ...customForm, isCustom: true, totalPrice,
+      ...customForm,
+      isCustom: true,
+      totalPrice,
       fitRatePerPerson: customForm.pricePerPerson,
       groupRatePerPerson: customForm.pricePerPerson,
     };
     const updated = [...selected, entry];
     setSelected(updated);
-    onDone?.(updated, updated.reduce((s, a) => s + (a.totalPrice || 0), 0));
+    onDone?.(
+      updated,
+      updated.reduce((s, a) => s + (a.totalPrice || 0), 0),
+    );
     setShowCustomForm(false);
-    setCustomForm({ name: "", city: "", state: selectedState || "", description: "", participants: 1, pricePerPerson: 0 });
+    setCustomForm({
+      name: "",
+      city: "",
+      state: selectedState || "",
+      description: "",
+      participants: 1,
+      pricePerPerson: 0,
+    });
   };
 
   return (
@@ -812,7 +1193,9 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
       {isFetching ? (
         <p className="text-sm text-muted-foreground">Loading activities…</p>
       ) : activities.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No activities found for {selectedState}.</p>
+        <p className="text-sm text-muted-foreground">
+          No activities found for {selectedState}.
+        </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {activities.map((act) => {
@@ -830,10 +1213,18 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
               >
                 <div className="flex items-center justify-between">
                   <p className="font-semibold">{act.name}</p>
-                  {isAdded && <CheckCircle className="h-4 w-4 text-green-600" />}
+                  {isAdded && (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  📍 {act.city} • ₹{(act.fitRatePerPerson || act.groupRatePerPerson || 0).toLocaleString()}/person
+                  📍 {act.city} • ₹
+                  {(
+                    act.fitRatePerPerson ||
+                    act.groupRatePerPerson ||
+                    0
+                  ).toLocaleString()}
+                  /person
                 </p>
               </button>
             );
@@ -841,8 +1232,12 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
         </div>
       )}
 
-      <Button variant="outline" size="sm" onClick={() => setShowCustomForm((p) => !p)}
-        className="text-xs border-theme-primary/40 text-theme-primary">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setShowCustomForm((p) => !p)}
+        className="text-xs border-theme-primary/40 text-theme-primary"
+      >
         <PenLine className="h-3 w-3 mr-1" /> Add Custom Activity
       </Button>
 
@@ -852,30 +1247,82 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2 space-y-1">
                 <Label className="text-xs">Activity Name *</Label>
-                <Input value={customForm.name} onChange={(e) => setCustomForm((p) => ({ ...p, name: e.target.value }))} className="text-sm" />
+                <Input
+                  value={customForm.name}
+                  onChange={(e) =>
+                    setCustomForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  className="text-sm"
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">City *</Label>
-                <Input value={customForm.city} onChange={(e) => setCustomForm((p) => ({ ...p, city: e.target.value }))} className="text-sm" />
+                <Input
+                  value={customForm.city}
+                  onChange={(e) =>
+                    setCustomForm((p) => ({ ...p, city: e.target.value }))
+                  }
+                  className="text-sm"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Participants</Label>
-                <Input type="number" min="1" value={customForm.participants} onChange={(e) => setCustomForm((p) => ({ ...p, participants: parseInt(e.target.value) || 1 }))} className="text-sm" />
+                <Input
+                  type="number"
+                  min="1"
+                  value={customForm.participants}
+                  onChange={(e) =>
+                    setCustomForm((p) => ({
+                      ...p,
+                      participants: parseInt(e.target.value) || 1,
+                    }))
+                  }
+                  className="text-sm"
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Price/Person (₹)</Label>
-                <Input type="number" min="0" value={customForm.pricePerPerson} onChange={(e) => setCustomForm((p) => ({ ...p, pricePerPerson: parseFloat(e.target.value) || 0 }))} className="text-sm" />
+                <Input
+                  type="number"
+                  min="0"
+                  value={customForm.pricePerPerson}
+                  onChange={(e) =>
+                    setCustomForm((p) => ({
+                      ...p,
+                      pricePerPerson: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                  className="text-sm"
+                />
               </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                Total: <span className="font-bold text-theme-primary">₹{((parseFloat(customForm.pricePerPerson) || 0) * (parseInt(customForm.participants) || 1)).toFixed(0)}</span>
+                Total:{" "}
+                <span className="font-bold text-theme-primary">
+                  ₹
+                  {(
+                    (parseFloat(customForm.pricePerPerson) || 0) *
+                    (parseInt(customForm.participants) || 1)
+                  ).toFixed(0)}
+                </span>
               </span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowCustomForm(false)} className="text-xs">Cancel</Button>
-                <Button size="sm" onClick={addCustomActivity} className="bg-theme-primary hover:bg-theme-secondary text-xs">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCustomForm(false)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={addCustomActivity}
+                  className="bg-theme-primary hover:bg-theme-secondary text-xs"
+                >
                   <Plus className="h-3 w-3 mr-1" /> Add
                 </Button>
               </div>
@@ -886,23 +1333,41 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
 
       {selected.length > 0 && (
         <div className="space-y-2 pt-2 border-t">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Selected Activities</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Selected Activities
+          </p>
           {selected.map((act, i) => (
-            <div key={i} className="flex items-center gap-3 p-2.5 bg-white border rounded-xl text-sm">
+            <div
+              key={i}
+              className="flex items-center gap-3 p-2.5 bg-white border rounded-xl text-sm"
+            >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <p className="font-medium truncate">{act.name}</p>
-                  {act.isCustom && <Badge variant="outline" className="text-[10px] px-1.5">Custom</Badge>}
+                  {act.isCustom && (
+                    <Badge variant="outline" className="text-[10px] px-1.5">
+                      Custom
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">📍 {act.city}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Input type="number" min="1" value={act.participants}
+                <Input
+                  type="number"
+                  min="1"
+                  value={act.participants}
                   onChange={(e) => updateParticipants(i, e.target.value)}
-                  className="w-16 h-7 text-xs text-center" />
+                  className="w-16 h-7 text-xs text-center"
+                />
                 <span className="text-xs text-muted-foreground">pax</span>
-                <span className="text-xs font-bold text-theme-primary w-20 text-right">₹{act.totalPrice?.toFixed(0)}</span>
-                <button onClick={() => removeActivity(i)} className="text-destructive hover:bg-destructive/10 rounded p-1">
+                <span className="text-xs font-bold text-theme-primary w-20 text-right">
+                  ₹{act.totalPrice?.toFixed(0)}
+                </span>
+                <button
+                  onClick={() => removeActivity(i)}
+                  className="text-destructive hover:bg-destructive/10 rounded p-1"
+                >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -919,10 +1384,10 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
 };
 // ── TransportSummaryCard ──────────────────────────────────────────────────
 
-  const  TransportSummaryCard = ({
+const TransportSummaryCard = ({
   transport,
   totalPrice,
- transportBreakdown,
+  transportBreakdown,
   minKm,
   setMinKm,
   tollCharges,
@@ -933,12 +1398,12 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
   setOtherCharges,
   editableBaseCost,
   setEditableBaseCost,
-  onEdit
+  onEdit,
 }) => {
   if (!transport?.selectedVehicle) return null;
   const v = transport.selectedVehicle;
   // ── FIX: show correct price field in summary card ─────────────────────────
-  const displayPrice = Number(v.perKmprice) > 0 ? v.perKmprice : v.price ?? 0;
+  const displayPrice = Number(v.perKmprice) > 0 ? v.perKmprice : (v.price ?? 0);
   const displaySuffix = Number(v.perKmprice) > 0 ? "/km" : "";
 
   return (
@@ -953,22 +1418,35 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
               <Car className="h-5 w-5 text-theme-primary" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-theme-primary/70">Transport</p>
-              <p className="font-bold text-theme-dark text-sm">{transport.name || "Custom Package"}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-theme-primary/70">
+                Transport
+              </p>
+              <p className="font-bold text-theme-dark text-sm">
+                {transport.name || "Custom Package"}
+              </p>
             </div>
           </div>
-          <button onClick={onEdit} className="flex items-center gap-1 text-xs text-slate-500 hover:text-theme-primary transition-colors bg-white border rounded-lg px-2.5 py-1.5 shadow-sm">
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1 text-xs text-slate-500 hover:text-theme-primary transition-colors bg-white border rounded-lg px-2.5 py-1.5 shadow-sm"
+          >
             <Edit3 className="h-3 w-3" /> Change
           </button>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white/80 rounded-xl p-3 border border-white shadow-sm">
-            <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">Vehicle</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">
+              Vehicle
+            </p>
             <p className="font-bold text-slate-800 text-sm">{v.type}</p>
           </div>
           <div className="bg-white/80 rounded-xl p-3 border border-white shadow-sm">
-            <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">AC</p>
-            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${v.ac ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium mb-0.5">
+              AC
+            </p>
+            <div
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${v.ac ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}
+            >
               {v.ac ? "✓ Yes" : "✗ No"}
             </div>
           </div>
@@ -977,93 +1455,92 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
               {Number(v.perKmprice) > 0 ? "Rate" : "Total"}
             </p>
             <p className="font-black text-theme-primary text-base">
-              ₹{Number(displayPrice).toLocaleString("en-IN")}{displaySuffix}
+              ₹{Number(displayPrice).toLocaleString("en-IN")}
+              {displaySuffix}
             </p>
           </div>
         </div>
-       {transportBreakdown?.isPerKm && (
-  <div className="mt-4 p-4 border rounded-xl bg-slate-50 space-y-3">
+        {transportBreakdown?.isPerKm && (
+          <div className="mt-4 p-4 border rounded-xl bg-slate-50 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Min KM / Day</span>
+              <Input
+                type="number"
+                min="0"
+                value={minKm}
+                onChange={(e) => setMinKm(Math.max(0, Number(e.target.value)))}
+                className="w-28 text-right"
+              />
+            </div>
 
-    <div className="flex justify-between items-center">
-      <span className="text-sm">Min KM / Day</span>
-      <Input
-        type="number"
-        min="0"
-        value={minKm}
-        onChange={(e) => setMinKm(Math.max(0, Number(e.target.value)))}
-        className="w-28 text-right"
-      />
-    </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Vehicle Cost</span>
+              <Input
+                type="number"
+                min="0"
+                value={editableBaseCost ?? transportBreakdown.baseCost}
+                onChange={(e) =>
+                  setEditableBaseCost(Math.max(0, Number(e.target.value)))
+                }
+                className="w-28 text-right"
+              />
+            </div>
 
-    <div className="flex justify-between items-center">
-      <span className="text-sm">Vehicle Cost</span>
-      <Input
-        type="number"
-        min="0"
-        value={editableBaseCost ?? transportBreakdown.baseCost}
-        onChange={(e) =>
-          setEditableBaseCost(Math.max(0, Number(e.target.value)))
-        }
-        className="w-28 text-right"
-      />
-    </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Driver Allowance</span>
+              <Input
+                value={transportBreakdown.driverAllowance}
+                readOnly
+                className="w-28 text-right bg-slate-100 cursor-not-allowed"
+              />
+            </div>
 
-    <div className="flex justify-between items-center">
-      <span className="text-sm">Driver Allowance</span>
-      <Input
-        value={transportBreakdown.driverAllowance}
-        readOnly
-        className="w-28 text-right bg-slate-100 cursor-not-allowed"
-      />
-    </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Toll Charges</span>
+              <Input
+                type="number"
+                min="0"
+                value={tollCharges}
+                onChange={(e) =>
+                  setTollCharges(Math.max(0, Number(e.target.value)))
+                }
+                className="w-28 text-right"
+              />
+            </div>
 
-    <div className="flex justify-between items-center">
-      <span className="text-sm">Toll Charges</span>
-      <Input
-        type="number"
-        min="0"
-        value={tollCharges}
-        onChange={(e) =>
-          setTollCharges(Math.max(0, Number(e.target.value)))
-        }
-        className="w-28 text-right"
-      />
-    </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Permit Charges</span>
+              <Input
+                type="number"
+                min="0"
+                value={permitCharges}
+                onChange={(e) =>
+                  setPermitCharges(Math.max(0, Number(e.target.value)))
+                }
+                className="w-28 text-right"
+              />
+            </div>
 
-    <div className="flex justify-between items-center">
-      <span className="text-sm">Permit Charges</span>
-      <Input
-        type="number"
-        min="0"
-        value={permitCharges}
-        onChange={(e) =>
-          setPermitCharges(Math.max(0, Number(e.target.value)))
-        }
-        className="w-28 text-right"
-      />
-    </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Other Charges</span>
+              <Input
+                type="number"
+                min="0"
+                value={otherCharges}
+                onChange={(e) =>
+                  setOtherCharges(Math.max(0, Number(e.target.value)))
+                }
+                className="w-28 text-right"
+              />
+            </div>
 
-    <div className="flex justify-between items-center">
-      <span className="text-sm">Other Charges</span>
-      <Input
-        type="number"
-        min="0"
-        value={otherCharges}
-        onChange={(e) =>
-          setOtherCharges(Math.max(0, Number(e.target.value)))
-        }
-        className="w-28 text-right"
-      />
-    </div>
+            <div className="border-t pt-2 flex justify-between font-bold text-theme-primary">
+              <span>Total Transport Cost</span>
+              <span>₹{transportBreakdown.total.toLocaleString("en-IN")}</span>
+            </div>
+          </div>
+        )}
 
-    <div className="border-t pt-2 flex justify-between font-bold text-theme-primary">
-      <span>Total Transport Cost</span>
-      <span>₹{transportBreakdown.total.toLocaleString("en-IN")}</span>
-    </div>
-
-  </div>
-)}
-        
         {/* Calculated total shown separately */}
         <div className="mt-3 pt-3 border-t border-theme-primary/10 flex items-center justify-between">
           <p className="text-xs text-slate-500">Estimated transport cost</p>
@@ -1092,43 +1569,86 @@ const ActivitySummaryCard = ({ activities, totalPrice, onEdit }) => {
             <Palmtree className="h-4 w-4 text-emerald-600" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/70">Activities</p>
-            <p className="font-bold text-slate-800 text-sm">{activities.length} Activity{activities.length > 1 ? "s" : ""} Selected</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/70">
+              Activities
+            </p>
+            <p className="font-bold text-slate-800 text-sm">
+              {activities.length} Activity{activities.length > 1 ? "s" : ""}{" "}
+              Selected
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="text-right">
             <p className="text-[10px] text-slate-500">Total</p>
-            <p className="font-black text-emerald-600 text-sm">₹{Number(totalPrice || 0).toLocaleString("en-IN")}</p>
+            <p className="font-black text-emerald-600 text-sm">
+              ₹{Number(totalPrice || 0).toLocaleString("en-IN")}
+            </p>
           </div>
-          <button onClick={onEdit} className="text-xs text-slate-500 hover:text-theme-primary transition-colors bg-white border rounded-lg px-2.5 py-1.5 shadow-sm flex items-center gap-1">
+          <button
+            onClick={onEdit}
+            className="text-xs text-slate-500 hover:text-theme-primary transition-colors bg-white border rounded-lg px-2.5 py-1.5 shadow-sm flex items-center gap-1"
+          >
             <Edit3 className="h-3 w-3" /> Edit
           </button>
         </div>
       </div>
       <div className="p-3 space-y-2">
         {visible.map((act, i) => (
-          <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl p-2.5 border border-white shadow-sm">
+          <div
+            key={i}
+            className="flex items-center gap-3 bg-white/80 rounded-xl p-2.5 border border-white shadow-sm"
+          >
             <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
               <Activity className="h-3.5 w-3.5 text-emerald-600" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-semibold text-slate-800 truncate">{act.name}</p>
-                {act.isCustom && <span className="text-[9px] bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded-full font-medium">Custom</span>}
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  {act.name}
+                </p>
+                {act.isCustom && (
+                  <span className="text-[9px] bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded-full font-medium">
+                    Custom
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-500">📍 {act.city} · {act.participants} person{act.participants > 1 ? "s" : ""}</p>
+              <p className="text-xs text-slate-500">
+                📍 {act.city} · {act.participants} person
+                {act.participants > 1 ? "s" : ""}
+              </p>
             </div>
             <div className="text-right flex-shrink-0">
-              <p className="text-sm font-bold text-emerald-600">₹{Number(act.totalPrice || 0).toLocaleString("en-IN")}</p>
-              <p className="text-[10px] text-slate-400">₹{(act.fitRatePerPerson || act.pricePerPerson || 0).toLocaleString()}/pax</p>
+              <p className="text-sm font-bold text-emerald-600">
+                ₹{Number(act.totalPrice || 0).toLocaleString("en-IN")}
+              </p>
+              <p className="text-[10px] text-slate-400">
+                ₹
+                {(
+                  act.fitRatePerPerson ||
+                  act.pricePerPerson ||
+                  0
+                ).toLocaleString()}
+                /pax
+              </p>
             </div>
           </div>
         ))}
         {activities.length > 3 && (
-          <button onClick={() => setExpanded(p => !p)}
-            className="w-full text-xs text-theme-primary hover:text-theme-secondary flex items-center justify-center gap-1 py-1">
-            {expanded ? <><ChevronUp className="h-3 w-3" /> Show less</> : <><ChevronDown className="h-3 w-3" /> +{activities.length - 3} more</>}
+          <button
+            onClick={() => setExpanded((p) => !p)}
+            className="w-full text-xs text-theme-primary hover:text-theme-secondary flex items-center justify-center gap-1 py-1"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="h-3 w-3" /> Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3" /> +{activities.length - 3}{" "}
+                more
+              </>
+            )}
           </button>
         )}
       </div>
@@ -1141,10 +1661,12 @@ const ActivitySummaryCard = ({ activities, totalPrice, onEdit }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
   const mealEmoji = MEAL_PLAN_ICONS[entry.selectedMealPlan] || "🍽️";
-  const mealLabel = MEAL_PLAN_LABELS[entry.selectedMealPlan] || entry.selectedMealPlan;
+  const mealLabel =
+    MEAL_PLAN_LABELS[entry.selectedMealPlan] || entry.selectedMealPlan;
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border-2 shadow-sm transition-all hover:shadow-md
+    <div
+      className={`relative overflow-hidden rounded-2xl border-2 shadow-sm transition-all hover:shadow-md
       ${entry.isCustom ? "border-theme-primary/30 bg-gradient-to-br from-purple-50 via-white to-theme-primary/5" : "border-slate-200 bg-white"}`}
     >
       <div className="absolute top-3 right-3 flex items-center gap-1 bg-theme-dark text-white text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm">
@@ -1153,17 +1675,29 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
       </div>
       <div className="p-4 sm:p-5">
         <div className="flex items-start gap-3 mb-4 pr-14">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${entry.isCustom ? "bg-purple-100" : "bg-theme-primary/10"}`}>
-            <Hotel className={`h-5 w-5 ${entry.isCustom ? "text-purple-600" : "text-theme-primary"}`} />
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${entry.isCustom ? "bg-purple-100" : "bg-theme-primary/10"}`}
+          >
+            <Hotel
+              className={`h-5 w-5 ${entry.isCustom ? "text-purple-600" : "text-theme-primary"}`}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
-              <h4 className="font-bold text-slate-800 text-base leading-tight">{entry.hotel}</h4>
+              <h4 className="font-bold text-slate-800 text-base leading-tight">
+                {entry.hotel}
+              </h4>
               {entry.isCustom && (
-                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">Custom</span>
+                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">
+                  Custom
+                </span>
               )}
             </div>
-            {entry.rating && <div className="flex gap-0.5 mb-0.5">{renderStars(entry.rating)}</div>}
+            {entry.rating && (
+              <div className="flex gap-0.5 mb-0.5">
+                {renderStars(entry.rating)}
+              </div>
+            )}
             <p className="text-xs text-slate-500 flex items-center gap-1">
               <MapPin className="h-3 w-3" /> {entry.city}, {entry.state}
             </p>
@@ -1171,20 +1705,37 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
-            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Check-in</p>
-            <p className="text-xs font-bold text-slate-700 mt-0.5">{formatDate(entry.checkInDate)}</p>
+            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">
+              Check-in
+            </p>
+            <p className="text-xs font-bold text-slate-700 mt-0.5">
+              {formatDate(entry.checkInDate)}
+            </p>
           </div>
           <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
-            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Check-out</p>
-            <p className="text-xs font-bold text-slate-700 mt-0.5">{formatDate(entry.checkOutDate)}</p>
+            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">
+              Check-out
+            </p>
+            <p className="text-xs font-bold text-slate-700 mt-0.5">
+              {formatDate(entry.checkOutDate)}
+            </p>
           </div>
           <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100">
-            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Room Type</p>
-            <p className="text-xs font-bold text-slate-700 mt-0.5 truncate">{entry.selectedRoomCategory || "—"}</p>
+            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">
+              Room Type
+            </p>
+            <p className="text-xs font-bold text-slate-700 mt-0.5 truncate">
+              {entry.selectedRoomCategory || "—"}
+            </p>
           </div>
           <div className="bg-theme-primary/5 rounded-xl p-2.5 border border-theme-primary/10">
-            <p className="text-[10px] text-theme-primary/70 uppercase font-medium tracking-wide">Meal Plan</p>
-            <p className="text-xs font-bold text-theme-primary mt-0.5">{mealEmoji} {entry.selectedMealPlan} <span className="font-normal opacity-70">— {mealLabel}</span></p>
+            <p className="text-[10px] text-theme-primary/70 uppercase font-medium tracking-wide">
+              Meal Plan
+            </p>
+            <p className="text-xs font-bold text-theme-primary mt-0.5">
+              {mealEmoji} {entry.selectedMealPlan}{" "}
+              <span className="font-normal opacity-70">— {mealLabel}</span>
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5 mb-4">
@@ -1195,12 +1746,14 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
           )}
           {entry.numExtraAdult > 0 && (
             <span className="inline-flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2.5 py-1 rounded-full font-medium">
-              👤 {entry.numExtraAdult} Extra Adult{entry.numExtraAdult > 1 ? "s" : ""}
+              👤 {entry.numExtraAdult} Extra Adult
+              {entry.numExtraAdult > 1 ? "s" : ""}
             </span>
           )}
           {entry.numExtraChild > 0 && (
             <span className="inline-flex items-center gap-1 text-xs bg-pink-50 text-pink-700 border border-pink-200 px-2.5 py-1 rounded-full font-medium">
-              👧 {entry.numExtraChild} Child{entry.numExtraChild > 1 ? "ren" : ""}
+              👧 {entry.numExtraChild} Child
+              {entry.numExtraChild > 1 ? "ren" : ""}
             </span>
           )}
           {entry.numCNB > 0 && (
@@ -1211,9 +1764,15 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
         </div>
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
           <div>
-            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">Total Cost</p>
-            <p className="text-2xl font-black text-theme-primary">₹{Number(entry.hotelTotal || 0).toLocaleString("en-IN")}</p>
-            <p className="text-[10px] text-slate-400 -mt-0.5">for {entry.nights} night{entry.nights > 1 ? "s" : ""}</p>
+            <p className="text-[10px] text-slate-500 uppercase font-medium tracking-wide">
+              Total Cost
+            </p>
+            <p className="text-2xl font-black text-theme-primary">
+              ₹{Number(entry.hotelTotal || 0).toLocaleString("en-IN")}
+            </p>
+            <p className="text-[10px] text-slate-400 -mt-0.5">
+              for {entry.nights} night{entry.nights > 1 ? "s" : ""}
+            </p>
           </div>
           <div className="flex gap-2">
             <button
@@ -1247,10 +1806,10 @@ const Create_new_package = ({
   checkOutDate: propCheckOutDate,
   setCheckOutDate: propSetCheckOutDate,
 }) => {
-  const router       = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const dispatch     = useDispatch();
-  const { user }     = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
   const {
     hotelEntries,
     selectedTransport,
@@ -1260,41 +1819,47 @@ const Create_new_package = ({
     packageName,
     customerName: reduxCustomerName,
   } = useSelector((state) => state.package);
-
-  const checkInDate     = propCheckInDate;
-  const setCheckInDate  = propSetCheckInDate;
-  const checkOutDate    = propCheckOutDate;
+  const [itineraryData, setItineraryData] = useState(null);
+  const checkInDate = propCheckInDate;
+  const setCheckInDate = propSetCheckInDate;
+  const checkOutDate = propCheckOutDate;
   const setCheckOutDate = propSetCheckOutDate;
-  const saveChanges     = propSaveChanges;
-  const setSaveChanges  = propSetSaveChanges;
+  const saveChanges = propSaveChanges;
+  const setSaveChanges = propSetSaveChanges;
 
-  const [hotels, setHotels]             = useState([]);
-  const [states, setStates]             = useState([]);
+  const [hotels, setHotels] = useState([]);
+  const [states, setStates] = useState([]);
   const [selectedState, setSelectedState] = useState("");
   const [selectedHotelId, setSelectedHotelId] = useState(null);
-  const [nights, setNights]             = useState(1);
+  const [nights, setNights] = useState(1);
   const [editingIndex, setEditingIndex] = useState(null);
   const [isReadyToAddAnother, setIsReadyToAddAnother] = useState(false);
   const [showTransportSection, setShowTransportSection] = useState(false);
   const [showActivitiesSection, setShowActivitiesSection] = useState(false);
   const [showCustomHotelForm, setShowCustomHotelForm] = useState(false);
   const [tollCharges, setTollCharges] = useState(0);
-const [permitCharges, setPermitCharges] = useState(0);
-const [otherCharges, setOtherCharges] = useState(0);
-const [minKm, setMinKm] = useState(300);
-const [editableBaseCost, setEditableBaseCost] = useState(null);
+  const [permitCharges, setPermitCharges] = useState(0);
+  const [otherCharges, setOtherCharges] = useState(0);
+  const [minKm, setMinKm] = useState(300);
+  const [editableBaseCost, setEditableBaseCost] = useState(null);
   const [markupAmount, setMarkupAmount] = useState(0);
-  const [markupType, setMarkupType]     = useState("lumpsum");
+  const [markupType, setMarkupType] = useState("lumpsum");
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [customerName, setCustomerName] = useState("");
 
-  const [roomCategory, setRoomCategory]     = useState("");
-  const [mealPlan, setMealPlan]             = useState("");
-  const [guests, setGuests]                 = useState({ numDouble: 1, numExtraAdult: 0, numExtraChild: 0, numCNB: 0 });
+  const [roomCategory, setRoomCategory] = useState("");
+  const [mealPlan, setMealPlan] = useState("");
+  const [guests, setGuests] = useState({
+    numDouble: 1,
+    numExtraAdult: 0,
+    numExtraChild: 0,
+    numCNB: 0,
+  });
   const [currentHotelTotal, setCurrentHotelTotal] = useState(0);
 
-  const customerId = searchParams.get("customerId") || searchParams.get("customerid");
-  const leadId     = searchParams.get("leadId");
+  const customerId =
+    searchParams.get("customerId") || searchParams.get("customerid");
+  const leadId = searchParams.get("leadId");
 
   useEffect(() => {
     if (reduxCustomerName && !customerName) setCustomerName(reduxCustomerName);
@@ -1316,11 +1881,24 @@ const [editableBaseCost, setEditableBaseCost] = useState(null);
 
   useEffect(() => {
     getDocs(collection(db, "hotels")).then((snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data(), rooms: d.data().rooms || [] }));
-      const unique = [...new Map(list.map((h) => [`${h.name?.toLowerCase()}-${h.state?.toLowerCase()}-${h.city?.toLowerCase()}`, h])).values()];
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        rooms: d.data().rooms || [],
+      }));
+      const unique = [
+        ...new Map(
+          list.map((h) => [
+            `${h.name?.toLowerCase()}-${h.state?.toLowerCase()}-${h.city?.toLowerCase()}`,
+            h,
+          ]),
+        ).values(),
+      ];
       setHotels(unique);
     });
-    getDocs(collection(db, "locations")).then((snap) => setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    getDocs(collection(db, "locations")).then((snap) =>
+      setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    );
   }, []);
 
   useEffect(() => {
@@ -1331,99 +1909,127 @@ const [editableBaseCost, setEditableBaseCost] = useState(null);
     setCheckOutDate(d.toISOString().split("T")[0]);
   }, [checkInDate, nights]);
 
-  const filteredHotels    = useMemo(() => hotels.filter((h) => h.state?.toLowerCase() === selectedState.toLowerCase()), [hotels, selectedState]);
-  const groupedHotels     = useMemo(() => filteredHotels.reduce((acc, h) => { const c = h.city || "Other"; if (!acc[c]) acc[c] = []; acc[c].push(h); return acc; }, {}), [filteredHotels]);
-  const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
-  const hotelTotalPrice   = hotelEntries.reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
-const transportBreakdown = useMemo(() => {
-  if (!selectedTransport?.selectedVehicle) return null;
-
-  const vehicle = selectedTransport.selectedVehicle;
-
-  const totalNights = hotelEntries.reduce(
-    (sum, entry) => sum + (Number(entry.nights) || 0),
-    0
+  const filteredHotels = useMemo(
+    () =>
+      hotels.filter(
+        (h) => h.state?.toLowerCase() === selectedState.toLowerCase(),
+      ),
+    [hotels, selectedState],
   );
+  const groupedHotels = useMemo(
+    () =>
+      filteredHotels.reduce((acc, h) => {
+        const c = h.city || "Other";
+        if (!acc[c]) acc[c] = [];
+        acc[c].push(h);
+        return acc;
+      }, {}),
+    [filteredHotels],
+  );
+  const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
+  const hotelTotalPrice = hotelEntries.reduce(
+    (s, e) => s + Number(e.hotelTotal || 0),
+    0,
+  );
+  const transportBreakdown = useMemo(() => {
+    if (!selectedTransport?.selectedVehicle) return null;
 
-  const days = totalNights > 0 ? totalNights + 1 : 1;
+    const vehicle = selectedTransport.selectedVehicle;
 
-  const perKm = Number(vehicle.perKmprice || 0);
-  const lumpsum = Number(vehicle.price || 0);
-  const allowancePerDay = Number(vehicle.driverAllowance || 0);
+    const totalNights = hotelEntries.reduce(
+      (sum, entry) => sum + (Number(entry.nights) || 0),
+      0,
+    );
 
-  // ── PER KM LOGIC ─────────────────────────
-  if (perKm > 0) {
-    const calculatedBaseCost = Number(minKm || 0) * perKm * days;
+    const days = totalNights > 0 ? totalNights + 1 : 1;
 
-    const baseCost =
-      editableBaseCost !== null
-        ? Number(editableBaseCost)
-        : calculatedBaseCost;
+    const perKm = Number(vehicle.perKmprice || 0);
+    const lumpsum = Number(vehicle.price || 0);
+    const allowancePerDay = Number(vehicle.driverAllowance || 0);
 
-    const driverAllowance = allowancePerDay * days;
+    // ── PER KM LOGIC ─────────────────────────
+    if (perKm > 0) {
+      const calculatedBaseCost = Number(minKm || 0) * perKm * days;
 
-    const toll = Math.max(0, Number(tollCharges || 0));
-    const permit = Math.max(0, Number(permitCharges || 0));
-    const other = Math.max(0, Number(otherCharges || 0));
+      const baseCost =
+        editableBaseCost !== null
+          ? Number(editableBaseCost)
+          : calculatedBaseCost;
 
-      
+      const driverAllowance = allowancePerDay * days;
 
-    const total =
-      baseCost +
-      driverAllowance +
-      toll +
-      permit +
-      other;
+      const toll = Math.max(0, Number(tollCharges || 0));
+      const permit = Math.max(0, Number(permitCharges || 0));
+      const other = Math.max(0, Number(otherCharges || 0));
 
-    return {
-      baseCost,
-      driverAllowance,
-      toll,
-      permit,
-      other,
-      total,
-      isPerKm: true,
-    };
-  }
+      const total = baseCost + driverAllowance + toll + permit + other;
 
-  // ── LUMPSUM LOGIC ────────────────────────
-  if (lumpsum > 0) {
-    return {
-      baseCost: lumpsum,
-      driverAllowance: 0,
-      toll: 0,
-      permit: 0,
-      other: 0,
-      total: lumpsum,
-      isPerKm: false,
-    };
-  }
+      return {
+        baseCost,
+        driverAllowance,
+        toll,
+        permit,
+        other,
+        total,
+        isPerKm: true,
+      };
+    }
 
-  return null;
-}, [
-  selectedTransport,
-  hotelEntries,
-  minKm,
-  editableBaseCost,
-  tollCharges,
-  permitCharges,
-  otherCharges,
-]);
+    // ── LUMPSUM LOGIC ────────────────────────
+    if (lumpsum > 0) {
+      return {
+        baseCost: lumpsum,
+        driverAllowance: 0,
+        toll: 0,
+        permit: 0,
+        other: 0,
+        total: lumpsum,
+        isPerKm: false,
+      };
+    }
 
+    return null;
+  }, [
+    selectedTransport,
+    hotelEntries,
+    minKm,
+    editableBaseCost,
+    tollCharges,
+    permitCharges,
+    otherCharges,
+  ]);
 
-const transportTotalPrice = transportBreakdown?.total || 0;
-  const grandTotal = hotelTotalPrice + transportTotalPrice + activityTotalPrice + confirmedMarkup;
+  const transportTotalPrice = transportBreakdown?.total || 0;
+  const grandTotal =
+    hotelTotalPrice +
+    transportTotalPrice +
+    activityTotalPrice +
+    confirmedMarkup;
   const handleSaveHotel = () => {
-    if (!selectedHotelData) { alert("Please select a hotel."); return; }
-    if (!mealPlan) { alert("Please select a meal plan."); return; }
+    if (!selectedHotelData) {
+      alert("Please select a hotel.");
+      return;
+    }
+    if (!mealPlan) {
+      alert("Please select a meal plan.");
+      return;
+    }
     const entry = {
-      checkInDate, nights, checkOutDate, state: selectedState,
-      hotel: selectedHotelData.name, city: selectedHotelData.city,
+      checkInDate,
+      nights,
+      checkOutDate,
+      state: selectedState,
+      hotel: selectedHotelData.name,
+      city: selectedHotelData.city,
       GoogleListingURL: selectedHotelData.GoogleListingURL || null,
-      numDouble: guests.numDouble, numExtraAdult: guests.numExtraAdult,
-      numExtraChild: guests.numExtraChild, numCNB: guests.numCNB,
-      hotelTotal: currentHotelTotal, selectedMealPlan: mealPlan,
-      selectedRoomCategory: roomCategory, isCustom: false,
+      numDouble: guests.numDouble,
+      numExtraAdult: guests.numExtraAdult,
+      numExtraChild: guests.numExtraChild,
+      numCNB: guests.numCNB,
+      hotelTotal: currentHotelTotal,
+      selectedMealPlan: mealPlan,
+      selectedRoomCategory: roomCategory,
+      isCustom: false,
     };
     if (editingIndex !== null) {
       dispatch(updateHotelEntry({ index: editingIndex, data: entry }));
@@ -1440,7 +2046,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
     setSelectedState(entry.state);
     setCheckInDate(entry.checkInDate);
     setNights(entry.nights);
-    setSelectedHotelId(hotels.find((h) => h.name === entry.hotel && h.city === entry.city)?.id || null);
+    setSelectedHotelId(
+      hotels.find((h) => h.name === entry.hotel && h.city === entry.city)?.id ||
+        null,
+    );
     setEditingIndex(index);
     window.scrollTo({ top: 300, behavior: "smooth" });
   };
@@ -1472,20 +2081,40 @@ const transportTotalPrice = transportBreakdown?.total || 0;
   };
 
   const handleApplyMarkup = () => {
-    const base   = hotelTotalPrice + transportTotalPrice + activityTotalPrice;
-    const markup = markupType === "percentage" ? (markupAmount / 100) * base : markupAmount;
+    const base = hotelTotalPrice + transportTotalPrice + activityTotalPrice;
+    const markup =
+      markupType === "percentage" ? (markupAmount / 100) * base : markupAmount;
     dispatch(setConfirmedMarkup(markup));
   };
 
   const handleCopyToClipboard = () =>
-    copyPackageSummary({ hotelEntries, selectedTransport, selectedActivities, grandTotal, hotels });
+    copyPackageSummary({
+      hotelEntries,
+      selectedTransport,
+      selectedActivities,
+      grandTotal,
+      hotels,
+    });
 
   const handleExportToPDF = () =>
-    exportPackagePDF({ hotelEntries, selectedTransport, selectedActivities, grandTotal, customerName, packageName });
+    exportPackagePDF({
+      hotelEntries,
+      selectedTransport,
+      selectedActivities,
+      grandTotal,
+      customerName,
+      packageName,
+    });
 
   const handleSavePackage = async () => {
-    if (!packageName.trim())  { alert("Please enter a package name."); return; }
-    if (!customerName.trim()) { alert("Please enter a customer name."); return; }
+    if (!packageName.trim()) {
+      alert("Please enter a package name.");
+      return;
+    }
+    if (!customerName.trim()) {
+      alert("Please enter a customer name.");
+      return;
+    }
     try {
       const agentId = user?.uid;
       if (!agentId) throw new Error("Not logged in");
@@ -1494,82 +2123,119 @@ const transportTotalPrice = transportBreakdown?.total || 0;
         : leadId
           ? { leadId, leadName: customerName }
           : { customerName };
-      await addDoc(collection(doc(db, "saved_packages_by_agents", agentId), "packages"), {
-        packageName, ...c_data, status: "Draft", createdAt: serverTimestamp(),
-        markup: confirmedMarkup || 0, grandTotal: grandTotal || 0,
-        hotelSummary: hotelEntries, activitySummary: selectedActivities,
-        transportSummary: selectedTransport ? {
-  packageName: selectedTransport.name || "Custom",
-
-  vehicleName: selectedTransport.selectedVehicle?.type || "",
-  seats: selectedTransport.selectedVehicle?.seating || "",
-  ac: selectedTransport.selectedVehicle?.ac || false,
-
-  pricingType: selectedTransport.pricingType || "fixed",
-  perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
-
-  minKm: minKm || 0,
-
-  vehicleCost: transportBreakdown?.baseCost || 0,
-  driverAllowance: transportBreakdown?.driverAllowance || 0,
-  tollCharges: transportBreakdown?.toll || 0,
-  permitCharges: transportBreakdown?.permit || 0,
-  otherCharges: transportBreakdown?.other || 0,
-
-  totalTransportCost: transportBreakdown?.total || 0,
-
-  isCustom: selectedTransport.selectedVehicle?.isCustom || false,
-} : null,
-      });
+      await addDoc(
+        collection(doc(db, "saved_packages_by_agents", agentId), "packages"),
+        {
+          packageName,
+          ...c_data,
+          status: "Draft",
+          createdAt: serverTimestamp(),
+          markup: confirmedMarkup || 0,
+          grandTotal: grandTotal || 0,
+          hotelSummary: hotelEntries,
+          activitySummary: selectedActivities,
+          transportSummary: selectedTransport
+            ? {
+                packageName: selectedTransport.name || "Custom",
+                vehicleName: selectedTransport.selectedVehicle?.type || "",
+                seats: selectedTransport.selectedVehicle?.seating || "",
+                ac: selectedTransport.selectedVehicle?.ac || false,
+                pricingType: selectedTransport.pricingType || "fixed",
+                perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
+                minKm: minKm || 0,
+                vehicleCost: transportBreakdown?.baseCost || 0,
+                driverAllowance: transportBreakdown?.driverAllowance || 0,
+                tollCharges: transportBreakdown?.toll || 0,
+                permitCharges: transportBreakdown?.permit || 0,
+                otherCharges: transportBreakdown?.other || 0,
+                totalTransportCost: transportBreakdown?.total || 0,
+                isCustom: selectedTransport.selectedVehicle?.isCustom || false,
+              }
+            : null,
+          itinerarySummary: itineraryData ?? null,
+        },
+      );
       toast("Package saved successfully! ✅");
       router.push("./agent-panel/my-quatation");
       setShowSaveModal(false);
       dispatch(setPackageName(""));
-    } catch (err) { console.error(err); toast.error("Failed to save: " + err.message); }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save: " + err.message);
+    }
   };
-
-  const showRightPanel = selectedActivities.length > 0 || hotelEntries.length > 0 || selectedTransport;
+  const showRightPanel =
+    selectedActivities.length > 0 ||
+    hotelEntries.length > 0 ||
+    selectedTransport;
 
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen pb-12">
       <div className="mx-auto p-0 md:px-4 lg:px-8">
         <div className="flex flex-col lg:flex-row lg:gap-8 xl:gap-10">
-
           {/* ══ LEFT COLUMN ══════════════════════════════════════════════════ */}
           <div className="flex-1 space-y-6 lg:pr-4 pb-8 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-
             {/* 1. Date + Nights + State */}
             <Card className="border-slate-200 shadow-sm">
               <CardContent className="p-3 sm:p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-sm flex items-center gap-1.5 font-medium">
-                      <Calendar className="h-4 w-4 text-theme-primary" /> Check-in
+                      <Calendar className="h-4 w-4 text-theme-primary" />{" "}
+                      Check-in
                     </Label>
-                    <Input type="date" value={checkInDate} min={new Date().toISOString().split("T")[0]}
-                      onChange={(e) => setCheckInDate(e.target.value)} />
+                    <Input
+                      type="date"
+                      value={checkInDate}
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => setCheckInDate(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium flex items-center gap-1.5">
                       <Moon className="h-4 w-4 text-theme-primary" /> Nights
                     </Label>
-                    <Input type="number" min={1} value={nights} onChange={(e) => setNights(parseInt(e.target.value) || 1)} />
+                    <Input
+                      type="number"
+                      min={1}
+                      value={nights}
+                      onChange={(e) => setNights(parseInt(e.target.value) || 1)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium flex items-center gap-1.5">
                       <Sun className="h-4 w-4 text-theme-primary" /> Check-out
                     </Label>
-                    <Input type="date" value={checkOutDate} readOnly className="bg-slate-50 cursor-not-allowed" />
+                    <Input
+                      type="date"
+                      value={checkOutDate}
+                      readOnly
+                      className="bg-slate-50 cursor-not-allowed"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4 text-theme-primary" /> Destination State
+                      <MapPin className="h-4 w-4 text-theme-primary" />{" "}
+                      Destination State
                     </Label>
-                    <Select value={selectedState} onValueChange={(v) => { setSelectedState(v); setSelectedHotelId(null); setShowCustomHotelForm(false); }}>
-                      <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+                    <Select
+                      value={selectedState}
+                      onValueChange={(v) => {
+                        setSelectedState(v);
+                        setSelectedHotelId(null);
+                        setShowCustomHotelForm(false);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
                       <SelectContent>
-                        {states.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                        {states.map((s) => (
+                          <SelectItem key={s.id} value={s.name}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1583,7 +2249,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                 <CardHeader className="p-3 sm:p-5 pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Hotel className="h-5 w-5 text-theme-primary" />
-                    Hotels in <span className="text-theme-primary">{selectedState}</span>
+                    Hotels in{" "}
+                    <span className="text-theme-primary">{selectedState}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-5 pt-2 space-y-4">
@@ -1592,8 +2259,14 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
                         <Hotel className="h-7 w-7 text-slate-400" />
                       </div>
-                      <p className="text-slate-500 text-sm">No hotels found in {selectedState}.</p>
-                      <Button onClick={() => setShowCustomHotelForm(true)} className="bg-theme-primary hover:bg-theme-secondary" size="sm">
+                      <p className="text-slate-500 text-sm">
+                        No hotels found in {selectedState}.
+                      </p>
+                      <Button
+                        onClick={() => setShowCustomHotelForm(true)}
+                        className="bg-theme-primary hover:bg-theme-secondary"
+                        size="sm"
+                      >
                         <PenLine className="h-4 w-4 mr-2" /> Add Custom Hotel
                       </Button>
                     </div>
@@ -1614,15 +2287,29 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                                     : "border-slate-100 hover:border-theme-primary/30 hover:bg-slate-50"
                                 }`}
                               >
-                                <input type="radio" name="hotel" value={h.id} checked={selectedHotelId === h.id}
-                                  onChange={() => { setSelectedHotelId(h.id); setShowCustomHotelForm(false); }}
-                                  className="accent-theme-primary flex-shrink-0" />
+                                <input
+                                  type="radio"
+                                  name="hotel"
+                                  value={h.id}
+                                  checked={selectedHotelId === h.id}
+                                  onChange={() => {
+                                    setSelectedHotelId(h.id);
+                                    setShowCustomHotelForm(false);
+                                  }}
+                                  className="accent-theme-primary flex-shrink-0"
+                                />
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-semibold text-slate-800 truncate">{h.name}</p>
+                                  <p className="text-sm font-semibold text-slate-800 truncate">
+                                    {h.name}
+                                  </p>
                                   <div className="flex items-center gap-1 mt-0.5">
                                     <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
-                                    <span className="text-[10px] text-slate-500">{h.GoogleReviewRating || "N/A"}</span>
-                                    <span className="text-[10px] text-slate-400">· {h.city}</span>
+                                    <span className="text-[10px] text-slate-500">
+                                      {h.GoogleReviewRating || "N/A"}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                      · {h.city}
+                                    </span>
                                   </div>
                                 </div>
                               </label>
@@ -1631,11 +2318,16 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         ))}
                       </div>
                       <div className="flex justify-end">
-                        <Button variant="outline" size="sm"
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => setShowCustomHotelForm((p) => !p)}
-                          className="text-xs border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5">
+                          className="text-xs border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5"
+                        >
                           <PenLine className="h-3.5 w-3.5 mr-1" />
-                          {showCustomHotelForm ? "Hide Custom Form" : "Add Custom Hotel"}
+                          {showCustomHotelForm
+                            ? "Hide Custom Form"
+                            : "Add Custom Hotel"}
                         </Button>
                       </div>
                     </>
@@ -1658,8 +2350,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   <CardTitle className="text-base flex items-center gap-2">
                     <Hotel className="h-5 w-5 text-theme-primary" />
                     <div>
-                      <span className="text-theme-dark">{selectedHotelData.name}</span>
-                      <span className="text-sm font-normal text-slate-500 ml-2">— {selectedHotelData.city}</span>
+                      <span className="text-theme-dark">
+                        {selectedHotelData.name}
+                      </span>
+                      <span className="text-sm font-normal text-slate-500 ml-2">
+                        — {selectedHotelData.city}
+                      </span>
                     </div>
                   </CardTitle>
                 </CardHeader>
@@ -1672,14 +2368,25 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     onRoomCategoryChange={setRoomCategory}
                     onMealPlanChange={setMealPlan}
                     onGuestsChange={setGuests}
-                    initial={editingIndex !== null ? hotelEntries[editingIndex] : {}}
+                    initial={
+                      editingIndex !== null ? hotelEntries[editingIndex] : {}
+                    }
                   />
                   <div className="flex flex-wrap gap-3 mt-6 pt-5 border-t">
-                    <Button onClick={handleSaveHotel} className="bg-theme-primary hover:bg-theme-secondary shadow-sm">
-                      {editingIndex !== null ? "✏️ Update Hotel" : "💾 Save Hotel"}
+                    <Button
+                      onClick={handleSaveHotel}
+                      className="bg-theme-primary hover:bg-theme-secondary shadow-sm"
+                    >
+                      {editingIndex !== null
+                        ? "✏️ Update Hotel"
+                        : "💾 Save Hotel"}
                     </Button>
                     {isReadyToAddAnother && (
-                      <Button variant="outline" onClick={handleAddAnotherHotel} className="border-theme-primary text-theme-primary hover:bg-theme-primary/5">
+                      <Button
+                        variant="outline"
+                        onClick={handleAddAnotherHotel}
+                        className="border-theme-primary text-theme-primary hover:bg-theme-primary/5"
+                      >
                         <Plus className="h-4 w-4 mr-1" /> Add Another Hotel
                       </Button>
                     )}
@@ -1696,7 +2403,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   <h3 className="text-base font-bold text-slate-800">
                     Hotel Itinerary
                     <span className="ml-2 text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {hotelEntries.length} hotel{hotelEntries.length > 1 ? "s" : ""}
+                      {hotelEntries.length} hotel
+                      {hotelEntries.length > 1 ? "s" : ""}
                     </span>
                   </h3>
                 </div>
@@ -1716,8 +2424,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   ))}
                 </div>
                 <div className="flex items-center justify-between bg-theme-primary/5 border border-theme-primary/20 rounded-xl px-4 py-3">
-                  <span className="text-sm font-semibold text-slate-700">Hotels Subtotal</span>
-                  <span className="text-lg font-black text-theme-primary">₹{hotelTotalPrice.toLocaleString("en-IN")}</span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    Hotels Subtotal
+                  </span>
+                  <span className="text-lg font-black text-theme-primary">
+                    ₹{hotelTotalPrice.toLocaleString("en-IN")}
+                  </span>
                 </div>
               </div>
             )}
@@ -1732,32 +2444,38 @@ const transportTotalPrice = transportBreakdown?.total || 0;
               <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
                 {selectedTransport?.selectedVehicle && (
                   <TransportSummaryCard
-  transport={selectedTransport}
-  totalPrice={transportTotalPrice}
-  transportBreakdown={transportBreakdown}
-  minKm={minKm}
-  setMinKm={setMinKm}
-  tollCharges={tollCharges}
-  setTollCharges={setTollCharges}
-  permitCharges={permitCharges}
-  setPermitCharges={setPermitCharges}
-  otherCharges={otherCharges}
-  setOtherCharges={setOtherCharges}
-  editableBaseCost={editableBaseCost}
-  setEditableBaseCost={setEditableBaseCost}
-  onEdit={() => setShowTransportSection(true)}
-/>
+                    transport={selectedTransport}
+                    totalPrice={transportTotalPrice}
+                    transportBreakdown={transportBreakdown}
+                    minKm={minKm}
+                    setMinKm={setMinKm}
+                    tollCharges={tollCharges}
+                    setTollCharges={setTollCharges}
+                    permitCharges={permitCharges}
+                    setPermitCharges={setPermitCharges}
+                    otherCharges={otherCharges}
+                    setOtherCharges={setOtherCharges}
+                    editableBaseCost={editableBaseCost}
+                    setEditableBaseCost={setEditableBaseCost}
+                    onEdit={() => setShowTransportSection(true)}
+                  />
                 )}
-                {!showTransportSection && !selectedTransport?.selectedVehicle ? (
-                  <Button onClick={() => setShowTransportSection(true)} className="w-full bg-theme-primary hover:bg-theme-secondary">
+                {!showTransportSection &&
+                !selectedTransport?.selectedVehicle ? (
+                  <Button
+                    onClick={() => setShowTransportSection(true)}
+                    className="w-full bg-theme-primary hover:bg-theme-secondary"
+                  >
                     <Plus className="h-4 w-4 mr-2" /> Add Transport
                   </Button>
                 ) : showTransportSection ? (
                   <div className="mt-2">
-                    <TransportSelector onTransportSelect={(t) => {
-                      dispatch(setSelectedTransport(t));
-                      setShowTransportSection(false);
-                    }} />
+                    <TransportSelector
+                      onTransportSelect={(t) => {
+                        dispatch(setSelectedTransport(t));
+                        setShowTransportSection(false);
+                      }}
+                    />
                   </div>
                 ) : null}
               </CardContent>
@@ -1767,7 +2485,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
             <Card className="border-slate-200 shadow-sm">
               <CardHeader className="p-3 sm:p-5 pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Palmtree className="h-5 w-5 text-theme-primary" /> Activities & Sightseeing
+                  <Palmtree className="h-5 w-5 text-theme-primary" /> Activities
+                  & Sightseeing
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
@@ -1779,17 +2498,31 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   />
                 )}
                 {!showActivitiesSection && selectedActivities.length === 0 ? (
-                  <Button onClick={() => setShowActivitiesSection(true)} className="w-full bg-theme-primary hover:bg-theme-secondary">
+                  <Button
+                    onClick={() => setShowActivitiesSection(true)}
+                    className="w-full bg-theme-primary hover:bg-theme-secondary"
+                  >
                     <Plus className="h-4 w-4 mr-2" /> Add Activities
                   </Button>
                 ) : showActivitiesSection ? (
                   <div className="space-y-3 mt-2">
                     <div className="space-y-1.5">
-                      <Label className="text-sm font-medium">State for Activities</Label>
-                      <Select value={selectedState} onValueChange={setSelectedState}>
-                        <SelectTrigger className="text-sm"><SelectValue placeholder="Select state" /></SelectTrigger>
+                      <Label className="text-sm font-medium">
+                        State for Activities
+                      </Label>
+                      <Select
+                        value={selectedState}
+                        onValueChange={setSelectedState}
+                      >
+                        <SelectTrigger className="text-sm">
+                          <SelectValue placeholder="Select state" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {states.map((s) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                          {states.map((s) => (
+                            <SelectItem key={s.id} value={s.name}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1801,29 +2534,51 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       />
                     )}
                     {selectedActivities.length > 0 && (
-                      <Button variant="outline" size="sm" onClick={() => setShowActivitiesSection(false)}
-                        className="text-xs border-green-300 text-green-700 hover:bg-green-50">
-                        <CheckCircle2 className="h-3 w-3 mr-1" /> Done — Collapse Activities
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowActivitiesSection(false)}
+                        className="text-xs border-green-300 text-green-700 hover:bg-green-50"
+                      >
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Done —
+                        Collapse Activities
                       </Button>
                     )}
                   </div>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={() => setShowActivitiesSection(true)}
-                    className="text-xs border-theme-primary/40 text-theme-primary">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowActivitiesSection(true)}
+                    className="text-xs border-theme-primary/40 text-theme-primary"
+                  >
                     <PenLine className="h-3.5 w-3.5 mr-1" /> Edit Activities
                   </Button>
                 )}
               </CardContent>
             </Card>
 
+            {/* 7 Itineraty  */}
+            {hotelEntries.length > 0 && (
+              <ItinerarySection
+                hotelEntries={hotelEntries}
+                selectedState={selectedState}
+                onChange={(data) => setItineraryData(data)}
+              />
+            )}
+
             {/* Export buttons */}
             <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200">
-              <button onClick={handleCopyToClipboard}
-                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-black text-sm shadow-sm font-medium transition-all">
+              <button
+                onClick={handleCopyToClipboard}
+                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-black text-sm shadow-sm font-medium transition-all"
+              >
                 <Copy className="h-4 w-4" /> Copy WhatsApp Summary
               </button>
-              <button onClick={handleExportToPDF}
-                className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm shadow-sm font-medium transition-all">
+              <button
+                onClick={handleExportToPDF}
+                className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm shadow-sm font-medium transition-all"
+              >
                 <FileText className="h-4 w-4" /> Export PDF
               </button>
             </div>
@@ -1832,13 +2587,15 @@ const transportTotalPrice = transportBreakdown?.total || 0;
           {/* ══ RIGHT COLUMN — Sticky Pricing Panel ══════════════════════════ */}
           {showRightPanel && (
             <div className="lg:w-96 xl:w-[420px] lg:min-w-[360px] lg:sticky lg:top-6 lg:self-start space-y-5 pt-6 lg:pt-0">
-
               {/* Package breakdown */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm">Package Breakdown</h3>
+                  <h3 className="font-bold text-slate-800 text-sm">
+                    Package Breakdown
+                  </h3>
                   <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
-                    {hotelEntries.length}H · {selectedTransport ? "1T" : "0T"} · {selectedActivities.length}A
+                    {hotelEntries.length}H · {selectedTransport ? "1T" : "0T"} ·{" "}
+                    {selectedActivities.length}A
                   </span>
                 </div>
                 <div className="p-4 space-y-2.5">
@@ -1849,7 +2606,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       </div>
                       Hotels ({hotelEntries.length})
                     </div>
-                    <span className="font-semibold">₹{hotelTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                    <span className="font-semibold">
+                      ₹
+                      {hotelTotalPrice.toLocaleString("en-IN", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2 text-slate-600">
@@ -1858,7 +2620,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       </div>
                       Transport
                     </div>
-                    <span className="font-semibold">₹{transportTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                    <span className="font-semibold">
+                      ₹
+                      {transportTotalPrice.toLocaleString("en-IN", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2 text-slate-600">
@@ -1867,7 +2634,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       </div>
                       Activities ({selectedActivities.length})
                     </div>
-                    <span className="font-semibold">₹{activityTotalPrice.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                    <span className="font-semibold">
+                      ₹
+                      {activityTotalPrice.toLocaleString("en-IN", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
                   </div>
                   {confirmedMarkup > 0 && (
                     <div className="flex items-center justify-between text-sm">
@@ -1877,7 +2649,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         </div>
                         Markup
                       </div>
-                      <span className="font-semibold text-amber-600">+₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                      <span className="font-semibold text-amber-600">
+                        +₹
+                        {confirmedMarkup.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1892,23 +2669,39 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                 </CardHeader>
                 <CardContent className="p-4 sm:p-5 pt-0">
                   <div className="flex gap-2">
-                    <Input type="number" value={markupAmount}
+                    <Input
+                      type="number"
+                      value={markupAmount}
                       onChange={(e) => setMarkupAmount(Number(e.target.value))}
-                      className="flex-1 text-sm" placeholder="0" />
+                      className="flex-1 text-sm"
+                      placeholder="0"
+                    />
                     <Select value={markupType} onValueChange={setMarkupType}>
-                      <SelectTrigger className="w-32 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-32 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="lumpsum">Lumpsum (₹)</SelectItem>
                         <SelectItem value="percentage">Percent (%)</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button onClick={handleApplyMarkup} size="sm" className="bg-theme-secondary hover:bg-theme-secondary/90 px-4">
+                    <Button
+                      onClick={handleApplyMarkup}
+                      size="sm"
+                      className="bg-theme-secondary hover:bg-theme-secondary/90 px-4"
+                    >
                       Apply
                     </Button>
                   </div>
                   {confirmedMarkup > 0 && (
                     <p className="mt-2.5 text-xs text-slate-500">
-                      Markup applied: <span className="font-bold text-theme-dark">₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                      Markup applied:{" "}
+                      <span className="font-bold text-theme-dark">
+                        ₹
+                        {confirmedMarkup.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
                     </p>
                   )}
                 </CardContent>
@@ -1924,13 +2717,24 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     <h3 className="text-lg font-bold">Grand Total</h3>
                   </div>
                   <div className="text-center mb-6">
-                    <p className="text-xs text-white/60 uppercase tracking-widest font-medium mb-1">Total Package Cost</p>
+                    <p className="text-xs text-white/60 uppercase tracking-widest font-medium mb-1">
+                      Total Package Cost
+                    </p>
                     <p className="text-5xl font-black tracking-tight">
-                      ₹{grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      ₹
+                      {grandTotal.toLocaleString("en-IN", {
+                        maximumFractionDigits: 0,
+                      })}
                     </p>
                     {hotelEntries.length > 0 && (
                       <p className="text-xs text-white/50 mt-1">
-                        for {hotelEntries.reduce((sum, e) => sum + (parseInt(e.nights) || 0), 0)} nights · {hotelEntries[0]?.numDouble || 0} room{(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
+                        for{" "}
+                        {hotelEntries.reduce(
+                          (sum, e) => sum + (parseInt(e.nights) || 0),
+                          0,
+                        )}{" "}
+                        nights · {hotelEntries[0]?.numDouble || 0} room
+                        {(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
@@ -1954,22 +2758,51 @@ const transportTotalPrice = transportBreakdown?.total || 0;
             <div className="bg-theme-dark text-white px-6 py-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold">Finalize Package</h2>
-                <button onClick={() => setShowSaveModal(false)} className="text-white/70 hover:text-white transition-colors">
+                <button
+                  onClick={() => setShowSaveModal(false)}
+                  className="text-white/70 hover:text-white transition-colors"
+                >
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <p className="text-white/60 text-sm mt-1">Fill in details to save this package</p>
+              <p className="text-white/60 text-sm mt-1">
+                Fill in details to save this package
+              </p>
             </div>
             <div className="p-6 space-y-4">
               <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs text-slate-600">
-                <div className="flex justify-between"><span>Hotels</span><span className="font-semibold">₹{hotelTotalPrice.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between"><span>Transport</span><span className="font-semibold">₹{transportTotalPrice.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between"><span>Activities</span><span className="font-semibold">₹{activityTotalPrice.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between border-t pt-1.5 font-bold text-sm text-slate-800"><span>Grand Total</span><span className="text-theme-primary">₹{grandTotal.toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between">
+                  <span>Hotels</span>
+                  <span className="font-semibold">
+                    ₹{hotelTotalPrice.toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Transport</span>
+                  <span className="font-semibold">
+                    ₹{transportTotalPrice.toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Activities</span>
+                  <span className="font-semibold">
+                    ₹{activityTotalPrice.toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t pt-1.5 font-bold text-sm text-slate-800">
+                  <span>Grand Total</span>
+                  <span className="text-theme-primary">
+                    ₹{grandTotal.toLocaleString("en-IN")}
+                  </span>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Package Name *</Label>
-                <Input value={packageName} onChange={(e) => dispatch(setPackageName(e.target.value))} placeholder="e.g. Goa Delight 4N/5D" />
+                <Input
+                  value={packageName}
+                  onChange={(e) => dispatch(setPackageName(e.target.value))}
+                  placeholder="e.g. Goa Delight 4N/5D"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Customer Name *</Label>
@@ -1978,7 +2811,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Customer name"
                   disabled={!!customerId}
-                  className={customerId ? "bg-slate-100 cursor-not-allowed" : ""}
+                  className={
+                    customerId ? "bg-slate-100 cursor-not-allowed" : ""
+                  }
                 />
                 {(customerId || leadId) && (
                   <p className="text-xs text-slate-400">
@@ -1988,8 +2823,13 @@ const transportTotalPrice = transportBreakdown?.total || 0;
               </div>
             </div>
             <div className="px-6 pb-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowSaveModal(false)}>Cancel</Button>
-              <Button onClick={handleSavePackage} className="bg-green-600 hover:bg-green-700 text-white px-6">
+              <Button variant="outline" onClick={() => setShowSaveModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSavePackage}
+                className="bg-green-600 hover:bg-green-700 text-white px-6"
+              >
                 <Save className="h-4 w-4 mr-2" /> Save Package
               </Button>
             </div>
