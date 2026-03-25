@@ -135,6 +135,7 @@ ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 ## OUTPUT
 Return valid JSON matching the provided schema exactly.
 IDs: use short slugs like "day-001", "inc-001", "exc-001", "tnc-001", "can-001", "imp-001".
+also for day descriptions start each point with new line 
 All checklist items must have selected: true and appropriate isDefault values.
 `.trim();
 }
@@ -146,6 +147,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const { packageContext } = body;
+    console.log(packageContext)
 
     if (!packageContext) {
       return Response.json(
