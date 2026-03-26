@@ -147,7 +147,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const { packageContext } = body;
-    console.log(packageContext)
+    // console.log(packageContext)
 
     if (!packageContext) {
       return Response.json(
@@ -233,7 +233,7 @@ export async function POST(req) {
 
     // ── Call Gemini with flat inline schema ─────────────────────────────────
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType:   "application/json",

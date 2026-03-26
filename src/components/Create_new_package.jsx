@@ -2118,6 +2118,7 @@ useEffect(() => {
       grandTotal,
       customerName,
       packageName,
+      itineraryData,
     });
 
   const handleSavePackage = async () => {
