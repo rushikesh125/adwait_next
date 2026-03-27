@@ -114,7 +114,7 @@ ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
 ### Intermediate Days — Sightseeing
 - One full day per city. Use REAL, well-known attractions for each city.
-- Transition day (moving city to city): morning checkout + drive to next city + afternoon sightseeing + check-in.
+- Transition day (moving city to city): morning checkout + drive to next city + afternoon sightseeing ( keep it in new sub-point) + check-in.
 - Mention meal timings naturally: Breakfast ~8AM, Lunch ~1PM, Dinner ~8PM.
 - Include approximate timings for each activity.
 
@@ -137,6 +137,7 @@ Return valid JSON matching the provided schema exactly.
 IDs: use short slugs like "day-001", "inc-001", "exc-001", "tnc-001", "can-001", "imp-001".
 also for day descriptions start each point with new line 
 All checklist items must have selected: true and appropriate isDefault values.
+Keep Language Simple and  
 `.trim();
 }
 
