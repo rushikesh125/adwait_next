@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useSelector } from "react-redux";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Activity Selector – clean native select dropdown, no search bar
@@ -255,7 +256,7 @@ export default function ItineraryForm() {
   const [states, setStates] = useState([]);
   const [availableActivities, setAvailableActivities] = useState([]);
   const [cityInput, setCityInput] = useState("");
-
+  const {user} = useSelector(state=>state.auth)
   const [form, setForm] = useState({
     title: "",
     state: "",
@@ -454,7 +455,9 @@ export default function ItineraryForm() {
   const handleSave = async (isDraft = false) => {
     if (!form.title || !form.state || form.cities.length === 0)
       return toast.error("Required: Title, State, and at least 1 City.");
-
+    if ( !user || (user?.uid && user?.role)){
+      return toast.error("User should be loggedin")
+    }
     const payload = {
       ...form,
       days,
@@ -467,6 +470,8 @@ export default function ItineraryForm() {
       version: (form.version || 0) + 1,
       updatedAt: serverTimestamp(),
       status: isDraft ? "Draft" : "Published",
+      clientRole:user?.role,
+      clientId:user?.uid
     };
 
     try {
