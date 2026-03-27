@@ -312,48 +312,8 @@ function AIChatPanel({
 
       {isExpanded && (
         <div className="p-4 space-y-3">
-          {/* ── Initial Generate button (shown before first generation) ── */}
-          {!hasGenerated && (
-            <Button
-              type="button"
-              onClick={onGenerate}
-              disabled={isGenerating}
-              className="w-full rounded-lg px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold transition-all disabled:opacity-60 shadow-sm"
-            >
-              {isGenerating ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4 mr-2"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
-                  Generating itinerary…
-                </>
-              ) : (
-                <>
-                  <AudioLinesIcon className="mr-2 h-4 w-4" />
-                  Generate with AI
-                </>
-              )}
-            </Button>
-          )}
-
-          {/* ── Chat history ── */}
-          {chatHistory.length > 0 && (
+          {/* ── Prompt textarea — always visible ── */}
+           {chatHistory.length > 0 && (
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
               {chatHistory.map((msg, idx) => (
                 <div
@@ -406,52 +366,98 @@ function AIChatPanel({
               <div ref={bottomRef} />
             </div>
           )}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
+              <MessageSquare className="w-3 h-3 text-slate-400" />
+              <span className="text-[11px] text-slate-500 font-medium">
+                {hasGenerated
+                  ? "Refine the itinerary with a follow-up instruction"
+                  : "Describe your itinerary or provide instructions for the AI"}
+              </span>
+            </div>
+            <div className="flex gap-2 items-end">
+              <Textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  hasGenerated
+                    ? `e.g. "Add a food tour on Day 2" or "Make Day 1 more relaxed" or "Change hotels to 5-star"…\n\nCtrl+Enter to send`
+                    : `e.g. "5 nights in Rajasthan covering Jaipur and Udaipur, focus on heritage and culture"…\n\nCtrl+Enter to send`
+                }
+                disabled={isGenerating}
+                className="text-xs resize-none min-h-[72px] max-h-[140px] flex-1 disabled:opacity-60 leading-relaxed"
+                rows={3}
+              />
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!prompt.trim() || isGenerating}
+                className="h-9 w-9 p-0 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-40 mb-0.5"
+                title="Send (Ctrl+Enter)"
+              >
+                {isGenerating ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              {hasGenerated
+                ? "The AI will update the itinerary while keeping your manual edits in context."
+                : "The AI will generate a full itinerary based on your description."}
+            </p>
+          </div>
+
+          {/* ── Generate button — shown before first generation ── */}
+          {!hasGenerated && (
+            <Button
+              type="button"
+              onClick={onGenerate}
+              disabled={isGenerating}
+              className="w-full rounded-lg px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold transition-all disabled:opacity-60 shadow-sm"
+            >
+              {isGenerating ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 mr-2"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
+                  </svg>
+                  Generating itinerary…
+                </>
+              ) : (
+                <>
+                  <AudioLinesIcon className="mr-2 h-4 w-4" />
+                  Generate with AI
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* ── Chat history ── */}
+         
 
           {/* ── Error banner (non-chat errors) ── */}
           {aiError && chatHistory.length === 0 && (
             <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
               <span>{aiError}</span>
-            </div>
-          )}
-
-          {/* ── Refinement textarea (shown after first generation) ── */}
-          {hasGenerated && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <MessageSquare className="w-3 h-3 text-slate-400" />
-                <span className="text-[11px] text-slate-500 font-medium">
-                  Refine the itinerary with a follow-up instruction
-                </span>
-              </div>
-              <div className="flex gap-2 items-end">
-                <Textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={`e.g. "Add a food tour on Day 2" or "Make Day 1 more relaxed" or "Change hotels to 5-star"…\n\nCtrl+Enter to send`}
-                  disabled={isGenerating}
-                  className="text-xs resize-none min-h-[72px] max-h-[140px] flex-1 disabled:opacity-60 leading-relaxed"
-                  rows={3}
-                />
-                <Button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={!prompt.trim() || isGenerating}
-                  className="h-9 w-9 p-0 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-40 mb-0.5"
-                  title="Send (Ctrl+Enter)"
-                >
-                  {isGenerating ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
-              <p className="text-[10px] text-slate-400">
-                The AI will update the itinerary while keeping your manual edits
-                in context.
-              </p>
             </div>
           )}
 
