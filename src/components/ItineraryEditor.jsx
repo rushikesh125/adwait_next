@@ -13,21 +13,9 @@
  *   onCancel     – () => void       called when user clicks "Cancel / Discard"
  *   availableActivities – array fetched by parent (state-scoped), passed down
  *                         so this component stays Firestore-free
- *
- * Shape emitted via onChange
- * ─────────────────────────
- * {
- *   title, state, cities, tags,
- *   days: [{ id, dayNumber, title, description, activityIds[] }],
- *   inclusions:   [{ id, text, selected, isDefault }],
- *   exclusions:   [{ id, text, selected, isDefault }],
- *   tnc:          [{ id, text, selected, isDefault }],
- *   cancellation: [{ id, text, selected, isDefault }],
- *   impInfo:      [{ id, text, selected, isDefault }],
- * }
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Plus,
   X,
@@ -39,6 +27,11 @@ import {
   ChevronUp,
   ChevronDown,
   AudioLinesIcon,
+  Send,
+  MessageSquare,
+  AlertCircle,
+  ChevronDown as ChevronDownIcon,
+  RefreshCw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -49,13 +42,14 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSelector } from "react-redux";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 const mkId = () => `id-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Default checklist data  (mirrors ItineraryForm exactly)
+// Default checklist data
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_INCLUSIONS = [
   "Hotel to Airport transfer on the day of departure.",
@@ -107,7 +101,7 @@ const TABS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ChecklistSection  (identical logic to ItineraryForm)
+// ChecklistSection
 // ─────────────────────────────────────────────────────────────────────────────
 function ChecklistSection({
   items,
@@ -209,7 +203,7 @@ function ChecklistSection({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ActivityDropdown  (native select, no search — mirrors ItineraryForm)
+// ActivityDropdown
 // ─────────────────────────────────────────────────────────────────────────────
 function ActivityDropdown({
   dayIdx,
@@ -250,6 +244,236 @@ function ActivityDropdown({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AI Chat Panel — shows history + refinement textarea
+// ─────────────────────────────────────────────────────────────────────────────
+function AIChatPanel({
+  chatHistory,
+  isGenerating,
+  aiError,
+  onGenerate,
+  onRefine,
+  hasGenerated,
+}) {
+  const [prompt, setPrompt] = useState("");
+  const [isExpanded, setIsExpanded] = useState(true);
+  const bottomRef = useRef(null);
+
+  // Auto-scroll to bottom when history updates
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatHistory]);
+
+  const handleSubmit = () => {
+    const trimmed = prompt.trim();
+    if (!trimmed || isGenerating) return;
+    onRefine(trimmed);
+    setPrompt("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+      {/* ── Header ── */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded((p) => !p)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-200 hover:from-blue-100 hover:to-indigo-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+            <AudioLinesIcon className="w-3 h-3 text-white" />
+          </div>
+          <span className="text-sm font-semibold text-slate-700">
+            AI Itinerary Assistant
+          </span>
+          {chatHistory.length > 0 && (
+            <Badge className="bg-blue-100 text-blue-700 border-none text-[10px] px-1.5 py-0">
+              {chatHistory.filter((m) => m.role === "user").length} refinement
+              {chatHistory.filter((m) => m.role === "user").length !== 1
+                ? "s"
+                : ""}
+            </Badge>
+          )}
+        </div>
+        <ChevronDownIcon
+          className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="p-4 space-y-3">
+          {/* ── Initial Generate button (shown before first generation) ── */}
+          {!hasGenerated && (
+            <Button
+              type="button"
+              onClick={onGenerate}
+              disabled={isGenerating}
+              className="w-full rounded-lg px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold transition-all disabled:opacity-60 shadow-sm"
+            >
+              {isGenerating ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 mr-2"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
+                  </svg>
+                  Generating itinerary…
+                </>
+              ) : (
+                <>
+                  <AudioLinesIcon className="mr-2 h-4 w-4" />
+                  Generate with AI
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* ── Chat history ── */}
+          {chatHistory.length > 0 && (
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {chatHistory.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex gap-2 ${
+                    msg.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  {msg.role === "assistant" && (
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <AudioLinesIcon className="w-2.5 h-2.5 text-white" />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-blue-600 text-white rounded-br-sm"
+                        : msg.isError
+                        ? "bg-red-50 text-red-700 border border-red-200 rounded-bl-sm"
+                        : "bg-slate-100 text-slate-700 rounded-bl-sm"
+                    }`}
+                  >
+                    {msg.isError && (
+                      <AlertCircle className="w-3 h-3 inline mr-1 mb-0.5" />
+                    )}
+                    {msg.content}
+                  </div>
+                  {msg.role === "user" && (
+                    <div className="w-5 h-5 rounded-full bg-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-[9px] font-bold text-slate-600">
+                        U
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {/* Generating indicator */}
+              {isGenerating && (
+                <div className="flex gap-2 justify-start">
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <AudioLinesIcon className="w-2.5 h-2.5 text-white" />
+                  </div>
+                  <div className="bg-slate-100 rounded-xl rounded-bl-sm px-3 py-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </div>
+          )}
+
+          {/* ── Error banner (non-chat errors) ── */}
+          {aiError && chatHistory.length === 0 && (
+            <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>{aiError}</span>
+            </div>
+          )}
+
+          {/* ── Refinement textarea (shown after first generation) ── */}
+          {hasGenerated && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <MessageSquare className="w-3 h-3 text-slate-400" />
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Refine the itinerary with a follow-up instruction
+                </span>
+              </div>
+              <div className="flex gap-2 items-end">
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`e.g. "Add a food tour on Day 2" or "Make Day 1 more relaxed" or "Change hotels to 5-star"…\n\nCtrl+Enter to send`}
+                  disabled={isGenerating}
+                  className="text-xs resize-none min-h-[72px] max-h-[140px] flex-1 disabled:opacity-60 leading-relaxed"
+                  rows={3}
+                />
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!prompt.trim() || isGenerating}
+                  className="h-9 w-9 p-0 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-40 mb-0.5"
+                  title="Send (Ctrl+Enter)"
+                >
+                  {isGenerating ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-[10px] text-slate-400">
+                The AI will update the itinerary while keeping your manual edits
+                in context.
+              </p>
+            </div>
+          )}
+
+          {/* ── Regenerate button (shown after first generation) ── */}
+          {hasGenerated && (
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={isGenerating}
+              className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-40"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Regenerate from scratch
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN: ItineraryEditor
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ItineraryEditor({
@@ -258,7 +482,6 @@ export default function ItineraryEditor({
   onCancel,
   availableActivities = [],
 }) {
-  // ── Initialise all state from initialData or defaults ────────────────────
   const init = useCallback(() => {
     if (initialData) {
       return {
@@ -277,7 +500,8 @@ export default function ItineraryEditor({
         exclusions:
           initialData.exclusions ||
           DEFAULT_EXCLUSIONS.map((i) => ({ ...i, id: mkId() })),
-        tnc: initialData.tnc || DEFAULT_TNC.map((i) => ({ ...i, id: mkId() })),
+        tnc:
+          initialData.tnc || DEFAULT_TNC.map((i) => ({ ...i, id: mkId() })),
         cancellation:
           initialData.cancellation ||
           DEFAULT_CANCELLATION.map((i) => ({ ...i, id: mkId() })),
@@ -321,9 +545,14 @@ export default function ItineraryEditor({
   const [tnc, setTnc] = useState(initState.tnc);
   const [cancellation, setCancellation] = useState(initState.cancellation);
   const [impInfo, setImpInfo] = useState(initState.impInfo);
+
   const packageContext = useSelector((state) => state.package.packageContext);
+
+  // ── AI Chat state ────────────────────────────────────────────────────────
+  const [chatHistory, setChatHistory] = useState([]);    // { role: "user"|"assistant", content, isError? }
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
 
   // ── Bubble up every change ───────────────────────────────────────────────
   useEffect(() => {
@@ -352,11 +581,193 @@ export default function ItineraryEditor({
     impInfo,
   ]);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Apply AI response to local state
+  // ─────────────────────────────────────────────────────────────────────────
+  const applyAIResponse = (data) => {
+    if (data.title) setTitle(data.title);
+    if (data.state) setItinState(data.state);
+    if (data.cities?.length) setCities(data.cities);
+    if (data.days?.length) {
+      setDays(
+        data.days.map((d, i) => ({
+          id: mkId(),
+          dayNumber: d.dayNumber ?? i + 1,
+          title: d.title || "",
+          description: d.description || "",
+          activityIds: [],
+        }))
+      );
+    }
+    if (data.inclusions?.length)
+      setInclusions(data.inclusions.map((i) => ({ ...i, id: mkId() })));
+    if (data.exclusions?.length)
+      setExclusions(data.exclusions.map((i) => ({ ...i, id: mkId() })));
+    if (data.tnc?.length)
+      setTnc(data.tnc.map((i) => ({ ...i, id: mkId() })));
+    if (data.cancellation?.length)
+      setCancellation(data.cancellation.map((i) => ({ ...i, id: mkId() })));
+    if (data.impInfo?.length)
+      setImpInfo(data.impInfo.map((i) => ({ ...i, id: mkId() })));
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Initial generation (no custom prompt, fresh chat)
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleGenerateWithAI = async () => {
+    setIsGenerating(true);
+    setAiError(null);
+
+    // Reset chat history on fresh generation
+    setChatHistory([]);
+
+    try {
+      const res = await fetch("/api/ai-itinerary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageContext,
+          chatHistory: [], // fresh — no prior history
+          userPrompt: null,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || `Server error (${res.status})`);
+      }
+
+      const data = await res.json();
+      applyAIResponse(data);
+      setHasGenerated(true);
+
+      // Add assistant success message to chat
+      setChatHistory([
+        {
+          role: "assistant",
+          content: `✅ Itinerary generated! ${
+            data.days?.length
+              ? `Created ${data.days.length} days`
+              : ""
+          } for ${data.title || "your trip"}. You can now refine it below.`,
+        },
+      ]);
+    } catch (err) {
+      console.error("[AI Itinerary]", err);
+      const errMsg =
+        err.message || "Generation failed. You can still fill in manually.";
+      setAiError(errMsg);
+
+      // Show error in chat if there's already history
+      if (chatHistory.length > 0) {
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `⚠️ ${errMsg}`,
+            isError: true,
+          },
+        ]);
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Refinement (with chat history + custom user prompt)
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleRefine = async (userPrompt) => {
+    if (!userPrompt.trim() || isGenerating) return;
+
+    setIsGenerating(true);
+    setAiError(null);
+
+    // Optimistically add user message to chat
+    const updatedHistory = [
+      ...chatHistory,
+      { role: "user", content: userPrompt },
+    ];
+    setChatHistory(updatedHistory);
+
+    // Build current itinerary snapshot for context
+    const currentItinerary = {
+      title,
+      state: itinState,
+      cities,
+      days,
+      inclusions,
+      exclusions,
+      tnc,
+      cancellation,
+      impInfo,
+    };
+
+    try {
+      const res = await fetch("/api/ai-itinerary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageContext,
+          chatHistory: updatedHistory,       // full history including new user msg
+          userPrompt,                         // latest instruction
+          currentItinerary,                  // snapshot of current state
+        }),
+      });
+
+      if (!res.ok) {
+        // Try to parse error body; fall back gracefully
+        let errMsg = `Server error (${res.status})`;
+        try {
+          const errBody = await res.json();
+          errMsg = errBody?.error || errMsg;
+          if (errBody?.details) errMsg += ` — ${errBody.details}`;
+        } catch {
+          // response body wasn't JSON
+        }
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      applyAIResponse(data);
+
+      // Add assistant success reply
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `✅ Done! Updated the itinerary based on your request.${
+            data.days?.length
+              ? ` The plan now has ${data.days.length} days.`
+              : ""
+          }`,
+        },
+      ]);
+    } catch (err) {
+      console.error("[AI Itinerary Refine]", err);
+      const errMsg =
+        err.message ||
+        "Could not apply your changes. Please try again or edit manually.";
+
+      // Show error as assistant message in chat
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: errMsg,
+          isError: true,
+        },
+      ]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // ── Generic checklist handlers factory ──────────────────────────────────
   const makeHandlers = (setter) => ({
     toggle: (id) =>
       setter((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, selected: !i.selected } : i)),
+        prev.map((i) => (i.id === id ? { ...i, selected: !i.selected } : i))
       ),
     selectAll: (checked) =>
       setter((prev) => prev.map((i) => ({ ...i, selected: !!checked }))),
@@ -367,49 +778,7 @@ export default function ItineraryEditor({
       ]),
     remove: (id) => setter((prev) => prev.filter((i) => i.id !== id)),
   });
-// ADD handler after moveDayDown:
-const handleGenerateWithAI = async () => {
-  setIsGenerating(true);
-  setAiError(null);
-  try {
-    const res = await fetch("/api/ai-itinerary", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ packageContext }),
-    });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error || `Failed (${res.status})`);
-    }
-
-    const data = await res.json();
-
-    if (data.title)          setTitle(data.title);
-    if (data.state)          setItinState(data.state);
-    if (data.cities?.length) setCities(data.cities);
-    if (data.days?.length) {
-      setDays(data.days.map((d, i) => ({
-        id:          mkId(),
-        dayNumber:   d.dayNumber ?? i + 1,
-        title:       d.title       || "",
-        description: d.description || "",
-        activityIds: [],
-      })));
-    }
-    if (data.inclusions?.length)   setInclusions(data.inclusions.map((i)   => ({ ...i, id: mkId() })));
-    if (data.exclusions?.length)   setExclusions(data.exclusions.map((i)   => ({ ...i, id: mkId() })));
-    if (data.tnc?.length)          setTnc(data.tnc.map((i)                 => ({ ...i, id: mkId() })));
-    if (data.cancellation?.length) setCancellation(data.cancellation.map((i) => ({ ...i, id: mkId() })));
-    if (data.impInfo?.length)      setImpInfo(data.impInfo.map((i)          => ({ ...i, id: mkId() })));
-
-  } catch (err) {
-    console.error("[AI Itinerary]", err);
-    setAiError(err.message || "Generation failed. You can still fill in manually.");
-  } finally {
-    setIsGenerating(false);
-  }
-};
   const incH = makeHandlers(setInclusions);
   const excH = makeHandlers(setExclusions);
   const tncH = makeHandlers(setTnc);
@@ -446,7 +815,7 @@ const handleGenerateWithAI = async () => {
     setDays((prev) =>
       prev
         .filter((_, i) => i !== idx)
-        .map((d, i) => ({ ...d, dayNumber: i + 1 })),
+        .map((d, i) => ({ ...d, dayNumber: i + 1 }))
     );
   };
 
@@ -486,7 +855,7 @@ const handleGenerateWithAI = async () => {
             ? cur.filter((id) => id !== actId)
             : [...cur, actId],
         };
-      }),
+      })
     );
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -494,6 +863,18 @@ const handleGenerateWithAI = async () => {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-0">
+      {/* ── AI Chat Panel ── */}
+      <div className="mb-4">
+        <AIChatPanel
+          chatHistory={chatHistory}
+          isGenerating={isGenerating}
+          aiError={aiError}
+          onGenerate={handleGenerateWithAI}
+          onRefine={handleRefine}
+          hasGenerated={hasGenerated}
+        />
+      </div>
+
       {/* ── Tab strip ── */}
       <div className="flex gap-1 flex-wrap pb-4 border-b border-slate-200 mb-4">
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -512,31 +893,7 @@ const handleGenerateWithAI = async () => {
           </button>
         ))}
       </div>
-      <div className="space-y-2">
-  <Button
-    type="button"
-    onClick={handleGenerateWithAI}
-    disabled={isGenerating}
-    className="rounded-full px-6 py-2 bg-linear-to-r from-theme-gradient-from to-theme-gradient-to transition cursor-pointer my-2 disabled:opacity-60"
-  >
-    {isGenerating ? (
-      <>
-        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-        </svg>
-        Generating…
-      </>
-    ) : (
-      <><AudioLinesIcon className="mr-2 h-4 w-4" /> Generate with AI</>
-    )}
-  </Button>
-  {aiError && (
-    <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-      ⚠ {aiError}
-    </p>
-  )}
-</div>
+
       {/* ══════════════════════════════════════════════════════════════════
           TAB 1 — ITINERARY & DAYS
       ══════════════════════════════════════════════════════════════════ */}
@@ -550,7 +907,6 @@ const handleGenerateWithAI = async () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-4">
-              {/* Title */}
               <div className="space-y-1">
                 <Label className="text-xs font-medium">Itinerary Title</Label>
                 <Input
@@ -561,7 +917,6 @@ const handleGenerateWithAI = async () => {
                 />
               </div>
 
-              {/* State (read-only display — inherited from hotel selection) */}
               {itinState && (
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-500">
@@ -573,7 +928,6 @@ const handleGenerateWithAI = async () => {
                 </div>
               )}
 
-              {/* Cities */}
               <div className="space-y-1">
                 <Label className="text-xs font-medium">
                   Cities Covered{" "}
@@ -618,13 +972,11 @@ const handleGenerateWithAI = async () => {
                 key={day.id}
                 className="relative border-l-4 border-l-blue-500 border border-slate-200 shadow-none"
               >
-                {/* Day header */}
                 <div className="bg-slate-50 px-4 py-2 border-b flex items-center justify-between">
                   <span className="text-xs font-black text-blue-600 tracking-widest">
                     DAY {day.dayNumber}
                   </span>
                   <div className="flex items-center gap-1">
-                    {/* Move up / down */}
                     <button
                       type="button"
                       onClick={() => moveDayUp(idx)}
@@ -643,7 +995,6 @@ const handleGenerateWithAI = async () => {
                     >
                       <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
                     </button>
-                    {/* Delete */}
                     <button
                       type="button"
                       onClick={() => removeDay(idx)}
@@ -656,7 +1007,6 @@ const handleGenerateWithAI = async () => {
                 </div>
 
                 <CardContent className="p-4 space-y-3">
-                  {/* Day title */}
                   <Input
                     placeholder="Day title…"
                     value={day.title}
@@ -664,7 +1014,6 @@ const handleGenerateWithAI = async () => {
                     className="font-semibold text-sm"
                   />
 
-                  {/* Day description */}
                   <Textarea
                     placeholder="What happens today? Describe the plan, transfers, meals, sightseeing…"
                     value={day.description}
@@ -674,19 +1023,17 @@ const handleGenerateWithAI = async () => {
                     className="min-h-[90px] text-sm resize-y"
                   />
 
-                  {/* Linked activities */}
                   {availableActivities.length > 0 && (
                     <div className="space-y-2">
                       <Label className="text-xs text-slate-500 font-medium">
                         Linked Activities
                       </Label>
 
-                      {/* Selected activity badges */}
                       {(day.activityIds || []).length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {day.activityIds.map((actId) => {
                             const act = availableActivities.find(
-                              (a) => a.id === actId,
+                              (a) => a.id === actId
                             );
                             return (
                               <Badge
@@ -724,7 +1071,6 @@ const handleGenerateWithAI = async () => {
                   )}
                 </CardContent>
 
-                {/* Add next day button — inside last card */}
                 {idx === days.length - 1 && (
                   <div className="px-4 pb-4">
                     <button

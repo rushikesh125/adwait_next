@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Zod Schemas — used ONLY for response validation, NOT passed to Gemini
+// Zod Schemas — validation only, NOT passed to Gemini
 // ─────────────────────────────────────────────────────────────────────────────
 const ChecklistItemSchema = z.object({
   id:        z.string(),
@@ -33,7 +33,7 @@ const ItineraryResponseSchema = z.object({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Flat JSON schema — passed to Gemini (no $ref, no $defs, fully inlined)
+// Flat JSON schema — passed to Gemini (no $ref, fully inlined)
 // ─────────────────────────────────────────────────────────────────────────────
 const checklistItemSchema = {
   type: "object",
@@ -72,18 +72,21 @@ const geminiSchema = {
     cancellation: { type: "array", items: checklistItemSchema },
     impInfo:      { type: "array", items: checklistItemSchema },
   },
-  required: ["title", "state", "cities", "tags", "days", "inclusions", "exclusions", "tnc", "cancellation", "impInfo"],
+  required: [
+    "title", "state", "cities", "tags", "days",
+    "inclusions", "exclusions", "tnc", "cancellation", "impInfo",
+  ],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Prompt builder
+// Base prompt builder (always included — never overwritten by user prompts)
 // ─────────────────────────────────────────────────────────────────────────────
-function buildPrompt({
-  origin = "Origin City",
-  destination = "Destination City",
-  cities = [],
-  numDays = 3,
-  transport = "private car",
+function buildBasePrompt({
+  origin,
+  destination,
+  cities,
+  numDays,
+  transport,
   arrivalTime,
   departureTime,
   additionalContext,
@@ -91,7 +94,7 @@ function buildPrompt({
   const citiesList = cities.length > 0 ? cities.join(", ") : destination;
 
   return `
-You are an expert Indian tour itinerary writer for Adwait Tours. 
+You are an expert Indian tour itinerary writer for Adwait Tours.
 Generate a complete, detailed, day-wise tour itinerary strictly following the rules below.
 
 ## TRIP DETAILS
@@ -99,8 +102,8 @@ Generate a complete, detailed, day-wise tour itinerary strictly following the ru
 - Destination(s): ${citiesList}
 - Total Days: ${numDays}
 - Transport Mode: ${transport}
-${arrivalTime  ? `- Check-in Date: ${arrivalTime}`   : ""}
-${departureTime? `- Check-out Date: ${departureTime}`: ""}
+${arrivalTime   ? `- Check-in Date:  ${arrivalTime}`   : ""}
+${departureTime ? `- Check-out Date: ${departureTime}` : ""}
 ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
 ## ITINERARY RULES (follow strictly)
@@ -114,7 +117,7 @@ ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
 ### Intermediate Days — Sightseeing
 - One full day per city. Use REAL, well-known attractions for each city.
-- Transition day (moving city to city): morning checkout + drive to next city + afternoon sightseeing ( keep it in new sub-point) + check-in.
+- Transition day (moving city to city): morning checkout + drive to next city + afternoon sightseeing + check-in.
 - Mention meal timings naturally: Breakfast ~8AM, Lunch ~1PM, Dinner ~8PM.
 - Include approximate timings for each activity.
 
@@ -126,18 +129,55 @@ ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
 ### General Rules
 - Write descriptions in second-person ("proceed to...", "enjoy...", "check in at...").
-- Use bullet points with '•' prefix for each activity/step.
+- Use bullet points with '•' prefix for each activity/step, starting each on a new line.
 - Include meal plan at the end of each day: "🍽 Meal Plan: [Breakfast / Lunch / Dinner / No Meals]"
 - Be specific about timings (approximate is fine).
 - Vehicle type is "${transport}" — mention it naturally in transfer descriptions.
 - Generate EXACTLY ${numDays} day objects in the days array.
 
-## OUTPUT
+## OUTPUT FORMAT
 Return valid JSON matching the provided schema exactly.
-IDs: use short slugs like "day-001", "inc-001", "exc-001", "tnc-001", "can-001", "imp-001".
-also for day descriptions start each point with new line 
-All checklist items must have selected: true and appropriate isDefault values.
-Keep Language Simple and  
+- IDs: use short slugs like "day-001", "inc-001", "exc-001", "tnc-001", "can-001", "imp-001".
+- All checklist items must have selected: true and appropriate isDefault values.
+- Keep language simple and friendly.
+- Day descriptions: start each bullet point on a new line.
+`.trim();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Refinement prompt suffix — appended on top of base prompt when refining
+// ─────────────────────────────────────────────────────────────────────────────
+function buildRefinementSuffix({ userPrompt, chatHistory, currentItinerary }) {
+  const historyText = chatHistory
+    .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+    .join("\n");
+
+  const itinerarySnapshot = currentItinerary
+    ? JSON.stringify(currentItinerary, null, 2)
+    : null;
+
+  return `
+## REFINEMENT MODE
+The user has already seen an itinerary and wants specific changes.
+Apply ONLY the changes requested — keep everything else the same unless it needs to change to accommodate the request.
+
+### Conversation History (for context)
+${historyText || "(no prior conversation)"}
+
+### Current Itinerary State (JSON — what the user currently sees)
+${itinerarySnapshot ? itinerarySnapshot : "(not provided — generate fresh)"}
+
+### Latest User Request
+"${userPrompt}"
+
+## INSTRUCTIONS FOR REFINEMENT
+- Read the current itinerary carefully.
+- Apply ONLY what the user asked for above. Do not add, remove, or change things unrelated to the request.
+- If the user asks to change Day 2, only update Day 2 (keep other days identical).
+- If the user asks to add an inclusion, add it to the inclusions array; keep exclusions/tnc/etc. unchanged.
+- Return the FULL updated itinerary JSON (not a diff) — the client will replace state with what you return.
+- Preserve all existing IDs where the content is unchanged. Use new short slug IDs only for newly added items.
+- Do NOT acknowledge or explain — return JSON only.
 `.trim();
 }
 
@@ -145,138 +185,257 @@ Keep Language Simple and
 // Route Handler
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(req) {
+  // ── 1. Parse request body ─────────────────────────────────────────────────
+  let body;
   try {
-    const body = await req.json();
-    const { packageContext } = body;
-    // console.log(packageContext)
-
-    if (!packageContext) {
-      return Response.json(
-        { error: "packageContext is required." },
-        { status: 400 }
-      );
-    }
-
-    const {
-      hotelEntries       = [],
-      selectedTransport  = null,
-      selectedActivities = [],
-      selectedState      = "",
-      checkInDate        = "",
-      checkOutDate       = "",
-      packageName        = "",
-      customerName       = "",
-    } = packageContext;
-
-    // ── Derive cities & destination ─────────────────────────────────────────
-    const cities = [...new Set(hotelEntries.map((e) => e.city).filter(Boolean))];
-    const destination = cities[0] || selectedState || null;
-
-    if (!destination) {
-      return Response.json(
-        { error: "Could not determine destination. Please add at least one hotel." },
-        { status: 400 }
-      );
-    }
-
-    // ── Derive numDays ──────────────────────────────────────────────────────
-    const totalNights = hotelEntries.reduce(
-      (sum, e) => sum + (Number(e.nights) || 0), 0
+    body = await req.json();
+  } catch {
+    return Response.json(
+      { error: "Invalid JSON in request body." },
+      { status: 400 }
     );
-    const numDays = totalNights > 0 ? totalNights + 1 : 3;
+  }
 
-    // ── Derive transport mode ───────────────────────────────────────────────
-    const vehicleType = selectedTransport?.selectedVehicle?.type || "";
-    const vehicleLower = vehicleType.toLowerCase();
-    const transport = vehicleLower.includes("train")  ? "train"
-                    : vehicleLower.includes("flight") ? "flight"
-                    : vehicleLower.includes("bus")    ? "bus"
-                    : vehicleType || "private car";
+  const {
+    packageContext,
+    chatHistory      = [],   // Array<{ role: "user"|"assistant", content: string }>
+    userPrompt       = null, // string | null — null means fresh generation
+    currentItinerary = null, // snapshot of current editor state (for refinements)
+  } = body;
 
-    // ── Origin ──────────────────────────────────────────────────────────────
-    const origin = selectedState || "Origin City";
+  // ── 2. Validate required fields ───────────────────────────────────────────
+  if (!packageContext) {
+    return Response.json(
+      { error: "packageContext is required." },
+      { status: 400 }
+    );
+  }
 
-    // ── Additional context ──────────────────────────────────────────────────
-    const hotelLines = hotelEntries
-      .map((e) =>
-        [e.hotel, e.city, e.nights ? `${e.nights}N` : null, e.selectedMealPlan]
-          .filter(Boolean).join(" | ")
+  // Validate chatHistory shape (loose — don't crash on malformed entries)
+  const safeChatHistory = Array.isArray(chatHistory)
+    ? chatHistory.filter(
+        (m) =>
+          m &&
+          typeof m === "object" &&
+          (m.role === "user" || m.role === "assistant") &&
+          typeof m.content === "string"
       )
-      .join("; ");
+    : [];
 
-    const activityNames = selectedActivities
-      .map((a) => a.name).filter(Boolean).join(", ");
+  // ── 3. Destructure packageContext ─────────────────────────────────────────
+  const {
+    hotelEntries       = [],
+    selectedTransport  = null,
+    selectedActivities = [],
+    selectedState      = "",
+    checkInDate        = "",
+    checkOutDate       = "",
+    packageName        = "",
+    customerName       = "",
+  } = packageContext;
 
-    const additionalContext = [
-      hotelLines    ? `Hotels: ${hotelLines}`               : null,
-      activityNames ? `Activities: ${activityNames}`        : null,
-      packageName   ? `Package: ${packageName}`             : null,
-      customerName  ? `Customer: ${customerName}`           : null,
-      vehicleType   ? `Vehicle: ${vehicleType}`             : null,
-      selectedTransport?.name
-                    ? `Transport package: ${selectedTransport.name}` : null,
-    ].filter(Boolean).join(". ");
+  // ── 4. Derive cities & destination ────────────────────────────────────────
+  const cities = [
+    ...new Set(hotelEntries.map((e) => e.city).filter(Boolean)),
+  ];
+  const destination = cities[0] || selectedState || null;
 
-    // ── Init Gemini ─────────────────────────────────────────────────────────
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  if (!destination) {
+    return Response.json(
+      {
+        error:
+          "Could not determine destination. Please add at least one hotel.",
+      },
+      { status: 400 }
+    );
+  }
 
-    // ── Build prompt ────────────────────────────────────────────────────────
-    const prompt = buildPrompt({
-      origin,
-      destination,
-      cities,
-      numDays,
-      transport,
-      arrivalTime:       checkInDate   || undefined,
-      departureTime:     checkOutDate  || undefined,
-      additionalContext: additionalContext || undefined,
-    });
+  // ── 5. Derive numDays ─────────────────────────────────────────────────────
+  const totalNights = hotelEntries.reduce(
+    (sum, e) => sum + (Number(e.nights) || 0),
+    0
+  );
+  const numDays = totalNights > 0 ? totalNights + 1 : 3;
 
-    // ── Call Gemini with flat inline schema ─────────────────────────────────
+  // ── 6. Derive transport mode ──────────────────────────────────────────────
+  const vehicleType  = selectedTransport?.selectedVehicle?.type || "";
+  const vehicleLower = vehicleType.toLowerCase();
+  const transport    = vehicleLower.includes("train")  ? "train"
+                     : vehicleLower.includes("flight") ? "flight"
+                     : vehicleLower.includes("bus")    ? "bus"
+                     : vehicleType                     || "private car";
+
+  // ── 7. Origin ─────────────────────────────────────────────────────────────
+  const origin = selectedState || "Origin City";
+
+  // ── 8. Additional context string ──────────────────────────────────────────
+  const hotelLines = hotelEntries
+    .map((e) =>
+      [e.hotel, e.city, e.nights ? `${e.nights}N` : null, e.selectedMealPlan]
+        .filter(Boolean)
+        .join(" | ")
+    )
+    .join("; ");
+
+  const activityNames = selectedActivities
+    .map((a) => a.name)
+    .filter(Boolean)
+    .join(", ");
+
+  const additionalContext = [
+    hotelLines    ? `Hotels: ${hotelLines}`                                       : null,
+    activityNames ? `Activities: ${activityNames}`                                : null,
+    packageName   ? `Package: ${packageName}`                                     : null,
+    customerName  ? `Customer: ${customerName}`                                   : null,
+    vehicleType   ? `Vehicle: ${vehicleType}`                                     : null,
+    selectedTransport?.name
+                  ? `Transport package: ${selectedTransport.name}`                : null,
+  ]
+    .filter(Boolean)
+    .join(". ");
+
+  // ── 9. Determine if this is a refinement or fresh generation ──────────────
+  const isRefinement =
+    typeof userPrompt === "string" && userPrompt.trim().length > 0;
+
+  // ── 10. Build prompt ──────────────────────────────────────────────────────
+  const basePrompt = buildBasePrompt({
+    origin,
+    destination,
+    cities,
+    numDays,
+    transport,
+    arrivalTime:       checkInDate   || undefined,
+    departureTime:     checkOutDate  || undefined,
+    additionalContext: additionalContext || undefined,
+  });
+
+  // Refinement appends extra context AFTER the base prompt — base is never overwritten
+  const fullPrompt = isRefinement
+    ? `${basePrompt}\n\n${buildRefinementSuffix({
+        userPrompt: userPrompt.trim(),
+        chatHistory: safeChatHistory,
+        currentItinerary,
+      })}`
+    : basePrompt;
+
+  // ── 11. Init Gemini ───────────────────────────────────────────────────────
+  if (!process.env.GEMINI_API_KEY) {
+    console.error("[ai-itinerary] GEMINI_API_KEY is not set.");
+    return Response.json(
+      { error: "AI service is not configured. Please contact support." },
+      { status: 503 }
+    );
+  }
+
+  let ai;
+  try {
+    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  } catch (initErr) {
+    console.error("[ai-itinerary] Failed to init GoogleGenAI:", initErr);
+    return Response.json(
+      { error: "Failed to initialise AI service." },
+      { status: 503 }
+    );
+  }
+
+  // ── 12. Call Gemini ───────────────────────────────────────────────────────
+  let rawText;
+  try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
+      model:    "gemini-2.5-flash-lite",
+      contents: fullPrompt,
       config: {
         responseMimeType:   "application/json",
         responseJsonSchema: geminiSchema,
       },
     });
+    rawText = response.text;
+  } catch (geminiErr) {
+    console.error("[ai-itinerary] Gemini API error:", geminiErr);
 
-    const rawText = response.text;
-
-    if (!rawText) {
+    // Provide actionable error messages for common failure modes
+    const msg = geminiErr?.message || "";
+    if (msg.includes("quota") || msg.includes("429")) {
       return Response.json(
-        { error: "Gemini returned an empty response." },
-        { status: 502 }
+        { error: "AI quota exceeded. Please try again in a moment." },
+        { status: 429 }
       );
     }
-
-    // ── Validate with Zod ───────────────────────────────────────────────────
-    let parsed;
-    try {
-      parsed = ItineraryResponseSchema.parse(JSON.parse(rawText));
-    } catch (parseError) {
-      console.error("[ai-itinerary] Zod validation failed:", parseError);
-      console.error("[ai-itinerary] Raw output:", rawText);
+    if (msg.includes("safety") || msg.includes("blocked")) {
       return Response.json(
         {
-          error: "AI response did not match expected schema.",
-          details: parseError instanceof Error ? parseError.message : String(parseError),
+          error:
+            "The AI blocked this request due to content policy. Try rephrasing your request.",
         },
         { status: 422 }
       );
     }
+    if (msg.includes("deadline") || msg.includes("timeout")) {
+      return Response.json(
+        {
+          error:
+            "The AI took too long to respond. Please try again.",
+        },
+        { status: 504 }
+      );
+    }
 
-    return Response.json(parsed, { status: 200 });
-
-  } catch (err) {
-    console.error("[ai-itinerary] Unexpected error:", err);
     return Response.json(
       {
-        error: "Internal server error.",
-        details: err instanceof Error ? err.message : String(err),
+        error:   "AI generation failed. Please try again.",
+        details: msg || "Unknown Gemini error",
       },
-      { status: 500 }
+      { status: 502 }
     );
   }
+
+  // ── 13. Guard empty response ──────────────────────────────────────────────
+  if (!rawText || !rawText.trim()) {
+    console.error("[ai-itinerary] Gemini returned empty text.");
+    return Response.json(
+      { error: "AI returned an empty response. Please try again." },
+      { status: 502 }
+    );
+  }
+
+  // ── 14. Strip markdown fences if Gemini wraps response anyway ────────────
+  const cleanedText = rawText
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  // ── 15. Parse JSON ────────────────────────────────────────────────────────
+  let parsed;
+  try {
+    parsed = JSON.parse(cleanedText);
+  } catch (jsonErr) {
+    console.error("[ai-itinerary] JSON parse failed:", jsonErr);
+    console.error("[ai-itinerary] Raw output (first 500 chars):", rawText.slice(0, 500));
+    return Response.json(
+      {
+        error:
+          "AI returned malformed data. Please try again.",
+        details: `JSON parse error: ${jsonErr.message}`,
+      },
+      { status: 422 }
+    );
+  }
+
+  // ── 16. Validate with Zod ─────────────────────────────────────────────────
+  let validated;
+  try {
+    validated = ItineraryResponseSchema.parse(parsed);
+  } catch (zodErr) {
+    console.error("[ai-itinerary] Zod validation failed:", zodErr);
+    // Return the (unvalidated) parsed data with a warning rather than hard-failing,
+    // so partial results still reach the client. The client can handle gracefully.
+    console.warn("[ai-itinerary] Returning unvalidated parsed data as fallback.");
+    return Response.json(parsed, {
+      status: 200,
+      headers: { "X-Validation-Warning": "Schema validation failed; data may be incomplete." },
+    });
+  }
+
+  return Response.json(validated, { status: 200 });
 }
