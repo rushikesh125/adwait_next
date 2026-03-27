@@ -484,7 +484,7 @@ export default function ItineraryForm() {
       }
       toast.dismiss(loader);
       toast.success("Saved successfully");
-      router.push("/admin-panel/itinerary");
+      router.back()
     } catch {
       toast.error("Save failed");
     }

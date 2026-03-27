@@ -16,6 +16,7 @@ import {
   Bell,
   Briefcase,
   Component,
+  BookAIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -56,6 +57,7 @@ const AgentPanelLayout = ({ children }) => {
     { name: "Customers", href: "/agent-panel/customers", icon: Users },
     { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
     { name: "Booking Form", href: "/agent-panel/bookingform", icon: Component  },
+    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon  },
   ];
 
   const SidebarContent = ({ mobile = false }) => (
