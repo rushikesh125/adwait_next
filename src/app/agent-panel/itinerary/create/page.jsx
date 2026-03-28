@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
@@ -8,12 +8,14 @@ import {
   Save,
   X,
   Loader2,
-  Check,
   Trash2,
   Info,
   FileText,
   ListChecks,
   MapPin,
+  Upload,
+  ImageIcon,
+  RefreshCw,
 } from "lucide-react";
 import {
   collection,
@@ -46,24 +48,243 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSelector } from "react-redux";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Activity Selector – clean native select dropdown, no search bar
+// ImgBB API Key – set your key here or pull from env
 // ─────────────────────────────────────────────────────────────────────────────
-function ActivitySelector({
-  dayIdx,
-  activityIds,
-  availableActivities,
-  onToggle,
-  state,
+const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY || "YOUR_IMGBB_API_KEY";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Upload a file to ImgBB, returns the display URL string
+// ─────────────────────────────────────────────────────────────────────────────
+async function uploadToImgBB(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const res = await fetch(
+    `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
+    { method: "POST", body: formData }
+  );
+  if (!res.ok) throw new Error("ImgBB upload failed");
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message || "ImgBB error");
+  return json.data.display_url; // permanent direct image URL
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ImageUploader – single slot with preview, upload, remove, replace
+// Props:
+//   value      : string | null   – current image URL
+//   onChange   : (url|null) => void
+//   label      : string
+//   aspectClass: tailwind aspect class e.g. "aspect-video" | "aspect-square"
+//   maxSizeMB  : number (default 5)
+// ─────────────────────────────────────────────────────────────────────────────
+function ImageUploader({
+  value,
+  onChange,
+  label = "Image",
+  aspectClass = "aspect-video",
+  maxSizeMB = 5,
 }) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef(null);
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      toast.error(`Image must be under ${maxSizeMB} MB.`);
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadToImgBB(file);
+      onChange(url);
+      toast.success("Image uploaded!");
+    } catch (err) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      // Reset input so same file can be re-selected
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleDragOver = (e) => e.preventDefault();
+
+  return (
+    <div className="space-y-1.5">
+      {label && (
+        <Label className="text-xs text-slate-500 font-medium">{label}</Label>
+      )}
+
+      {value ? (
+        // ── Preview state ──
+        <div className={`relative group w-full ${aspectClass} rounded-lg overflow-hidden border border-slate-200 bg-slate-100`}>
+          <img
+            src={value}
+            alt={label}
+            className="w-full h-full object-cover"
+          />
+          {/* Overlay actions */}
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+            {/* Replace */}
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 hover:bg-white text-slate-700 rounded-md text-xs font-semibold shadow transition-all"
+            >
+              {uploading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              Replace
+            </button>
+            {/* Remove */}
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              disabled={uploading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs font-semibold shadow transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+              Remove
+            </button>
+          </div>
+          {uploading && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-white animate-spin" />
+            </div>
+          )}
+        </div>
+      ) : (
+        // ── Drop-zone state ──
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onClick={() => !uploading && inputRef.current?.click()}
+          className={`
+            relative w-full ${aspectClass} rounded-lg border-2 border-dashed border-slate-300
+            bg-slate-50 hover:bg-blue-50 hover:border-blue-400
+            flex flex-col items-center justify-center gap-2
+            cursor-pointer transition-all duration-150
+            ${uploading ? "pointer-events-none opacity-70" : ""}
+          `}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+              <span className="text-xs text-slate-500">Uploading…</span>
+            </>
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                <Upload className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-semibold text-slate-600">
+                  Click or drag & drop
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  PNG, JPG, WEBP · max {maxSizeMB} MB
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MultiImageUploader – up to `max` images in a row
+// Props:
+//   values     : string[]         – current image URLs
+//   onChange   : (urls: string[]) => void
+//   max        : number           (default 2)
+// ─────────────────────────────────────────────────────────────────────────────
+function MultiImageUploader({ values = [], onChange, max = 2 }) {
+  const canAdd = values.length < max;
+
+  const handleAdd = (url) => {
+    onChange([...values, url]);
+  };
+
+  const handleRemove = (idx) => {
+    onChange(values.filter((_, i) => i !== idx));
+  };
+
+  const handleReplace = (idx, url) => {
+    const updated = [...values];
+    updated[idx] = url;
+    onChange(updated);
+  };
+
+  return (
+    <div className="flex gap-3 flex-wrap">
+      {/* Existing images */}
+      {values.map((url, idx) => (
+        <div key={idx} className="w-36 flex-shrink-0">
+          <ImageUploader
+            value={url}
+            onChange={(newUrl) =>
+              newUrl === null ? handleRemove(idx) : handleReplace(idx, newUrl)
+            }
+            label={`Image ${idx + 1}`}
+            aspectClass="aspect-video"
+          />
+        </div>
+      ))}
+
+      {/* Add slot */}
+      {canAdd && (
+        <div className="w-36 flex-shrink-0">
+          <ImageUploader
+            value={null}
+            onChange={(url) => url && handleAdd(url)}
+            label={values.length === 0 ? "Add Image" : `Add Image ${values.length + 1}`}
+            aspectClass="aspect-video"
+          />
+        </div>
+      )}
+
+      {!canAdd && values.length === 0 && (
+        <p className="text-xs text-slate-400 italic">No images yet.</p>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Activity Selector
+// ─────────────────────────────────────────────────────────────────────────────
+function ActivitySelector({ dayIdx, activityIds, availableActivities, onToggle, state }) {
   const unselected = availableActivities.filter(
-    (a) => !(activityIds || []).includes(a.id),
+    (a) => !(activityIds || []).includes(a.id)
   );
 
   const handleChange = (e) => {
     const selectedId = e.target.value;
     if (!selectedId) return;
     onToggle(dayIdx, selectedId);
-    // Reset select back to placeholder
     e.target.value = "";
   };
 
@@ -78,8 +299,8 @@ function ActivitySelector({
         {!state
           ? "Select a state first"
           : unselected.length === 0
-            ? "All activities added"
-            : "Select an activity to add..."}
+          ? "All activities added"
+          : "Select an activity to add..."}
       </option>
       {unselected.map((activity) => (
         <option key={activity.id} value={activity.id}>
@@ -93,14 +314,7 @@ function ActivitySelector({
 // ─────────────────────────────────────────────────────────────────────────────
 // Checklist Section
 // ─────────────────────────────────────────────────────────────────────────────
-function ChecklistSection({
-  items,
-  onToggle,
-  onSelectAll,
-  onAdd,
-  onRemove,
-  addLabel = "Add Item",
-}) {
+function ChecklistSection({ items, onToggle, onSelectAll, onAdd, onRemove, addLabel = "Add Item" }) {
   const [newItem, setNewItem] = useState("");
   const allSelected = items.length > 0 && items.every((i) => i.selected);
 
@@ -256,7 +470,8 @@ export default function ItineraryForm() {
   const [states, setStates] = useState([]);
   const [availableActivities, setAvailableActivities] = useState([]);
   const [cityInput, setCityInput] = useState("");
-  const {user} = useSelector(state=>state.auth)
+  const { user } = useSelector((state) => state.auth);
+
   const [form, setForm] = useState({
     title: "",
     state: "",
@@ -264,6 +479,7 @@ export default function ItineraryForm() {
     tags: [],
     isActive: true,
     version: 0,
+    posterImage: null, // string | null – ImgBB URL
   });
 
   const [days, setDays] = useState([
@@ -273,23 +489,24 @@ export default function ItineraryForm() {
       title: "",
       description: "",
       activityIds: [],
+      images: [], // string[] – up to 2 ImgBB URLs
     },
   ]);
 
   const [inclusions, setInclusions] = useState(() =>
-    DEFAULT_INCLUSIONS.map((i) => ({ ...i, id: mkId() })),
+    DEFAULT_INCLUSIONS.map((i) => ({ ...i, id: mkId() }))
   );
   const [exclusions, setExclusions] = useState(() =>
-    DEFAULT_EXCLUSIONS.map((i) => ({ ...i, id: mkId() })),
+    DEFAULT_EXCLUSIONS.map((i) => ({ ...i, id: mkId() }))
   );
   const [tnc, setTnc] = useState(() =>
-    DEFAULT_TNC.map((i) => ({ ...i, id: mkId() })),
+    DEFAULT_TNC.map((i) => ({ ...i, id: mkId() }))
   );
   const [cancellation, setCancellation] = useState(() =>
-    DEFAULT_CANCELLATION.map((i) => ({ ...i, id: mkId() })),
+    DEFAULT_CANCELLATION.map((i) => ({ ...i, id: mkId() }))
   );
   const [impInfo, setImpInfo] = useState(() =>
-    DEFAULT_IMP_INFO.map((i) => ({ ...i, id: mkId() })),
+    DEFAULT_IMP_INFO.map((i) => ({ ...i, id: mkId() }))
   );
 
   // ── Load states ───────────────────────────────────────────────────────────
@@ -323,10 +540,15 @@ export default function ItineraryForm() {
             tags: data.tags || [],
             isActive: data.isActive ?? true,
             version: data.version || 0,
+            posterImage: data.posterImage || null,
           });
           if (data.days)
             setDays(
-              data.days.map((d) => ({ ...d, activityIds: d.activityIds || [] })),
+              data.days.map((d) => ({
+                ...d,
+                activityIds: d.activityIds || [],
+                images: d.images || [],
+              }))
             );
           if (data.inclusions) setInclusions(data.inclusions);
           if (data.exclusions) setExclusions(data.exclusions);
@@ -353,12 +575,10 @@ export default function ItineraryForm() {
       try {
         const q = query(
           collection(db, "activities"),
-          where("state", "==", form.state),
+          where("state", "==", form.state)
         );
         const snap = await getDocs(q);
-        setAvailableActivities(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() })),
-        );
+        setAvailableActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch {
         toast.error("Error fetching activities");
       }
@@ -370,7 +590,7 @@ export default function ItineraryForm() {
   const makeHandlers = (setter) => ({
     toggle: (id) =>
       setter((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, selected: !i.selected } : i)),
+        prev.map((i) => (i.id === id ? { ...i, selected: !i.selected } : i))
       ),
     selectAll: (checked) =>
       setter((prev) => prev.map((i) => ({ ...i, selected: !!checked }))),
@@ -416,6 +636,7 @@ export default function ItineraryForm() {
         title: "",
         description: "",
         activityIds: [],
+        images: [],
       },
     ]);
 
@@ -424,7 +645,7 @@ export default function ItineraryForm() {
     setDays((prev) =>
       prev
         .filter((_, i) => i !== idx)
-        .map((d, i) => ({ ...d, dayNumber: i + 1 })),
+        .map((d, i) => ({ ...d, dayNumber: i + 1 }))
     );
   };
 
@@ -435,7 +656,6 @@ export default function ItineraryForm() {
       return updated;
     });
 
-  // Fixed: toggle adds if not present, removes if already present
   const toggleActivity = (dayIdx, actId) =>
     setDays((prev) => {
       const updated = prev.map((d, i) => {
@@ -451,12 +671,21 @@ export default function ItineraryForm() {
       return updated;
     });
 
+  // ── Day image handler ─────────────────────────────────────────────────────
+  const updateDayImages = (dayIdx, newImages) => {
+    setDays((prev) => {
+      const updated = [...prev];
+      updated[dayIdx] = { ...updated[dayIdx], images: newImages };
+      return updated;
+    });
+  };
+
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async (isDraft = false) => {
     if (!form.title || !form.state || form.cities.length === 0)
       return toast.error("Required: Title, State, and at least 1 City.");
-    if ( !user || !(user?.uid && user?.role)){
-      return toast.error("User should be loggedin")
+    if (!user || !(user?.uid && user?.role)) {
+      return toast.error("User should be logged in");
     }
     const payload = {
       ...form,
@@ -470,8 +699,8 @@ export default function ItineraryForm() {
       version: (form.version || 0) + 1,
       updatedAt: serverTimestamp(),
       status: isDraft ? "Draft" : "Published",
-      clientRole:user?.role,
-      clientId:user?.uid
+      clientRole: user?.role,
+      clientId: user?.uid,
     };
 
     try {
@@ -484,7 +713,7 @@ export default function ItineraryForm() {
       }
       toast.dismiss(loader);
       toast.success("Saved successfully");
-      router.back()
+      router.back();
     } catch {
       toast.error("Save failed");
     }
@@ -619,6 +848,28 @@ export default function ItineraryForm() {
                     />
                   </div>
                 </div>
+
+                {/* ── Poster Image ── */}
+                <div className="space-y-1.5 pt-2 border-t">
+                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                    Poster / Cover Image
+                  </Label>
+                  <p className="text-xs text-slate-400">
+                    This is the main image shown at the top of the itinerary.
+                  </p>
+                  <div className="max-w-lg">
+                    <ImageUploader
+                      value={form.posterImage}
+                      onChange={(url) =>
+                        setForm((prev) => ({ ...prev, posterImage: url }))
+                      }
+                      label=""
+                      aspectClass="aspect-video"
+                      maxSizeMB={8}
+                    />
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -646,6 +897,7 @@ export default function ItineraryForm() {
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
+
                   <CardContent className="p-5 space-y-4">
                     <Input
                       placeholder="Day Title..."
@@ -664,27 +916,43 @@ export default function ItineraryForm() {
                       className="min-h-[100px]"
                     />
 
+                    {/* ── Day Images ── */}
+                    <div className="space-y-2 border-t pt-3">
+                      <Label className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        Day Photos
+                        <span className="ml-auto text-[10px] text-slate-400 font-normal">
+                          {(day.images || []).length} / 2 uploaded
+                        </span>
+                      </Label>
+                      <MultiImageUploader
+                        values={day.images || []}
+                        onChange={(urls) => updateDayImages(idx, urls)}
+                        max={2}
+                      />
+                    </div>
+
                     {/* Linked Activities */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 border-t pt-3">
                       <Label className="text-xs text-slate-500">
                         Linked Activities
                       </Label>
 
-                      {/* Selected activity badges */}
                       {(day.activityIds || []).length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {day.activityIds.map((actId) => {
                             const activity = availableActivities.find(
-                              (a) => a.id === actId,
+                              (a) => a.id === actId
                             );
-                            // Show badge only if activity data is loaded; otherwise show placeholder
                             return (
                               <Badge
                                 key={actId}
                                 variant="outline"
                                 className="flex items-center gap-1 pr-1 bg-blue-50 border-blue-200 text-blue-700"
                               >
-                                {activity ? activity.name : (
+                                {activity ? (
+                                  activity.name
+                                ) : (
                                   <span className="text-slate-400 italic text-xs">
                                     Loading…
                                   </span>
@@ -702,7 +970,6 @@ export default function ItineraryForm() {
                         </div>
                       )}
 
-                      {/* Activity dropdown – no search bar */}
                       <ActivitySelector
                         dayIdx={idx}
                         activityIds={day.activityIds || []}
@@ -729,7 +996,6 @@ export default function ItineraryForm() {
                 </Card>
               ))}
 
-              {/* Show Add Day button also when there are no days yet */}
               {days.length === 0 && (
                 <button
                   type="button"
@@ -751,7 +1017,7 @@ export default function ItineraryForm() {
           <Card>
             <CardHeader>
               <CardTitle className="text-xs uppercase tracking-widest text-slate-500 font-semibold">
-                Inclusion & Exclusion
+                Inclusion &amp; Exclusion
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-8">
