@@ -8,11 +8,11 @@
  *
  * Props
  * ─────
- *   initialData  – object (cloned template or null for blank)
- *   onChange     – (data) => void  called on every meaningful state change
- *   onCancel     – () => void       called when user clicks "Cancel / Discard"
- *   availableActivities – array fetched by parent (state-scoped), passed down
- *                         so this component stays Firestore-free
+ *   initialData          – object (cloned template or null for blank)
+ *   onChange             – (data) => void  called on every meaningful state change
+ *   onCancel             – () => void       called when user clicks "Cancel / Discard"
+ *   availableActivities  – array fetched by parent (state-scoped), passed down
+ *                          so this component stays Firestore-free
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -32,6 +32,9 @@ import {
   AlertCircle,
   ChevronDown as ChevronDownIcon,
   RefreshCw,
+  Upload,
+  ImageIcon,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,6 +45,198 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSelector } from "react-redux";
+import toast from "react-hot-toast";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ImgBB upload helper — same approach as ItineraryForm
+// ─────────────────────────────────────────────────────────────────────────────
+const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY || "YOUR_IMGBB_API_KEY";
+
+async function uploadToImgBB(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const res = await fetch(
+    `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
+    { method: "POST", body: formData }
+  );
+  if (!res.ok) throw new Error("ImgBB upload failed");
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message || "ImgBB error");
+  return json.data.display_url;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ImageUploader — single image slot with preview, upload, replace, remove
+// ─────────────────────────────────────────────────────────────────────────────
+function ImageUploader({
+  value,
+  onChange,
+  label = "Image",
+  aspectClass = "aspect-video",
+  maxSizeMB = 5,
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef(null);
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      toast.error(`Image must be under ${maxSizeMB} MB.`);
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadToImgBB(file);
+      onChange(url);
+      toast.success("Image uploaded!");
+    } catch (err) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {label && (
+        <Label className="text-xs text-slate-500 font-medium">{label}</Label>
+      )}
+
+      {value ? (
+        <div
+          className={`relative group w-full ${aspectClass} rounded-lg overflow-hidden border border-slate-200 bg-slate-100`}
+        >
+          <img src={value} alt={label} className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 hover:bg-white text-slate-700 rounded-md text-xs font-semibold shadow transition-all"
+            >
+              {uploading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              Replace
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              disabled={uploading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs font-semibold shadow transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+              Remove
+            </button>
+          </div>
+          {uploading && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-white animate-spin" />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
+          onClick={() => !uploading && inputRef.current?.click()}
+          className={`
+            relative w-full ${aspectClass} rounded-lg border-2 border-dashed border-slate-300
+            bg-slate-50 hover:bg-blue-50 hover:border-blue-400
+            flex flex-col items-center justify-center gap-2
+            cursor-pointer transition-all duration-150
+            ${uploading ? "pointer-events-none opacity-70" : ""}
+          `}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+              <span className="text-xs text-slate-500">Uploading…</span>
+            </>
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                <Upload className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-semibold text-slate-600">
+                  Click or drag & drop
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  PNG, JPG, WEBP · max {maxSizeMB} MB
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MultiImageUploader — up to `max` images side by side
+// ─────────────────────────────────────────────────────────────────────────────
+function MultiImageUploader({ values = [], onChange, max = 2 }) {
+  const canAdd = values.length < max;
+
+  const handleAdd = (url) => onChange([...values, url]);
+  const handleRemove = (idx) => onChange(values.filter((_, i) => i !== idx));
+  const handleReplace = (idx, url) => {
+    const updated = [...values];
+    updated[idx] = url;
+    onChange(updated);
+  };
+
+  return (
+    <div className="flex gap-3 flex-wrap">
+      {values.map((url, idx) => (
+        <div key={idx} className="w-32 flex-shrink-0">
+          <ImageUploader
+            value={url}
+            onChange={(newUrl) =>
+              newUrl === null ? handleRemove(idx) : handleReplace(idx, newUrl)
+            }
+            label={`Photo ${idx + 1}`}
+            aspectClass="aspect-video"
+          />
+        </div>
+      ))}
+
+      {canAdd && (
+        <div className="w-32 flex-shrink-0">
+          <ImageUploader
+            value={null}
+            onChange={(url) => url && handleAdd(url)}
+            label={values.length === 0 ? "Add Photo" : `Add Photo ${values.length + 1}`}
+            aspectClass="aspect-video"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -258,7 +453,6 @@ function AIChatPanel({
   const [isExpanded, setIsExpanded] = useState(true);
   const bottomRef = useRef(null);
 
-  // Auto-scroll to bottom when history updates
   useEffect(() => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
@@ -281,7 +475,6 @@ function AIChatPanel({
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-      {/* ── Header ── */}
       <button
         type="button"
         onClick={() => setIsExpanded((p) => !p)}
@@ -312,8 +505,7 @@ function AIChatPanel({
 
       {isExpanded && (
         <div className="p-4 space-y-3">
-          {/* ── Prompt textarea — always visible ── */}
-           {chatHistory.length > 0 && (
+          {chatHistory.length > 0 && (
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
               {chatHistory.map((msg, idx) => (
                 <div
@@ -350,7 +542,6 @@ function AIChatPanel({
                   )}
                 </div>
               ))}
-              {/* Generating indicator */}
               {isGenerating && (
                 <div className="flex gap-2 justify-start">
                   <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -366,6 +557,7 @@ function AIChatPanel({
               <div ref={bottomRef} />
             </div>
           )}
+
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">
               <MessageSquare className="w-3 h-3 text-slate-400" />
@@ -382,8 +574,8 @@ function AIChatPanel({
                 onKeyDown={handleKeyDown}
                 placeholder={
                   hasGenerated
-                    ? `e.g. "Add a food tour on Day 2" or "Make Day 1 more relaxed" or "Change hotels to 5-star"…\n\nCtrl+Enter to send`
-                    : `e.g. "5 nights in Rajasthan covering Jaipur and Udaipur, focus on heritage and culture"…\n\nCtrl+Enter to send`
+                    ? `e.g. "Add a food tour on Day 2" or "Make Day 1 more relaxed"…\n\nCtrl+Enter to send`
+                    : `e.g. "5 nights in Rajasthan covering Jaipur and Udaipur, focus on heritage"…\n\nCtrl+Enter to send`
                 }
                 disabled={isGenerating}
                 className="text-xs resize-none min-h-[72px] max-h-[140px] flex-1 disabled:opacity-60 leading-relaxed"
@@ -410,7 +602,6 @@ function AIChatPanel({
             </p>
           </div>
 
-          {/* ── Generate button — shown before first generation ── */}
           {!hasGenerated && (
             <Button
               type="button"
@@ -450,10 +641,6 @@ function AIChatPanel({
             </Button>
           )}
 
-          {/* ── Chat history ── */}
-         
-
-          {/* ── Error banner (non-chat errors) ── */}
           {aiError && chatHistory.length === 0 && (
             <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
@@ -461,7 +648,6 @@ function AIChatPanel({
             </div>
           )}
 
-          {/* ── Regenerate button (shown after first generation) ── */}
           {hasGenerated && (
             <button
               type="button"
@@ -495,10 +681,14 @@ export default function ItineraryEditor({
         state: initialData.state || "",
         cities: initialData.cities || [],
         tags: initialData.tags || [],
+        // ── Preserve poster image if template has one ──
+        posterImage: initialData.posterImage || null,
         days: (initialData.days || []).map((d) => ({
           ...d,
           id: d.id || mkId(),
           activityIds: d.activityIds || [],
+          // ── Preserve per-day images if template has them ──
+          images: d.images || [],
         })),
         inclusions:
           initialData.inclusions ||
@@ -521,6 +711,7 @@ export default function ItineraryEditor({
       state: "",
       cities: [],
       tags: [],
+      posterImage: null,
       days: [
         {
           id: mkId(),
@@ -528,6 +719,7 @@ export default function ItineraryEditor({
           title: "",
           description: "",
           activityIds: [],
+          images: [],
         },
       ],
       inclusions: DEFAULT_INCLUSIONS.map((i) => ({ ...i, id: mkId() })),
@@ -545,6 +737,8 @@ export default function ItineraryEditor({
   const [itinState, setItinState] = useState(initState.state);
   const [cities, setCities] = useState(initState.cities);
   const [cityInput, setCityInput] = useState("");
+  // ── NEW: poster image ──
+  const [posterImage, setPosterImage] = useState(initState.posterImage);
   const [days, setDays] = useState(initState.days);
   const [inclusions, setInclusions] = useState(initState.inclusions);
   const [exclusions, setExclusions] = useState(initState.exclusions);
@@ -555,18 +749,19 @@ export default function ItineraryEditor({
   const packageContext = useSelector((state) => state.package.packageContext);
 
   // ── AI Chat state ────────────────────────────────────────────────────────
-  const [chatHistory, setChatHistory] = useState([]);    // { role: "user"|"assistant", content, isError? }
+  const [chatHistory, setChatHistory] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [hasGenerated, setHasGenerated] = useState(false);
 
-  // ── Bubble up every change ───────────────────────────────────────────────
+  // ── Bubble up every change (now includes posterImage + day images) ────────
   useEffect(() => {
     onChange?.({
       title,
       state: itinState,
       cities,
       tags: [],
+      posterImage,
       days,
       inclusions,
       exclusions,
@@ -579,6 +774,7 @@ export default function ItineraryEditor({
     title,
     itinState,
     cities,
+    posterImage,
     days,
     inclusions,
     exclusions,
@@ -588,7 +784,7 @@ export default function ItineraryEditor({
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Apply AI response to local state
+  // Apply AI response — images are not AI-generated, left untouched
   // ─────────────────────────────────────────────────────────────────────────
   const applyAIResponse = (data) => {
     if (data.title) setTitle(data.title);
@@ -602,6 +798,8 @@ export default function ItineraryEditor({
           title: d.title || "",
           description: d.description || "",
           activityIds: [],
+          // ── Keep images empty for AI-generated days (user uploads manually) ──
+          images: [],
         }))
       );
     }
@@ -615,16 +813,15 @@ export default function ItineraryEditor({
       setCancellation(data.cancellation.map((i) => ({ ...i, id: mkId() })));
     if (data.impInfo?.length)
       setImpInfo(data.impInfo.map((i) => ({ ...i, id: mkId() })));
+    // posterImage intentionally not reset by AI
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Initial generation (no custom prompt, fresh chat)
+  // Initial AI generation
   // ─────────────────────────────────────────────────────────────────────────
   const handleGenerateWithAI = async () => {
     setIsGenerating(true);
     setAiError(null);
-
-    // Reset chat history on fresh generation
     setChatHistory([]);
 
     try {
@@ -633,7 +830,7 @@ export default function ItineraryEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           packageContext,
-          chatHistory: [], // fresh — no prior history
+          chatHistory: [],
           userPrompt: null,
         }),
       });
@@ -647,14 +844,11 @@ export default function ItineraryEditor({
       applyAIResponse(data);
       setHasGenerated(true);
 
-      // Add assistant success message to chat
       setChatHistory([
         {
           role: "assistant",
           content: `✅ Itinerary generated! ${
-            data.days?.length
-              ? `Created ${data.days.length} days`
-              : ""
+            data.days?.length ? `Created ${data.days.length} days` : ""
           } for ${data.title || "your trip"}. You can now refine it below.`,
         },
       ]);
@@ -664,15 +858,10 @@ export default function ItineraryEditor({
         err.message || "Generation failed. You can still fill in manually.";
       setAiError(errMsg);
 
-      // Show error in chat if there's already history
       if (chatHistory.length > 0) {
         setChatHistory((prev) => [
           ...prev,
-          {
-            role: "assistant",
-            content: `⚠️ ${errMsg}`,
-            isError: true,
-          },
+          { role: "assistant", content: `⚠️ ${errMsg}`, isError: true },
         ]);
       }
     } finally {
@@ -681,7 +870,7 @@ export default function ItineraryEditor({
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Refinement (with chat history + custom user prompt)
+  // AI refinement
   // ─────────────────────────────────────────────────────────────────────────
   const handleRefine = async (userPrompt) => {
     if (!userPrompt.trim() || isGenerating) return;
@@ -689,14 +878,12 @@ export default function ItineraryEditor({
     setIsGenerating(true);
     setAiError(null);
 
-    // Optimistically add user message to chat
     const updatedHistory = [
       ...chatHistory,
       { role: "user", content: userPrompt },
     ];
     setChatHistory(updatedHistory);
 
-    // Build current itinerary snapshot for context
     const currentItinerary = {
       title,
       state: itinState,
@@ -715,29 +902,25 @@ export default function ItineraryEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           packageContext,
-          chatHistory: updatedHistory,       // full history including new user msg
-          userPrompt,                         // latest instruction
-          currentItinerary,                  // snapshot of current state
+          chatHistory: updatedHistory,
+          userPrompt,
+          currentItinerary,
         }),
       });
 
       if (!res.ok) {
-        // Try to parse error body; fall back gracefully
         let errMsg = `Server error (${res.status})`;
         try {
           const errBody = await res.json();
           errMsg = errBody?.error || errMsg;
           if (errBody?.details) errMsg += ` — ${errBody.details}`;
-        } catch {
-          // response body wasn't JSON
-        }
+        } catch {}
         throw new Error(errMsg);
       }
 
       const data = await res.json();
       applyAIResponse(data);
 
-      // Add assistant success reply
       setChatHistory((prev) => [
         ...prev,
         {
@@ -754,22 +937,16 @@ export default function ItineraryEditor({
       const errMsg =
         err.message ||
         "Could not apply your changes. Please try again or edit manually.";
-
-      // Show error as assistant message in chat
       setChatHistory((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: errMsg,
-          isError: true,
-        },
+        { role: "assistant", content: errMsg, isError: true },
       ]);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // ── Generic checklist handlers factory ──────────────────────────────────
+  // ── Generic checklist handlers factory ───────────────────────────────────
   const makeHandlers = (setter) => ({
     toggle: (id) =>
       setter((prev) =>
@@ -791,7 +968,7 @@ export default function ItineraryEditor({
   const canH = makeHandlers(setCancellation);
   const impH = makeHandlers(setImpInfo);
 
-  // ── City tag input ───────────────────────────────────────────────────────
+  // ── City tag input ────────────────────────────────────────────────────────
   const handleCityKey = (e) => {
     if (e.key === "Enter" && cityInput.trim()) {
       e.preventDefault();
@@ -803,7 +980,7 @@ export default function ItineraryEditor({
   const removeCity = (city) =>
     setCities((prev) => prev.filter((c) => c !== city));
 
-  // ── Day handlers ─────────────────────────────────────────────────────────
+  // ── Day handlers ──────────────────────────────────────────────────────────
   const addDay = () =>
     setDays((prev) => [
       ...prev,
@@ -813,6 +990,7 @@ export default function ItineraryEditor({
         title: "",
         description: "",
         activityIds: [],
+        images: [],           // ← NEW
       },
     ]);
 
@@ -829,6 +1007,14 @@ export default function ItineraryEditor({
     setDays((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], [field]: value };
+      return next;
+    });
+
+  // ── NEW: per-day image update helper ─────────────────────────────────────
+  const updateDayImages = (idx, newImages) =>
+    setDays((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], images: newImages };
       return next;
     });
 
@@ -900,9 +1086,9 @@ export default function ItineraryEditor({
         ))}
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
+      {/* ════════════════════════════════════════════════════════════════════
           TAB 1 — ITINERARY & DAYS
-      ══════════════════════════════════════════════════════════════════ */}
+      ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "itinerary" && (
         <div className="space-y-5">
           {/* ── Header info ── */}
@@ -961,6 +1147,29 @@ export default function ItineraryEditor({
                     onChange={(e) => setCityInput(e.target.value)}
                     onKeyDown={handleCityKey}
                     placeholder={cities.length === 0 ? "Add city…" : ""}
+                  />
+                </div>
+              </div>
+
+              {/* ── NEW: Poster / Cover Image ── */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                  <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                  Poster / Cover Image
+                  <span className="font-normal text-slate-400 ml-1">
+                    (optional)
+                  </span>
+                </Label>
+                <p className="text-[11px] text-slate-400">
+                  This image appears at the top of the itinerary in the PDF and quotation.
+                </p>
+                <div className="max-w-sm">
+                  <ImageUploader
+                    value={posterImage}
+                    onChange={setPosterImage}
+                    label=""
+                    aspectClass="aspect-video"
+                    maxSizeMB={8}
                   />
                 </div>
               </div>
@@ -1029,8 +1238,24 @@ export default function ItineraryEditor({
                     className="min-h-[90px] text-sm resize-y"
                   />
 
+                  {/* ── NEW: Day Photos ── */}
+                  <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                    <Label className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                      <ImageIcon className="w-3 h-3" />
+                      Day Photos
+                      <span className="ml-auto text-[10px] text-slate-400 font-normal">
+                        {(day.images || []).length} / 2 uploaded
+                      </span>
+                    </Label>
+                    <MultiImageUploader
+                      values={day.images || []}
+                      onChange={(urls) => updateDayImages(idx, urls)}
+                      max={2}
+                    />
+                  </div>
+
                   {availableActivities.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 pt-1 border-t border-slate-100">
                       <Label className="text-xs text-slate-500 font-medium">
                         Linked Activities
                       </Label>
@@ -1106,9 +1331,9 @@ export default function ItineraryEditor({
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════
+      {/* ════════════════════════════════════════════════════════════════════
           TAB 2 — INCLUSIONS & EXCLUSIONS
-      ══════════════════════════════════════════════════════════════════ */}
+      ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "inclusions" && (
         <Card className="border border-slate-200 shadow-none">
           <CardContent className="p-4 space-y-8">
@@ -1142,9 +1367,9 @@ export default function ItineraryEditor({
         </Card>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════
+      {/* ════════════════════════════════════════════════════════════════════
           TAB 3 — T&C's & CANCELLATION
-      ══════════════════════════════════════════════════════════════════ */}
+      ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "tnc" && (
         <div className="space-y-4">
           <Card className="border border-slate-200 shadow-none">
@@ -1184,9 +1409,9 @@ export default function ItineraryEditor({
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════
+      {/* ════════════════════════════════════════════════════════════════════
           TAB 4 — IMPORTANT INFORMATION
-      ══════════════════════════════════════════════════════════════════ */}
+      ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "impinfo" && (
         <Card className="border border-slate-200 shadow-none">
           <CardHeader className="pb-2 pt-4 px-4">
