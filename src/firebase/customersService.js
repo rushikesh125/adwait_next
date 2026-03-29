@@ -86,3 +86,14 @@ export const updateCustomerNote = async (cid, noteId, newText) => {
     updatedAt: serverTimestamp() 
   });
 };
+
+export const deleteCustomer = async (id) => {
+  try {
+    const customerRef = doc(db, "customers", id);
+    await deleteDoc(customerRef);
+    return true; 
+  } catch (error) {
+    console.error("Error deleting customer from Firebase: ", error);
+    throw error;
+  }
+};

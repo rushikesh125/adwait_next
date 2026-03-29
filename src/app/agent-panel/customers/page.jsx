@@ -27,6 +27,7 @@ import {
   addCustomer,
   getAllCustomers,
   udpateCustomer,
+  deleteCustomer // Added deleteCustomer import
 } from "@/firebase/customersService";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -67,6 +68,25 @@ export default function CustomersPage() {
     setSelectedCustomer(customer);
     setForm(customer);
     setShowAddCustomer(true);
+  };
+
+  // NEW: Handle Delete Customer
+  const handleDeleteCustomer = async (id) => {
+    // Safety check so users don't accidentally delete records
+    if (!window.confirm("Are you sure you want to delete this customer? This action cannot be undone.")) {
+      return;
+    }
+
+    const toastId = toast.loading("Deleting customer...");
+    
+    try {
+      await deleteCustomer(id);
+      toast.success("Customer deleted successfully", { id: toastId });
+      await loadCustomers(); // Refresh the table
+    } catch (error) {
+      console.error("Delete Error:", error);
+      toast.error("Failed to delete customer", { id: toastId });
+    }
   };
 
   const filteredCustomers = customers.filter((c) =>
@@ -229,12 +249,13 @@ export default function CustomersPage() {
           </CardHeader>
           
           <CardContent className="p-0">
-            {/* Functional Preservation: CustomersTable receives same props */}
+            {/* Functional Preservation: CustomersTable receives same props + onDelete */}
             <div className="min-h-[400px]">
                <CustomersTable
                 customers={filteredCustomers}
                 setCustomers={setCustomers}
                 onEdit={handleEditCustomer}
+                onDelete={handleDeleteCustomer} // Passed the new function here
               />
             </div>
           </CardContent>

@@ -11,6 +11,7 @@ import {
   Phone,
   User,
   MoreHorizontal,
+  Trash2, // Added Trash2 import
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export default function CustomersTable({ customers, setCustomers, onEdit }) {
+export default function CustomersTable({ customers, setCustomers, onEdit, onDelete }) {
   const router = useRouter();
 
   return (
@@ -156,6 +157,22 @@ export default function CustomersTable({ customers, setCustomers, onEdit }) {
                           </TooltipTrigger>
                           <TooltipContent>Edit Lead</TooltipContent>
                         </Tooltip>
+
+                        {/* Delete Action (NEW) */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-9 w-9 text-slate-500 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => onDelete(c.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete Lead</TooltipContent>
+                        </Tooltip>
+
                       </TooltipProvider>
                     </div>
                   </TableCell>
