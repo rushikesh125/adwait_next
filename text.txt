@@ -8,3 +8,25 @@ i am trying to build quotation building application ,
 we are using nextjs ( latest with app router ) , redux , lucid react icons, shadcn@latest , react-hot-toast and firebase (@/firebase/config) , 
 
 vcp_3rnAydypHYpcqKr9qcz0G5ie2d1Hd1e6ZyHaXbxbL2AH3qOx734NyNDt
+
+
+
+
+so here we have some changes 
+
+now as u context knowledge about whole section of creating_quoation/package , i want to update the export pdf features while making sure that u preserve everything as it is , just update the things that i have suggested 
+
+
+
+
+
+we have 2 sections for inclusion and exclusion , so here we want only one inclusion and excultion section but include both sides of points and make sure its rendered in tabular form , in short move above inc & exc seciton to bottom and merge other inc&exc data into it 
+
+
+
+now for images section we have poster ( main image for itinerary ) so for it will rendered on 1st page of pdf  and on centre there will be logo , 
+
+
+
+for images that are day wise  render the images after the day description 
+
