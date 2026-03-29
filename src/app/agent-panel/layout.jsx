@@ -5,7 +5,7 @@ import { useSelector } from "react-redux";
 import Loading from "../loading";
 import Page403 from "@/components/Page403";
 
-import Vouchers from "@/app/agent-panel/vouchers/page.jsx"
+import Vouchers from "@/app/agent-panel/vouchers/page.jsx";
 import {
   LayoutDashboard,
   Map,
@@ -17,6 +17,7 @@ import {
   Briefcase,
   Component,
   Tickets,
+  BookAIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -56,9 +57,9 @@ const AgentPanelLayout = ({ children }) => {
     { name: "My Qutations", href: "/agent-panel/my-quatation", icon: Map },
     { name: "Customers", href: "/agent-panel/customers", icon: Users },
     { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
-    { name: "Booking Form", href: "/agent-panel/bookingform", icon: Component  },
-        { name: "Vouchers",  href : "/agent-panel/vouchers", icon :Tickets },
-
+    { name: "Booking Form", href: "/agent-panel/bookingform", icon: Component },
+    { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
+    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon},
   ];
 
   const SidebarContent = ({ mobile = false }) => (
@@ -75,7 +76,11 @@ const AgentPanelLayout = ({ children }) => {
           )}
         </div>
         {mobile && (
-          <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(false)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMobileOpen(false)}
+          >
             <X className="w-5 h-5 text-slate-500" />
           </Button>
         )}
@@ -91,15 +96,22 @@ const AgentPanelLayout = ({ children }) => {
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group
                 ${isActive ? "bg-theme-muted/50 text-theme-primary font-bold" : "text-slate-500 hover:bg-slate-50"}`}
             >
-              <item.icon className={`w-5 h-5 ${isActive ? "text-theme-primary" : "group-hover:text-theme-primary"}`} />
-              {(isSidebarOpen || mobile) && <span className="text-sm font-medium">{item.name}</span>}
+              <item.icon
+                className={`w-5 h-5 ${isActive ? "text-theme-primary" : "group-hover:text-theme-primary"}`}
+              />
+              {(isSidebarOpen || mobile) && (
+                <span className="text-sm font-medium">{item.name}</span>
+              )}
             </button>
           );
         })}
       </nav>
 
       <div className="p-4 border-t border-slate-50 flex-shrink-0">
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 p-3 text-red-500 hover:bg-red-50 rounded-xl font-semibold transition-all">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 p-3 text-red-500 hover:bg-red-50 rounded-xl font-semibold transition-all"
+        >
           <LogOut className="w-5 h-5" />
           {(isSidebarOpen || mobile) && <span className="text-sm">Logout</span>}
         </button>
@@ -110,30 +122,47 @@ const AgentPanelLayout = ({ children }) => {
   return (
     /* 1. Added h-screen and overflow-hidden to the outer wrapper */
     <div className="h-screen bg-[#FDFCFE] flex overflow-hidden">
-      
       {/* MOBILE SIDEBAR */}
-      <div className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
-        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileOpen(false)} />
-        <div className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <div
+        className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+      >
+        <div
+          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+          onClick={() => setIsMobileOpen(false)}
+        />
+        <div
+          className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        >
           <SidebarContent mobile={true} />
         </div>
       </div>
 
       {/* 2. Added h-screen and flex-shrink-0 to DESKTOP SIDEBAR */}
-      <aside className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}>
+      <aside
+        className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}
+      >
         <SidebarContent />
       </aside>
 
       {/* 3. MAIN SECTION - Added h-screen and overflow-hidden */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        
         {/* HEADER - flex-shrink-0 keeps it from squishing */}
         <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setIsMobileOpen(true)}
+            >
               <Menu className="w-6 h-6 text-slate-600" />
             </Button>
-            <Button variant="ghost" size="icon" className="hidden lg:flex text-slate-500" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:flex text-slate-500"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
               <Menu className="w-6 h-6" />
             </Button>
           </div>
