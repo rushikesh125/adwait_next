@@ -5,7 +5,7 @@ import { useSelector } from "react-redux";
 import Loading from "../loading";
 import Page403 from "@/components/Page403";
 
-// Icons
+import Vouchers from "@/app/agent-panel/vouchers/page.jsx"
 import {
   LayoutDashboard,
   Map,
@@ -16,7 +16,7 @@ import {
   Bell,
   Briefcase,
   Component,
-  BookAIcon,
+  Tickets,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -57,7 +57,8 @@ const AgentPanelLayout = ({ children }) => {
     { name: "Customers", href: "/agent-panel/customers", icon: Users },
     { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
     { name: "Booking Form", href: "/agent-panel/bookingform", icon: Component  },
-    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon  },
+        { name: "Vouchers",  href : "/agent-panel/vouchers", icon :Tickets },
+
   ];
 
   const SidebarContent = ({ mobile = false }) => (

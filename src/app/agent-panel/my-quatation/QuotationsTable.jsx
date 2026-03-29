@@ -23,6 +23,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, Ticket, Hotel, Plane } from "lucide-react";
 import { Search, Download, Edit, Trash2, Copy, Eye } from "lucide-react";
 
 const STATUS_VARIANT_MAP = {
@@ -38,6 +47,7 @@ const QuotationsTable = ({
   filterDestination,
   setFilterDestination,
   startDate,
+  handleGenerateVoucher,
   setStartDate,
   endDate,
   setEndDate,
@@ -213,6 +223,23 @@ const QuotationsTable = ({
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
+                          <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Voucher Actions</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleGenerateVoucher(q, 'hotel')}>
+          <Hotel className="mr-2 h-4 w-4" /> Hotel Voucher
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleGenerateVoucher(q, 'flight')}>
+          <Plane className="mr-2 h-4 w-4" /> Flight Voucher
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
