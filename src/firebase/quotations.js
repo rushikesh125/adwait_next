@@ -4,6 +4,7 @@
 import {
   collection,
   getDocs,
+getDoc,
   query,
   where,
   orderBy,
@@ -49,6 +50,13 @@ export async function fetchQuotationsByAgent(agentId) {
   }
 }
 
+
+export async function getQuotationById(agentId, quotationId) {
+  if (!agentId || !quotationId) return null;
+  const ref = doc(db, "saved_packages_by_agents", agentId, "packages", quotationId);
+  const snap = await getDoc(ref);
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
 /**
  * Update existing quotation
  */
@@ -143,6 +151,26 @@ export async function fetchTransportPackagesByState(stateId) {
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+export async function deleteVoucherFromQuotation(agentId, quotationId) {
+  if (!agentId || !quotationId) {
+    throw new Error("Missing agentId or quotationId");
+  }
+
+  const ref = doc(
+    db,
+    "saved_packages_by_agents",
+    agentId,
+    "packages",
+    quotationId
+  );
+
+  await updateDoc(ref, {
+    voucherNumber: null,
+    isVoucherGenerated: false,
+    voucherType: null,
+    issueDate: null,
+  });
+}
 /**
  * Fetch activities by state
  */
