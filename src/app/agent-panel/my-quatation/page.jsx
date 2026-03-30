@@ -79,9 +79,14 @@ const hotels = rawHotels.map((h) => ({
   }, [editId, state.quotations, state.handleEditClick]);
 
   // ── PDF download — uses shared exportPackagePDF via adapter ───────────────
-  const handleDownloadPDF = (quotation) => {
-    exportPackagePDF(normaliseQuotation(quotation));
-  };
+ const handleDownloadPDF = (quotation) => {
+  const normalized = normaliseQuotation(quotation);
+  // Add itinerary data from the stored quotation if present
+  if (quotation.itinerarySummary) {
+    normalized.itineraryData = quotation.itinerarySummary;
+  }
+  exportPackagePDF(normalized);
+};
 
   // ── WhatsApp copy — uses shared copyPackageSummary via adapter ────────────
   const handleCopyToClipboard = (quotation) => {
