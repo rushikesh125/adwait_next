@@ -212,7 +212,6 @@ const drawServiceIcon = async (pdfdoc, iconPath, x, y, size) => {
   if (img) {
     pdfdoc.addImage(img, "PNG", x, y, size, size);
   } else {
-    // Fallback
     pdfdoc.setFillColor(BRAND);
     pdfdoc.rect(x, y, size, size, "F");
   }
@@ -287,6 +286,10 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
 };
 
 // ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
+// ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
+// ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
+// ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
+// ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
 const drawCoverPage = async (
   pdfdoc,
   logoImg,
@@ -299,39 +302,45 @@ const drawCoverPage = async (
   selectedActivities,
 ) => {
 
+  // ── Top Half: Poster Image Only ───────────────────────────────────────────
+  const halfHeight = PAGE_H / 2;
+
   if (posterImg) {
     const fmt = detectImgFormat(posterImg.src);
-    pdfdoc.addImage(posterImg, fmt, 0, 0, PAGE_W, PAGE_H);
+    pdfdoc.addImage(posterImg, fmt, 0, 0, PAGE_W, halfHeight);
   } else {
     pdfdoc.setFillColor("#1a237e");
-    pdfdoc.rect(0, 0, PAGE_W, PAGE_H, "F");
+    pdfdoc.rect(0, 0, PAGE_W, halfHeight, "F");
     pdfdoc.setFillColor("#1e2f9e");
     for (let i = 0; i < 20; i++) {
       pdfdoc.rect(0, i * 15, PAGE_W, 7, "F");
     }
   }
 
-  // ── Solid theme color overlay (NO transparency) ───────────────────────────
-  const overlayH = PAGE_H * 0.52;
-  const overlayY = PAGE_H - overlayH;
-  pdfdoc.setFillColor(BRAND);                    // Changed to solid BRAND color
-  pdfdoc.rect(0, overlayY, PAGE_W, overlayH, "F");
+  // ── Bottom Half: Solid BRAND color (moved up a bit) ───────────────────────
+  const overlayY = halfHeight - 18;                    // ← Key adjustment
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.rect(0, overlayY, PAGE_W, PAGE_H - overlayY, "F");
 
-  // Logo
-  const logoZone   = PAGE_H * 0.2;
-  const logoW      = 50;
+  // Divider line
+  pdfdoc.setDrawColor("#FFFFFF");
+  pdfdoc.setLineWidth(1);
+  pdfdoc.line(0, halfHeight, PAGE_W, halfHeight);
+
+  // ── Logo (on top of poster) ───────────────────────────────────────────────
+  const logoZone   = PAGE_H * 0.19;
+  const logoW      = 48;
   const logoAspect = logoImg.width / logoImg.height;
   const logoH      = logoW / logoAspect;
   const logoX      = (PAGE_W - logoW) / 2;
-  const logoY      = (logoZone - logoH) / 2;
+  const logoY      = (logoZone - logoH) / 2 + 5;
 
   const circleR = Math.max(logoW, logoH) / 2 + 4;
   pdfdoc.setFillColor("#FFFFFF");
   pdfdoc.circle(logoX + logoW / 2, logoY + logoH / 2, circleR, "F");
-
   pdfdoc.addImage(logoImg, "PNG", logoX, logoY, logoW, logoH);
 
-  // Title & nights/days
+  // ── Title & Trip Label ────────────────────────────────────────────────────
   const totalNights = hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0);
   const totalDays   = totalNights + 1;
   const tripLabel   = `${totalNights}N / ${totalDays}D`;
@@ -339,34 +348,34 @@ const drawCoverPage = async (
 
   const cardX = 20;
   const cardW = PAGE_W - 40;
-  const cardY = overlayY + 6;
+  const cardY = overlayY + 18;          // Start content higher
 
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(26);
+  pdfdoc.setFontSize(24);               // Slightly smaller title
   pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(title, PAGE_W / 2, cardY + 13, { align: "center" });
+  pdfdoc.text(title, PAGE_W / 2, cardY + 12, { align: "center" });
 
   pdfdoc.setFont("helvetica", "normal");
-  pdfdoc.setFontSize(12);
+  pdfdoc.setFontSize(11);
   pdfdoc.setTextColor("#E3E9FF");
-  pdfdoc.text(tripLabel, PAGE_W / 2, cardY + 22, { align: "center" });
+  pdfdoc.text(tripLabel, PAGE_W / 2, cardY + 21, { align: "center" });
 
   pdfdoc.setDrawColor("#FFFFFF");
   pdfdoc.setLineWidth(0.5);
-  pdfdoc.line(cardX + 30, cardY + 26, cardX + cardW - 30, cardY + 26);
+  pdfdoc.line(cardX + 35, cardY + 25, cardX + cardW - 35, cardY + 25);
 
-  // Customer name band
+  // ── Customer Name Band ────────────────────────────────────────────────────
   pdfdoc.setFillColor(BRAND);
-  pdfdoc.rect(cardX, cardY + 29, cardW, 11, "F");
+  pdfdoc.rect(cardX, cardY + 29, cardW, 10, "F");
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(12);
+  pdfdoc.setFontSize(11.5);
   pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(customerName || "Guest", PAGE_W / 2, cardY + 36.5, { align: "center" });
+  pdfdoc.text(customerName || "Guest", PAGE_W / 2, cardY + 36, { align: "center" });
 
-  // Guest details row
-  const guestY = cardY + 45;
+  // ── Guest Details ─────────────────────────────────────────────────────────
+  const guestY = cardY + 42;
   pdfdoc.setFillColor(BRAND_DARK);
-  pdfdoc.rect(cardX, guestY, cardW, 22, "F");
+  pdfdoc.rect(cardX, guestY, cardW, 20, "F");
 
   const gEntry = hotelEntries[0] || {};
   const couples     = gEntry.numDouble     || 0;
@@ -376,19 +385,19 @@ const drawCoverPage = async (
 
   const col1X = cardX + 5;
   const col2X = PAGE_W / 2 + 5;
-  const row1Y = guestY + 8;
-  const row2Y = guestY + 16;
+  const row1Y = guestY + 7.5;
+  const row2Y = guestY + 15;
 
   pdfdoc.setFont("helvetica", "normal");
-  pdfdoc.setFontSize(FONT_TINY);
+  pdfdoc.setFontSize(7.5);
   pdfdoc.setTextColor("#AAC4FF");
 
-  pdfdoc.text("PACKAGE",    col1X,  row1Y - 4.5);
-  pdfdoc.text("DATE",       col2X,  row1Y - 4.5);
-  pdfdoc.text("GUESTS",     col1X,  row2Y - 4.5);
+  pdfdoc.text("PACKAGE", col1X, row1Y - 3.5);
+  pdfdoc.text("DATE",    col2X, row1Y - 3.5);
+  pdfdoc.text("GUESTS",  col1X, row2Y - 3.5);
 
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(FONT_BODY);
+  pdfdoc.setFontSize(8.5);
   pdfdoc.setTextColor("#FFFFFF");
 
   const guestStr = [
@@ -402,14 +411,14 @@ const drawCoverPage = async (
   pdfdoc.text(formatDate(new Date().toISOString()), col2X, row1Y);
   pdfdoc.text(guestStr || "—", col1X, row2Y);
 
-  // YOUR TRIP INCLUDES
-  const includesY = guestY + 28;
+  // ── YOUR TRIP INCLUDES ────────────────────────────────────────────────────
+  const includesY = guestY + 26;
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(FONT_BODY);
+  pdfdoc.setFontSize(9.5);
   pdfdoc.setTextColor("#FFD700");
   pdfdoc.text("YOUR TRIP INCLUDES", PAGE_W / 2, includesY, { align: "center" });
 
-  // ── Service icons row - NOW USING REAL IMAGES ─────────────────────────────
+  // ── Service Icons (PNG) without blue circle ───────────────────────────────
   const hasHotel       = hotelEntries.length > 0;
   const hasTransport   = !!selectedTransport?.selectedVehicle;
   const hasSightseeing = hasHotel;
@@ -419,9 +428,9 @@ const drawCoverPage = async (
   if (hasTransport)   services.push({ label: "Transfer",    iconPath: "/transfer.png" });
   if (hasSightseeing) services.push({ label: "Sightseeing", iconPath: "/sightseeing.png" });
 
-  const iconBoxSize = 22;
-  const iconSpacing = 48;
-  const iconRowY    = includesY + 5;
+  const iconBoxSize = 21;
+  const iconSpacing = 47;
+  const iconRowY    = includesY + 7;
   const iconStartX  = (PAGE_W - (services.length * iconSpacing - (iconSpacing - iconBoxSize))) / 2;
 
   for (let idx = 0; idx < services.length; idx++) {
@@ -434,58 +443,50 @@ const drawCoverPage = async (
     pdfdoc.setLineWidth(0.3);
     pdfdoc.roundedRect(bx, by, iconBoxSize, iconBoxSize, 3, 3, "FD");
 
-    // Checkmark
-    pdfdoc.setFillColor(BRAND);
-    pdfdoc.circle(bx + iconBoxSize - 3, by + 3, 3, "F");
-    pdfdoc.setFont("helvetica", "bold");
-    pdfdoc.setFontSize(5);
-    pdfdoc.setTextColor("#FFFFFF");
-    pdfdoc.text("✓", bx + iconBoxSize - 4.8, by + 4.5);
-
-    // Real image icon
-    const iconSize = 13;
+    // PNG Icon only
+    const iconSize = 12.5;
     const iconX = bx + (iconBoxSize - iconSize) / 2;
     const iconY = by + (iconBoxSize - iconSize) / 2;
     await drawServiceIcon(pdfdoc, svc.iconPath, iconX, iconY, iconSize);
 
     // Label
     pdfdoc.setFont("helvetica", "bold");
-    pdfdoc.setFontSize(FONT_TINY);
+    pdfdoc.setFontSize(7.5);
     pdfdoc.setTextColor("#FFFFFF");
-    pdfdoc.text(svc.label, bx + iconBoxSize / 2, by + iconBoxSize + 5, { align: "center" });
+    pdfdoc.text(svc.label, bx + iconBoxSize / 2, by + iconBoxSize + 5.5, { align: "center" });
   }
 
-  // Emergency Contacts
+  // ── Emergency Contacts ────────────────────────────────────────────────────
   const contactBandY = iconRowY + iconBoxSize + 11;
   pdfdoc.setFillColor(BRAND);
-  pdfdoc.rect(cardX, contactBandY, cardW, 12, "F");
+  pdfdoc.rect(cardX, contactBandY, cardW, 11, "F");
+
   pdfdoc.setFillColor(BRAND_DARK);
-  pdfdoc.rect(cardX, contactBandY, 4, 12, "F");
+  pdfdoc.rect(cardX, contactBandY, 4, 11, "F");
 
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setFontSize(8.5);
   pdfdoc.setTextColor("#FFD700");
-  pdfdoc.text("Emergency Contacts:", cardX + 8, contactBandY + 5);
+  pdfdoc.text("Emergency Contacts:", cardX + 8, contactBandY + 4.8);
 
   pdfdoc.setFont("helvetica", "normal");
   pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text("+91 9884798483  |  +91 7588035114", cardX + 8, contactBandY + 9.5);
+  pdfdoc.text("+91 9884798483  |  +91 7588035114", cardX + 8, contactBandY + 9);
 
-  // Bottom meta
-  const metaY = contactBandY + 17;
+  // ── Bottom Meta Row (compact to avoid footer cut-off) ─────────────────────
+  const metaY = contactBandY + 14;
   pdfdoc.setFont("helvetica", "normal");
-  pdfdoc.setFontSize(FONT_TINY);
+  pdfdoc.setFontSize(7);
   pdfdoc.setTextColor("#CCDDFF");
 
-  pdfdoc.text("Itinerary Curated By",              cardX,          metaY);
-  pdfdoc.text("Peeyoush Takale ( +91 9884798483 )", cardX,          metaY + 5);
+  pdfdoc.text("Itinerary Curated By", cardX, metaY);
+  pdfdoc.text("Peeyoush Takale (+91 9884798483)", cardX, metaY + 4.2);
 
   const refText  = `Ref: ${packageName || "—"}`;
   const dateText = `Date: ${todayFormatted()}`;
   pdfdoc.text(refText,  cardX + cardW, metaY,     { align: "right" });
-  pdfdoc.text(dateText, cardX + cardW, metaY + 5, { align: "right" });
+  pdfdoc.text(dateText, cardX + cardW, metaY + 4.2, { align: "right" });
 };
-
 // ─── Main Export Function ─────────────────────────────────────────────────────
 export const exportPackagePDF = async ({
   hotelEntries,
