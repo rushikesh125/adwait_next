@@ -286,10 +286,6 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
 };
 
 // ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
-// ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
-// ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
-// ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
-// ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
 const drawCoverPage = async (
   pdfdoc,
   logoImg,
@@ -421,12 +417,11 @@ const drawCoverPage = async (
   // ── Service Icons (PNG) without blue circle ───────────────────────────────
   const hasHotel       = hotelEntries.length > 0;
   const hasTransport   = !!selectedTransport?.selectedVehicle;
-  const hasSightseeing = hasHotel;
 
   const services = [];
   if (hasHotel)       services.push({ label: "Hotel",       iconPath: "/hotel.png" });
   if (hasTransport)   services.push({ label: "Transfer",    iconPath: "/transfer.png" });
-  if (hasSightseeing) services.push({ label: "Sightseeing", iconPath: "/sightseeing.png" });
+  if (hasTransport)   services.push({ label: "Sightseeing", iconPath: "/sightseeing.png" });
 
   const iconBoxSize = 21;
   const iconSpacing = 47;
@@ -487,6 +482,7 @@ const drawCoverPage = async (
   pdfdoc.text(refText,  cardX + cardW, metaY,     { align: "right" });
   pdfdoc.text(dateText, cardX + cardW, metaY + 4.2, { align: "right" });
 };
+
 // ─── Main Export Function ─────────────────────────────────────────────────────
 export const exportPackagePDF = async ({
   hotelEntries,
@@ -742,7 +738,7 @@ export const exportPackagePDF = async ({
           0: { cellWidth: 90 },
           1: { cellWidth: 90 },
         },
-        margin: { left: 15, right: 15 },
+        margin: { left: 15, right: 15, top: 40 },   // ← added top margin to avoid header overlap
         didDrawPage: () => addHeader(pdfdoc, logoImg),
       });
     }
