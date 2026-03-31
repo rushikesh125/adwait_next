@@ -6,46 +6,69 @@ import autoTable from "jspdf-autotable";
 import "jspdf-autotable";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const BRAND      = "#0D47A1";
+const BRAND = "#0D47A1";
 const BRAND_DARK = "#0A3880";
-const AMBER      = "#E65100";
-const SLATE      = "#475569";
+const AMBER = "#E65100";
+const SLATE = "#475569";
 const SLATE_LIGHT = "#94A3B8";
 
 const PAGE_W = 210;
 const PAGE_H = 297;
 
-const FONT_BODY    = 9;
-const FONT_SMALL   = 8;
-const FONT_TINY    = 7;
+const FONT_BODY = 9;
+const FONT_SMALL = 8;
+const FONT_TINY = 7;
 const FONT_HEADING = 10;
-const FONT_DAY     = 11;
+const FONT_DAY = 11;
 
 const MEAL_PLAN_LABELS = {
-  EP:  "Accommodation Only",
-  CP:  "Bed & Breakfast",
+  EP: "Accommodation Only",
+  CP: "Bed & Breakfast",
   MAP: "Breakfast & Dinner",
-  AP:  "All Meals Included",
+  AP: "All Meals Included",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatDate = (dateStr) => {
   const d = new Date(dateStr);
-  return isNaN(d) ? "—" : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return isNaN(d)
+    ? "—"
+    : d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 };
 
 const todayFormatted = () =>
-  new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
-    .split("/").join("-");
+  new Date()
+    .toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+    .split("/")
+    .join("-");
 
 const calculateTotalMeals = (entries) => {
-  let totalBreakfasts = 0, totalLunches = 0, totalDinners = 0;
+  let totalBreakfasts = 0,
+    totalLunches = 0,
+    totalDinners = 0;
   entries.forEach(({ selectedMealPlan, nights }) => {
     const n = parseInt(nights, 10);
     if (isNaN(n)) return;
-    if (selectedMealPlan === "CP")  { totalBreakfasts += n; }
-    if (selectedMealPlan === "MAP") { totalBreakfasts += n; totalDinners += n; }
-    if (selectedMealPlan === "AP")  { totalBreakfasts += n; totalLunches += n; totalDinners += n; }
+    if (selectedMealPlan === "CP") {
+      totalBreakfasts += n;
+    }
+    if (selectedMealPlan === "MAP") {
+      totalBreakfasts += n;
+      totalDinners += n;
+    }
+    if (selectedMealPlan === "AP") {
+      totalBreakfasts += n;
+      totalLunches += n;
+      totalDinners += n;
+    }
   });
   return { totalBreakfasts, totalLunches, totalDinners };
 };
@@ -55,7 +78,7 @@ const loadImage = (src) =>
     if (!src) return resolve(null);
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload  = () => resolve(img);
+    img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = src;
   });
@@ -63,7 +86,7 @@ const loadImage = (src) =>
 const detectImgFormat = (src) => {
   if (!src) return "JPEG";
   const lower = src.toLowerCase();
-  if (lower.includes(".png")  || lower.includes("image/png"))  return "PNG";
+  if (lower.includes(".png") || lower.includes("image/png")) return "PNG";
   if (lower.includes(".webp") || lower.includes("image/webp")) return "WEBP";
   return "JPEG";
 };
@@ -94,9 +117,9 @@ const addHeader = (pdfdoc, img) => {
   pdfdoc.text("Travel Package Quotation", 60, 25);
 
   pdfdoc.setFontSize(FONT_TINY);
-  pdfdoc.text("Phone: +91 9884798483",        160, 14);
+  pdfdoc.text("Phone: +91 9884798483", 160, 14);
   pdfdoc.text("Email: sales@adwaittours.com", 160, 19);
-  pdfdoc.text("Web: www.adwaittours.com",     160, 24);
+  pdfdoc.text("Web: www.adwaittours.com", 160, 24);
 
   pdfdoc.setDrawColor("#CCC");
   pdfdoc.setLineWidth(0.2);
@@ -111,8 +134,12 @@ const addFooter = (pdfdoc) => {
   pdfdoc.setFont("helvetica", "normal");
   pdfdoc.setFontSize(FONT_SMALL);
   pdfdoc.setTextColor("white");
-  pdfdoc.text("Thank you for choosing Adwait Tours!",            107, 287, { align: "center" });
-  pdfdoc.text("For Reviews: Google Page | Follow Us: Instagram", 107, 291, { align: "center" });
+  pdfdoc.text("Thank you for choosing Adwait Tours!", 107, 287, {
+    align: "center",
+  });
+  pdfdoc.text("For Reviews: Google Page | Follow Us: Instagram", 107, 291, {
+    align: "center",
+  });
 };
 
 // ─── Section heading helper ───────────────────────────────────────────────────
@@ -128,7 +155,15 @@ const drawSectionHeading = (pdfdoc, text, y) => {
 };
 
 // ─── Checklist renderer ───────────────────────────────────────────────────────
-const drawChecklist = (pdfdoc, logoImg, heading, items, y, dotColor = BRAND, selectedOnly = true) => {
+const drawChecklist = (
+  pdfdoc,
+  logoImg,
+  heading,
+  items,
+  y,
+  dotColor = BRAND,
+  selectedOnly = true,
+) => {
   const filtered = selectedOnly ? items.filter((i) => i.selected) : items;
   if (!filtered.length) return y;
 
@@ -168,11 +203,14 @@ const drawIcon = (pdfdoc, type, x, y, size, color) => {
   const cy = y + s / 2;
 
   if (type === "hotel") {
-    const bw = s * 0.65, bh = s * 0.6;
-    const bx = cx - bw / 2, by = cy - bh / 2 + s * 0.05;
+    const bw = s * 0.65,
+      bh = s * 0.6;
+    const bx = cx - bw / 2,
+      by = cy - bh / 2 + s * 0.05;
     pdfdoc.rect(bx, by, bw, bh, "F");
     pdfdoc.setFillColor("#FFFFFF");
-    const dw = s * 0.18, dh = s * 0.22;
+    const dw = s * 0.18,
+      dh = s * 0.22;
     pdfdoc.rect(cx - dw / 2, by + bh - dh, dw, dh, "F");
     const wsize = s * 0.1;
     pdfdoc.rect(bx + s * 0.1, by + s * 0.1, wsize, wsize, "F");
@@ -180,17 +218,26 @@ const drawIcon = (pdfdoc, type, x, y, size, color) => {
     pdfdoc.setFillColor(color);
     pdfdoc.rect(cx + s * 0.1, by - s * 0.1, s * 0.08, s * 0.12, "F");
   } else if (type === "car") {
-    const cw = s * 0.72, ch = s * 0.22;
-    const cbx = cx - cw / 2, cby = cy + s * 0.08;
+    const cw = s * 0.72,
+      ch = s * 0.22;
+    const cbx = cx - cw / 2,
+      cby = cy + s * 0.08;
     pdfdoc.roundedRect(cbx, cby, cw, ch, 1.5, 1.5, "F");
-    const rw = s * 0.45, rh = s * 0.2;
+    const rw = s * 0.45,
+      rh = s * 0.2;
     pdfdoc.roundedRect(cx - rw / 2, cby - rh, rw, rh + s * 0.04, 2, 2, "F");
     pdfdoc.setFillColor("#FFFFFF");
     const wr = s * 0.09;
     pdfdoc.circle(cbx + s * 0.13, cby + ch, wr, "F");
     pdfdoc.circle(cbx + cw - s * 0.13, cby + ch, wr, "F");
     pdfdoc.setFillColor("#FFFFFF");
-    pdfdoc.rect(cx - rw / 2 + s * 0.04, cby - rh + s * 0.03, rw - s * 0.08, rh - s * 0.06, "F");
+    pdfdoc.rect(
+      cx - rw / 2 + s * 0.04,
+      cby - rh + s * 0.03,
+      rw - s * 0.08,
+      rh - s * 0.06,
+      "F",
+    );
   } else if (type === "binoculars") {
     const lr = s * 0.18;
     pdfdoc.circle(cx - s * 0.18, cy + s * 0.05, lr, "F");
@@ -257,9 +304,9 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
 
   const dayImages = (day.images || []).filter(Boolean).slice(0, 2);
   if (dayImages.length > 0) {
-    const imgH   = 35;
-    const imgW   = dayImages.length === 2 ? 82 : 170;
-    const gap    = 6;
+    const imgH = 35;
+    const imgW = dayImages.length === 2 ? 82 : 170;
+    const gap = 6;
 
     y = ensureSpace(pdfdoc, logoImg, y, imgH + 6);
     y += 3;
@@ -268,7 +315,7 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
       const imgObj = await loadImage(dayImages[i]);
       if (!imgObj) continue;
       const fmt = detectImgFormat(dayImages[i]);
-      const x   = 15 + i * (imgW + gap);
+      const x = 15 + i * (imgW + gap);
       pdfdoc.addImage(imgObj, fmt, x, y, imgW, imgH);
       pdfdoc.setDrawColor("#CCCCCC");
       pdfdoc.setLineWidth(0.3);
@@ -297,7 +344,6 @@ const drawCoverPage = async (
   selectedTransport,
   selectedActivities,
 ) => {
-
   // ── Top Half: Poster Image Only ───────────────────────────────────────────
   const halfHeight = PAGE_H / 2;
 
@@ -305,16 +351,12 @@ const drawCoverPage = async (
     const fmt = detectImgFormat(posterImg.src);
     pdfdoc.addImage(posterImg, fmt, 0, 0, PAGE_W, halfHeight);
   } else {
-    pdfdoc.setFillColor("#1a237e");
+    pdfdoc.setFillColor("#FFFFFF");
     pdfdoc.rect(0, 0, PAGE_W, halfHeight, "F");
-    pdfdoc.setFillColor("#1e2f9e");
-    for (let i = 0; i < 20; i++) {
-      pdfdoc.rect(0, i * 15, PAGE_W, 7, "F");
-    }
   }
 
   // ── Bottom Half: Solid BRAND color (moved up a bit) ───────────────────────
-  const overlayY = halfHeight - 18;                    // ← Key adjustment
+  const overlayY = halfHeight - 18; // ← Key adjustment
   pdfdoc.setFillColor(BRAND);
   pdfdoc.rect(0, overlayY, PAGE_W, PAGE_H - overlayY, "F");
 
@@ -324,12 +366,12 @@ const drawCoverPage = async (
   pdfdoc.line(0, halfHeight, PAGE_W, halfHeight);
 
   // ── Logo (on top of poster) ───────────────────────────────────────────────
-  const logoZone   = PAGE_H * 0.19;
-  const logoW      = 48;
+  const logoZone = PAGE_H * 0.19;
+  const logoW = 48;
   const logoAspect = logoImg.width / logoImg.height;
-  const logoH      = logoW / logoAspect;
-  const logoX      = (PAGE_W - logoW) / 2;
-  const logoY      = (logoZone - logoH) / 2 + 5;
+  const logoH = logoW / logoAspect;
+  const logoX = (PAGE_W - logoW) / 2;
+  const logoY = (logoZone - logoH) / 2 + 5;
 
   const circleR = Math.max(logoW, logoH) / 2 + 4;
   pdfdoc.setFillColor("#FFFFFF");
@@ -337,17 +379,20 @@ const drawCoverPage = async (
   pdfdoc.addImage(logoImg, "PNG", logoX, logoY, logoW, logoH);
 
   // ── Title & Trip Label ────────────────────────────────────────────────────
-  const totalNights = hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0);
-  const totalDays   = totalNights + 1;
-  const tripLabel   = `${totalNights}N / ${totalDays}D`;
-  const title       = itinTitle || packageName || "Travel Package";
+  const totalNights = hotelEntries.reduce(
+    (s, e) => s + (parseInt(e.nights) || 0),
+    0,
+  );
+  const totalDays = totalNights + 1;
+  const tripLabel = `${totalNights}N / ${totalDays}D`;
+  const title = itinTitle || packageName || "Travel Package";
 
   const cardX = 20;
   const cardW = PAGE_W - 40;
-  const cardY = overlayY + 18;          // Start content higher
+  const cardY = overlayY + 18; // Start content higher
 
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(24);               // Slightly smaller title
+  pdfdoc.setFontSize(24); // Slightly smaller title
   pdfdoc.setTextColor("#FFFFFF");
   pdfdoc.text(title, PAGE_W / 2, cardY + 12, { align: "center" });
 
@@ -366,7 +411,9 @@ const drawCoverPage = async (
   pdfdoc.setFont("helvetica", "bold");
   pdfdoc.setFontSize(11.5);
   pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(customerName || "Guest", PAGE_W / 2, cardY + 36, { align: "center" });
+  pdfdoc.text(customerName || "Guest", PAGE_W / 2, cardY + 36, {
+    align: "center",
+  });
 
   // ── Guest Details ─────────────────────────────────────────────────────────
   const guestY = cardY + 42;
@@ -374,10 +421,10 @@ const drawCoverPage = async (
   pdfdoc.rect(cardX, guestY, cardW, 20, "F");
 
   const gEntry = hotelEntries[0] || {};
-  const couples     = gEntry.numDouble     || 0;
+  const couples = gEntry.numDouble || 0;
   const extraAdults = gEntry.numExtraAdult || 0;
-  const children    = gEntry.numExtraChild || 0;
-  const cnb         = gEntry.numCNB        || 0;
+  const children = gEntry.numExtraChild || 0;
+  const cnb = gEntry.numCNB || 0;
 
   const col1X = cardX + 5;
   const col2X = PAGE_W / 2 + 5;
@@ -389,8 +436,8 @@ const drawCoverPage = async (
   pdfdoc.setTextColor("#AAC4FF");
 
   pdfdoc.text("PACKAGE", col1X, row1Y - 3.5);
-  pdfdoc.text("DATE",    col2X, row1Y - 3.5);
-  pdfdoc.text("GUESTS",  col1X, row2Y - 3.5);
+  pdfdoc.text("DATE", col2X, row1Y - 3.5);
+  pdfdoc.text("GUESTS", col1X, row2Y - 3.5);
 
   pdfdoc.setFont("helvetica", "bold");
   pdfdoc.setFontSize(8.5);
@@ -398,10 +445,14 @@ const drawCoverPage = async (
 
   const guestStr = [
     `${couples} Room${couples !== 1 ? "s" : ""}`,
-    extraAdults > 0 ? `${extraAdults} Ext. Adult${extraAdults !== 1 ? "s" : ""}` : null,
-    children > 0    ? `${children} Child${children !== 1 ? "ren" : ""}` : null,
-    cnb > 0         ? `${cnb} CNB` : null,
-  ].filter(Boolean).join("  |  ");
+    extraAdults > 0
+      ? `${extraAdults} Ext. Adult${extraAdults !== 1 ? "s" : ""}`
+      : null,
+    children > 0 ? `${children} Child${children !== 1 ? "ren" : ""}` : null,
+    cnb > 0 ? `${cnb} CNB` : null,
+  ]
+    .filter(Boolean)
+    .join("  |  ");
 
   pdfdoc.text(packageName || "—", col1X, row1Y);
   pdfdoc.text(formatDate(new Date().toISOString()), col2X, row1Y);
@@ -415,18 +466,22 @@ const drawCoverPage = async (
   pdfdoc.text("YOUR TRIP INCLUDES", PAGE_W / 2, includesY, { align: "center" });
 
   // ── Service Icons (PNG) without blue circle ───────────────────────────────
-  const hasHotel       = hotelEntries.length > 0;
-  const hasTransport   = !!selectedTransport?.selectedVehicle;
+  const hasHotel = hotelEntries.length > 0;
+  const hasTransport = !!selectedTransport?.selectedVehicle;
 
   const services = [];
-  if (hasHotel)       services.push({ label: "Hotel",       iconPath: "/hotel.png" });
-  if (hasTransport)   services.push({ label: "Transfer",    iconPath: "/transfer.png" });
-  if (hasTransport)   services.push({ label: "Sightseeing", iconPath: "/sightseeing.png" });
+  if (hasHotel) services.push({ label: "Hotel", iconPath: "/hotel.png" });
+  if (hasTransport)
+    services.push({ label: "Transfer", iconPath: "/transfer.png" });
+  if (hasTransport)
+    services.push({ label: "Sightseeing", iconPath: "/sightseeing.png" });
 
   const iconBoxSize = 21;
   const iconSpacing = 47;
-  const iconRowY    = includesY + 7;
-  const iconStartX  = (PAGE_W - (services.length * iconSpacing - (iconSpacing - iconBoxSize))) / 2;
+  const iconRowY = includesY + 7;
+  const iconStartX =
+    (PAGE_W - (services.length * iconSpacing - (iconSpacing - iconBoxSize))) /
+    2;
 
   for (let idx = 0; idx < services.length; idx++) {
     const svc = services[idx];
@@ -448,7 +503,9 @@ const drawCoverPage = async (
     pdfdoc.setFont("helvetica", "bold");
     pdfdoc.setFontSize(7.5);
     pdfdoc.setTextColor("#FFFFFF");
-    pdfdoc.text(svc.label, bx + iconBoxSize / 2, by + iconBoxSize + 5.5, { align: "center" });
+    pdfdoc.text(svc.label, bx + iconBoxSize / 2, by + iconBoxSize + 5.5, {
+      align: "center",
+    });
   }
 
   // ── Emergency Contacts ────────────────────────────────────────────────────
@@ -477,9 +534,9 @@ const drawCoverPage = async (
   pdfdoc.text("Itinerary Curated By", cardX, metaY);
   pdfdoc.text("Peeyoush Takale (+91 9884798483)", cardX, metaY + 4.2);
 
-  const refText  = `Ref: ${packageName || "—"}`;
+  const refText = `Ref: ${packageName || "—"}`;
   const dateText = `Date: ${todayFormatted()}`;
-  pdfdoc.text(refText,  cardX + cardW, metaY,     { align: "right" });
+  pdfdoc.text(refText, cardX + cardW, metaY, { align: "right" });
   pdfdoc.text(dateText, cardX + cardW, metaY + 4.2, { align: "right" });
 };
 
@@ -547,13 +604,23 @@ export const exportPackagePDF = async ({
 
   autoTable(pdfdoc, {
     startY: y + 5,
-    head: [["Hotel Name", "City", "Room Type", "Dates", "Nights", "Meal Plan", "Guests"]],
+    head: [
+      [
+        "Hotel Name",
+        "City",
+        "Room Type",
+        "Dates",
+        "Nights",
+        "Meal Plan",
+        "Guests",
+      ],
+    ],
     body: hotelEntries.map((h) => {
       const guestParts = [
         `${h.numDouble || 0} Rm`,
         ...(h.numExtraAdult > 0 ? [`${h.numExtraAdult} Ext.Adult`] : []),
-        ...(h.numExtraChild > 0 ? [`${h.numExtraChild} Child`]     : []),
-        ...(h.numCNB        > 0 ? [`${h.numCNB} CNB`]              : []),
+        ...(h.numExtraChild > 0 ? [`${h.numExtraChild} Child`] : []),
+        ...(h.numCNB > 0 ? [`${h.numCNB} CNB`] : []),
       ];
       return [
         h.hotel,
@@ -585,16 +652,23 @@ export const exportPackagePDF = async ({
 
   autoTable(pdfdoc, {
     startY: y + 10,
-    body: [[
-      {
-        content: "Grand Total Tour Cost:",
-        styles: { fontStyle: "bold", textColor: BRAND, fontSize: FONT_BODY },
-      },
-      {
-        content: `Rs. ${grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
-        styles: { halign: "right", fontStyle: "bold", textColor: BRAND, fontSize: FONT_BODY },
-      },
-    ]],
+    body: [
+      [
+        {
+          content: "Grand Total Tour Cost:",
+          styles: { fontStyle: "bold", textColor: BRAND, fontSize: FONT_BODY },
+        },
+        {
+          content: `Rs. ${grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+          styles: {
+            halign: "right",
+            fontStyle: "bold",
+            textColor: BRAND,
+            fontSize: FONT_BODY,
+          },
+        },
+      ],
+    ],
     theme: "grid",
     styles: { fontSize: FONT_BODY, cellPadding: 3, font: "helvetica" },
     columnStyles: { 0: { cellWidth: 120 } },
@@ -605,7 +679,7 @@ export const exportPackagePDF = async ({
   addFooter(pdfdoc);
 
   // ITINERARY PAGES + INCLUSIONS & EXCLUSIONS (original logic preserved)
-  const itin    = itineraryData;
+  const itin = itineraryData;
   const hasDays = itin?.days?.length > 0;
 
   if (itin && hasDays) {
@@ -640,9 +714,11 @@ export const exportPackagePDF = async ({
       const enrichedDay = {
         ...day,
         images: (dayImagesMap[di] || [])
-          .map((imgObj, ii) => imgObj ? { imgObj, src: (day.images || [])[ii] } : null)
+          .map((imgObj, ii) =>
+            imgObj ? { imgObj, src: (day.images || [])[ii] } : null,
+          )
           .filter(Boolean)
-          .map(x => x.src),
+          .map((x) => x.src),
       };
       y = await drawDay(pdfdoc, logoImg, enrichedDay, y);
     }
@@ -654,14 +730,34 @@ export const exportPackagePDF = async ({
     if (selectedTnc.length || selectedCan.length) {
       y = ensureSpace(pdfdoc, logoImg, y, 16);
       y += 4;
-      y = drawSectionHeading(pdfdoc, "Terms & Conditions / Cancellation Policy", y);
+      y = drawSectionHeading(
+        pdfdoc,
+        "Terms & Conditions / Cancellation Policy",
+        y,
+      );
       y += 4;
 
       if (selectedTnc.length) {
-        y = drawChecklist(pdfdoc, logoImg, "Terms & Conditions", itin.tnc, y, AMBER, true);
+        y = drawChecklist(
+          pdfdoc,
+          logoImg,
+          "Terms & Conditions",
+          itin.tnc,
+          y,
+          AMBER,
+          true,
+        );
       }
       if (selectedCan.length) {
-        y = drawChecklist(pdfdoc, logoImg, "Cancellation Policy", itin.cancellation, y, "#C62828", true);
+        y = drawChecklist(
+          pdfdoc,
+          logoImg,
+          "Cancellation Policy",
+          itin.cancellation,
+          y,
+          "#C62828",
+          true,
+        );
       }
     }
 
@@ -675,12 +771,14 @@ export const exportPackagePDF = async ({
     }
 
     // ── INCLUSIONS & EXCLUSIONS (UPDATED - clean, no icons, better position) ──
-    const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(hotelEntries);
+    const { totalBreakfasts, totalLunches, totalDinners } =
+      calculateTotalMeals(hotelEntries);
 
     const legacyIncluded = ["Hotel accommodation as specified."];
-    if (totalBreakfasts > 0) legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
-    if (totalLunches > 0)    legacyIncluded.push(`${totalLunches} Lunch(es)`);
-    if (totalDinners > 0)    legacyIncluded.push(`${totalDinners} Dinner(s)`);
+    if (totalBreakfasts > 0)
+      legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
+    if (totalLunches > 0) legacyIncluded.push(`${totalLunches} Lunch(es)`);
+    if (totalDinners > 0) legacyIncluded.push(`${totalDinners} Dinner(s)`);
     if (!totalBreakfasts && !totalLunches && !totalDinners)
       legacyIncluded.push("No meals included (EP Plan)");
 
@@ -691,7 +789,9 @@ export const exportPackagePDF = async ({
     }
 
     selectedActivities?.forEach((a) =>
-      legacyIncluded.push(`${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`)
+      legacyIncluded.push(
+        `${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`,
+      ),
     );
 
     const legacyExcluded = [
@@ -700,8 +800,12 @@ export const exportPackagePDF = async ({
       "Anything not in the Included list.",
     ];
 
-    const editorIncluded = (itin?.inclusions || []).filter(i => i.selected).map(i => i.text);
-    const editorExcluded = (itin?.exclusions || []).filter(i => i.selected).map(i => i.text);
+    const editorIncluded = (itin?.inclusions || [])
+      .filter((i) => i.selected)
+      .map((i) => i.text);
+    const editorExcluded = (itin?.exclusions || [])
+      .filter((i) => i.selected)
+      .map((i) => i.text);
 
     const allIncluded = [...legacyIncluded, ...editorIncluded];
     const allExcluded = [...legacyExcluded, ...editorExcluded];
@@ -714,18 +818,35 @@ export const exportPackagePDF = async ({
 
       const incExcBody = Array.from(
         { length: Math.max(allIncluded.length, allExcluded.length) },
-        (_, i) => [
-          allIncluded[i] || "",
-          allExcluded[i] || "",
-        ]
+        (_, i) => [allIncluded[i] || "", allExcluded[i] || ""],
       );
 
       autoTable(pdfdoc, {
         startY: y,
-        head: [[
-          { content: "INCLUDED", styles: { fillColor: BRAND, textColor: "#FFFFFF", halign: "center", fontStyle: "bold", fontSize: FONT_BODY } },
-          { content: "EXCLUDED", styles: { fillColor: BRAND_DARK, textColor: "#FFFFFF", halign: "center", fontStyle: "bold", fontSize: FONT_BODY } },
-        ]],
+        head: [
+          [
+            {
+              content: "INCLUDED",
+              styles: {
+                fillColor: BRAND,
+                textColor: "#FFFFFF",
+                halign: "center",
+                fontStyle: "bold",
+                fontSize: FONT_BODY,
+              },
+            },
+            {
+              content: "EXCLUDED",
+              styles: {
+                fillColor: BRAND_DARK,
+                textColor: "#FFFFFF",
+                halign: "center",
+                fontStyle: "bold",
+                fontSize: FONT_BODY,
+              },
+            },
+          ],
+        ],
         body: incExcBody,
         theme: "grid",
         styles: {
@@ -738,7 +859,7 @@ export const exportPackagePDF = async ({
           0: { cellWidth: 90 },
           1: { cellWidth: 90 },
         },
-        margin: { left: 15, right: 15, top: 40 },   // ← added top margin to avoid header overlap
+        margin: { left: 15, right: 15, top: 40 }, // ← added top margin to avoid header overlap
         didDrawPage: () => addHeader(pdfdoc, logoImg),
       });
     }
