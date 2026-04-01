@@ -24,7 +24,6 @@ import { auth } from "@/firebase/config";
 import { signOut } from "firebase/auth";
 import toast from "react-hot-toast";
 import UserDropdown from "@/components/UserDropdown";
-import { PlusOneOutlined } from "@mui/icons-material";
 
 const AgentPanelLayout = ({ children }) => {
   const { user, loading, initialized } = useSelector((state) => state.auth);
