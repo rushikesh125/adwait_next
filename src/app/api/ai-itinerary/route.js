@@ -141,6 +141,8 @@ Return valid JSON matching the provided schema exactly.
 - All checklist items must have selected: true and appropriate isDefault values.
 - Keep language simple and friendly.
 - Day descriptions: start each bullet point on a new line.
+
+also include day wise mean for each day properly as a new point
 `.trim();
 }
 

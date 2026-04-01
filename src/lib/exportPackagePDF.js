@@ -304,24 +304,40 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
 
   const dayImages = (day.images || []).filter(Boolean).slice(0, 2);
   if (dayImages.length > 0) {
-    const imgH = 35;
-    const imgW = dayImages.length === 2 ? 82 : 170;
+    const boxH = 45; // Slightly increased height for better visibility
+    const boxW = dayImages.length === 2 ? 82 : 170;
     const gap = 6;
 
-    y = ensureSpace(pdfdoc, logoImg, y, imgH + 6);
+    y = ensureSpace(pdfdoc, logoImg, y, boxH + 6);
     y += 3;
 
     for (let i = 0; i < dayImages.length; i++) {
       const imgObj = await loadImage(dayImages[i]);
       if (!imgObj) continue;
       const fmt = detectImgFormat(dayImages[i]);
-      const x = 15 + i * (imgW + gap);
-      pdfdoc.addImage(imgObj, fmt, x, y, imgW, imgH);
-      pdfdoc.setDrawColor("#CCCCCC");
-      pdfdoc.setLineWidth(0.3);
-      pdfdoc.rect(x, y, imgW, imgH);
+      const x = 15 + i * (boxW + gap); // Calculate aspect ratio to prevent distortion (object-fit: contain)
+
+      const imgAspect = imgObj.width / imgObj.height;
+      const boxAspect = boxW / boxH;
+
+      let renderW, renderH;
+      if (imgAspect > boxAspect) {
+        // Image is wider than the box
+        renderW = boxW;
+        renderH = boxW / imgAspect;
+      } else {
+        // Image is taller than the box
+        renderH = boxH;
+        renderW = boxH * imgAspect;
+      } // Center the image inside the uniform bounding box
+
+      const imgX = x + (boxW - renderW) / 2;
+      const imgY = y + (boxH - renderH) / 2;
+
+      pdfdoc.addImage(imgObj, fmt, imgX, imgY, renderW, renderH); // Draw a consistent border frame
+      
     }
-    y += imgH + 4;
+    y += boxH + 4;
   }
 
   pdfdoc.setDrawColor("#E0E0E0");
@@ -333,6 +349,7 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
 };
 
 // ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
+// ─── Refined: PAGE 1 COVER (Modern Luxury Style) ─────────────────────────────
 const drawCoverPage = async (
   pdfdoc,
   logoImg,
@@ -344,202 +361,123 @@ const drawCoverPage = async (
   selectedTransport,
   selectedActivities,
 ) => {
-  // ── Top Half: Poster Image Only ───────────────────────────────────────────
-  const halfHeight = PAGE_H / 2;
+  const overlayY = PAGE_H * 0.45; // Start the color section a bit higher
 
+  // 1. Background Layers
   if (posterImg) {
     const fmt = detectImgFormat(posterImg.src);
-    pdfdoc.addImage(posterImg, fmt, 0, 0, PAGE_W, halfHeight);
-  } else {
-    pdfdoc.setFillColor("#FFFFFF");
-    pdfdoc.rect(0, 0, PAGE_W, halfHeight, "F");
+    // Draw image to fill top 50% with a slight overlap
+    pdfdoc.addImage(posterImg, fmt, 0, 0, PAGE_W, overlayY + 10);
   }
 
-  // ── Bottom Half: Solid BRAND color (moved up a bit) ───────────────────────
-  const overlayY = halfHeight - 18; // ← Key adjustment
+  // 2. Bottom Wave/Solid Section
   pdfdoc.setFillColor(BRAND);
   pdfdoc.rect(0, overlayY, PAGE_W, PAGE_H - overlayY, "F");
 
-  // Divider line
-  pdfdoc.setDrawColor("#FFFFFF");
-  pdfdoc.setLineWidth(1);
-  pdfdoc.line(0, halfHeight, PAGE_W, halfHeight);
-
-  // ── Logo (on top of poster) ───────────────────────────────────────────────
-  const logoZone = PAGE_H * 0.19;
-  const logoW = 48;
+  // 3. Logo (Kept at your preferred top-center position)
+  const logoW = 45;
   const logoAspect = logoImg.width / logoImg.height;
   const logoH = logoW / logoAspect;
   const logoX = (PAGE_W - logoW) / 2;
-  const logoY = (logoZone - logoH) / 2 + 5;
+  const logoY = 15; // Kept at the top
 
-  const circleR = Math.max(logoW, logoH) / 2 + 4;
+  // White circle backdrop for logo clarity
   pdfdoc.setFillColor("#FFFFFF");
-  pdfdoc.circle(logoX + logoW / 2, logoY + logoH / 2, circleR, "F");
+  pdfdoc.circle(PAGE_W / 2, logoY + logoH / 2, (logoW / 2) + 5, "F");
   pdfdoc.addImage(logoImg, "PNG", logoX, logoY, logoW, logoH);
 
-  // ── Title & Trip Label ────────────────────────────────────────────────────
-  const totalNights = hotelEntries.reduce(
-    (s, e) => s + (parseInt(e.nights) || 0),
-    0,
-  );
-  const totalDays = totalNights + 1;
-  const tripLabel = `${totalNights}N / ${totalDays}D`;
-  const title = itinTitle || packageName || "Travel Package";
+  // 4. Floating Content Card
+  const cardW = 180;
+  const cardX = (PAGE_W - cardW) / 2;
+  const cardY = overlayY - 15;
 
-  const cardX = 20;
-  const cardW = PAGE_W - 40;
-  const cardY = overlayY + 18; // Start content higher
-
-  pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(24); // Slightly smaller title
-  pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(title, PAGE_W / 2, cardY + 12, { align: "center" });
-
-  pdfdoc.setFont("helvetica", "normal");
-  pdfdoc.setFontSize(11);
-  pdfdoc.setTextColor("#E3E9FF");
-  pdfdoc.text(tripLabel, PAGE_W / 2, cardY + 21, { align: "center" });
-
-  pdfdoc.setDrawColor("#FFFFFF");
-  pdfdoc.setLineWidth(0.5);
-  pdfdoc.line(cardX + 35, cardY + 25, cardX + cardW - 35, cardY + 25);
-
-  // ── Customer Name Band ────────────────────────────────────────────────────
-  pdfdoc.setFillColor(BRAND);
-  pdfdoc.rect(cardX, cardY + 29, cardW, 10, "F");
-  pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(11.5);
-  pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(customerName || "Guest", PAGE_W / 2, cardY + 36, {
-    align: "center",
-  });
-
-  // ── Guest Details ─────────────────────────────────────────────────────────
-  const guestY = cardY + 42;
+  // Draw a subtle shadow/darker backing for the "Prepared For" section
   pdfdoc.setFillColor(BRAND_DARK);
-  pdfdoc.rect(cardX, guestY, cardW, 20, "F");
+  pdfdoc.roundedRect(cardX, cardY, cardW, 45, 3, 3, "F");
 
-  const gEntry = hotelEntries[0] || {};
-  const couples = gEntry.numDouble || 0;
-  const extraAdults = gEntry.numExtraAdult || 0;
-  const children = gEntry.numExtraChild || 0;
-  const cnb = gEntry.numCNB || 0;
-
-  const col1X = cardX + 5;
-  const col2X = PAGE_W / 2 + 5;
-  const row1Y = guestY + 7.5;
-  const row2Y = guestY + 15;
-
-  pdfdoc.setFont("helvetica", "normal");
-  pdfdoc.setFontSize(7.5);
-  pdfdoc.setTextColor("#AAC4FF");
-
-  pdfdoc.text("PACKAGE", col1X, row1Y - 3.5);
-  pdfdoc.text("DATE", col2X, row1Y - 3.5);
-  pdfdoc.text("GUESTS", col1X, row2Y - 3.5);
-
+  // Client Name & Title
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(8.5);
+  pdfdoc.setFontSize(22);
   pdfdoc.setTextColor("#FFFFFF");
+  const mainTitle = (itinTitle || packageName || "Travel Itinerary").toUpperCase();
+  const splitTitle = pdfdoc.splitTextToSize(mainTitle, cardW - 20);
+  pdfdoc.text(splitTitle, PAGE_W / 2, cardY + 15, { align: "center" });
 
-  const guestStr = [
-    `${couples} Room${couples !== 1 ? "s" : ""}`,
-    extraAdults > 0
-      ? `${extraAdults} Ext. Adult${extraAdults !== 1 ? "s" : ""}`
-      : null,
-    children > 0 ? `${children} Child${children !== 1 ? "ren" : ""}` : null,
-    cnb > 0 ? `${cnb} CNB` : null,
-  ]
-    .filter(Boolean)
-    .join("  |  ");
+  pdfdoc.setFontSize(10);
+  pdfdoc.setTextColor("#FFD700"); // Gold accent
+  pdfdoc.text("PREPARED EXCLUSIVELY FOR", PAGE_W / 2, cardY + 28, { align: "center" });
+  
+  pdfdoc.setFontSize(15);
+  pdfdoc.setTextColor("#FFFFFF");
+  pdfdoc.text(customerName || "Our Valued Guest", PAGE_W / 2, cardY + 36, { align: "center" });
 
-  pdfdoc.text(packageName || "—", col1X, row1Y);
-  pdfdoc.text(formatDate(new Date().toISOString()), col2X, row1Y);
-  pdfdoc.text(guestStr || "—", col1X, row2Y);
+  // 5. Trip Metadata (Nights/Days & Date)
+  const totalNights = hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0);
+  const tripLabel = `${totalNights} Nights / ${totalNights + 1} Days`;
+  
+  let currentY = cardY + 55;
 
-  // ── YOUR TRIP INCLUDES ────────────────────────────────────────────────────
-  const includesY = guestY + 26;
+  // Small Grid for Stats
+  pdfdoc.setDrawColor("#FFFFFF");
+  pdfdoc.setLineWidth(0.3);
+  pdfdoc.line(cardX + 20, currentY, cardX + cardW - 20, currentY);
+  
+  currentY += 8;
+  pdfdoc.setFontSize(9);
+  pdfdoc.setTextColor("#E3E9FF");
+  pdfdoc.text("DURATION", cardX + 30, currentY, { align: "center" });
+  pdfdoc.text("DATE ISSUED", PAGE_W / 2, currentY, { align: "center" });
+  pdfdoc.text("REF NUMBER", cardX + cardW - 30, currentY, { align: "center" });
+
+  currentY += 6;
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(9.5);
-  pdfdoc.setTextColor("#FFD700");
-  pdfdoc.text("YOUR TRIP INCLUDES", PAGE_W / 2, includesY, { align: "center" });
+  pdfdoc.setTextColor("#FFFFFF");
+  pdfdoc.text(tripLabel, cardX + 30, currentY, { align: "center" });
+  pdfdoc.text(todayFormatted(), PAGE_W / 2, currentY, { align: "center" });
+  pdfdoc.text(`AT-${new Date().getFullYear() % 100}${Math.floor(1000 + Math.random() * 900)}`, cardX + cardW - 30, currentY, { align: "center" });
 
-  // ── Service Icons (PNG) without blue circle ───────────────────────────────
-  const hasHotel = hotelEntries.length > 0;
-  const hasTransport = !!selectedTransport?.selectedVehicle;
+  // 6. Centered Inclusion Icons
+  currentY += 15;
+  pdfdoc.setFontSize(10);
+  pdfdoc.text("WHAT'S INCLUDED", PAGE_W / 2, currentY, { align: "center" });
 
   const services = [];
-  if (hasHotel) services.push({ label: "Hotel", iconPath: "/hotel.png" });
-  if (hasTransport)
-    services.push({ label: "Transfer", iconPath: "/transfer.png" });
-  if (hasTransport)
-    services.push({ label: "Sightseeing", iconPath: "/sightseeing.png" });
+  if (hotelEntries.length > 0) services.push({ label: "Hotels", path: "/hotel.png" });
+  if (selectedTransport) services.push({ label: "Transfers", path: "/transfer.png" });
+  if (selectedActivities?.length > 0) services.push({ label: "Sightseeing", path: "/sightseeing.png" });
 
-  const iconBoxSize = 21;
-  const iconSpacing = 47;
-  const iconRowY = includesY + 7;
-  const iconStartX =
-    (PAGE_W - (services.length * iconSpacing - (iconSpacing - iconBoxSize))) /
-    2;
+  const iconSize = 14;
+  const spacing = 35;
+  const startX = (PAGE_W - (services.length * spacing)) / 2 + (spacing / 2) - (iconSize / 2);
 
-  for (let idx = 0; idx < services.length; idx++) {
-    const svc = services[idx];
-    const bx = iconStartX + idx * iconSpacing;
-    const by = iconRowY;
-
-    pdfdoc.setFillColor("#FFFFFF");
-    pdfdoc.setDrawColor("#DDDDDD");
-    pdfdoc.setLineWidth(0.3);
-    pdfdoc.roundedRect(bx, by, iconBoxSize, iconBoxSize, 3, 3, "FD");
-
-    // PNG Icon only
-    const iconSize = 12.5;
-    const iconX = bx + (iconBoxSize - iconSize) / 2;
-    const iconY = by + (iconBoxSize - iconSize) / 2;
-    await drawServiceIcon(pdfdoc, svc.iconPath, iconX, iconY, iconSize);
-
-    // Label
-    pdfdoc.setFont("helvetica", "bold");
-    pdfdoc.setFontSize(7.5);
-    pdfdoc.setTextColor("#FFFFFF");
-    pdfdoc.text(svc.label, bx + iconBoxSize / 2, by + iconBoxSize + 5.5, {
-      align: "center",
-    });
+  for (let i = 0; i < services.length; i++) {
+    const x = startX + (i * spacing);
+    const y = currentY + 6;
+    await drawServiceIcon(pdfdoc, services[i].path, x, y, iconSize);
+    pdfdoc.setFont("helvetica", "normal");
+    pdfdoc.setFontSize(7);
+    pdfdoc.text(services[i].label, x + (iconSize / 2), y + iconSize + 4, { align: "center" });
   }
 
-  // ── Emergency Contacts ────────────────────────────────────────────────────
-  const contactBandY = iconRowY + iconBoxSize + 11;
-  pdfdoc.setFillColor(BRAND);
-  pdfdoc.rect(cardX, contactBandY, cardW, 11, "F");
-
-  pdfdoc.setFillColor(BRAND_DARK);
-  pdfdoc.rect(cardX, contactBandY, 4, 11, "F");
+  // 7. Footer Contact Band (Pinned to bottom)
+  const footerY = PAGE_H - 30;
+  
+  // Decorative line
+  pdfdoc.setDrawColor("#FFD700");
+  pdfdoc.setLineWidth(0.8);
+  pdfdoc.line(PAGE_W / 2 - 15, footerY - 5, PAGE_W / 2 + 15, footerY - 5);
 
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(8.5);
-  pdfdoc.setTextColor("#FFD700");
-  pdfdoc.text("Emergency Contacts:", cardX + 8, contactBandY + 4.8);
-
-  pdfdoc.setFont("helvetica", "normal");
+  pdfdoc.setFontSize(10);
   pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text("+91 9884798483  |  +91 7588035114", cardX + 8, contactBandY + 9);
+  pdfdoc.text("ADWAIT TOURS", PAGE_W / 2, footerY, { align: "center" });
 
-  // ── Bottom Meta Row (compact to avoid footer cut-off) ─────────────────────
-  const metaY = contactBandY + 14;
   pdfdoc.setFont("helvetica", "normal");
-  pdfdoc.setFontSize(7);
-  pdfdoc.setTextColor("#CCDDFF");
-
-  pdfdoc.text("Itinerary Curated By", cardX, metaY);
-  pdfdoc.text("Peeyoush Takale (+91 9884798483)", cardX, metaY + 4.2);
-
-  const refText = `Ref: ${packageName || "—"}`;
-  const dateText = `Date: ${todayFormatted()}`;
-  pdfdoc.text(refText, cardX + cardW, metaY, { align: "right" });
-  pdfdoc.text(dateText, cardX + cardW, metaY + 4.2, { align: "right" });
+  pdfdoc.setFontSize(8);
+  pdfdoc.setTextColor("#AAC4FF");
+  pdfdoc.text("Chhatrapati Sambhajinagar, MH  |  +91 9884798483", PAGE_W / 2, footerY + 5, { align: "center" });
+  pdfdoc.text("www.adwaittours.com", PAGE_W / 2, footerY + 9, { align: "center" });
 };
-
 // ─── Main Export Function ─────────────────────────────────────────────────────
 export const exportPackagePDF = async ({
   hotelEntries,
@@ -675,6 +613,96 @@ export const exportPackagePDF = async ({
     margin: { left: 15, right: 15 },
     didDrawPage: () => addHeader(pdfdoc, logoImg),
   });
+  y = pdfdoc.lastAutoTable.finalY;
+// ── MOVED: INCLUSIONS & EXCLUSIONS ──
+  const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(hotelEntries);
+
+  const legacyIncluded = ["Hotel accommodation as specified."];
+  if (totalBreakfasts > 0) legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
+  if (totalLunches > 0) legacyIncluded.push(`${totalLunches} Lunch(es)`);
+  if (totalDinners > 0) legacyIncluded.push(`${totalDinners} Dinner(s)`);
+  if (!totalBreakfasts && !totalLunches && !totalDinners) legacyIncluded.push("No meals included (EP Plan)");
+
+  if (selectedTransport?.selectedVehicle) {
+    const v = selectedTransport.selectedVehicle;
+    legacyIncluded.push(`Private ${v.type || v.name}${v.ac ? " (AC)" : ""}.`);
+    legacyIncluded.push("Toll, parking fees, driver allowance, and permits.");
+  }
+
+  selectedActivities?.forEach((a) =>
+    legacyIncluded.push(`${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`)
+  );
+
+  const legacyExcluded = [
+    "Train / Flight Fare.",
+    "Early check-in & late check-out.",
+    "Anything not in the Included list.",
+  ];
+
+  const editorIncluded = (itineraryData?.inclusions || []).filter((i) => i.selected).map((i) => i.text);
+  const editorExcluded = (itineraryData?.exclusions || []).filter((i) => i.selected).map((i) => i.text);
+
+  const allIncluded = [...legacyIncluded, ...editorIncluded];
+  const allExcluded = [...legacyExcluded, ...editorExcluded];
+
+  if (allIncluded.length || allExcluded.length) {
+    // Check if we need a new page before drawing this section
+    y = ensureSpace(pdfdoc, logoImg, y, 40); 
+    y += 10;
+    y = drawSectionHeading(pdfdoc, "Inclusions & Exclusions", y);
+    y += 8;
+
+    const incExcBody = Array.from(
+      { length: Math.max(allIncluded.length, allExcluded.length) },
+      (_, i) => [allIncluded[i] || "", allExcluded[i] || ""]
+    );
+
+    autoTable(pdfdoc, {
+      startY: y,
+      head: [
+        [
+          { content: "INCLUDED", styles: { fillColor: BRAND, halign: "center", fontStyle: "bold" } },
+          { content: "EXCLUDED", styles: { fillColor: BRAND_DARK, halign: "center", fontStyle: "bold" } },
+        ],
+      ],
+      body: incExcBody,
+      theme: "grid",
+      styles: { fontSize: FONT_BODY, cellPadding: 3, valign: "top", font: "helvetica" },
+      columnStyles: { 0: { cellWidth: 90 }, 1: { cellWidth: 90 } },
+      margin: { left: 15, right: 15 },
+      didDrawPage: () => addHeader(pdfdoc, logoImg),
+    });
+    
+    // Update y to the end of this table for any sections following it
+    y = pdfdoc.lastAutoTable.finalY;
+  }
+
+  addFooter(pdfdoc);
+  autoTable(pdfdoc, {
+    startY: y + 10,
+    body: [
+      [
+        {
+          content: "Grand Total Tour Cost:",
+          styles: { fontStyle: "bold", textColor: BRAND, fontSize: FONT_BODY },
+        },
+        {
+          content: `Rs. ${grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+          styles: {
+            halign: "right",
+            fontStyle: "bold",
+            textColor: BRAND,
+            fontSize: FONT_BODY,
+          },
+        },
+      ],
+    ],
+    theme: "grid",
+    styles: { fontSize: FONT_BODY, cellPadding: 3, font: "helvetica" },
+    columnStyles: { 0: { cellWidth: 120 } },
+    margin: { left: 15, right: 15 },
+    didDrawPage: () => addHeader(pdfdoc, logoImg),
+  });
 
   addFooter(pdfdoc);
 
@@ -771,98 +799,7 @@ export const exportPackagePDF = async ({
     }
 
     // ── INCLUSIONS & EXCLUSIONS (UPDATED - clean, no icons, better position) ──
-    const { totalBreakfasts, totalLunches, totalDinners } =
-      calculateTotalMeals(hotelEntries);
-
-    const legacyIncluded = ["Hotel accommodation as specified."];
-    if (totalBreakfasts > 0)
-      legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
-    if (totalLunches > 0) legacyIncluded.push(`${totalLunches} Lunch(es)`);
-    if (totalDinners > 0) legacyIncluded.push(`${totalDinners} Dinner(s)`);
-    if (!totalBreakfasts && !totalLunches && !totalDinners)
-      legacyIncluded.push("No meals included (EP Plan)");
-
-    if (selectedTransport?.selectedVehicle) {
-      const v = selectedTransport.selectedVehicle;
-      legacyIncluded.push(`Private ${v.type || v.name}${v.ac ? " (AC)" : ""}.`);
-      legacyIncluded.push("Toll, parking fees, driver allowance, and permits.");
-    }
-
-    selectedActivities?.forEach((a) =>
-      legacyIncluded.push(
-        `${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`,
-      ),
-    );
-
-    const legacyExcluded = [
-      "Train / Flight Fare.",
-      "Early check-in & late check-out.",
-      "Anything not in the Included list.",
-    ];
-
-    const editorIncluded = (itin?.inclusions || [])
-      .filter((i) => i.selected)
-      .map((i) => i.text);
-    const editorExcluded = (itin?.exclusions || [])
-      .filter((i) => i.selected)
-      .map((i) => i.text);
-
-    const allIncluded = [...legacyIncluded, ...editorIncluded];
-    const allExcluded = [...legacyExcluded, ...editorExcluded];
-
-    if (allIncluded.length || allExcluded.length) {
-      y = ensureSpace(pdfdoc, logoImg, y, 25);
-      y += 8;
-      y = drawSectionHeading(pdfdoc, "Inclusions & Exclusions", y);
-      y += 8;
-
-      const incExcBody = Array.from(
-        { length: Math.max(allIncluded.length, allExcluded.length) },
-        (_, i) => [allIncluded[i] || "", allExcluded[i] || ""],
-      );
-
-      autoTable(pdfdoc, {
-        startY: y,
-        head: [
-          [
-            {
-              content: "INCLUDED",
-              styles: {
-                fillColor: BRAND,
-                textColor: "#FFFFFF",
-                halign: "center",
-                fontStyle: "bold",
-                fontSize: FONT_BODY,
-              },
-            },
-            {
-              content: "EXCLUDED",
-              styles: {
-                fillColor: BRAND_DARK,
-                textColor: "#FFFFFF",
-                halign: "center",
-                fontStyle: "bold",
-                fontSize: FONT_BODY,
-              },
-            },
-          ],
-        ],
-        body: incExcBody,
-        theme: "grid",
-        styles: {
-          fontSize: FONT_BODY,
-          cellPadding: 3,
-          valign: "top",
-          font: "helvetica",
-        },
-        columnStyles: {
-          0: { cellWidth: 90 },
-          1: { cellWidth: 90 },
-        },
-        margin: { left: 15, right: 15, top: 40 }, // ← added top margin to avoid header overlap
-        didDrawPage: () => addHeader(pdfdoc, logoImg),
-      });
-    }
+    
 
     addFooter(pdfdoc);
   } else {
