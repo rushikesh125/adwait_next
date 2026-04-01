@@ -678,31 +678,7 @@ export const exportPackagePDF = async ({
   }
 
   addFooter(pdfdoc);
-  autoTable(pdfdoc, {
-    startY: y + 10,
-    body: [
-      [
-        {
-          content: "Grand Total Tour Cost:",
-          styles: { fontStyle: "bold", textColor: BRAND, fontSize: FONT_BODY },
-        },
-        {
-          content: `Rs. ${grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
-          styles: {
-            halign: "right",
-            fontStyle: "bold",
-            textColor: BRAND,
-            fontSize: FONT_BODY,
-          },
-        },
-      ],
-    ],
-    theme: "grid",
-    styles: { fontSize: FONT_BODY, cellPadding: 3, font: "helvetica" },
-    columnStyles: { 0: { cellWidth: 120 } },
-    margin: { left: 15, right: 15 },
-    didDrawPage: () => addHeader(pdfdoc, logoImg),
-  });
+
 
   addFooter(pdfdoc);
 
