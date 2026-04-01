@@ -20,12 +20,7 @@ const Dashboard = () => {
   const router = useRouter();
 
   const [phoneNumber, setPhoneNumber] = useState("Not provided");
-  const [stats] = useState({
-    pendingBookings: 12,
-    completedTrips: 24,
-    activeCustomers: 8
-  });
-
+ 
   useEffect(() => {
     if (user?.phone) setPhoneNumber(user.phone);
   }, [user]);
