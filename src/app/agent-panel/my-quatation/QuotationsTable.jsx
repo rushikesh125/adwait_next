@@ -31,6 +31,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { MoreVertical, Ticket, Hotel, Plane } from "lucide-react";
 import { Search, Download, Edit, Trash2, Copy, Eye } from "lucide-react";
 
@@ -68,7 +74,7 @@ const QuotationsTable = ({
   const hasActiveFilters = searchTerm || filterDestination || startDate || endDate;
 
   return (
-    <>
+    <TooltipProvider>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-theme-primary">My Quotations</h1>
@@ -102,21 +108,11 @@ const QuotationsTable = ({
               <div className="grid grid-cols-2 gap-3 flex-1">
                 <div className="space-y-2">
                   <Label htmlFor="startDate" className="text-sm">From Date</Label>
-                  <Input
-                    type="date"
-                    id="startDate"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+                  <Input type="date" id="startDate" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate" className="text-sm">To Date</Label>
-                  <Input
-                    type="date"
-                    id="endDate"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
+                  <Input type="date" id="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
 
@@ -154,133 +150,128 @@ const QuotationsTable = ({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredQuotations.map((q, ind) => (
-                    <TableRow
-                      key={q.id}
-                      className="cursor-pointer hover:bg-theme-muted/20 transition-colors"
-                      onClick={() => handleViewClick(q)}
-                    >
-                      <TableCell className="font-medium text-theme-primary">
-                        #{ind + 1}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {q.customerName || q.leadName || "—"}
-                      </TableCell>
-                      <TableCell className="max-w-[160px] truncate" title={q.packageName}>
-                        {q.packageName || "—"}
-                      </TableCell>
-                      <TableCell className="whitespace-pre-line max-w-[180px] text-sm text-muted-foreground">
-                        {getDestinationOfpkg(q)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {q.createdAt
-                          ? new Date(q.createdAt.seconds * 1000).toLocaleDateString("en-GB")
-                          : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={STATUS_VARIANT_MAP[q.status] || "secondary"}>
-                          {q.status || "Draft"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell
-                        className="text-right"
-                        onClick={(e) => e.stopPropagation()}
+                  filteredQuotations.map((q, ind) => {
+                    const isAccepted = q.status === "Accepted";
+
+                    return (
+                      <TableRow
+                        key={q.id}
+                        className="cursor-pointer hover:bg-theme-muted/20 transition-colors"
+                        onClick={() => handleViewClick(q)}
                       >
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleViewClick(q)}
-                            title="View Quotation"
-                            className="h-8 w-8"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditClick(q)}
-                            title="Edit Quotation"
-                            className="h-8 w-8"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDownloadPDF(q)}
-                            title="Download PDF"
-                            className="h-8 w-8"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleCopyToClipboard(q)}
-                            title="Copy Summary"
-                            className="h-8 w-8"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Voucher Actions</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleGenerateVoucher(q, 'hotel')}>
-          <Hotel className="mr-2 h-4 w-4" /> Hotel Voucher
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleGenerateVoucher(q, 'flight')}>
-          <Plane className="mr-2 h-4 w-4" /> Flight Voucher
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:text-destructive/90 h-8 w-8"
-                                title="Delete Quotation"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete the quotation for &quot;
-                                  {q.customerName || q.leadName}&quot;. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteQuotation(q.id)}
-                                  className="bg-destructive hover:bg-destructive/90"
+                        <TableCell className="font-medium text-theme-primary">#{ind + 1}</TableCell>
+                        <TableCell className="font-medium">{q.customerName || q.leadName || "—"}</TableCell>
+                        <TableCell className="max-w-[160px] truncate" title={q.packageName}>{q.packageName || "—"}</TableCell>
+                        <TableCell className="whitespace-pre-line max-w-[180px] text-sm text-muted-foreground">
+                          {getDestinationOfpkg(q)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {q.createdAt
+                            ? new Date(q.createdAt.seconds * 1000).toLocaleDateString("en-GB")
+                            : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={STATUS_VARIANT_MAP[q.status] || "secondary"}>
+                            {q.status || "Draft"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleViewClick(q)} title="View Quotation" className="h-8 w-8">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(q)} title="Edit Quotation" className="h-8 w-8">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(q)} title="Download PDF" className="h-8 w-8">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleCopyToClipboard(q)} title="Copy Summary" className="h-8 w-8">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+
+                            {/* ── Voucher dropdown — only enabled for Accepted quotations ── */}
+                            {isAccepted ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Voucher Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleGenerateVoucher(q, "hotel")}>
+                                    <Hotel className="mr-2 h-4 w-4" /> Hotel Voucher
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleGenerateVoucher(q, "flight")}>
+                                    <Plane className="mr-2 h-4 w-4" /> Flight Voucher
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              /* Disabled state with tooltip explaining why */
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 opacity-40 cursor-not-allowed"
+                                      disabled
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                  <p className="text-xs">Voucher are created for accepted quotation</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:text-destructive/90 h-8 w-8"
+                                  title="Delete Quotation"
                                 >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete the quotation for &quot;
+                                    {q.customerName || q.leadName}&quot;. This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteQuotation(q.id)}
+                                    className="bg-destructive hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
-    </>
+    </TooltipProvider>
   );
 };
 
