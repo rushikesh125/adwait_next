@@ -12,9 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Hotel, Plane } from "lucide-react";
 
-// ── Shared utilities (same ones used in Create_new_package) ───────────────────
-import { exportPackagePDF }   from "@/lib/exportPackagePDF";
+import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 import { copyPackageSummary } from "@/lib/copyPackageSummary";
 import { normaliseQuotation } from "@/lib/quotationAdapter";
@@ -24,43 +25,49 @@ const MyQuotations = () => {
   const searchParams = useSearchParams();
   const editId = searchParams.get("editId");
 
-
-    const [voucherDrawerOpen, setVoucherDrawerOpen] = React.useState(false);
+  const [voucherDrawerOpen, setVoucherDrawerOpen] = React.useState(false);
   const [selectedHotelForVoucher, setSelectedHotelForVoucher] = React.useState(null);
   const [activeQuotation, setActiveQuotation] = React.useState(null);
 
- const [hotelSelectionOpen, setHotelSelectionOpen] = React.useState(false);
-const [hotelList, setHotelList] = React.useState([]);
+  const [hotelSelectionOpen, setHotelSelectionOpen] = React.useState(false);
+  const [hotelList, setHotelList] = React.useState([]);
 
-const handleGenerateVoucher = (quotation, type) => {
-const rawHotels = quotation.hotelSummary || quotation.hotel_summary || [];
+  // ── Core voucher trigger — works from table row AND from view modal ────────
+  const handleGenerateVoucher = (quotation, type) => {
+    if (type !== "hotel") {
+      // Flight voucher — extend here later
+      alert("Flight voucher coming soon");
+      return;
+    }
 
-const hotels = rawHotels.map((h) => ({
-  hotelName: h.hotel || h.hotelName || "Hotel",
-  city: h.city || "",
-  checkIn: h.checkInDate || h.checkIn,
-  checkOut: h.checkOutDate || h.checkOut,
-  nights: h.nights || 0,
-  rooms: h.numDouble || 0,
-  roomCategory: h.selectedRoomCategory || "-",
-  mealPlan: h.selectedMealPlan || "-",
-}));
+    const rawHotels = quotation.hotelSummary || quotation.hotel_summary || [];
+    const hotels = rawHotels.map((h) => ({
+      hotelName: h.hotel || h.hotelName || "Hotel",
+      city: h.city || "",
+      checkIn: h.checkInDate || h.checkIn,
+      checkOut: h.checkOutDate || h.checkOut,
+      nights: h.nights || 0,
+      rooms: h.numDouble || 0,
+      roomCategory: h.selectedRoomCategory || "-",
+      mealPlan: h.selectedMealPlan || "-",
+    }));
 
-  if (hotels.length === 0) {
-    alert("No hotel data found");
-    return;
-  }
+    if (hotels.length === 0) {
+      alert("No hotel data found in this quotation.");
+      return;
+    }
 
-  setActiveQuotation(quotation);
+    setActiveQuotation(quotation);
 
-  if (hotels.length === 1) {
-    setSelectedHotelForVoucher(hotels[0]);
-    setVoucherDrawerOpen(true);
-  } else {
-    setHotelList(hotels);
-    setHotelSelectionOpen(true);
-  }
-};
+    if (hotels.length === 1) {
+      setSelectedHotelForVoucher(hotels[0]);
+      setVoucherDrawerOpen(true);
+    } else {
+      setHotelList(hotels);
+      setHotelSelectionOpen(true);
+    }
+  };
+
   // ── Sort: newest first ────────────────────────────────────────────────────
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
@@ -88,21 +95,22 @@ const hotels = rawHotels.map((h) => ({
   exportPackagePDF(normalized);
 };
 
-  // ── WhatsApp copy — uses shared copyPackageSummary via adapter ────────────
   const handleCopyToClipboard = (quotation) => {
     copyPackageSummary({
       ...normaliseQuotation(quotation),
-      hotels: state.allHotels, // needed for GoogleListingURL lookup
+      hotels: state.allHotels,
     });
   };
 
-  // ── Loading / empty states ────────────────────────────────────────────────
   if (state.loading)
     return <p className="p-8 text-center">Authenticating...</p>;
   if (state.isFetchingQuotations)
     return <p className="p-8 text-center">Loading quotations...</p>;
   if (!state.isFetchingQuotations && state.quotations.length === 0)
     return <p className="p-8 text-center">No quotations found.</p>;
+
+  // ── Determine if the currently-viewed quotation is Accepted ──────────────
+  const viewedIsAccepted = state.viewingQuotation?.status === "Accepted";
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
@@ -119,61 +127,66 @@ const hotels = rawHotels.map((h) => ({
         getDestinationOfpkg={state.getDestinationOfpkg}
         handleViewClick={state.handleViewClick}
         handleEditClick={state.handleEditClick}
-        handleDownloadPDF={handleDownloadPDF}           // ← shared util
+        handleDownloadPDF={handleDownloadPDF}
         handleDeleteQuotation={state.handleDeleteQuotation}
-        handleCopyToClipboard={handleCopyToClipboard}  // ← shared util
+        handleCopyToClipboard={handleCopyToClipboard}
         handleGenerateVoucher={handleGenerateVoucher}
       />
 
-      <HotelVoucherDrawer 
+      {/* ── Hotel Voucher Drawer ──────────────────────────────────────────── */}
+      <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
         onClose={() => setVoucherDrawerOpen(false)}
         hotelData={selectedHotelForVoucher}
         quotation={activeQuotation}
-        agentId={state.user?.uid || ""} // Ensure you pass the correct Agent ID
-      /><Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
-        <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Select hotel to generate voucher</DialogTitle>
-            </DialogHeader>
-                  <div className="grid grid-cols-2 gap-4">
-          {hotelList.map((h, i) => (
-            <div
-              key={i}
-              className="border rounded-lg p-4 cursor-pointer hover:bg-gray-100 transition"
-              onClick={() => {
-                setSelectedHotelForVoucher(h);
-                setHotelSelectionOpen(false);
-                setVoucherDrawerOpen(true);
-              }}
-            >
-              <p className="font-semibold text-base">
-                {h.hotelName || "Hotel"}
-              </p>
+        agentId={state.user?.uid || ""}
+      />
 
-              <p className="text-sm text-gray-500">
-                {h.city || h.destination || ""}
-              </p>
+      {/* ── Multi-hotel selection dialog ──────────────────────────────────── */}
+      <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Select Hotel for Voucher</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500 -mt-1">
+            This quotation has multiple hotels. Pick one to generate a voucher.
+          </p>
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            {hotelList.map((h, i) => (
+              <div
+                key={i}
+                className="border rounded-xl p-4 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition"
+                onClick={() => {
+                  setSelectedHotelForVoucher(h);
+                  setHotelSelectionOpen(false);
+                  setVoucherDrawerOpen(true);
+                }}
+              >
+                <p className="font-semibold text-base text-slate-800">{h.hotelName || "Hotel"}</p>
+                {(h.city || h.destination) && (
+                  <p className="text-sm text-slate-500 mt-0.5">{h.city || h.destination}</p>
+                )}
+                <p className="text-sm mt-2 text-slate-600">
+                  {h.checkIn} → {h.checkOut}
+                </p>
+                <p className="text-sm text-slate-500">
+                  {h.roomCategory || "-"} · {h.mealPlan || "-"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-              <p className="text-sm mt-1">
-                {(h.checkIn || h.checkInDate)} → {(h.checkOut || h.checkOutDate)}
-              </p>
-
-              <p className="text-sm text-gray-600">
-                {h.roomCategory || h.roomType || "-"}
-              </p>
-            </div>
-          ))}
-        </div>
-          </DialogContent>
-        </Dialog>
-      
-
+      {/* ── Quotation View Modal — with Voucher buttons in footer ─────────── */}
       <QuotationModals
         // View modal
         isViewModalOpen={state.isViewModalOpen}
         setIsViewModalOpen={state.setIsViewModalOpen}
         viewingQuotation={state.viewingQuotation}
+        // ↓ Pass the voucher trigger + accepted flag so the view modal can render buttons
+        onGenerateVoucher={handleGenerateVoucher}
+        viewedIsAccepted={viewedIsAccepted}
         // Edit modal
         isEditModalOpen={state.isEditModalOpen}
         setIsEditModalOpen={state.setIsEditModalOpen}
