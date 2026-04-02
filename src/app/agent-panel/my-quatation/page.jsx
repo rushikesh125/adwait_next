@@ -85,9 +85,15 @@ const MyQuotations = () => {
     }
   }, [editId, state.quotations, state.handleEditClick]);
 
-  const handleDownloadPDF = (quotation) => {
-    exportPackagePDF(normaliseQuotation(quotation));
-  };
+  // ── PDF download — uses shared exportPackagePDF via adapter ───────────────
+ const handleDownloadPDF = (quotation) => {
+  const normalized = normaliseQuotation(quotation);
+  // Add itinerary data from the stored quotation if present
+  if (quotation.itinerarySummary) {
+    normalized.itineraryData = quotation.itinerarySummary;
+  }
+  exportPackagePDF(normalized);
+};
 
   const handleCopyToClipboard = (quotation) => {
     copyPackageSummary({
