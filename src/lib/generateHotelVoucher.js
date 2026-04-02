@@ -38,7 +38,6 @@ const hex2rgb = (hex) => {
   return [r, g, b];
 };
 
-
 const loadLogoBase64 = () =>
   new Promise((resolve) => {
     const img = new Image();
@@ -55,7 +54,6 @@ const loadLogoBase64 = () =>
       }
     };
     img.onerror = () => resolve(null);
-    // cache-bust to avoid stale 404 cached in browser
     img.src = `/adwait-logo.jpg?v=${Date.now()}`;
   });
 
@@ -109,7 +107,6 @@ export async function generateHotelVoucherPDF(voucher = {}) {
   if (logoBase64) {
     doc.addImage(logoBase64, "PNG", ML, y, LOGO_W, LOGO_H);
   } else {
-    // Fallback blue text box if logo file is missing
     filledRect(ML, y, LOGO_W, LOGO_H, BRAND.primary);
     setFont("bold", 13, "#FFFFFF");
     doc.text("ADWAIT", ML + LOGO_W / 2, y + 8,    { align: "center" });
@@ -117,7 +114,6 @@ export async function generateHotelVoucherPDF(voucher = {}) {
     doc.text("TOURS",  ML + LOGO_W / 2, y + 13.5, { align: "center" });
   }
 
-  // Company details — right-aligned, matching quotation PDF exactly
   const rightX = ML + CW;
   setFont("bold", 12, BRAND.primary);
   doc.text(BRAND.name, rightX, y + 5, { align: "right" });
@@ -192,12 +188,10 @@ export async function generateHotelVoucherPDF(voucher = {}) {
   const colL = ML;
   const colR = ML + CW / 2 + 2;
 
-  // Hotel name — full width, bold
   setFont("bold", 11, BRAND.text);
   doc.text(voucher.hotelName || "\u2014", colL, y);
   y += 5;
 
-  // Hotel address — wrapped
   if (voucher.address) {
     setFont("normal", 8.5, BRAND.muted);
     const addrLines = doc.splitTextToSize(voucher.address, CW);
@@ -255,18 +249,28 @@ export async function generateHotelVoucherPDF(voucher = {}) {
   }
 
   /* ─────────────────────────────────────────────────────────────────────
-     PAYMENT
-     ₹ rendered via Unicode U+20B9 — prevents the "'1200" artefact
+     PAYMENT — Updated Logic
   ───────────────────────────────────────────────────────────────────── */
   setFont("bold", 10, BRAND.primary);
   doc.text("PAYMENT", ML, y);
   y += 5;
 
-  const rupee   = "\u20B9";   // ₹
-  const dash    = "\u2014";   // —
-  const payText = voucher.amount
-    ? `${voucher.paymentStatus || dash} ${dash} ${rupee}${voucher.amount}`
-    : (voucher.paymentStatus || dash);
+  const rupee = "\u20B9";
+  const dash  = "\u2014";
+
+  let payText = voucher.paymentStatus || dash;
+
+  if (voucher.amount) {
+    const shouldShowAmount =
+      voucher.paymentStatus === "Payment at hotel" ||
+      (voucher.paymentStatus === "Amount paid to hotel" && voucher.showAmountInVoucher === true);
+
+    if (shouldShowAmount) {
+      payText = `${voucher.paymentStatus} ${dash} ${rupee}${voucher.amount}`;
+    } else {
+      payText = `${voucher.paymentStatus}`;
+    }
+  }
 
   filledRect(ML, y, CW, 9, BRAND.light);
   borderedRect(ML, y, CW, 9, BRAND.rule);
