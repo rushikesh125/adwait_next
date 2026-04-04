@@ -363,87 +363,88 @@ const drawCoverPage = async (
 ) => {
   const overlayY = PAGE_H * 0.45;
 
-  // 1. Background Image
+  // 1. Background Layers
   if (posterImg) {
     const fmt = detectImgFormat(posterImg.src);
     pdfdoc.addImage(posterImg, fmt, 0, 0, PAGE_W, overlayY + 10);
   }
 
-  // 2. Bottom Brand Section
+  // 2. Bottom Wave/Solid Section
   pdfdoc.setFillColor(BRAND);
   pdfdoc.rect(0, overlayY, PAGE_W, PAGE_H - overlayY, "F");
 
-  // 3. Logo with White Circle Backdrop
+  // 3. Logo
   const logoW = 45;
   const logoAspect = logoImg.width / logoImg.height;
   const logoH = logoW / logoAspect;
   const logoX = (PAGE_W - logoW) / 2;
-  const logoY = 15;
+  const logoY = 15; 
 
   pdfdoc.setFillColor("#FFFFFF");
   pdfdoc.circle(PAGE_W / 2, logoY + logoH / 2, (logoW / 2) + 5, "F");
   pdfdoc.addImage(logoImg, "PNG", logoX, logoY, logoW, logoH);
 
-  // 4. Floating Content Card (Increased Height for larger fonts)
+  // 4. Floating Content Card
   const cardW = 180;
+  const cardH = 55; // Slightly taller to fit the inner text neatly
   const cardX = (PAGE_W - cardW) / 2;
-  const cardY = overlayY - 20; 
+  const cardY = overlayY - 15;
 
   pdfdoc.setFillColor(BRAND_DARK);
-  pdfdoc.roundedRect(cardX, cardY, cardW, 60, 3, 3, "F");
+  pdfdoc.roundedRect(cardX, cardY, cardW, cardH, 3, 3, "F");
 
-  // Main Package Title - Increased to 26pt
+  // Client Name & Title (Reverted Title to original 22pt)
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(26);
+  pdfdoc.setFontSize(22);
   pdfdoc.setTextColor("#FFFFFF");
   const mainTitle = (itinTitle || packageName || "Travel Itinerary").toUpperCase();
   const splitTitle = pdfdoc.splitTextToSize(mainTitle, cardW - 20);
-  
-  // Vertical centering for title
-  let titleY = cardY + (splitTitle.length > 1 ? 12 : 18);
-  pdfdoc.text(splitTitle, PAGE_W / 2, titleY, { align: "center", charSpace: 1 });
+  let titleY = cardY + (splitTitle.length > 1 ? 14 : 18);
+  pdfdoc.text(splitTitle, PAGE_W / 2, titleY, { align: "center" });
 
-  // Label - Increased to 11pt
+  // "Prepared For" - Increased from 10 to 11
   pdfdoc.setFontSize(11);
   pdfdoc.setTextColor("#FFD700"); 
-  pdfdoc.text("PREPARED EXCLUSIVELY FOR", PAGE_W / 2, cardY + 40, { align: "center", charSpace: 1.5 });
+  pdfdoc.text("PREPARED EXCLUSIVELY FOR", PAGE_W / 2, cardY + 34, { align: "center" });
   
-  // Customer Name - Increased to 20pt
-  pdfdoc.setFontSize(20);
+  // Customer Name - Increased from 15 to 18
+  pdfdoc.setFontSize(18);
   pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(customerName || "Our Valued Guest", PAGE_W / 2, cardY + 52, { align: "center" });
+  pdfdoc.text(customerName || "Our Valued Guest", PAGE_W / 2, cardY + 44, { align: "center" });
 
   // 5. Trip Metadata (Nights/Days & Date)
   const totalNights = hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0);
   const tripLabel = `${totalNights} Nights / ${totalNights + 1} Days`;
   
-  let currentY = cardY + 78;
+  // Aligned perfectly below the card
+  let currentY = cardY + cardH + 12; 
 
-  // Decorative Separator
   pdfdoc.setDrawColor("#FFFFFF");
-  pdfdoc.setLineWidth(0.4);
+  pdfdoc.setLineWidth(0.3);
   pdfdoc.line(cardX + 20, currentY, cardX + cardW - 20, currentY);
   
-  currentY += 10;
-  pdfdoc.setFont("helvetica", "normal");
-  pdfdoc.setFontSize(10);
-  pdfdoc.setTextColor("#E3E9FF");
-  pdfdoc.text("DURATION", cardX + 35, currentY, { align: "center" });
-  pdfdoc.text("DATE ISSUED", PAGE_W / 2, currentY, { align: "center" });
-  pdfdoc.text("REF NUMBER", cardX + cardW - 35, currentY, { align: "center" });
-
   currentY += 8;
-  pdfdoc.setFont("helvetica", "bold");
+  // Metadata Labels - Increased from 9 to 11
   pdfdoc.setFontSize(11);
+  pdfdoc.setTextColor("#E3E9FF");
+  pdfdoc.text("DURATION", cardX + 30, currentY, { align: "center" });
+  pdfdoc.text("DATE ISSUED", PAGE_W / 2, currentY, { align: "center" });
+  pdfdoc.text("REF NUMBER", cardX + cardW - 30, currentY, { align: "center" });
+
+  currentY += 6;
+  // Metadata Values - Increased from 9/11 to 12
+  pdfdoc.setFont("helvetica", "bold");
+  pdfdoc.setFontSize(12);
   pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(tripLabel, cardX + 35, currentY, { align: "center" });
+  pdfdoc.text(tripLabel, cardX + 30, currentY, { align: "center" });
   pdfdoc.text(todayFormatted(), PAGE_W / 2, currentY, { align: "center" });
-  pdfdoc.text(`AT-${new Date().getFullYear() % 100}${Math.floor(1000 + Math.random() * 900)}`, cardX + cardW - 35, currentY, { align: "center" });
+  pdfdoc.text(`AT-${new Date().getFullYear() % 100}${Math.floor(1000 + Math.random() * 900)}`, cardX + cardW - 30, currentY, { align: "center" });
 
   // 6. Centered Inclusion Icons
-  currentY += 18;
-  pdfdoc.setFontSize(10);
-  pdfdoc.text("WHAT'S INCLUDED", PAGE_W / 2, currentY, { align: "center", charSpace: 1 });
+  currentY += 20;
+  // Section Title - Increased from 10 to 12
+  pdfdoc.setFontSize(12);
+  pdfdoc.text("WHAT'S INCLUDED", PAGE_W / 2, currentY, { align: "center" });
 
   const services = [];
   if (hotelEntries.length > 0) services.push({ label: "Hotels", path: "/hotel.png" });
@@ -458,27 +459,35 @@ const drawCoverPage = async (
     const x = startX + (i * spacing);
     const y = currentY + 6;
     await drawServiceIcon(pdfdoc, services[i].path, x, y, iconSize);
+    
+    // Icon Labels - Increased significantly from 7 to 10
     pdfdoc.setFont("helvetica", "normal");
-    pdfdoc.setFontSize(8);
+    pdfdoc.setFontSize(10);
     pdfdoc.text(services[i].label, x + (iconSize / 2), y + iconSize + 5, { align: "center" });
   }
 
   // 7. Footer Contact Band
-  const footerY = PAGE_H - 25;
+  const footerY = PAGE_H - 28; // Moved the entire block up slightly
   
+  // Decorative line (moved up slightly from the title)
   pdfdoc.setDrawColor("#FFD700");
   pdfdoc.setLineWidth(0.8);
-  pdfdoc.line(PAGE_W / 2 - 15, footerY - 5, PAGE_W / 2 + 15, footerY - 5);
+  pdfdoc.line(PAGE_W / 2 - 20, footerY - 8, PAGE_W / 2 + 20, footerY - 8);
 
+  // Brand Name
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(11);
+  pdfdoc.setFontSize(12);
   pdfdoc.setTextColor("#FFFFFF");
   pdfdoc.text("ADWAIT TOURS", PAGE_W / 2, footerY, { align: "center" });
 
+  // Address & Phone (increased spacing to +8)
   pdfdoc.setFont("helvetica", "normal");
-  pdfdoc.setFontSize(9);
+  pdfdoc.setFontSize(10);
   pdfdoc.setTextColor("#AAC4FF");
-  pdfdoc.text("Chhatrapati Sambhajinagar, MH  |  +91 9884798483", PAGE_W / 2, footerY + 6, { align: "center" });
+  pdfdoc.text("Chhatrapati Sambhajinagar, MH  |  +91 9884798483 | www.adwaittours.com", PAGE_W / 2, footerY + 8, { align: "center" });
+  
+  // Website (increased spacing to +15 to ensure no overlap)
+  // pdfdoc.text("", PAGE_W / 2, footerY + 15, { align: "center" });
 };
 // ─── Main Export Function ─────────────────────────────────────────────────────
 export const exportPackagePDF = async ({
