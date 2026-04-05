@@ -4,13 +4,6 @@ import { z } from "zod";
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod Schemas — validation only, NOT passed to Gemini
 // ─────────────────────────────────────────────────────────────────────────────
-const ChecklistItemSchema = z.object({
-  id:        z.string(),
-  text:      z.string(),
-  selected:  z.boolean(),
-  isDefault: z.boolean(),
-});
-
 const DaySchema = z.object({
   id:          z.string(),
   dayNumber:   z.number(),
@@ -20,32 +13,16 @@ const DaySchema = z.object({
 });
 
 const ItineraryResponseSchema = z.object({
-  title:        z.string(),
-  state:        z.string(),
-  cities:       z.array(z.string()),
-  tags:         z.array(z.string()),
-  days:         z.array(DaySchema),
-  inclusions:   z.array(ChecklistItemSchema),
-  exclusions:   z.array(ChecklistItemSchema),
-  tnc:          z.array(ChecklistItemSchema),
-  cancellation: z.array(ChecklistItemSchema),
-  impInfo:      z.array(ChecklistItemSchema),
+  title:  z.string(),
+  state:  z.string(),
+  cities: z.array(z.string()),
+  tags:   z.array(z.string()),
+  days:   z.array(DaySchema),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Flat JSON schema — passed to Gemini (no $ref, fully inlined)
 // ─────────────────────────────────────────────────────────────────────────────
-const checklistItemSchema = {
-  type: "object",
-  properties: {
-    id:        { type: "string" },
-    text:      { type: "string" },
-    selected:  { type: "boolean" },
-    isDefault: { type: "boolean" },
-  },
-  required: ["id", "text", "selected", "isDefault"],
-};
-
 const daySchema = {
   type: "object",
   properties: {
@@ -61,25 +38,17 @@ const daySchema = {
 const geminiSchema = {
   type: "object",
   properties: {
-    title:        { type: "string" },
-    state:        { type: "string" },
-    cities:       { type: "array", items: { type: "string" } },
-    tags:         { type: "array", items: { type: "string" } },
-    days:         { type: "array", items: daySchema },
-    inclusions:   { type: "array", items: checklistItemSchema },
-    exclusions:   { type: "array", items: checklistItemSchema },
-    tnc:          { type: "array", items: checklistItemSchema },
-    cancellation: { type: "array", items: checklistItemSchema },
-    impInfo:      { type: "array", items: checklistItemSchema },
+    title:  { type: "string" },
+    state:  { type: "string" },
+    cities: { type: "array", items: { type: "string" } },
+    tags:   { type: "array", items: { type: "string" } },
+    days:   { type: "array", items: daySchema },
   },
-  required: [
-    "title", "state", "cities", "tags", "days",
-    "inclusions", "exclusions", "tnc", "cancellation", "impInfo",
-  ],
+  required: ["title", "state", "cities", "tags", "days"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Base prompt builder (always included — never overwritten by user prompts)
+// Base prompt builder
 // ─────────────────────────────────────────────────────────────────────────────
 function buildBasePrompt({
   origin,
@@ -137,17 +106,15 @@ ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
 ## OUTPUT FORMAT
 Return valid JSON matching the provided schema exactly.
-- IDs: use short slugs like "day-001", "inc-001", "exc-001", "tnc-001", "can-001", "imp-001".
-- All checklist items must have selected: true and appropriate isDefault values.
+- IDs: use short slugs like "day-001", "day-002", etc.
 - Keep language simple and friendly.
 - Day descriptions: start each bullet point on a new line.
-
-also include day wise mean for each day properly as a new point
+- Include day-wise meals for each day as a final bullet point in the description.
 `.trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Refinement prompt suffix — appended on top of base prompt when refining
+// Refinement prompt suffix
 // ─────────────────────────────────────────────────────────────────────────────
 function buildRefinementSuffix({ userPrompt, chatHistory, currentItinerary }) {
   const historyText = chatHistory
@@ -161,7 +128,7 @@ function buildRefinementSuffix({ userPrompt, chatHistory, currentItinerary }) {
   return `
 ## REFINEMENT MODE
 The user has already seen an itinerary and wants specific changes.
-Apply ONLY the changes requested — keep everything else the same unless it needs to change to accommodate the request.
+Apply ONLY the changes requested — keep everything else the same.
 
 ### Conversation History (for context)
 ${historyText || "(no prior conversation)"}
@@ -174,9 +141,8 @@ ${itinerarySnapshot ? itinerarySnapshot : "(not provided — generate fresh)"}
 
 ## INSTRUCTIONS FOR REFINEMENT
 - Read the current itinerary carefully.
-- Apply ONLY what the user asked for above. Do not add, remove, or change things unrelated to the request.
+- Apply ONLY what the user asked for above. Do not change things unrelated to the request.
 - If the user asks to change Day 2, only update Day 2 (keep other days identical).
-- If the user asks to add an inclusion, add it to the inclusions array; keep exclusions/tnc/etc. unchanged.
 - Return the FULL updated itinerary JSON (not a diff) — the client will replace state with what you return.
 - Preserve all existing IDs where the content is unchanged. Use new short slug IDs only for newly added items.
 - Do NOT acknowledge or explain — return JSON only.
@@ -200,9 +166,9 @@ export async function POST(req) {
 
   const {
     packageContext,
-    chatHistory      = [],   // Array<{ role: "user"|"assistant", content: string }>
-    userPrompt       = null, // string | null — null means fresh generation
-    currentItinerary = null, // snapshot of current editor state (for refinements)
+    chatHistory      = [],
+    userPrompt       = null,
+    currentItinerary = null,
   } = body;
 
   // ── 2. Validate required fields ───────────────────────────────────────────
@@ -213,7 +179,6 @@ export async function POST(req) {
     );
   }
 
-  // Validate chatHistory shape (loose — don't crash on malformed entries)
   const safeChatHistory = Array.isArray(chatHistory)
     ? chatHistory.filter(
         (m) =>
@@ -244,10 +209,7 @@ export async function POST(req) {
 
   if (!destination) {
     return Response.json(
-      {
-        error:
-          "Could not determine destination. Please add at least one hotel.",
-      },
+      { error: "Could not determine destination. Please add at least one hotel." },
       { status: 400 }
     );
   }
@@ -279,24 +241,21 @@ export async function POST(req) {
     )
     .join("; ");
 
-  const activityNames = selectedActivities
-    .map((a) => a.name)
-    .filter(Boolean)
-    .join(", ");
+  const activityNames = selectedActivities.map((a) => a.name).filter(Boolean).join(", ");
 
   const additionalContext = [
-    hotelLines    ? `Hotels: ${hotelLines}`                                       : null,
-    activityNames ? `Activities: ${activityNames}`                                : null,
-    packageName   ? `Package: ${packageName}`                                     : null,
-    customerName  ? `Customer: ${customerName}`                                   : null,
-    vehicleType   ? `Vehicle: ${vehicleType}`                                     : null,
+    hotelLines    ? `Hotels: ${hotelLines}`                            : null,
+    activityNames ? `Activities: ${activityNames}`                     : null,
+    packageName   ? `Package: ${packageName}`                          : null,
+    customerName  ? `Customer: ${customerName}`                        : null,
+    vehicleType   ? `Vehicle: ${vehicleType}`                          : null,
     selectedTransport?.name
-                  ? `Transport package: ${selectedTransport.name}`                : null,
+                  ? `Transport package: ${selectedTransport.name}`     : null,
   ]
     .filter(Boolean)
     .join(". ");
 
-  // ── 9. Determine if this is a refinement or fresh generation ──────────────
+  // ── 9. Determine refinement vs fresh generation ───────────────────────────
   const isRefinement =
     typeof userPrompt === "string" && userPrompt.trim().length > 0;
 
@@ -312,7 +271,6 @@ export async function POST(req) {
     additionalContext: additionalContext || undefined,
   });
 
-  // Refinement appends extra context AFTER the base prompt — base is never overwritten
   const fullPrompt = isRefinement
     ? `${basePrompt}\n\n${buildRefinementSuffix({
         userPrompt: userPrompt.trim(),
@@ -356,7 +314,6 @@ export async function POST(req) {
   } catch (geminiErr) {
     console.error("[ai-itinerary] Gemini API error:", geminiErr);
 
-    // Provide actionable error messages for common failure modes
     const msg = geminiErr?.message || "";
     if (msg.includes("quota") || msg.includes("429")) {
       return Response.json(
@@ -366,28 +323,19 @@ export async function POST(req) {
     }
     if (msg.includes("safety") || msg.includes("blocked")) {
       return Response.json(
-        {
-          error:
-            "The AI blocked this request due to content policy. Try rephrasing your request.",
-        },
+        { error: "The AI blocked this request due to content policy. Try rephrasing your request." },
         { status: 422 }
       );
     }
     if (msg.includes("deadline") || msg.includes("timeout")) {
       return Response.json(
-        {
-          error:
-            "The AI took too long to respond. Please try again.",
-        },
+        { error: "The AI took too long to respond. Please try again." },
         { status: 504 }
       );
     }
 
     return Response.json(
-      {
-        error:   "AI generation failed. Please try again.",
-        details: msg || "Unknown Gemini error",
-      },
+      { error: "AI generation failed. Please try again.", details: msg || "Unknown Gemini error" },
       { status: 502 }
     );
   }
@@ -401,7 +349,7 @@ export async function POST(req) {
     );
   }
 
-  // ── 14. Strip markdown fences if Gemini wraps response anyway ────────────
+  // ── 14. Strip markdown fences ─────────────────────────────────────────────
   const cleanedText = rawText
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
@@ -415,11 +363,7 @@ export async function POST(req) {
     console.error("[ai-itinerary] JSON parse failed:", jsonErr);
     console.error("[ai-itinerary] Raw output (first 500 chars):", rawText.slice(0, 500));
     return Response.json(
-      {
-        error:
-          "AI returned malformed data. Please try again.",
-        details: `JSON parse error: ${jsonErr.message}`,
-      },
+      { error: "AI returned malformed data. Please try again.", details: `JSON parse error: ${jsonErr.message}` },
       { status: 422 }
     );
   }
@@ -430,8 +374,6 @@ export async function POST(req) {
     validated = ItineraryResponseSchema.parse(parsed);
   } catch (zodErr) {
     console.error("[ai-itinerary] Zod validation failed:", zodErr);
-    // Return the (unvalidated) parsed data with a warning rather than hard-failing,
-    // so partial results still reach the client. The client can handle gracefully.
     console.warn("[ai-itinerary] Returning unvalidated parsed data as fallback.");
     return Response.json(parsed, {
       status: 200,

@@ -681,13 +681,11 @@ export default function ItineraryEditor({
         state: initialData.state || "",
         cities: initialData.cities || [],
         tags: initialData.tags || [],
-        // ── Preserve poster image if template has one ──
         posterImage: initialData.posterImage || null,
         days: (initialData.days || []).map((d) => ({
           ...d,
           id: d.id || mkId(),
           activityIds: d.activityIds || [],
-          // ── Preserve per-day images if template has them ──
           images: d.images || [],
         })),
         inclusions:
@@ -737,7 +735,6 @@ export default function ItineraryEditor({
   const [itinState, setItinState] = useState(initState.state);
   const [cities, setCities] = useState(initState.cities);
   const [cityInput, setCityInput] = useState("");
-  // ── NEW: poster image ──
   const [posterImage, setPosterImage] = useState(initState.posterImage);
   const [days, setDays] = useState(initState.days);
   const [inclusions, setInclusions] = useState(initState.inclusions);
@@ -754,7 +751,7 @@ export default function ItineraryEditor({
   const [aiError, setAiError] = useState(null);
   const [hasGenerated, setHasGenerated] = useState(false);
 
-  // ── Bubble up every change (now includes posterImage + day images) ────────
+  // ── Bubble up every change ────────────────────────────────────────────────
   useEffect(() => {
     onChange?.({
       title,
@@ -784,7 +781,9 @@ export default function ItineraryEditor({
   ]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Apply AI response — images are not AI-generated, left untouched
+  // Apply AI response — ONLY updates title, state, cities, days.
+  // Checklist fields (inclusions, exclusions, tnc, cancellation, impInfo)
+  // are intentionally left untouched — user manages them manually.
   // ─────────────────────────────────────────────────────────────────────────
   const applyAIResponse = (data) => {
     if (data.title) setTitle(data.title);
@@ -798,22 +797,13 @@ export default function ItineraryEditor({
           title: d.title || "",
           description: d.description || "",
           activityIds: [],
-          // ── Keep images empty for AI-generated days (user uploads manually) ──
+          // Keep images empty for AI-generated days — user uploads manually
           images: [],
         }))
       );
     }
-    if (data.inclusions?.length)
-      setInclusions(data.inclusions.map((i) => ({ ...i, id: mkId() })));
-    if (data.exclusions?.length)
-      setExclusions(data.exclusions.map((i) => ({ ...i, id: mkId() })));
-    if (data.tnc?.length)
-      setTnc(data.tnc.map((i) => ({ ...i, id: mkId() })));
-    if (data.cancellation?.length)
-      setCancellation(data.cancellation.map((i) => ({ ...i, id: mkId() })));
-    if (data.impInfo?.length)
-      setImpInfo(data.impInfo.map((i) => ({ ...i, id: mkId() })));
     // posterImage intentionally not reset by AI
+    // inclusions, exclusions, tnc, cancellation, impInfo intentionally NOT touched by AI
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -870,7 +860,7 @@ export default function ItineraryEditor({
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // AI refinement
+  // AI refinement — sends only itinerary/days context, NOT checklist fields
   // ─────────────────────────────────────────────────────────────────────────
   const handleRefine = async (userPrompt) => {
     if (!userPrompt.trim() || isGenerating) return;
@@ -884,16 +874,12 @@ export default function ItineraryEditor({
     ];
     setChatHistory(updatedHistory);
 
+    // Only send itinerary + days — checklist fields excluded intentionally
     const currentItinerary = {
       title,
       state: itinState,
       cities,
       days,
-      inclusions,
-      exclusions,
-      tnc,
-      cancellation,
-      impInfo,
     };
 
     try {
@@ -990,7 +976,7 @@ export default function ItineraryEditor({
         title: "",
         description: "",
         activityIds: [],
-        images: [],           // ← NEW
+        images: [],
       },
     ]);
 
@@ -1010,7 +996,6 @@ export default function ItineraryEditor({
       return next;
     });
 
-  // ── NEW: per-day image update helper ─────────────────────────────────────
   const updateDayImages = (idx, newImages) =>
     setDays((prev) => {
       const next = [...prev];
@@ -1151,7 +1136,7 @@ export default function ItineraryEditor({
                 </div>
               </div>
 
-              {/* ── NEW: Poster / Cover Image ── */}
+              {/* ── Poster / Cover Image ── */}
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
                 <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
                   <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
@@ -1238,7 +1223,7 @@ export default function ItineraryEditor({
                     className="min-h-[90px] text-sm resize-y"
                   />
 
-                  {/* ── NEW: Day Photos ── */}
+                  {/* ── Day Photos ── */}
                   <div className="space-y-1.5 pt-1 border-t border-slate-100">
                     <Label className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                       <ImageIcon className="w-3 h-3" />
