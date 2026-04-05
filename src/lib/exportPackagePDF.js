@@ -101,29 +101,47 @@ const ensureSpace = (pdfdoc, logoImg, currentY, needed = 20) => {
 };
 
 // ─── Header / Footer ─────────────────────────────────────────────────────────
+// ─── Header / Footer ─────────────────────────────────────────────────────────
 const addHeader = (pdfdoc, img) => {
-  const lw = 40;
-  const lh = (img.height * lw) / img.width;
-  pdfdoc.addImage(img, "PNG", 15, 10, lw, lh);
+  // 1. Logo Scaling (Cap height to 16 to prevent layout break, adjust width proportionally)
+  const maxLogoHeight = 16;
+  let lh = maxLogoHeight;
+  let lw = (img.width * lh) / img.height;
 
+  // If logo is exceptionally wide, cap width and recalculate height
+  if (lw > 45) {
+    lw = 45;
+    lh = (img.height * lw) / img.width;
+  }
+
+  // 2. Draw Logo
+  // Vertically center the logo within the 16px header band
+  const logoY = 10 + (maxLogoHeight - lh) / 2; 
+  pdfdoc.addImage(img, "PNG", 15, logoY, lw, lh);
+
+  // 3. Company Title & Subtitle (Positioned dynamically next to logo)
+  const textStartX = 15 + lw + 8;
   pdfdoc.setFont("helvetica", "bold");
   pdfdoc.setFontSize(16);
   pdfdoc.setTextColor(BRAND);
-  pdfdoc.text("Adwait Tours", 60, 18);
+  pdfdoc.text("Adwait Tours", textStartX, 16);
 
   pdfdoc.setFont("helvetica", "normal");
   pdfdoc.setFontSize(FONT_BODY);
-  pdfdoc.setTextColor("#444");
-  pdfdoc.text("Travel Package Quotation", 60, 25);
+  pdfdoc.setTextColor(SLATE); 
+  pdfdoc.text("Travel Package Quotation", textStartX, 22);
 
-  pdfdoc.setFontSize(FONT_TINY);
-  pdfdoc.text("Phone: +91 9884798483", 160, 14);
-  pdfdoc.text("Email: sales@adwaittours.com", 160, 19);
-  pdfdoc.text("Web: www.adwaittours.com", 160, 24);
+  // 4. Contact Information (Right-aligned perfectly against the right margin)
+  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setTextColor(SLATE);
+  pdfdoc.text("Phone: +91 9884798483", 195, 14, { align: "right" });
+  pdfdoc.text("Email: sales@adwaittours.com", 195, 19, { align: "right" });
+  pdfdoc.text("Web: www.adwaittours.com", 195, 24, { align: "right" });
 
-  pdfdoc.setDrawColor("#CCC");
-  pdfdoc.setLineWidth(0.2);
-  pdfdoc.line(15, 32, 200, 32);
+  // 5. Decorative Divider Line (Using Brand color for premium feel)
+  pdfdoc.setDrawColor(BRAND); 
+  pdfdoc.setLineWidth(0.4);
+  pdfdoc.line(15, 30, 195, 30);
 };
 
 const addFooter = (pdfdoc) => {
