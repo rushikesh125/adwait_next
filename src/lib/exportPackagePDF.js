@@ -335,7 +335,6 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
       const imgY = y + (boxH - renderH) / 2;
 
       pdfdoc.addImage(imgObj, fmt, imgX, imgY, renderW, renderH); // Draw a consistent border frame
-      
     }
     y += boxH + 4;
   }
@@ -378,10 +377,10 @@ const drawCoverPage = async (
   const logoAspect = logoImg.width / logoImg.height;
   const logoH = logoW / logoAspect;
   const logoX = (PAGE_W - logoW) / 2;
-  const logoY = 15; 
+  const logoY = 15;
 
   pdfdoc.setFillColor("#FFFFFF");
-  pdfdoc.circle(PAGE_W / 2, logoY + logoH / 2, (logoW / 2) + 5, "F");
+  pdfdoc.circle(PAGE_W / 2, logoY + logoH / 2, logoW / 2 + 5, "F");
   pdfdoc.addImage(logoImg, "PNG", logoX, logoY, logoW, logoH);
 
   // 4. Floating Content Card
@@ -397,32 +396,43 @@ const drawCoverPage = async (
   pdfdoc.setFont("helvetica", "bold");
   pdfdoc.setFontSize(22);
   pdfdoc.setTextColor("#FFFFFF");
-  const mainTitle = (itinTitle || packageName || "Travel Itinerary").toUpperCase();
+  const mainTitle = (
+    itinTitle ||
+    packageName ||
+    "Travel Itinerary"
+  ).toUpperCase();
   const splitTitle = pdfdoc.splitTextToSize(mainTitle, cardW - 20);
   let titleY = cardY + (splitTitle.length > 1 ? 14 : 18);
   pdfdoc.text(splitTitle, PAGE_W / 2, titleY, { align: "center" });
 
   // "Prepared For" - Increased from 10 to 11
   pdfdoc.setFontSize(11);
-  pdfdoc.setTextColor("#FFD700"); 
-  pdfdoc.text("PREPARED EXCLUSIVELY FOR", PAGE_W / 2, cardY + 34, { align: "center" });
-  
+  pdfdoc.setTextColor("#FFD700");
+  pdfdoc.text("PREPARED EXCLUSIVELY FOR", PAGE_W / 2, cardY + 34, {
+    align: "center",
+  });
+
   // Customer Name - Increased from 15 to 18
   pdfdoc.setFontSize(18);
   pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(customerName || "Our Valued Guest", PAGE_W / 2, cardY + 44, { align: "center" });
+  pdfdoc.text(customerName || "Our Valued Guest", PAGE_W / 2, cardY + 44, {
+    align: "center",
+  });
 
   // 5. Trip Metadata (Nights/Days & Date)
-  const totalNights = hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0);
+  const totalNights = hotelEntries.reduce(
+    (s, e) => s + (parseInt(e.nights) || 0),
+    0,
+  );
   const tripLabel = `${totalNights} Nights / ${totalNights + 1} Days`;
-  
+
   // Aligned perfectly below the card
-  let currentY = cardY + cardH + 12; 
+  let currentY = cardY + cardH + 12;
 
   pdfdoc.setDrawColor("#FFFFFF");
   pdfdoc.setLineWidth(0.3);
   pdfdoc.line(cardX + 20, currentY, cardX + cardW - 20, currentY);
-  
+
   currentY += 8;
   // Metadata Labels - Increased from 9 to 11
   pdfdoc.setFontSize(11);
@@ -438,37 +448,48 @@ const drawCoverPage = async (
   pdfdoc.setTextColor("#FFFFFF");
   pdfdoc.text(tripLabel, cardX + 30, currentY, { align: "center" });
   pdfdoc.text(todayFormatted(), PAGE_W / 2, currentY, { align: "center" });
-  pdfdoc.text(`AT-${new Date().getFullYear() % 100}${Math.floor(1000 + Math.random() * 900)}`, cardX + cardW - 30, currentY, { align: "center" });
+  pdfdoc.text(
+    `AT-${new Date().getFullYear() % 100}${Math.floor(1000 + Math.random() * 900)}`,
+    cardX + cardW - 30,
+    currentY,
+    { align: "center" },
+  );
 
   // 6. Centered Inclusion Icons
   currentY += 20;
   // Section Title - Increased from 10 to 12
-  pdfdoc.setFontSize(12);
+  pdfdoc.setFontSize(14);
   pdfdoc.text("WHAT'S INCLUDED", PAGE_W / 2, currentY, { align: "center" });
 
   const services = [];
-  if (hotelEntries.length > 0) services.push({ label: "Hotels", path: "/hotel.png" });
-  if (selectedTransport) services.push({ label: "Transfers", path: "/transfer.png" });
-  if (selectedActivities?.length > 0) services.push({ label: "Sightseeing", path: "/sightseeing.png" });
+  if (hotelEntries.length > 0)
+    services.push({ label: "Hotels", path: "/hotel.png" });
+  if (selectedTransport)
+    services.push({ label: "Transfers", path: "/transfer.png" });
+  if (selectedActivities?.length > 0)
+    services.push({ label: "Sightseeing", path: "/sightseeing.png" });
 
   const iconSize = 14;
   const spacing = 35;
-  const startX = (PAGE_W - (services.length * spacing)) / 2 + (spacing / 2) - (iconSize / 2);
+  const startX =
+    (PAGE_W - services.length * spacing) / 2 + spacing / 2 - iconSize / 2;
 
   for (let i = 0; i < services.length; i++) {
-    const x = startX + (i * spacing);
+    const x = startX + i * spacing;
     const y = currentY + 6;
     await drawServiceIcon(pdfdoc, services[i].path, x, y, iconSize);
-    
+
     // Icon Labels - Increased significantly from 7 to 10
     pdfdoc.setFont("helvetica", "normal");
-    pdfdoc.setFontSize(10);
-    pdfdoc.text(services[i].label, x + (iconSize / 2), y + iconSize + 5, { align: "center" });
+    pdfdoc.setFontSize(12);
+    pdfdoc.text(services[i].label, x + iconSize / 2, y + iconSize + 5, {
+      align: "center",
+    });
   }
 
   // 7. Footer Contact Band
   const footerY = PAGE_H - 28; // Moved the entire block up slightly
-  
+
   // Decorative line (moved up slightly from the title)
   pdfdoc.setDrawColor("#FFD700");
   pdfdoc.setLineWidth(0.8);
@@ -484,8 +505,13 @@ const drawCoverPage = async (
   pdfdoc.setFont("helvetica", "normal");
   pdfdoc.setFontSize(10);
   pdfdoc.setTextColor("#AAC4FF");
-  pdfdoc.text("Chhatrapati Sambhajinagar, MH  |  +91 9884798483 | www.adwaittours.com", PAGE_W / 2, footerY + 8, { align: "center" });
-  
+  pdfdoc.text(
+    "Brookfield, Bangalore | KA |  +91 9884798483 | www.adwaittours.com",
+    PAGE_W / 2,
+    footerY + 8,
+    { align: "center" },
+  );
+
   // Website (increased spacing to +15 to ensure no overlap)
   // pdfdoc.text("", PAGE_W / 2, footerY + 15, { align: "center" });
 };
@@ -625,14 +651,17 @@ export const exportPackagePDF = async ({
     didDrawPage: () => addHeader(pdfdoc, logoImg),
   });
   y = pdfdoc.lastAutoTable.finalY;
-// ── MOVED: INCLUSIONS & EXCLUSIONS ──
-  const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(hotelEntries);
+  // ── MOVED: INCLUSIONS & EXCLUSIONS ──
+  const { totalBreakfasts, totalLunches, totalDinners } =
+    calculateTotalMeals(hotelEntries);
 
   const legacyIncluded = ["Hotel accommodation as specified."];
-  if (totalBreakfasts > 0) legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
+  if (totalBreakfasts > 0)
+    legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
   if (totalLunches > 0) legacyIncluded.push(`${totalLunches} Lunch(es)`);
   if (totalDinners > 0) legacyIncluded.push(`${totalDinners} Dinner(s)`);
-  if (!totalBreakfasts && !totalLunches && !totalDinners) legacyIncluded.push("No meals included (EP Plan)");
+  if (!totalBreakfasts && !totalLunches && !totalDinners)
+    legacyIncluded.push("No meals included (EP Plan)");
 
   if (selectedTransport?.selectedVehicle) {
     const v = selectedTransport.selectedVehicle;
@@ -641,7 +670,9 @@ export const exportPackagePDF = async ({
   }
 
   selectedActivities?.forEach((a) =>
-    legacyIncluded.push(`${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`)
+    legacyIncluded.push(
+      `${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`,
+    ),
   );
 
   const legacyExcluded = [
@@ -650,46 +681,64 @@ export const exportPackagePDF = async ({
     "Anything not in the Included list.",
   ];
 
-  const editorIncluded = (itineraryData?.inclusions || []).filter((i) => i.selected).map((i) => i.text);
-  const editorExcluded = (itineraryData?.exclusions || []).filter((i) => i.selected).map((i) => i.text);
+  const editorIncluded = (itineraryData?.inclusions || [])
+    .filter((i) => i.selected)
+    .map((i) => i.text);
+  const editorExcluded = (itineraryData?.exclusions || [])
+    .filter((i) => i.selected)
+    .map((i) => i.text);
 
   const allIncluded = [...legacyIncluded, ...editorIncluded];
   const allExcluded = [...legacyExcluded, ...editorExcluded];
 
   if (allIncluded.length || allExcluded.length) {
     // Check if we need a new page before drawing this section
-    y = ensureSpace(pdfdoc, logoImg, y, 40); 
+    y = ensureSpace(pdfdoc, logoImg, y, 40);
     y += 10;
     y = drawSectionHeading(pdfdoc, "Inclusions & Exclusions", y);
     y += 8;
 
     const incExcBody = Array.from(
       { length: Math.max(allIncluded.length, allExcluded.length) },
-      (_, i) => [allIncluded[i] || "", allExcluded[i] || ""]
+      (_, i) => [allIncluded[i] || "", allExcluded[i] || ""],
     );
 
     autoTable(pdfdoc, {
       startY: y,
       head: [
         [
-          { content: "INCLUDED", styles: { fillColor: BRAND, halign: "center", fontStyle: "bold" } },
-          { content: "EXCLUDED", styles: { fillColor: BRAND_DARK, halign: "center", fontStyle: "bold" } },
+          {
+            content: "INCLUDED",
+            styles: { fillColor: BRAND, halign: "center", fontStyle: "bold" },
+          },
+          {
+            content: "EXCLUDED",
+            styles: {
+              fillColor: BRAND_DARK,
+              halign: "center",
+              fontStyle: "bold",
+            },
+          },
         ],
       ],
       body: incExcBody,
       theme: "grid",
-      styles: { fontSize: FONT_BODY, cellPadding: 3, valign: "top", font: "helvetica" },
+      styles: {
+        fontSize: FONT_BODY,
+        cellPadding: 3,
+        valign: "top",
+        font: "helvetica",
+      },
       columnStyles: { 0: { cellWidth: 90 }, 1: { cellWidth: 90 } },
       margin: { left: 15, right: 15 },
       didDrawPage: () => addHeader(pdfdoc, logoImg),
     });
-    
+
     // Update y to the end of this table for any sections following it
     y = pdfdoc.lastAutoTable.finalY;
   }
 
   addFooter(pdfdoc);
-
 
   addFooter(pdfdoc);
 
@@ -786,7 +835,6 @@ export const exportPackagePDF = async ({
     }
 
     // ── INCLUSIONS & EXCLUSIONS (UPDATED - clean, no icons, better position) ──
-    
 
     addFooter(pdfdoc);
   } else {
@@ -796,5 +844,20 @@ export const exportPackagePDF = async ({
     // (You can keep your original no-itinerary inclusions code here if needed)
   }
 
-  pdfdoc.save("Travel_Package_Quotation.pdf");
+  // Generate PDF filename: ClientName_PackageName.pdf
+  let rawName = `${(customerName || "Client").trim()}_${(packageName || "Travel_Package").trim()}.pdf`;
+
+  // Clean filename without regex
+  const cleanName = rawName
+    .split("") // convert to array of characters
+    .filter((char) => {
+      return /[a-zA-Z0-9 _-]/.test(char); // keep only safe characters
+    })
+    .join("")
+    .replace(/ /g, "_") // replace spaces with _
+    .replace(/-+/g, "_") // replace hyphens with _
+    .replace(/_+/g, "_") // multiple _ → single _
+    .replace(/^_+|_+$/g, ""); // trim leading/trailing _
+
+  pdfdoc.save(cleanName || "Travel_Package_Quotation.pdf");
 };
