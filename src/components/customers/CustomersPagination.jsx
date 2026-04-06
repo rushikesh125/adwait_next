@@ -101,14 +101,11 @@ export default function CustomersPagination({
 
         {/* Page indicator */}
         <div className="flex items-center gap-1 px-3">
-          {isSearchMode || totalPages ? (
-            // Numbered buttons (max 5 visible)
-            renderPageNumbers(currentPage, totalPages, onFirst, onPrev, onNext)
-          ) : (
+         
             <span className="text-sm font-semibold text-slate-700 px-2">
               Page {currentPage}
             </span>
-          )}
+        
         </div>
 
         {/* Next */}

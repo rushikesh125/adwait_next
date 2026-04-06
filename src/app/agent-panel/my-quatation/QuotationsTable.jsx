@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MoreVertical, Ticket, Hotel, Plane } from "lucide-react";
-import { Search, Download, Edit, Trash2, Copy, Eye } from "lucide-react";
+import { 
+  MoreVertical, 
+  Hotel, 
+  Plane, 
+  Search, 
+  Download, 
+  Edit, 
+  Trash2, 
+  Copy, 
+  Eye, 
+  ChevronLeft, 
+  ChevronRight,
+  Loader2 
+} from "lucide-react";
 
 const STATUS_VARIANT_MAP = {
   Accepted: "success",
@@ -63,6 +76,13 @@ const QuotationsTable = ({
   handleDownloadPDF,
   handleDeleteQuotation,
   handleCopyToClipboard,
+  // Pagination Props
+  currentPage = 1,
+  onNextPage,
+  onPrevPage,
+  hasNextPage = false,
+  hasPrevPage = false,
+  isFetching = false,
 }) => {
   const handleClearFilters = () => {
     setSearchTerm("");
@@ -81,7 +101,7 @@ const QuotationsTable = ({
           <p className="text-muted-foreground mt-1">Manage and edit your travel quotations</p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>{filteredQuotations.length} quotation{filteredQuotations.length !== 1 ? "s" : ""}</span>
+          <span>Total results found: {filteredQuotations.length}</span>
         </div>
       </div>
 
@@ -143,7 +163,16 @@ const QuotationsTable = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredQuotations.length === 0 ? (
+                {isFetching ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-12">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Fetching quotations...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredQuotations.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                       No quotations match your search.
@@ -152,6 +181,8 @@ const QuotationsTable = ({
                 ) : (
                   filteredQuotations.map((q, ind) => {
                     const isAccepted = q.status === "Accepted";
+                    // Calculate order number based on 10 records per page
+                    const orderNumber = (currentPage - 1) * 10 + ind + 1;
 
                     return (
                       <TableRow
@@ -159,7 +190,7 @@ const QuotationsTable = ({
                         className="cursor-pointer hover:bg-theme-muted/20 transition-colors"
                         onClick={() => handleViewClick(q)}
                       >
-                        <TableCell className="font-medium text-theme-primary">#{ind + 1}</TableCell>
+                        <TableCell className="font-medium text-theme-primary">#{orderNumber}</TableCell>
                         <TableCell className="font-medium">{q.customerName || q.leadName || "—"}</TableCell>
                         <TableCell className="max-w-[160px] truncate" title={q.packageName}>{q.packageName || "—"}</TableCell>
                         <TableCell className="whitespace-pre-line max-w-[180px] text-sm text-muted-foreground">
@@ -190,7 +221,6 @@ const QuotationsTable = ({
                               <Copy className="h-4 w-4" />
                             </Button>
 
-                            {/* ── Voucher dropdown — only enabled for Accepted quotations ── */}
                             {isAccepted ? (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -210,7 +240,6 @@ const QuotationsTable = ({
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             ) : (
-                              /* Disabled state with tooltip explaining why */
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="inline-flex">
@@ -225,7 +254,7 @@ const QuotationsTable = ({
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent side="left">
-                                  <p className="text-xs">Voucher are created for accepted quotation</p>
+                                  <p className="text-xs">Vouchers are created for accepted quotations</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}
@@ -268,6 +297,35 @@ const QuotationsTable = ({
                 )}
               </TableBody>
             </Table>
+          </div>
+          
+          {/* ── Pagination Controls ────────────────────────────────────────── */}
+          <div className="flex items-center justify-between px-6 py-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Page <strong>{currentPage}</strong>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onPrevPage}
+                disabled={!hasPrevPage || isFetching}
+                className="gap-1"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onNextPage}
+                disabled={!hasNextPage || isFetching}
+                className="gap-1"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
