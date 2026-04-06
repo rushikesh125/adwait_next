@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Search, 
   MapPin, 
@@ -9,7 +9,10 @@ import {
   FilePlus2,
   FilterX,
   Pencil,
-  Filter, // Added Filter icon
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,15 +34,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 
-export default function LeadsTable({ leads, onStatusChange, onCreateQuotation }) {
+export default function LeadsTable({ leads, onStatusChange, onDeleteLead, onCreateQuotation }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All"); // New State for Filtering
+  const [statusFilter, setStatusFilter] = useState("All");
   const [editingStatusId, setEditingStatusId] = useState(null);
-  const router = useRouter();
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
+  const router = useRouter();
   const statusOptions = ["New", "Contacted", "Quotation Sent", "Closed Won", "Closed Lost"];
 
-  // Updated filtering logic
+  // Filtering Logic
   const filteredLeads = leads.filter((lead) => {
     const name = lead.name?.toLowerCase() || "";
     const dest = (lead.destination || "").toLowerCase();
@@ -51,6 +58,16 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
 
     return matchesSearch && matchesStatus;
   });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  // Pagination Calculations
+  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedLeads = filteredLeads.slice(startIndex, startIndex + itemsPerPage);
 
   const formatDate = (value) => {
     if (!value) return "-";
@@ -93,7 +110,6 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
             />
           </div>
 
-          {/* Status Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-10 rounded-lg border-slate-200">
@@ -104,9 +120,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuLabel>Lead Status</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setStatusFilter("All")}>
-                All Statuses
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setStatusFilter("All")}>All Statuses</DropdownMenuItem>
               {statusOptions.map((status) => (
                 <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
                   {status}
@@ -133,7 +147,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
       </div>
 
       <div className="overflow-x-auto">
-        <Table className="min-w-[1000px]">
+        <Table className="min-w-[1100px]">
           <TableHeader className="bg-slate-50/50">
             <TableRow>
               <TableHead className="w-[70px] text-center">S.No</TableHead>
@@ -142,22 +156,22 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
               <TableHead className="text-center">Travel Date</TableHead>
               <TableHead className="text-center w-[120px]">Created At</TableHead>
               <TableHead className="text-center w-[140px]">Status</TableHead>
-              <TableHead className="text-center px-6 w-[160px]">Actions</TableHead>
+              <TableHead className="text-center px-6 w-[200px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody className="text-center">
-            {filteredLeads.length === 0 ? (
+            {paginatedLeads.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-32 text-center text-slate-500">
                   No leads found matching your criteria
                 </TableCell>
               </TableRow>
             ) : (
-              filteredLeads.map((lead, index) => (
+              paginatedLeads.map((lead, index) => (
                 <TableRow key={lead.id} className="hover:bg-theme-muted/10">
                   <TableCell className="text-center font-medium text-slate-500">
-                    {index + 1}
+                    {startIndex + index + 1}
                   </TableCell>
                   <TableCell className="text-center font-semibold text-slate-900">
                     {lead.name}
@@ -171,7 +185,7 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
                   <TableCell className="text-sm text-slate-600">
                     <div className="flex items-center justify-center">
                       <Calendar className="h-3.5 w-3.5 mr-2 text-slate-400" />
-                     {formatDate(lead.travelDate)}
+                      {formatDate(lead.travelDate)}
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-slate-600">
@@ -217,13 +231,22 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
                     </div>
                   </TableCell>
                   <TableCell className="text-right px-6">
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" className="bg-theme-primary text-white" onClick={() => router.push(`/agent-panel?leadId=${lead.id}`)}>
-                        <FilePlus2 className="h-4 w-4 mr-2" />
+                    <div className="flex justify-end gap-1.5">
+                      <Button size="sm" className="bg-theme-primary text-white h-8" onClick={() => router.push(`/agent-panel?leadId=${lead.id}`)}>
+                        <FilePlus2 className="h-3.5 w-3.5 mr-1.5" />
                         Quotation
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={() => router.push(`./leads/${lead.id}`)}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => router.push(`./leads/${lead.id}`)}>
                         <Eye className="h-4 w-4" />
+                      </Button>
+                      {/* Delete Feature */}
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                        onClick={() => onDeleteLead(lead.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -233,6 +256,44 @@ export default function LeadsTable({ leads, onStatusChange, onCreateQuotation })
           </TableBody>
         </Table>
       </div>
+
+      {/* PAGINATION CONTROLS */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-50/50 border-t">
+          <p className="text-sm text-slate-500">
+            Showing <span className="font-medium">{startIndex + 1}</span> to{" "}
+            <span className="font-medium">
+              {Math.min(startIndex + itemsPerPage, filteredLeads.length)}
+            </span>{" "}
+            of <span className="font-medium">{filteredLeads.length}</span> leads
+          </p>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="rounded-lg"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+            </Button>
+            
+            <div className="flex items-center justify-center bg-white border rounded-lg px-4 py-1.5 text-sm font-bold text-theme-primary shadow-sm">
+              {currentPage} / {totalPages}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="rounded-lg"
+            >
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

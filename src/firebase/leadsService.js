@@ -73,3 +73,7 @@ export const getAgentQuotationsForLead = async (uid, lid) => {
   const snap = await getDocs(q);
   return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
+
+export const deleteLead = async (id) => {
+  await deleteDoc(doc(db, "leads", id));
+};
