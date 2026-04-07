@@ -2,17 +2,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth } from "firebase/auth";
-import { 
-  ArrowLeft, 
-  Hotel, 
-  CheckCircle2, 
-  Search, 
-  X, 
-  Plus, 
-  Trash2, 
+import {
+  ArrowLeft,
+  Hotel,
+  CheckCircle2,
+  Search,
+  X,
+  Plus,
+  Trash2,
   IndianRupee,
   Eye,
-  EyeOff
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,10 @@ import {
 } from "@/components/ui/select";
 
 import { useQuotationState } from "@/app/hooks/useQuotationState";
-import { getNextVoucherNumber, saveVoucherToFirestore } from "@/firebase/voucher";
+import {
+  getNextVoucherNumber,
+  saveVoucherToFirestore,
+} from "@/firebase/voucher";
 import { updateQuotation } from "@/firebase/quotations";
 
 /* ─── Hotel Selection Card ─────────────────────────────────────────────────── */
@@ -51,12 +54,24 @@ const HotelCard = ({ hotel, selected, onSelect }) => (
         <Hotel className="h-5 w-5 text-theme-primary" />
       </div>
       <div className="flex-1">
-        <p className="font-semibold text-slate-800 text-lg">{hotel.hotelName}</p>
-        {hotel.city && <p className="text-sm text-slate-500 mt-0.5">{hotel.city}</p>}
-        
+        <p className="font-semibold text-slate-800 text-lg">
+          {hotel.hotelName}
+        </p>
+        {hotel.city && (
+          <p className="text-sm text-slate-500 mt-0.5">{hotel.city}</p>
+        )}
+
         <div className="mt-3 flex gap-4 text-xs text-slate-500 flex-wrap">
-          {hotel.checkIn && <span>Check-in: <span className="font-medium">{hotel.checkIn}</span></span>}
-          {hotel.checkOut && <span>Check-out: <span className="font-medium">{hotel.checkOut}</span></span>}
+          {hotel.checkIn && (
+            <span>
+              Check-in: <span className="font-medium">{hotel.checkIn}</span>
+            </span>
+          )}
+          {hotel.checkOut && (
+            <span>
+              Check-out: <span className="font-medium">{hotel.checkOut}</span>
+            </span>
+          )}
           {hotel.nights && <span>{hotel.nights} nights</span>}
           {hotel.roomCategory && <span>{hotel.roomCategory}</span>}
           {hotel.mealPlan && <span>Meal: {hotel.mealPlan}</span>}
@@ -108,6 +123,9 @@ const CreateHotelVoucherPage = () => {
     roomCategory: "",
     mealPlan: "",
   });
+  const [hotelSearchResults, setHotelSearchResults] = useState([]);
+  const [showHotelSuggestions, setShowHotelSuggestions] = useState(false);
+  const hotelSuggestRef = useRef(null);
 
   /* ── Guest / contact form ─────────────────────────────────────────────── */
   const [form, setForm] = useState({
@@ -118,7 +136,7 @@ const CreateHotelVoucherPage = () => {
     requests: "",
     paymentStatus: "Payment at hotel",
     amount: "",
-    showAmountInVoucher: true,     // Default true for better UX
+    showAmountInVoucher: true, // Default true for better UX
     cancellation: "",
   });
 
@@ -137,6 +155,28 @@ const CreateHotelVoucherPage = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      if (!hotelFields.hotelName || hotelFields.hotelName.length < 3) {
+        setHotelSearchResults([]);
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/tripadvisor/search?query=${encodeURIComponent(hotelFields.hotelName)}`,
+        );
+        const data = await res.json();
+
+        setHotelSearchResults(data?.data || []);
+        setShowHotelSuggestions(true);
+      } catch (err) {
+        console.error("Search error:", err);
+      }
+    }, 400); // debounce
+
+    return () => clearTimeout(handler);
+  }, [hotelFields.hotelName]);
 
   /* ── Quotation search autocomplete ───────────────────────────────────── */
   useEffect(() => {
@@ -148,16 +188,29 @@ const CreateHotelVoucherPage = () => {
     const matches = (quotations || []).filter(
       (q) =>
         q.id?.toLowerCase().includes(trimmed) ||
-        q.customerName?.toLowerCase().includes(trimmed)
+        q.customerName?.toLowerCase().includes(trimmed),
     );
     setQuotationSuggestions(matches.slice(0, 6));
     setShowSuggestions(true);
   }, [quotationInput, quotations, linkedQuotation]);
-
+  useEffect(() => {
+    const handler = (e) => {
+      if (
+        hotelSuggestRef.current &&
+        !hotelSuggestRef.current.contains(e.target)
+      ) {
+        setShowHotelSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
   /* ── When a quotation is selected ────────────────────────────────────── */
   const handleSelectQuotation = (q) => {
     setLinkedQuotation(q);
-    setQuotationInput(`${q.customerName}  —  #${q.id.substring(0, 8).toUpperCase()}`);
+    setQuotationInput(
+      `${q.customerName}  —  #${q.id.substring(0, 8).toUpperCase()}`,
+    );
     setQuotationSuggestions([]);
     setShowSuggestions(false);
 
@@ -181,8 +234,13 @@ const CreateHotelVoucherPage = () => {
       setSelectedHotelFromList(hotels[0]);
     } else {
       setHotelFields({
-        hotelName: "", checkIn: "", checkOut: "",
-        nights: "", rooms: "", roomCategory: "", mealPlan: "",
+        hotelName: "",
+        checkIn: "",
+        checkOut: "",
+        nights: "",
+        rooms: "",
+        roomCategory: "",
+        mealPlan: "",
       });
     }
 
@@ -191,6 +249,34 @@ const CreateHotelVoucherPage = () => {
       guests: [{ title: "Mr", name: q.customerName || "" }],
       contact: q.customerMobile || prev.contact,
     }));
+  };
+  const handleSelectHotelSuggestion = async (hotel) => {
+    try {
+      setHotelFields((prev) => ({
+        ...prev,
+        hotelName: hotel.name,
+      }));
+
+      setShowHotelSuggestions(false);
+
+      // fetch details
+      const res = await fetch(
+        `/api/tripadvisor/details?locationId=${hotel.location_id}`,
+      );
+      const details = await res.json();
+
+      const d = details;
+
+      setForm((prev) => ({
+        ...prev,
+        address: d.address_obj
+          ? `${d.address_obj.street1 || ""}, ${d.address_obj.city || ""}, ${d.address_obj.country || ""}`
+          : prev.address,
+        phone: d.phone || prev.phone,
+      }));
+    } catch (err) {
+      console.error("Details fetch error:", err);
+    }
   };
 
   const applyHotel = (h) => {
@@ -215,11 +301,19 @@ const CreateHotelVoucherPage = () => {
     setQuotationInput("");
     setAvailableHotels([]);
     setSelectedHotelFromList(null);
-    setHotelFields({ hotelName: "", checkIn: "", checkOut: "", nights: "", rooms: "", roomCategory: "", mealPlan: "" });
-    setForm((prev) => ({ 
-      ...prev, 
-      guests: [{ title: "Mr", name: "" }], 
-      contact: "" 
+    setHotelFields({
+      hotelName: "",
+      checkIn: "",
+      checkOut: "",
+      nights: "",
+      rooms: "",
+      roomCategory: "",
+      mealPlan: "",
+    });
+    setForm((prev) => ({
+      ...prev,
+      guests: [{ title: "Mr", name: "" }],
+      contact: "",
     }));
   };
 
@@ -264,7 +358,8 @@ const CreateHotelVoucherPage = () => {
         voucherNumber: voucherNo,
         voucherType: "Hotel",
         quotationId: linkedQuotation?.id || null,
-        customerName: linkedQuotation?.customerName || form.guests[0]?.name || "",
+        customerName:
+          linkedQuotation?.customerName || form.guests[0]?.name || "",
         destination: linkedQuotation?.destination || "",
 
         hotelName: hotelFields.hotelName,
@@ -282,7 +377,7 @@ const CreateHotelVoucherPage = () => {
         requests: form.requests,
         paymentStatus: form.paymentStatus,
         amount: form.amount,
-        showAmountInVoucher: form.showAmountInVoucher,   // Only meaningful for "Amount paid to hotel"
+        showAmountInVoucher: form.showAmountInVoucher, // Only meaningful for "Amount paid to hotel"
         cancellation: form.cancellation,
 
         issueDate: new Date().toISOString(),
@@ -325,7 +420,9 @@ const CreateHotelVoucherPage = () => {
           <span className="text-slate-300">|</span>
           <div className="flex items-center gap-2">
             <Hotel className="h-5 w-5 text-theme-primary" />
-            <h1 className="text-lg font-semibold text-slate-800">New Hotel Voucher</h1>
+            <h1 className="text-lg font-semibold text-slate-800">
+              New Hotel Voucher
+            </h1>
           </div>
         </div>
         <Badge className="bg-theme-muted text-theme-primary font-mono text-sm px-4 py-1 border border-theme-accent/30">
@@ -334,7 +431,6 @@ const CreateHotelVoucherPage = () => {
       </div>
 
       <div className="max-w-3xl mx-auto py-10 px-4 space-y-6">
-
         {/* 1. Quotation Link */}
         <Section title="Link to Quotation (Optional)">
           <div className="relative" ref={suggestRef}>
@@ -353,7 +449,9 @@ const CreateHotelVoucherPage = () => {
                     setQuotationInput(e.target.value);
                     setShowSuggestions(true);
                   }}
-                  onFocus={() => quotationSuggestions.length > 0 && setShowSuggestions(true)}
+                  onFocus={() =>
+                    quotationSuggestions.length > 0 && setShowSuggestions(true)
+                  }
                 />
               </div>
               {linkedQuotation && (
@@ -368,33 +466,39 @@ const CreateHotelVoucherPage = () => {
               )}
             </div>
 
-            {showSuggestions && quotationSuggestions.length > 0 && !linkedQuotation && (
-              <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
-                {quotationSuggestions.map((q) => (
-                  <div
-                    key={q.id}
-                    className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0 transition-colors"
-                    onMouseDown={() => handleSelectQuotation(q)}
-                  >
-                    <div className="bg-theme-muted rounded-xl p-2 mt-0.5">
-                      <Hotel className="h-4 w-4 text-theme-primary" />
+            {showSuggestions &&
+              quotationSuggestions.length > 0 &&
+              !linkedQuotation && (
+                <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+                  {quotationSuggestions.map((q) => (
+                    <div
+                      key={q.id}
+                      className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0 transition-colors"
+                      onMouseDown={() => handleSelectQuotation(q)}
+                    >
+                      <div className="bg-theme-muted rounded-xl p-2 mt-0.5">
+                        <Hotel className="h-4 w-4 text-theme-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          {q.customerName}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          #{q.id.substring(0, 8).toUpperCase()}
+                          {q.destination ? ` · ${q.destination}` : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{q.customerName}</p>
-                      <p className="text-xs text-slate-400">
-                        #{q.id.substring(0, 8).toUpperCase()}
-                        {q.destination ? ` · ${q.destination}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
 
             {linkedQuotation && (
               <p className="mt-3 text-sm text-emerald-600 font-medium flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4" />
-                Linked to #{linkedQuotation.id.substring(0, 8).toUpperCase()} — {linkedQuotation.customerName}
+                Linked to #{linkedQuotation.id
+                  .substring(0, 8)
+                  .toUpperCase()} — {linkedQuotation.customerName}
               </p>
             )}
           </div>
@@ -404,15 +508,18 @@ const CreateHotelVoucherPage = () => {
         {linkedQuotation && availableHotels.length > 1 && (
           <Section title="Select Hotel" icon={Hotel}>
             <p className="text-sm text-slate-500 -mt-2">
-              This quotation contains multiple hotels. Choose one for this voucher.
+              This quotation contains multiple hotels. Choose one for this
+              voucher.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               {availableHotels.map((h, i) => (
                 <HotelCard
                   key={i}
                   hotel={h}
-                  selected={selectedHotelFromList?.hotelName === h.hotelName && 
-                           selectedHotelFromList?.checkIn === h.checkIn}
+                  selected={
+                    selectedHotelFromList?.hotelName === h.hotelName &&
+                    selectedHotelFromList?.checkIn === h.checkIn
+                  }
                   onSelect={handleSelectHotelCard}
                 />
               ))}
@@ -423,44 +530,115 @@ const CreateHotelVoucherPage = () => {
         {/* 3. Hotel Details */}
         <Section title="Hotel Details" icon={Hotel}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="sm:col-span-2 space-y-1.5">
-              <Label>Hotel Name <span className="text-red-500">*</span></Label>
+            <div
+              className="sm:col-span-2 space-y-1.5 relative"
+              ref={hotelSuggestRef}
+            >
+              <Label>
+                Hotel Name <span className="text-red-500">*</span>
+              </Label>
               <Input
                 value={hotelFields.hotelName}
-                onChange={(e) => setHotelFields({ ...hotelFields, hotelName: e.target.value })}
-                placeholder="e.g. Grand Hyatt Mumbai"
+                onChange={(e) =>
+                  setHotelFields({ ...hotelFields, hotelName: e.target.value })
+                }
+                placeholder="Search hotel (e.g. Taj Mumbai)"
                 className="text-base"
+                onFocus={() =>
+                  hotelSearchResults.length > 0 && setShowHotelSuggestions(true)
+                }
               />
+
+              {showHotelSuggestions && hotelSearchResults.length > 0 && (
+                <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
+                  {hotelSearchResults.map((h) => (
+                    <div
+                      key={h.location_id}
+                      className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0"
+                      onMouseDown={() => handleSelectHotelSuggestion(h)}
+                    >
+                      <p className="text-sm font-medium text-slate-800">
+                        {h.name}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {h.address_obj?.city}, {h.address_obj?.country}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Check-in Date</Label>
-              <Input type="date" value={hotelFields.checkIn} onChange={(e) => setHotelFields({ ...hotelFields, checkIn: e.target.value })} />
+              <Input
+                type="date"
+                value={hotelFields.checkIn}
+                onChange={(e) =>
+                  setHotelFields({ ...hotelFields, checkIn: e.target.value })
+                }
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Check-out Date</Label>
-              <Input type="date" value={hotelFields.checkOut} onChange={(e) => setHotelFields({ ...hotelFields, checkOut: e.target.value })} />
+              <Input
+                type="date"
+                value={hotelFields.checkOut}
+                onChange={(e) =>
+                  setHotelFields({ ...hotelFields, checkOut: e.target.value })
+                }
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Nights</Label>
-              <Input type="number" value={hotelFields.nights} onChange={(e) => setHotelFields({ ...hotelFields, nights: e.target.value })} placeholder="3" />
+              <Input
+                type="number"
+                value={hotelFields.nights}
+                onChange={(e) =>
+                  setHotelFields({ ...hotelFields, nights: e.target.value })
+                }
+                placeholder="3"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Rooms</Label>
-              <Input type="number" value={hotelFields.rooms} onChange={(e) => setHotelFields({ ...hotelFields, rooms: e.target.value })} placeholder="2" />
+              <Input
+                type="number"
+                value={hotelFields.rooms}
+                onChange={(e) =>
+                  setHotelFields({ ...hotelFields, rooms: e.target.value })
+                }
+                placeholder="2"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Room Category</Label>
-              <Input value={hotelFields.roomCategory} onChange={(e) => setHotelFields({ ...hotelFields, roomCategory: e.target.value })} placeholder="Deluxe / Suite" />
+              <Input
+                value={hotelFields.roomCategory}
+                onChange={(e) =>
+                  setHotelFields({
+                    ...hotelFields,
+                    roomCategory: e.target.value,
+                  })
+                }
+                placeholder="Deluxe / Suite"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Meal Plan</Label>
-              <Select value={hotelFields.mealPlan} onValueChange={(v) => setHotelFields({ ...hotelFields, mealPlan: v })}>
+              <Select
+                value={hotelFields.mealPlan}
+                onValueChange={(v) =>
+                  setHotelFields({ ...hotelFields, mealPlan: v })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select meal plan" />
                 </SelectTrigger>
                 <SelectContent>
                   {["CP", "MAP", "AP", "EP", "AI"].map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -487,7 +665,9 @@ const CreateHotelVoucherPage = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {["Mr", "Mrs", "Ms", "Dr"].map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -532,7 +712,9 @@ const CreateHotelVoucherPage = () => {
         <Section title="Hotel Info & Requests">
           <div className="space-y-5">
             <div className="space-y-1.5">
-              <Label>Hotel Address <span className="text-red-500">*</span></Label>
+              <Label>
+                Hotel Address <span className="text-red-500">*</span>
+              </Label>
               <Textarea
                 value={form.address}
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
@@ -574,7 +756,10 @@ const CreateHotelVoucherPage = () => {
             ].map((opt) => (
               <div key={opt.value} className="flex items-center gap-3">
                 <RadioGroupItem value={opt.value} id={opt.value} />
-                <Label htmlFor={opt.value} className="font-medium cursor-pointer">
+                <Label
+                  htmlFor={opt.value}
+                  className="font-medium cursor-pointer"
+                >
                   {opt.label}
                 </Label>
               </div>
@@ -582,7 +767,7 @@ const CreateHotelVoucherPage = () => {
           </RadioGroup>
 
           {/* Amount Input - Shown for Paid & Pay at Hotel */}
-          {(form.paymentStatus === "Amount paid to hotel" || 
+          {(form.paymentStatus === "Amount paid to hotel" ||
             form.paymentStatus === "Payment at hotel") && (
             <div className="mt-6 space-y-5">
               <div className="space-y-1.5">
@@ -604,11 +789,14 @@ const CreateHotelVoucherPage = () => {
                   <Checkbox
                     id="showAmount"
                     checked={form.showAmountInVoucher}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setForm({ ...form, showAmountInVoucher: !!checked })
                     }
                   />
-                  <Label htmlFor="showAmount" className="cursor-pointer text-sm flex items-center gap-2">
+                  <Label
+                    htmlFor="showAmount"
+                    className="cursor-pointer text-sm flex items-center gap-2"
+                  >
                     {form.showAmountInVoucher ? (
                       <Eye className="h-4 w-4 text-theme-primary" />
                     ) : (
