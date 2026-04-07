@@ -116,7 +116,7 @@ const addHeader = (pdfdoc, img) => {
 
   // 2. Draw Logo
   // Vertically center the logo within the 16px header band
-  const logoY = 10 + (maxLogoHeight - lh) / 2; 
+  const logoY = 10 + (maxLogoHeight - lh) / 2;
   pdfdoc.addImage(img, "PNG", 15, logoY, lw, lh);
 
   // 3. Company Title & Subtitle (Positioned dynamically next to logo)
@@ -128,7 +128,7 @@ const addHeader = (pdfdoc, img) => {
 
   pdfdoc.setFont("helvetica", "normal");
   pdfdoc.setFontSize(FONT_BODY);
-  pdfdoc.setTextColor(SLATE); 
+  pdfdoc.setTextColor(SLATE);
   pdfdoc.text("Travel Package Quotation", textStartX, 22);
 
   // 4. Contact Information (Right-aligned perfectly against the right margin)
@@ -139,7 +139,7 @@ const addHeader = (pdfdoc, img) => {
   pdfdoc.text("Web: www.adwaittours.com", 195, 24, { align: "right" });
 
   // 5. Decorative Divider Line (Using Brand color for premium feel)
-  pdfdoc.setDrawColor(BRAND); 
+  pdfdoc.setDrawColor(BRAND);
   pdfdoc.setLineWidth(0.4);
   pdfdoc.line(15, 30, 195, 30);
 };
@@ -475,17 +475,37 @@ const drawCoverPage = async (
 
   // 6. Centered Inclusion Icons
   currentY += 20;
-  // Section Title - Increased from 10 to 12
+
   pdfdoc.setFontSize(14);
   pdfdoc.text("WHAT'S INCLUDED", PAGE_W / 2, currentY, { align: "center" });
 
   const services = [];
-  if (hotelEntries.length > 0)
+
+  // 🏨 Hotels
+  if (hotelEntries.length > 0) {
     services.push({ label: "Hotels", path: "/hotel.png" });
-  if (selectedTransport)
+
+    // 🍽️ Meals (ONLY if NOT EP)
+    const hasMeals = hotelEntries.some(
+      (h) => h.selectedMealPlan && h.selectedMealPlan !== "EP",
+    );
+    if (hasMeals) {
+      services.push({ label: "Meals", path: "/meals.png" });
+    }
+  }
+
+  // 🚗 Transfers
+  if (selectedTransport) {
     services.push({ label: "Transfers", path: "/transfer.png" });
-  if (selectedActivities?.length > 0)
+
+    // 👀 Sightseeing (ALSO show when transfer exists)
     services.push({ label: "Sightseeing", path: "/sightseeing.png" });
+  }
+
+  // (keep existing activity-based sightseeing ALSO)
+  if (selectedActivities?.length > 0) {
+    services.push({ label: "Sightseeing", path: "/sightseeing.png" });
+  }
 
   const iconSize = 14;
   const spacing = 35;
@@ -495,16 +515,15 @@ const drawCoverPage = async (
   for (let i = 0; i < services.length; i++) {
     const x = startX + i * spacing;
     const y = currentY + 6;
+
     await drawServiceIcon(pdfdoc, services[i].path, x, y, iconSize);
 
-    // Icon Labels - Increased significantly from 7 to 10
     pdfdoc.setFont("helvetica", "normal");
     pdfdoc.setFontSize(12);
     pdfdoc.text(services[i].label, x + iconSize / 2, y + iconSize + 5, {
       align: "center",
     });
   }
-
   // 7. Footer Contact Band
   const footerY = PAGE_H - 28; // Moved the entire block up slightly
 
