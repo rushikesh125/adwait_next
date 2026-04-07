@@ -22,7 +22,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Download } from "lucide-react";
-import { getNextVoucherNumber, saveVoucherToFirestore } from "@/firebase/voucher";
+import {
+  getNextVoucherNumber,
+  saveVoucherToFirestore,
+} from "@/firebase/voucher";
 import { updateQuotation } from "@/firebase/quotations";
 
 // ── Use the same PDF generator as the dashboard ──────────────────────────────
@@ -99,10 +102,12 @@ const HotelVoucherDrawer = ({
       mealPlan: hotelData?.mealPlan || "",
     });
 
+    const customerName = quotation?.customerName || quotation?.leadName || "";
+
     setForm((prev) => ({
       ...prev,
-      guests: [{ title: "Mr", name: quotation?.customerName || "" }],
-      contact: quotation?.customerMobile || "",
+      guests: [{ title: "Mr", name: customerName }], // 👈 customer becomes guest
+      contact: quotation?.customerMobile || quotation?.mobile || "",
       address: hotelData?.address || "",
     }));
   }, [isOpen, hotelData, quotation]);
@@ -111,19 +116,24 @@ const HotelVoucherDrawer = ({
   useEffect(() => {
     if (!isDashboardFlow) return;
     const trimmed = quotationInput.trim().toLowerCase();
-    if (!trimmed) { setQuotationSuggestions([]); return; }
+    if (!trimmed) {
+      setQuotationSuggestions([]);
+      return;
+    }
     const matches = (quotations || []).filter(
       (q) =>
         q.id?.toLowerCase().includes(trimmed) ||
         q.customerName?.toLowerCase().includes(trimmed) ||
-        q.voucherNumber?.toLowerCase().includes(trimmed)
+        q.voucherNumber?.toLowerCase().includes(trimmed),
     );
     setQuotationSuggestions(matches.slice(0, 6));
   }, [quotationInput, quotations, isDashboardFlow]);
 
   const handleSelectQuotation = (q) => {
     setLinkedQuotation(q);
-    setQuotationInput(q.customerName + " — " + q.id.substring(0, 8).toUpperCase());
+    setQuotationInput(
+      q.customerName + " — " + q.id.substring(0, 8).toUpperCase(),
+    );
     setQuotationSuggestions([]);
     const rawHotels = q.hotelSummary || q.hotel_summary || [];
     if (rawHotels.length > 0) {
@@ -148,8 +158,20 @@ const HotelVoucherDrawer = ({
   const handleClearQuotation = () => {
     setLinkedQuotation(null);
     setQuotationInput("");
-    setHotelFields({ hotelName: "", checkIn: "", checkOut: "", nights: "", rooms: "", roomCategory: "", mealPlan: "" });
-    setForm((prev) => ({ ...prev, guests: [{ title: "Mr", name: "" }], contact: "" }));
+    setHotelFields({
+      hotelName: "",
+      checkIn: "",
+      checkOut: "",
+      nights: "",
+      rooms: "",
+      roomCategory: "",
+      mealPlan: "",
+    });
+    setForm((prev) => ({
+      ...prev,
+      guests: [{ title: "Mr", name: "" }],
+      contact: "",
+    }));
   };
 
   const addGuest = () => {
@@ -169,11 +191,10 @@ const HotelVoucherDrawer = ({
 
   const validate = () => {
     if (!effectiveHotel.hotelName && !hotelFields.hotelName)
-      return alert("Hotel name is required"), false;
-    if (!form.address)
-      return alert("Hotel address is required"), false;
+      return (alert("Hotel name is required"), false);
+    if (!form.address) return (alert("Hotel address is required"), false);
     if (form.contact && !/^\d{10}$/.test(form.contact))
-      return alert("Enter a valid 10-digit mobile number"), false;
+      return (alert("Enter a valid 10-digit mobile number"), false);
     return true;
   };
 
@@ -196,7 +217,11 @@ const HotelVoucherDrawer = ({
     paymentStatus: form.paymentStatus,
     amount: form.amount,
     cancellation: form.cancellation,
-    customerName: effectiveQuotation?.customerName || form.guests[0]?.name || "",
+    customerName:
+      form.guests[0]?.name ||
+      effectiveQuotation?.customerName ||
+      effectiveQuotation?.leadName ||
+      "",
     destination: effectiveQuotation?.destination || "",
     quotationId: effectiveQuotation?.id || null,
     issueDate: new Date().toISOString(),
@@ -236,7 +261,8 @@ const HotelVoucherDrawer = ({
         voucherNumber: voucherNo,
         voucherType: "Hotel",
         quotationId: finalQuotation?.id || null,
-        customerName: finalQuotation?.customerName || form.guests[0]?.name || "",
+        customerName:
+          finalQuotation?.customerName || form.guests[0]?.name || "",
         destination: finalQuotation?.destination || "",
         hotelName: finalHotel.hotelName,
         checkIn: finalHotel.checkIn,
@@ -256,7 +282,11 @@ const HotelVoucherDrawer = ({
         issueDate: new Date().toISOString(),
       };
 
-      await saveVoucherToFirestore(agentIdFinal, finalQuotation?.id || null, data);
+      await saveVoucherToFirestore(
+        agentIdFinal,
+        finalQuotation?.id || null,
+        data,
+      );
 
       if (finalQuotation?.id) {
         await updateQuotation(agentIdFinal, finalQuotation.id, {
@@ -298,43 +328,88 @@ const HotelVoucherDrawer = ({
     }
     return (
       <div className="space-y-3 p-3 bg-slate-50 rounded-lg border">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hotel Details</p>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          Hotel Details
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1">
             <Label>Hotel Name *</Label>
             <Input
               value={hotelFields.hotelName}
-              onChange={(e) => setHotelFields({ ...hotelFields, hotelName: e.target.value })}
+              onChange={(e) =>
+                setHotelFields({ ...hotelFields, hotelName: e.target.value })
+              }
               placeholder="e.g. Grand Hyatt Mumbai"
             />
           </div>
           <div className="space-y-1">
             <Label>Check-in Date</Label>
-            <Input type="date" value={hotelFields.checkIn} onChange={(e) => setHotelFields({ ...hotelFields, checkIn: e.target.value })} />
+            <Input
+              type="date"
+              value={hotelFields.checkIn}
+              onChange={(e) =>
+                setHotelFields({ ...hotelFields, checkIn: e.target.value })
+              }
+            />
           </div>
           <div className="space-y-1">
             <Label>Check-out Date</Label>
-            <Input type="date" value={hotelFields.checkOut} onChange={(e) => setHotelFields({ ...hotelFields, checkOut: e.target.value })} />
+            <Input
+              type="date"
+              value={hotelFields.checkOut}
+              onChange={(e) =>
+                setHotelFields({ ...hotelFields, checkOut: e.target.value })
+              }
+            />
           </div>
           <div className="space-y-1">
             <Label>Nights</Label>
-            <Input type="number" value={hotelFields.nights} onChange={(e) => setHotelFields({ ...hotelFields, nights: e.target.value })} placeholder="e.g. 3" />
+            <Input
+              type="number"
+              value={hotelFields.nights}
+              onChange={(e) =>
+                setHotelFields({ ...hotelFields, nights: e.target.value })
+              }
+              placeholder="e.g. 3"
+            />
           </div>
           <div className="space-y-1">
             <Label>Rooms</Label>
-            <Input type="number" value={hotelFields.rooms} onChange={(e) => setHotelFields({ ...hotelFields, rooms: e.target.value })} placeholder="e.g. 2" />
+            <Input
+              type="number"
+              value={hotelFields.rooms}
+              onChange={(e) =>
+                setHotelFields({ ...hotelFields, rooms: e.target.value })
+              }
+              placeholder="e.g. 2"
+            />
           </div>
           <div className="space-y-1">
             <Label>Room Category</Label>
-            <Input value={hotelFields.roomCategory} onChange={(e) => setHotelFields({ ...hotelFields, roomCategory: e.target.value })} placeholder="e.g. Deluxe, Suite" />
+            <Input
+              value={hotelFields.roomCategory}
+              onChange={(e) =>
+                setHotelFields({ ...hotelFields, roomCategory: e.target.value })
+              }
+              placeholder="e.g. Deluxe, Suite"
+            />
           </div>
           <div className="space-y-1">
             <Label>Meal Plan</Label>
-            <Select value={hotelFields.mealPlan} onValueChange={(v) => setHotelFields({ ...hotelFields, mealPlan: v })}>
-              <SelectTrigger><SelectValue placeholder="Select meal plan" /></SelectTrigger>
+            <Select
+              value={hotelFields.mealPlan}
+              onValueChange={(v) =>
+                setHotelFields({ ...hotelFields, mealPlan: v })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select meal plan" />
+              </SelectTrigger>
               <SelectContent>
                 {["CP", "MAP", "AP", "EP", "AI"].map((m) => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -380,7 +455,12 @@ const HotelVoucherDrawer = ({
                   className="flex-1"
                 />
                 {linkedQuotation && (
-                  <Button variant="ghost" size="sm" onClick={handleClearQuotation} className="text-red-500 px-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearQuotation}
+                    className="text-red-500 px-2"
+                  >
                     ✕
                   </Button>
                 )}
@@ -407,7 +487,8 @@ const HotelVoucherDrawer = ({
               )}
               {linkedQuotation && (
                 <p className="text-xs text-green-600 font-medium">
-                  ✓ Linked to quotation #{linkedQuotation.id.substring(0, 8).toUpperCase()}
+                  ✓ Linked to quotation #
+                  {linkedQuotation.id.substring(0, 8).toUpperCase()}
                 </p>
               )}
             </div>
@@ -430,10 +511,14 @@ const HotelVoucherDrawer = ({
                       setForm({ ...form, guests: copy });
                     }}
                   >
-                    <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {["Mr", "Mrs", "Ms", "Dr"].map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -446,7 +531,10 @@ const HotelVoucherDrawer = ({
                     }}
                   />
                   {i > 0 && (
-                    <Trash2 className="cursor-pointer text-red-500 flex-shrink-0" onClick={() => removeGuest(i)} />
+                    <Trash2
+                      className="cursor-pointer text-red-500 flex-shrink-0"
+                      onClick={() => removeGuest(i)}
+                    />
                   )}
                 </div>
               ))}
@@ -457,54 +545,99 @@ const HotelVoucherDrawer = ({
 
             <div className="space-y-1.5">
               <Label>Lead Contact</Label>
-              <Input maxLength={10} value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} placeholder="10-digit mobile number" />
+              <Input
+                maxLength={10}
+                value={form.contact}
+                onChange={(e) => setForm({ ...form, contact: e.target.value })}
+                placeholder="10-digit mobile number"
+              />
             </div>
 
             <div className="space-y-1.5">
               <Label>Hotel Address *</Label>
-              <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Full hotel address" />
+              <Textarea
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Full hotel address"
+              />
             </div>
 
             <div className="space-y-1.5">
               <Label>Hotel Phone Number</Label>
-              <Input placeholder="Optional" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <Input
+                placeholder="Optional"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
             </div>
 
             <div className="space-y-1.5">
               <Label>Special Requests</Label>
-              <Textarea placeholder="Optional" value={form.requests} onChange={(e) => setForm({ ...form, requests: e.target.value })} />
+              <Textarea
+                placeholder="Optional"
+                value={form.requests}
+                onChange={(e) => setForm({ ...form, requests: e.target.value })}
+              />
             </div>
 
             <div className="space-y-1.5">
               <Label>Payment</Label>
-              <RadioGroup value={form.paymentStatus} onValueChange={(v) => setForm({ ...form, paymentStatus: v })} className="mt-1 space-y-1">
+              <RadioGroup
+                value={form.paymentStatus}
+                onValueChange={(v) => setForm({ ...form, paymentStatus: v })}
+                className="mt-1 space-y-1"
+              >
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="Amount paid to hotel" id="paid" />
-                  <Label htmlFor="paid" className="font-normal cursor-pointer">Paid</Label>
+                  <Label htmlFor="paid" className="font-normal cursor-pointer">
+                    Paid
+                  </Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="Payment at hotel" id="pay-at-hotel" />
-                  <Label htmlFor="pay-at-hotel" className="font-normal cursor-pointer">Pay at hotel</Label>
+                  <Label
+                    htmlFor="pay-at-hotel"
+                    className="font-normal cursor-pointer"
+                  >
+                    Pay at hotel
+                  </Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="Complimentary" id="comp" />
-                  <Label htmlFor="comp" className="font-normal cursor-pointer">Complimentary</Label>
+                  <Label htmlFor="comp" className="font-normal cursor-pointer">
+                    Complimentary
+                  </Label>
                 </div>
               </RadioGroup>
               {form.paymentStatus === "Amount paid to hotel" && (
-                <Input className="mt-2" placeholder="Amount paid (₹)" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+                <Input
+                  className="mt-2"
+                  placeholder="Amount paid (₹)"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                />
               )}
             </div>
 
             <div className="space-y-1.5">
               <Label>Cancellation Policy</Label>
-              <Textarea value={form.cancellation} placeholder="15 days prior: full refund | 7–14 days: 50% | Under 7 days: no refund" onChange={(e) => setForm({ ...form, cancellation: e.target.value })} />
+              <Textarea
+                value={form.cancellation}
+                placeholder="15 days prior: full refund | 7–14 days: 50% | Under 7 days: no refund"
+                onChange={(e) =>
+                  setForm({ ...form, cancellation: e.target.value })
+                }
+              />
             </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button variant="secondary" onClick={handlePreview}>Preview</Button>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button variant="secondary" onClick={handlePreview}>
+              Preview
+            </Button>
             <Button onClick={handleSave} disabled={loading}>
               {loading ? "Saving..." : "Save Voucher"}
             </Button>
@@ -524,43 +657,100 @@ const HotelVoucherDrawer = ({
               Hotel Booking Voucher
             </h2>
             <div className="border-t pt-4 grid grid-cols-2 gap-2">
-              <p><span className="font-semibold">Voucher No:</span> {voucherNo}</p>
-              <p><span className="font-semibold">Issue Date:</span> {new Date().toLocaleDateString("en-GB")}</p>
+              <p>
+                <span className="font-semibold">Voucher No:</span> {voucherNo}
+              </p>
+              <p>
+                <span className="font-semibold">Issue Date:</span>{" "}
+                {new Date().toLocaleDateString("en-GB")}
+              </p>
               <p className="col-span-2">
                 <span className="font-semibold">Hotel:</span>{" "}
                 {hotelData?.hotelName || hotelFields.hotelName || "—"}
               </p>
-              <p><span className="font-semibold">Check-in:</span> {formatDate(hotelData?.checkIn || hotelFields.checkIn)}</p>
-              <p><span className="font-semibold">Check-out:</span> {formatDate(hotelData?.checkOut || hotelFields.checkOut)}</p>
-              <p><span className="font-semibold">Nights:</span> {hotelData?.nights || hotelFields.nights || "—"}</p>
-              <p><span className="font-semibold">Rooms:</span> {hotelData?.rooms || hotelFields.rooms || "—"}</p>
-              <p><span className="font-semibold">Room Type:</span> {hotelData?.roomCategory || hotelFields.roomCategory || "—"}</p>
-              <p><span className="font-semibold">Meal Plan:</span> {hotelData?.mealPlan || hotelFields.mealPlan || "—"}</p>
+              <p>
+                <span className="font-semibold">Check-in:</span>{" "}
+                {formatDate(hotelData?.checkIn || hotelFields.checkIn)}
+              </p>
+              <p>
+                <span className="font-semibold">Check-out:</span>{" "}
+                {formatDate(hotelData?.checkOut || hotelFields.checkOut)}
+              </p>
+              <p>
+                <span className="font-semibold">Nights:</span>{" "}
+                {hotelData?.nights || hotelFields.nights || "—"}
+              </p>
+              <p>
+                <span className="font-semibold">Rooms:</span>{" "}
+                {hotelData?.rooms || hotelFields.rooms || "—"}
+              </p>
+              <p>
+                <span className="font-semibold">Room Type:</span>{" "}
+                {hotelData?.roomCategory || hotelFields.roomCategory || "—"}
+              </p>
+              <p>
+                <span className="font-semibold">Meal Plan:</span>{" "}
+                {hotelData?.mealPlan || hotelFields.mealPlan || "—"}
+              </p>
             </div>
 
             <div className="border-t pt-3 space-y-1.5">
               <p>
                 <span className="font-semibold">Guests:</span>{" "}
-                {form.guests.map((g) => `${g.title} ${g.name}`).filter((s) => s.trim().replace(/^(Mr|Mrs|Ms|Dr)\s*$/, "")).join(", ") || "—"}
+                {form.guests
+                  .map((g) => `${g.title} ${g.name}`)
+                  .filter((s) => s.trim().replace(/^(Mr|Mrs|Ms|Dr)\s*$/, ""))
+                  .join(", ") || "—"}
               </p>
-              {form.contact && <p><span className="font-semibold">Contact:</span> {form.contact}</p>}
-              {form.address && <p><span className="font-semibold">Address:</span> {form.address}</p>}
-              {form.phone && <p><span className="font-semibold">Hotel Phone:</span> {form.phone}</p>}
-              <p><span className="font-semibold">Payment:</span> {form.paymentStatus}{form.amount ? ` — ₹${form.amount}` : ""}</p>
-              {form.requests && <p><span className="font-semibold">Special Requests:</span> {form.requests}</p>}
-              {form.cancellation && <p><span className="font-semibold">Cancellation Policy:</span> {form.cancellation}</p>}
+              {form.contact && (
+                <p>
+                  <span className="font-semibold">Contact:</span> {form.contact}
+                </p>
+              )}
+              {form.address && (
+                <p>
+                  <span className="font-semibold">Address:</span> {form.address}
+                </p>
+              )}
+              {form.phone && (
+                <p>
+                  <span className="font-semibold">Hotel Phone:</span>{" "}
+                  {form.phone}
+                </p>
+              )}
+              <p>
+                <span className="font-semibold">Payment:</span>{" "}
+                {form.paymentStatus}
+                {form.amount ? ` — ₹${form.amount}` : ""}
+              </p>
+              {form.requests && (
+                <p>
+                  <span className="font-semibold">Special Requests:</span>{" "}
+                  {form.requests}
+                </p>
+              )}
+              {form.cancellation && (
+                <p>
+                  <span className="font-semibold">Cancellation Policy:</span>{" "}
+                  {form.cancellation}
+                </p>
+              )}
             </div>
 
             {effectiveQuotation && (
               <div className="border-t pt-2 text-xs text-slate-400">
-                Linked to quotation #{effectiveQuotation.id.substring(0, 8).toUpperCase()} — {effectiveQuotation.customerName}
+                Linked to quotation #
+                {effectiveQuotation.id.substring(0, 8).toUpperCase()} —{" "}
+                {effectiveQuotation.customerName}
               </div>
             )}
           </div>
 
           {/* ── Preview action buttons — Download PDF uses same generator as dashboard ── */}
           <div className="flex justify-end gap-3 mt-2">
-            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+              Close
+            </Button>
             <Button
               variant="outline"
               onClick={handleDownloadPDF}
