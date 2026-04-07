@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Plus, MapPin, Star, ArrowUpDown, Building, MoreHorizontal, Globe } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 const Accommodation = () => {
   const [hotels, setHotels] = useState([]);
@@ -39,7 +40,7 @@ const Accommodation = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
+  const router = useRouter()
   useEffect(() => {
     fetchHotels();
   }, []);
@@ -95,7 +96,7 @@ const Accommodation = () => {
           <p className="text-slate-500 font-medium">Manage property details, ratings, and room inventory.</p>
         </div>
         <Button 
-          onClick={() => setShowAddModal(true)}
+          onClick={()=>{router.push("./accommodations/create")}}
           className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 h-11 px-6"
         >
           <Plus className="mr-2 h-5 w-5" /> Add Property
