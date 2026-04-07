@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   FileText, Download, Search, Filter,
   RefreshCw, Plus, Plane, Hotel, Trash2, ChevronDown, Eye,
-  MessageCircle,
+  MessageCircle, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +31,9 @@ import {
   generateHotelVoucherPDF,
   shareHotelVoucherWhatsApp,
 } from "@/lib/generateHotelVoucher";
+
+// 1. Pagination Constant
+const PAGE_SIZE = 10;
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 const fmt = (dateStr) => {
@@ -127,7 +130,6 @@ const VoucherDashboard = () => {
   const router = useRouter();
   const state = useQuotationState();
 
-  // Direct Firebase auth — fixes "Not authenticated" race condition
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -141,6 +143,7 @@ const VoucherDashboard = () => {
   }, []);
 
   const [localSearch, setLocalSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1); // 2. Pagination State
   const [viewingVoucher, setViewingVoucher] = useState(null);
   const [allVouchers, setAllVouchers] = useState([]);
   const [isFetching, setIsFetching] = useState(false);
@@ -166,17 +169,33 @@ const VoucherDashboard = () => {
     if (!authLoading && authUser?.uid) loadVouchers();
   }, [authLoading, authUser?.uid, loadVouchers]);
 
-  const displayedVouchers = allVouchers.filter((v) => {
+  // 3. Filtered Logic (useMemo)
+  const filteredData = useMemo(() => {
     const q = localSearch.toLowerCase();
-    return (
-      !q ||
-      v.customerName?.toLowerCase().includes(q) ||
-      v.voucherNumber?.toLowerCase().includes(q) ||
-      v.quotationId?.toLowerCase().includes(q) ||
-      v.destination?.toLowerCase().includes(q) ||
-      v.hotelName?.toLowerCase().includes(q)
-    );
-  });
+    return allVouchers.filter((v) => {
+      return (
+        !q ||
+        v.customerName?.toLowerCase().includes(q) ||
+        v.voucherNumber?.toLowerCase().includes(q) ||
+        v.quotationId?.toLowerCase().includes(q) ||
+        v.destination?.toLowerCase().includes(q) ||
+        v.hotelName?.toLowerCase().includes(q)
+      );
+    });
+  }, [allVouchers, localSearch]);
+
+  // Reset to page 1 on search
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [localSearch]);
+
+  // 4. Pagination Logic
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+
+  const pagedData = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredData.slice(start, start + PAGE_SIZE);
+  }, [filteredData, currentPage]);
 
   const handleDeleteVoucher = async (voucherRecord) => {
     if (!window.confirm("Delete this voucher?")) return;
@@ -238,7 +257,7 @@ const VoucherDashboard = () => {
               <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
                 <Plus className="mr-2 h-4 w-4" /> Create Flight Voucher
               </Button>
-              <Button  className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => router.push("/agent-panel/vouchers/create-hotel")}>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => router.push("/agent-panel/vouchers/create-hotel")}>
                 <Plus className="mr-2 h-4 w-4" /> Create Hotel Voucher
               </Button>
             </div>
@@ -292,9 +311,12 @@ const VoucherDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {displayedVouchers.map((item, index) => (
+                      {/* 5. Map over pagedData */}
+                      {pagedData.map((item, index) => (
                         <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                          <TableCell className="text-center text-slate-500">{index + 1}</TableCell>
+                          <TableCell className="text-center text-slate-500">
+                            {(currentPage - 1) * PAGE_SIZE + index + 1}
+                          </TableCell>
 
                           <TableCell className="font-mono text-sm font-semibold text-slate-700 uppercase">
                             {item.voucherNumber || "—"}
@@ -391,7 +413,43 @@ const VoucherDashboard = () => {
                     </TableBody>
                   </Table>
 
-                  {displayedVouchers.length === 0 && (
+                  {/* 6. Pagination Footer */}
+                  {!isFetching && filteredData.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                      <p className="text-xs text-slate-500 font-medium">
+                        Showing{" "}
+                        <span className="font-bold text-slate-700">
+                          {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredData.length)}
+                        </span>{" "}
+                        of <span className="font-bold text-slate-700">{filteredData.length}</span> vouchers
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="h-8 w-8 p-0 border-slate-200"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm font-bold text-slate-700 min-w-[80px] text-center">
+                          {currentPage} / {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="h-8 w-8 p-0 border-slate-200"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredData.length === 0 && (
                     <div className="py-24 text-center">
                       <FileText className="h-12 w-12 text-slate-200 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-slate-900">No Vouchers Found</h3>
@@ -400,11 +458,6 @@ const VoucherDashboard = () => {
                           ? "No vouchers match your search."
                           : "Create a voucher using the buttons above or from a quotation row."}
                       </p>
-                      {allVouchers.length === 0 && !isFetching && (
-                        <Button variant="outline" size="sm" className="mt-4" onClick={loadVouchers}>
-                          <RefreshCw className="mr-2 h-4 w-4" /> Retry Fetch
-                        </Button>
-                      )}
                     </div>
                   )}
                 </>

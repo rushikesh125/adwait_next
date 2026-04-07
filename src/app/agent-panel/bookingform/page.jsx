@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react"; // Added useMemo
 import Link from "next/link";
 import { auth, db } from "@/firebase/config";
 import {
@@ -27,6 +27,8 @@ import {
   Loader2,
   Eye,
   ChevronDown,
+  ChevronLeft,    // Added for pagination
+  ChevronRight,   // Added for pagination
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,11 +48,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import toast from "react-hot-toast";
 
+// 1. Define Page Size
+const PAGE_SIZE = 10;
+
 export default function AgentDashboard() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState(null);
+  
+  // 2. Added Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchTrips = async () => {
     if (!auth.currentUser) {
@@ -77,6 +85,11 @@ export default function AgentDashboard() {
   useEffect(() => {
     fetchTrips();
   }, []);
+
+  // 3. Reset to page 1 when user searches
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/book/${id}`);
@@ -108,9 +121,19 @@ export default function AgentDashboard() {
     }
   };
 
-  const filtered = trips.filter((t) =>
-    t.tripName.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  // 4. Memoized Filtering and Pagination Logic
+  const filteredData = useMemo(() => {
+    return trips.filter((t) =>
+      t.tripName.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [trips, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+
+  const pagedData = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredData.slice(start, start + PAGE_SIZE);
+  }, [filteredData, currentPage]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -189,7 +212,7 @@ export default function AgentDashboard() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((trip) => (
+                pagedData.map((trip) => (
                   <TableRow
                     key={trip.id}
                     className="hover:bg-slate-50/30 transition-colors"
@@ -265,7 +288,7 @@ export default function AgentDashboard() {
 
                         {/* ICON ACTIONS */}
                         <Link href={`./bookingform/view/${trip.id}`}>
-                          <Button variant="ghost" size="icon" className="...">
+                          <Button variant="ghost" size="icon" className="h-9 w-9">
                             <Eye className="w-4 h-4" />
                           </Button>
                         </Link>
@@ -295,6 +318,50 @@ export default function AgentDashboard() {
               )}
             </TableBody>
           </Table>
+
+          {/* 5. Pagination UI Footer */}
+          {!loading && filteredData.length > 0 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/30">
+              <p className="text-xs text-slate-500 font-medium italic">
+                Showing <span className="font-bold text-slate-800">{(currentPage - 1) * PAGE_SIZE + 1}</span> to <span className="font-bold text-slate-800">{Math.min(currentPage * PAGE_SIZE, filteredData.length)}</span> of <span className="font-bold text-slate-800">{filteredData.length}</span> trips
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 p-0 border-slate-200 bg-white"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <div className="flex items-center px-3 h-8 bg-white border border-slate-200 rounded-md shadow-sm">
+                  <span className="text-[11px] font-black text-slate-700">
+                    {currentPage} / {totalPages}
+                  </span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8 p-0 border-slate-200 bg-white"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && filteredData.length === 0 && (
+            <div className="py-20 text-center">
+              <Ticket className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-400 text-sm font-medium">No trips found matching your search.</p>
+            </div>
+          )}
         </div>
       </main>
     </div>
