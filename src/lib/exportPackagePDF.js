@@ -627,6 +627,27 @@ export const exportPackagePDF = async ({
         "Guests",
       ],
     ],
+    didDrawCell: function (data) {
+    if (data.section === "body" && data.column.index === 0) {
+      const h = hotelEntries[data.row.index];
+
+      const link =
+        h.GoogleListingURL ||
+        h.googleLink ||
+        h.tripAdvisorLink ||
+        h.TripAdvisorURL;
+
+      if (link) {
+        pdfdoc.link(
+          data.cell.x,
+          data.cell.y,
+          data.cell.width,
+          data.cell.height,
+          { url: link }
+        );
+      }
+    }
+  },
     body: hotelEntries.map((h) => {
       const guestParts = [
         `${h.numDouble || 0} Rm`,
@@ -634,8 +655,27 @@ export const exportPackagePDF = async ({
         ...(h.numExtraChild > 0 ? [`${h.numExtraChild} Child`] : []),
         ...(h.numCNB > 0 ? [`${h.numCNB} CNB`] : []),
       ];
+
+      // 🔗 Link priority logic
+      const hotelLink =
+        h.GoogleListingURL ||
+        h.googleLink ||
+        h.tripAdvisorLink ||
+        h.TripAdvisorURL;
+
+      const hotelCell = hotelLink
+        ? {
+            content: h.hotel,
+            styles: {
+              textColor: [13, 71, 161], // BRAND color
+              fontStyle: "bold",
+            },
+            link: hotelLink,
+          }
+        : h.hotel;
+
       return [
-        h.hotel,
+        hotelCell, // ✅ ONLY CHANGE HERE
         h.city,
         h.selectedRoomCategory,
         `${formatDate(h.checkInDate)} - ${formatDate(h.checkOutDate)}`,
