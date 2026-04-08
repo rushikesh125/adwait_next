@@ -9,6 +9,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { pageLengthsForPagination } from "@/lib/pagination_size";
 
 /**
  * CustomersPagination
@@ -38,6 +39,7 @@ export default function CustomersPagination({
   onNext,
   onLast,
   isSearchMode,
+  setPageSize
 }) {
   const startRecord = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endRecord = Math.min(currentPage * pageSize, totalCount);
@@ -76,6 +78,18 @@ export default function CustomersPagination({
       {/* Navigation */}
       <div className="flex items-center gap-1">
         {/* First page */}
+        {/* 🔽 DROPDOWN */}
+        <select
+          value={pageSize}
+          onChange={(e) => setPageSize(Number(e.target.value))}
+          className="h-8 border rounded-lg px-2 text-xs"
+        >
+          {pageLengthsForPagination.map((num) => (
+            <option key={num} value={num}>
+              {num} / page
+            </option>
+          ))}
+        </select>
         <Button
           variant="ghost"
           size="icon"
@@ -101,11 +115,9 @@ export default function CustomersPagination({
 
         {/* Page indicator */}
         <div className="flex items-center gap-1 px-3">
-         
-            <span className="text-sm font-semibold text-slate-700 px-2">
-              Page {currentPage}
-            </span>
-        
+          <span className="text-sm font-semibold text-slate-700 px-2">
+            Page {currentPage}
+          </span>
         </div>
 
         {/* Next */}
@@ -188,6 +200,6 @@ function renderPageNumbers(currentPage, totalPages, onFirst, onPrev, onNext) {
       >
         {p}
       </button>
-    )
+    ),
   );
 }

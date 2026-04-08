@@ -25,7 +25,7 @@ import {
 } from "@/firebase/customersService";
 import toast, { Toaster } from "react-hot-toast";
 
-const PAGE_SIZE = 10;
+
 
 // ─── Logging helpers ──────────────────────────────────────────────────────────
 
@@ -44,6 +44,7 @@ export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [pageSize,setPageSize]=useState(50)
 
   // ── Search / filter state ────────────────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -79,7 +80,7 @@ export default function CustomersPage() {
     setLoading(true);
     try {
       const [{ customers, lastDoc, hasMore: more }, count] = await Promise.all([
-        getCustomersPage(null, PAGE_SIZE),
+        getCustomersPage(null, pageSize),
         getCustomersCount(),
       ]);
 
@@ -111,7 +112,7 @@ export default function CustomersPage() {
     try {
       const { customers, lastDoc, hasMore: more } = await getCustomersPage(
         lastEntry.lastDoc,
-        PAGE_SIZE
+        pageSize
       );
 
       setPages((prev) => [...prev, { customers, lastDoc }]);
@@ -196,11 +197,11 @@ export default function CustomersPage() {
     );
   }, [search, allCustomers, isSearchMode]);
 
-  const searchTotalPages = Math.max(1, Math.ceil(filteredAll.length / PAGE_SIZE));
+  const searchTotalPages = Math.max(1, Math.ceil(filteredAll.length / pageSize));
 
   const searchPageCustomers = useMemo(() => {
-    const start = (searchPage - 1) * PAGE_SIZE;
-    return filteredAll.slice(start, start + PAGE_SIZE);
+    const start = (searchPage - 1) * pageSize;
+    return filteredAll.slice(start, start + pageSize);
   }, [filteredAll, searchPage]);
 
   /**
@@ -213,7 +214,7 @@ export default function CustomersPage() {
   // Count shown in pagination footer
   const displayTotalCount = isSearchMode ? filteredAll.length : totalCount;
   const displayCurrentPage = isSearchMode ? searchPage : currentPage;
-  const displayTotalPages = isSearchMode ? searchTotalPages : Math.ceil(totalCount / PAGE_SIZE);
+  const displayTotalPages = isSearchMode ? searchTotalPages : Math.ceil(totalCount / pageSize);
 
   // ─── CRUD handlers ────────────────────────────────────────────────────────
 
@@ -501,7 +502,7 @@ export default function CustomersPage() {
               currentPage={displayCurrentPage}
               totalPages={displayTotalPages}
               totalCount={displayTotalCount}
-              pageSize={PAGE_SIZE}
+              pageSize={pageSize}
               hasMore={hasMore}
               loading={loading}
               onFirst={handlePaginationFirst}
@@ -509,6 +510,7 @@ export default function CustomersPage() {
               onNext={handlePaginationNext}
               onLast={handlePaginationLast}
               isSearchMode={isSearchMode}
+              setPageSize={setPageSize}
             />
           </CardContent>
         </Card>
