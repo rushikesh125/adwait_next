@@ -42,8 +42,8 @@ const SortableHeader = ({ label, column, sortConfig, onSort }) => {
 
   return (
     <button
-      className={`flex items-center justify-start gap-1 hover:text-foreground transition-colors ${
-        isActive ? "text-foreground font-bold" : "text-slate-600"
+      className={`flex items-center justify-start gap-1.5 hover:text-slate-900 transition-colors ${
+        isActive ? "text-slate-900" : "text-slate-600"
       }`}
       onClick={() => onSort(column)}
     >
@@ -91,12 +91,12 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
           <h3 className="text-lg font-medium text-slate-900">No leads found</h3>
         </div>
       ) : (
-        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
+        <div className="table-shell">
           <Table>
-            <TableHeader className="bg-slate-50/50">
+            <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {/* Customer Name */}
-                <TableHead className="py-4 w-[25%]">
+                <TableHead className="w-[28%]">
                   <SortableHeader
                     label="Customer Name"
                     column="name"
@@ -106,7 +106,7 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                 </TableHead>
 
                 {/* Phone */}
-                <TableHead className="py-4">
+                <TableHead className="w-[18%]">
                   <SortableHeader
                     label="Phone"
                     column="mobile"
@@ -116,7 +116,7 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                 </TableHead>
 
                 {/* Email */}
-                <TableHead className="py-4">
+                <TableHead className="w-[24%]">
                   <SortableHeader
                     label="Email"
                     column="email"
@@ -126,7 +126,7 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                 </TableHead>
 
                 {/* Location */}
-                <TableHead className="py-4">
+                <TableHead className="w-[18%]">
                   <SortableHeader
                     label="Location"
                     column="city"
@@ -136,7 +136,7 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                 </TableHead>
 
                 {/* Actions - Changed from text-center to text-left to match */}
-                <TableHead className="py-4 text-center pr-6 font-bold text-slate-600 uppercase text-[11px] tracking-wider">
+                <TableHead className="w-[12%] text-center">
                   Actions
                 </TableHead>
               </TableRow>

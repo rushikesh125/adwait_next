@@ -40,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import StatusBadge from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -601,17 +602,11 @@ const VoucherDashboard = () => {
                                   variant="ghost"
                                   className="h-8 p-0 px-2 flex items-center gap-1 focus:ring-0"
                                 >
-                                  <Badge
-                                    className={`${
-                                      item.status === "SENT"
-                                        ? "bg-green-100 text-green-700"
-                                        : item.status === "CANCELLED"
-                                          ? "bg-red-100 text-red-700"
-                                          : "bg-yellow-100 text-yellow-700"
-                                    } border-none shadow-none text-[10px]`}
-                                  >
-                                    {item.status || "PENDING"}
-                                  </Badge>
+                                  <StatusBadge
+                                    status={item.status || "PENDING"}
+                                    fallback="PENDING"
+                                    className="border-none shadow-none text-[10px]"
+                                  />
                                   <ChevronDown className="h-3 w-3 text-slate-400" />
                                 </Button>
                               </DropdownMenuTrigger>

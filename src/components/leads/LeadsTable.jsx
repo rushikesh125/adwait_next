@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
+import StatusBadge from "@/components/StatusBadge";
 
 // --- Reusable Sortable Header Component ---
 const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
@@ -60,12 +61,18 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
   );
 };
 
-export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
+export default function LeadsTable({
+  leads,
+  onStatusChange,
+  onDeleteLead,
+  statusFilter: controlledStatusFilter,
+  setStatusFilter: setControlledStatusFilter,
+}) {
   const router = useRouter();
 
   // State
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [localStatusFilter, setLocalStatusFilter] = useState("All");
   const [editingStatusId, setEditingStatusId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({
@@ -74,6 +81,8 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
   });
 
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  const statusFilter = controlledStatusFilter ?? localStatusFilter;
+  const setStatusFilter = setControlledStatusFilter ?? setLocalStatusFilter;
   const statusOptions = [
     "New",
     "Contacted",
@@ -146,27 +155,10 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
     return date.toLocaleDateString("en-GB");
   };
 
-  const getStatusStyles = (status) => {
-    switch (status) {
-      case "New":
-        return "bg-blue-50 text-blue-600 border-blue-100";
-      case "Contacted":
-        return "bg-amber-50 text-amber-600 border-amber-100";
-      case "Quotation Sent":
-        return "bg-purple-50 text-purple-600 border-purple-100";
-      case "Closed Won":
-        return "bg-emerald-50 text-emerald-600 border-emerald-100";
-      case "Closed Lost":
-        return "bg-rose-50 text-rose-600 border-rose-100";
-      default:
-        return "bg-slate-50 text-slate-600 border-slate-100";
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* Search & Filter Bar */}
-      <div className="p-4 bg-white border rounded-xl flex items-center justify-between gap-4 shadow-sm">
+      <div className="table-toolbar">
         <div className="flex items-center gap-4 flex-1">
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -223,9 +215,9 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
       </div>
 
       {/* Table Container */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="table-shell">
         <Table>
-          <TableHeader className="bg-slate-50/80">
+          <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[60px] text-center text-[11px] font-bold text-slate-400">
                 #
@@ -334,11 +326,11 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
                     <div className="flex items-center justify-center gap-2">
                       {editingStatusId !== lead.id ? (
                         <>
-                          <span
-                            className={`text-[11px] font-bold px-3 py-1 rounded-full border w-full text-center uppercase tracking-wider ${getStatusStyles(lead.status)}`}
-                          >
-                            {lead.status || "New"}
-                          </span>
+                          <StatusBadge
+                            status={lead.status || "New"}
+                            fallback="New"
+                            className="w-full justify-center px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                          />
                           <button
                             onClick={() => setEditingStatusId(lead.id)}
                             className="text-slate-400 hover:text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -419,7 +411,7 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
 
       {/* Pagination Controls */}
       {processedLeads.length > 0 && (
-        <div className="flex items-center justify-between px-2 py-2 flex-wrap gap-2">
+        <div className="table-footer-bar flex-wrap px-3 py-3">
           {/* LEFT SIDE */}
           <div className="flex items-center gap-4 ">
             <p className="text-xs text-slate-500 font-medium">

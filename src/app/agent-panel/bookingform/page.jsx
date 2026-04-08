@@ -63,7 +63,7 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
 
   return (
     <button
-      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors font-bold ${
+      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors uppercase text-[11px] tracking-[0.16em] ${
         isActive ? "text-theme-primary" : "text-slate-600"
       } ${align === "center" ? "justify-center" : ""} ${align === "right" ? "justify-end" : ""}`}
       onClick={() => onSort(column)}
@@ -201,7 +201,7 @@ export default function AgentDashboard() {
             <div className="bg-blue-600 p-2 rounded-lg text-white">
               <Ticket size={20} />
             </div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight uppercase">
+            <h1 className="app-section-title uppercase tracking-tight">
               Agent Panel
             </h1>
           </div>
@@ -244,11 +244,11 @@ export default function AgentDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="table-shell">
           <Table>
-            <TableHeader className="bg-slate-50/50">
+            <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4 pl-6">
+                <TableHead className="pl-6 w-[34%]">
                   <SortHeader
                     label="Trip Details"
                     column="tripName"
@@ -256,7 +256,7 @@ export default function AgentDashboard() {
                     onSort={handleSort}
                   />
                 </TableHead>
-                <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4">
+                <TableHead className="w-[18%]">
                   <SortHeader
                     label="Created"
                     column="createdAt"
@@ -265,7 +265,7 @@ export default function AgentDashboard() {
                   />
                 </TableHead>
 
-                <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4">
+                <TableHead className="w-[18%]">
                   <SortHeader
                     label="Status"
                     column="status"
@@ -273,7 +273,7 @@ export default function AgentDashboard() {
                     onSort={handleSort}
                   />
                 </TableHead>
-                <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4 text-right pr-42">
+                <TableHead className="w-[30%] text-right pr-6">
                   Actions
                 </TableHead>
               </TableRow>
@@ -399,7 +399,7 @@ export default function AgentDashboard() {
 
           {/* 5. Pagination UI Footer */}
           {!loading && processedData.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex-wrap gap-3">
+            <div className="table-footer-bar flex-wrap">
               {/* LEFT */}
               <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
                 <p>
@@ -481,9 +481,9 @@ export default function AgentDashboard() {
 
 function StatusBadge({ status }) {
   const styles = {
-    public: "bg-green-100 text-green-700 border-green-200",
-    draft: "bg-slate-100 text-slate-600 border-slate-200",
-    closed: "bg-amber-100 text-amber-700 border-amber-200",
+    public: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    draft: "border-slate-200 bg-slate-100 text-slate-700",
+    closed: "border-rose-200 bg-rose-50 text-rose-700",
   };
   return (
     <span

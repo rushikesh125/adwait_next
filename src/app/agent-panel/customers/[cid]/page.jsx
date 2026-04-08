@@ -23,6 +23,7 @@ import {
   addCustomerNote, getCustomerNotes, deleteCustomerNote, updateCustomerNote, getCustomerLeads 
 } from "@/firebase/customersService";
 import toast, { Toaster } from "react-hot-toast";
+import StatusBadge from "@/components/StatusBadge";
 
 export default function CustomerProfilePage({ params }) {
   const { cid } = use(params);
@@ -164,7 +165,7 @@ export default function CustomerProfilePage({ params }) {
                  <div className="grid grid-cols-2 gap-4 pb-4">
                    <div className="space-y-1">
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</p>
-                     <Badge className="bg-blue-50 text-theme-primary border-none">{customer?.status || "New"}</Badge>
+                     <StatusBadge status={customer?.status || "New"} fallback="New" className="border-none" />
                    </div>
                    <div className="space-y-1">
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Created On</p>
@@ -249,9 +250,7 @@ export default function CustomerProfilePage({ params }) {
                         <h4 className="font-semibold text-slate-800">{lead.destination || "Travel enquiry"}</h4>
                         <div className="flex items-center gap-4 text-xs text-slate-400">
                           <span>{formatDate(lead.createdAt)}</span>
-                          <Badge variant="secondary" className="text-[10px] px-2 py-0 h-5">
-                            {lead.status || "New"}
-                          </Badge>
+                          <StatusBadge status={lead.status || "New"} fallback="New" className="text-[10px] px-2 py-0 h-5" />
                           {lead.tripType && <span>{lead.tripType}</span>}
                         </div>
                       </div>
@@ -283,7 +282,7 @@ export default function CustomerProfilePage({ params }) {
                         <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
                           <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {quote.createdAt?.toDate().toLocaleDateString()}</span>
                           <span className="flex items-center gap-1 text-slate-900 font-bold"><Wallet className="h-3 w-3" /> ₹{quote.grandTotal}</span>
-                          <Badge variant="secondary" className="text-[10px] px-2 py-0 h-5">{quote.status}</Badge>
+                          <StatusBadge status={quote.status || "Draft"} fallback="Draft" className="text-[10px] px-2 py-0 h-5" />
                         </div>
                       </div>
                     </div>

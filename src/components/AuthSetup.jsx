@@ -45,7 +45,13 @@ const AuthSetup = () => {
 
         if (userData) {
           // Sync state with found user and role
-          const finalUser = { ...userData, uid: currentUser.uid, role };
+          const finalUser = {
+            ...userData,
+            uid: currentUser.uid,
+            role,
+            providerIds: currentUser.providerData?.map((provider) => provider.providerId) || [],
+            emailVerified: currentUser.emailVerified,
+          };
           dispatch(setUser(finalUser));
         } else {
           // User authenticated but no document found in any role collection

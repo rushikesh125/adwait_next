@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
+  signInWithPopup,
+} from "firebase/auth";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -10,18 +15,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Icons
 import { Mail, Lock, LogIn, Chrome, Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { auth } from "@/firebase/config";
 import { Google } from "@mui/icons-material";
 import Link from "next/link";
+import { getUserRecordByEmail } from "@/firebase/users";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false); // State for toggle
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
   const router = useRouter();
 
   // Handle Email/Password Login
@@ -29,6 +46,18 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const userRecord = await getUserRecordByEmail(email);
+      if (
+        userRecord &&
+        userRecord.authProvider === "google" &&
+        !userRecord.hasPassword
+      ) {
+        toast.error(
+          "Please log in using Google or set a password from your profile.",
+        );
+        return;
+      }
+
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Welcome back!", {
         style: {
@@ -44,6 +73,32 @@ export default function LoginPage() {
       toast.error(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!resetEmail.trim()) {
+      toast.error("Enter your email address first.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const userRecord = await getUserRecordByEmail(resetEmail);
+      if (userRecord && !userRecord.hasPassword) {
+        toast.error(
+          "Please log in using Google or set a password from your profile.",
+        );
+        return;
+      }
+
+      await sendPasswordResetEmail(auth, resetEmail.trim().toLowerCase());
+      toast.success("Password reset email sent.");
+      setResetOpen(false);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -120,7 +175,14 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-theme-dark font-semibold ml-1">Password</Label>
-                <button type="button" className="text-xs font-bold text-theme-secondary hover:text-theme-dark transition-colors">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setResetOpen(true);
+                  }}
+                  className="text-xs font-bold text-theme-secondary hover:text-theme-dark transition-colors"
+                >
                   Forgot Password?
                 </button>
               </div>
@@ -178,6 +240,35 @@ export default function LoginPage() {
           </div>
         </CardFooter>
       </Card>
+
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Enter your email address and we will send you a password reset link.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reset-email">Email Address</Label>
+            <Input
+              id="reset-email"
+              type="email"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              placeholder="hello@example.com"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handlePasswordReset} disabled={resetLoading}>
+              {resetLoading ? "Sending..." : "Send Reset Link"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

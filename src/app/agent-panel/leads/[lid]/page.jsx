@@ -64,6 +64,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import StatusBadge from "@/components/StatusBadge";
 
 export default function LeadProfilePage({ params }) {
   const { lid } = use(params);
@@ -240,9 +241,11 @@ export default function LeadProfilePage({ params }) {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Status:
                   </p>
-                  <Badge className="bg-blue-50 text-theme-primary border-none lowercase text-xs">
-                    {lead?.status || "new"}
-                  </Badge>
+                  <StatusBadge
+                    status={lead?.status || "New"}
+                    fallback="New"
+                    className="border-none text-xs"
+                  />
                 </div>
 
                 {/* CREATED ON */}
@@ -458,20 +461,11 @@ export default function LeadProfilePage({ params }) {
                           <h4 className="font-bold text-slate-800 text-lg">
                             {quote.packageName}
                           </h4>
-                          <Badge
-                            className={`
-      text-[10px] px-2 py-0 border-none uppercase tracking-wider
-      ${
-        quote.status === "confirmed"
-          ? "bg-emerald-50 text-emerald-600"
-          : quote.status === "rejected"
-            ? "bg-rose-50 text-rose-600"
-            : "bg-blue-50 text-blue-600"
-      }
-    `}
-                          >
-                            {quote.status || "Draft"}
-                          </Badge>
+                          <StatusBadge
+                            status={quote.status || "Draft"}
+                            fallback="Draft"
+                            className="border-none text-[10px] px-2 py-0 uppercase tracking-wider"
+                          />
                         </div>
                       </div>
 

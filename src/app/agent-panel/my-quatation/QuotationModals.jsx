@@ -50,7 +50,11 @@ import {
   Star,
   PenLine,
   FileText,
+  CalendarDays,
+  MapPin,
+  UserRound,
 } from "lucide-react";
+import StatusBadge from "@/components/StatusBadge";
 
 // ── Import HotelVoucherDrawer for Documents tab ───────────────────────────────
 import HotelVoucherDrawer from "../vouchers/hotelVoucher";// ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,6 +75,24 @@ const PLAN_DESCRIPTIONS = {
   cp: "Bed + Breakfast",
   map: "Breakfast + Dinner",
   ap: "All Meals",
+};
+
+const formatCurrency = (value) =>
+  `₹${Math.round(Number(value || 0)).toLocaleString("en-IN", {
+    maximumFractionDigits: 0,
+  })}`;
+
+const formatViewDate = (value) => {
+  if (!value) return "—";
+  const date = value?.seconds
+    ? new Date(value.seconds * 1000)
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 const calcCustomHotelNightPrice = (
@@ -525,10 +547,56 @@ const QuotationModals = ({
       {/* ================== VIEW MODAL ================== */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
         <DialogContent className="w-[95vw] max-w-6xl lg:max-w-7xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader className="space-y-2">
-            <DialogTitle className="text-xl sm:text-2xl text-theme-primary break-words">
-              Quotation for {truncateText(viewingQuotation?.customerName, 30)}
-            </DialogTitle>
+          <DialogHeader className="space-y-4 border-b border-slate-200 pb-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2">
+                <DialogTitle className="text-xl sm:text-2xl text-theme-primary break-words">
+                  {viewingQuotation?.packageName || "Quotation Details"}
+                </DialogTitle>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1">
+                    <UserRound className="h-3.5 w-3.5" />
+                    {viewingQuotation?.customerName || viewingQuotation?.leadName || "Customer"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {formatViewDate(viewingQuotation?.createdAt)}
+                  </span>
+                  <StatusBadge
+                    status={viewingQuotation?.status || "Draft"}
+                    fallback="Draft"
+                    className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[420px]">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Hotels</p>
+                  <p className="mt-1 text-xl font-bold text-slate-900">
+                    {viewingQuotation?.hotelSummary?.length || 0}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Activities</p>
+                  <p className="mt-1 text-xl font-bold text-slate-900">
+                    {viewingQuotation?.activitySummary?.length || 0}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Transport</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                    {viewingQuotation?.transportSummary?.vehicleName || "Not added"}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-theme-primary/20 bg-theme-muted/40 px-4 py-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Grand Total</p>
+                  <p className="mt-1 text-xl font-black text-theme-primary">
+                    {formatCurrency(viewingQuotation?.grandTotal)}
+                  </p>
+                </div>
+              </div>
+            </div>
           </DialogHeader>
 
           {/* ── Tabs: Details | Documents ── */}
@@ -554,8 +622,8 @@ const QuotationModals = ({
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {viewingQuotation?.hotelSummary?.map((hotel, i) => (
-                      <Card key={i} className="border-theme-muted">
-                        <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
+                      <Card key={i} className="border-slate-200 shadow-sm">
+                        <CardContent className="pt-4 sm:pt-6 p-4 sm:p-6">
                           <div className="flex items-start justify-between gap-2">
                             <h4 className="font-medium text-sm sm:text-base truncate" title={hotel.hotel}>
                               {truncateText(hotel.hotel, 22)}
@@ -565,7 +633,7 @@ const QuotationModals = ({
                             )}
                           </div>
                           {hotel.rating && <div className="flex items-center gap-0.5 mt-1">{renderStars(hotel.rating)}</div>}
-                          <p className="text-xs sm:text-sm text-muted-foreground mt-1 truncate">{hotel.city}, {hotel.state}</p>
+                          <p className="mt-1 flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 truncate"><MapPin className="h-3.5 w-3.5 text-theme-primary" />{hotel.city}, {hotel.state}</p>
                           <div className="mt-3 sm:mt-4 grid grid-cols-2 gap-2 text-xs sm:text-sm">
                             <div><span className="text-muted-foreground">Nights:</span><p className="font-medium">{hotel.nights}</p></div>
                             <div><span className="text-muted-foreground">Room:</span><p className="font-medium truncate" title={hotel.selectedRoomCategory}>{truncateText(hotel.selectedRoomCategory, 12)}</p></div>
@@ -588,9 +656,9 @@ const QuotationModals = ({
                       <Car className="h-4 w-4 sm:h-5 sm:w-5 text-theme-primary flex-shrink-0" />
                       Transport
                     </h3>
-                    <Card>
-                      <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6">
-                        <div className="space-y-2 text-sm">
+                    <Card className="border-slate-200 shadow-sm">
+                      <CardContent className="p-4 sm:p-6">
+                        <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm">
                           <div className="flex justify-between"><span className="font-bold">Vehicle:</span><span className="font-medium">{viewingQuotation?.transportSummary?.vehicleName}{viewingQuotation?.transportSummary?.ac ? " (AC)" : ""}</span></div>
                           <div className="flex justify-between"><span>Vehicle Cost:</span><span>₹{viewingQuotation?.transportSummary?.vehicleCost || 0}</span></div>
                           <div className="flex justify-between"><span>Driver Allowance:</span><span>₹{viewingQuotation?.transportSummary?.driverAllowance || 0}</span></div>
@@ -608,10 +676,10 @@ const QuotationModals = ({
                       Activities
                     </h3>
                     {viewingQuotation?.activitySummary?.length > 0 ? (
-                      <Card>
-                        <CardContent className="pt-4 sm:pt-6 p-3 sm:p-6 space-y-3 sm:space-y-4">
+                      <Card className="border-slate-200 shadow-sm">
+                        <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                           {viewingQuotation.activitySummary.map((act, i) => (
-                            <div key={i} className="flex justify-between items-center gap-2">
+                            <div key={i} className="flex justify-between items-center gap-3 rounded-xl border border-slate-100 px-3 py-3">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
                                   <p className="font-medium text-sm sm:text-base truncate" title={act.name}>{truncateText(act.name, 20)}</p>
@@ -634,7 +702,7 @@ const QuotationModals = ({
                 </div>
 
                 {/* Cost Summary */}
-                <Card className="bg-theme-muted/30 border-theme-primary/20">
+                <Card className="bg-theme-muted/25 border-theme-primary/20 shadow-sm">
                   <CardHeader className="pb-3 p-3 sm:p-6">
                     <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                       <IndianRupee className="h-4 w-4 sm:h-5 sm:w-5 text-theme-primary flex-shrink-0" />

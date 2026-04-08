@@ -14,19 +14,11 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import toast from "react-hot-toast";
+import StatusBadge from "@/components/StatusBadge";
 
 export default function UserRow({ user, type, onChange, onDelete }) {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-
-  const statusMap = {
-    accepted: { label: "Active", theme: "bg-emerald-50 text-emerald-700 border-emerald-100" },
-    rejected: { label: "Rejected", theme: "bg-red-50 text-red-700 border-red-100" },
-    suspended: { label: "Suspended", theme: "bg-slate-100 text-slate-600 border-slate-200" },
-    pending: { label: "Pending", theme: "bg-amber-50 text-amber-700 border-amber-100" }
-  };
-
-  const current = statusMap[user.approved] || statusMap.pending;
 
   return (
     <>
@@ -53,9 +45,11 @@ export default function UserRow({ user, type, onChange, onDelete }) {
           </div>
         </td>
         <td className="px-8 py-6 align-middle">
-          <Badge variant="outline" className={`${current.theme} border font-black uppercase text-[10px] px-3 py-1 rounded-lg`}>
-            {current.label}
-          </Badge>
+          <StatusBadge
+            status={user.approved || "pending"}
+            fallback="Pending"
+            className="px-3 py-1 text-[10px] font-black uppercase rounded-lg"
+          />
         </td>
         <td className="px-8 py-6 align-middle text-right">
           <DropdownMenu>
