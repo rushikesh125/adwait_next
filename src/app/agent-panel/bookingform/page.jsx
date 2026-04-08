@@ -47,16 +47,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import toast from "react-hot-toast";
+import { pageLengthsForPagination } from "@/lib/pagination_size";
 
-// 1. Define Page Size
-const PAGE_SIZE = 10;
+
 
 export default function AgentDashboard() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState(null);
-  
+  const [pageSize, setPageSize] = useState(10);
   // 2. Added Pagination State
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -88,8 +88,8 @@ export default function AgentDashboard() {
 
   // 3. Reset to page 1 when user searches
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+  setCurrentPage(1);
+}, [searchTerm, pageSize]);
 
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/book/${id}`);
@@ -128,12 +128,12 @@ export default function AgentDashboard() {
     );
   }, [trips, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
-
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  
   const pagedData = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredData.slice(start, start + PAGE_SIZE);
-  }, [filteredData, currentPage]);
+  const start = (currentPage - 1) * pageSize;
+  return filteredData.slice(start, start + pageSize);
+}, [filteredData, currentPage, pageSize]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -321,38 +321,70 @@ export default function AgentDashboard() {
 
           {/* 5. Pagination UI Footer */}
           {!loading && filteredData.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/30">
-              <p className="text-xs text-slate-500 font-medium italic">
-                Showing <span className="font-bold text-slate-800">{(currentPage - 1) * PAGE_SIZE + 1}</span> to <span className="font-bold text-slate-800">{Math.min(currentPage * PAGE_SIZE, filteredData.length)}</span> of <span className="font-bold text-slate-800">{filteredData.length}</span> trips
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8 p-0 border-slate-200 bg-white"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                
-                <div className="flex items-center px-3 h-8 bg-white border border-slate-200 rounded-md shadow-sm">
-                  <span className="text-[11px] font-black text-slate-700">
-                    {currentPage} / {totalPages}
-                  </span>
-                </div>
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex-wrap gap-3">
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="h-8 w-8 p-0 border-slate-200 bg-white"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+  {/* LEFT */}
+  <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
+    <p>
+      Showing{" "}
+      <span className="font-bold text-slate-800">
+        {(currentPage - 1) * pageSize + 1}
+      </span>{" "}
+      to{" "}
+      <span className="font-bold text-slate-800">
+        {Math.min(currentPage * pageSize, filteredData.length)}
+      </span>{" "}
+      of{" "}
+      <span className="font-bold text-slate-800">
+        {filteredData.length}
+      </span>{" "}
+      trips
+    </p>
+
+    
+  </div>
+
+  {/* RIGHT */}
+  <div className="flex items-center gap-2">
+    {/* 🔽 DROPDOWN */}
+    <select
+      value={pageSize}
+      onChange={(e) => setPageSize(Number(e.target.value))}
+      className="h-8 border rounded-lg px-2 text-xs"
+    >
+      {pageLengthsForPagination.map((num) => (
+        <option key={num} value={num}>
+          {num} / page
+        </option>
+      ))}
+    </select>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+      disabled={currentPage === 1}
+      className="h-8"
+    >
+      <ChevronLeft className="h-4 w-4 mr-1" />
+      Prev
+    </Button>
+
+    <div className="text-xs font-bold text-slate-700 px-2">
+      {currentPage} / {totalPages}
+    </div>
+
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+      disabled={currentPage === totalPages}
+      className="h-8"
+    >
+      Next
+      <ChevronRight className="h-4 w-4 ml-1" />
+    </Button>
+  </div>
+</div>
           )}
 
           {/* Empty State */}
