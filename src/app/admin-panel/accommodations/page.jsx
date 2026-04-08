@@ -52,10 +52,34 @@ import {
   Pencil,
   ChevronLeft,
   ChevronRight,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
+
+// ── SortHeader Component
+const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
+  const isActive = sortConfig.key === column;
+  const Icon = !isActive
+    ? ArrowUpDown
+    : sortConfig.direction === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  return (
+    <button
+      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors font-bold ${
+        isActive ? "text-theme-primary" : "text-slate-600"
+      } ${align === "center" ? "justify-center" : ""} ${align === "right" ? "justify-end" : ""}`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      <Icon className={`h-4 w-4 ${isActive ? "opacity-100" : "opacity-40"}`} />
+    </button>
+  );
+};
 
 const Accommodation = () => {
   const router = useRouter();
@@ -68,6 +92,10 @@ const Accommodation = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name");
+  const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "asc",
+  });
 
   // ── Pagination ───────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,6 +120,13 @@ const Accommodation = () => {
     fetchHotels();
   }, [fetchHotels]);
 
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
   // ── Derived state ────────────────────────────────────────────────────────
   const uniqueStates = useMemo(() => {
     return Array.from(
@@ -100,9 +135,12 @@ const Accommodation = () => {
   }, [allHotels]);
 
   // Filtered + sorted list (for search & filters — works across all pages)
-  const filteredHotels = useMemo(() => {
+  const processedHotels = useMemo(() => {
+    let filtered = [...allHotels];
+
+    // Apply search and state filters
     const q = searchQuery.toLowerCase().trim();
-    return allHotels
+    filtered = filtered
       .filter((h) => {
         const matchesSearch =
           !q ||
@@ -111,30 +149,60 @@ const Accommodation = () => {
           (h.state || "").toLowerCase().includes(q);
         const matchesState = stateFilter === "all" || h.state === stateFilter;
         return matchesSearch && matchesState;
-      })
-      .sort((a, b) => {
-        if (sortBy === "rating") {
-          const rA = parseFloat(a.GoogleReviewRating || a.rating || 0);
-          const rB = parseFloat(b.GoogleReviewRating || b.rating || 0);
-          return rB - rA;
-        }
-        if (sortBy === "location")
-          return `${a.state}${a.city}`.localeCompare(`${b.state}${b.city}`);
-        return (a.name || "").localeCompare(b.name || "");
       });
-  }, [allHotels, searchQuery, stateFilter, sortBy]);
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      // First check if we're using the main sortConfig for column sorting
+      if (sortConfig.key) {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        // Handle specific fields that need special handling
+        if (sortConfig.key === "GoogleReviewRating") {
+          aVal = parseFloat(aVal || 0);
+          bVal = parseFloat(bVal || 0);
+        } else if (sortConfig.key === "rating") {
+          aVal = parseFloat(aVal || 0);
+          bVal = parseFloat(bVal || 0);
+        } else if (sortConfig.key === "name") {
+          aVal = (aVal || "").toLowerCase();
+          bVal = (bVal || "").toLowerCase();
+        } else {
+          aVal = (aVal || "").toLowerCase();
+          bVal = (bVal || "").toLowerCase();
+        }
+
+        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      }
+
+      // Fallback to the original sortBy logic if no column sort is active
+      if (sortBy === "rating") {
+        const rA = parseFloat(a.GoogleReviewRating || a.rating || 0);
+        const rB = parseFloat(b.GoogleReviewRating || b.rating || 0);
+        return rB - rA;
+      }
+      if (sortBy === "location")
+        return `${a.state}${a.city}`.localeCompare(`${b.state}${b.city}`);
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
+    return filtered;
+  }, [allHotels, searchQuery, stateFilter, sortConfig, sortBy]);
 
   // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, stateFilter, sortBy, pageSize]);
+  }, [searchQuery, stateFilter, sortBy, pageSize, sortConfig]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredHotels.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(processedHotels.length / pageSize));
 
   const pagedHotels = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredHotels.slice(start, start + pageSize);
-  }, [filteredHotels, currentPage, pageSize]);
+    return processedHotels.slice(start, start + pageSize);
+  }, [processedHotels, currentPage, pageSize]);
 
   const toTitleCase = (str) =>
     (str || "").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -215,22 +283,48 @@ const Accommodation = () => {
           <TableHeader className="bg-slate-50 border-b border-slate-200">
             <TableRow className="hover:bg-transparent uppercase tracking-wider">
               <TableHead className="w-[30%] text-[14px] font-bold text-slate-900 py-4">
-                Property Name
+                <SortHeader
+                  label="Property Name"
+                  column="name"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                />
               </TableHead>
               <TableHead className=" text-[14px] font-bold text-slate-900 py-4">
-                City
+                <SortHeader
+                  label="City"
+                  column="city"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                />
               </TableHead>
               <TableHead className="text-[14px] font-bold text-slate-900 py-4">
-                State
+                <SortHeader
+                  label="State"
+                  column="state"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                />
               </TableHead>
               <TableHead className=" text-[14px] font-bold text-slate-900 py-4">
-                Google Rating
+                <SortHeader
+                  label="Google Rating"
+                  column="GoogleReviewRating"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                />
               </TableHead>
               <TableHead className="text-[14px] font-bold text-slate-900">
                 Room Categories
               </TableHead>
               <TableHead className="text-center text-[14px] font-bold text-slate-900">
-                Hotel Category
+                <SortHeader
+                  label="Hotel Category"
+                  column="rating"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                  align="center"
+                />
               </TableHead>
               <TableHead className="text-right text-[14px] font-bold text-slate-900 pr-6">
                 Actions
@@ -376,7 +470,7 @@ const Accommodation = () => {
         </Table>
 
         {/* Pagination Footer */}
-        {!loading && filteredHotels.length > 0 && (
+        {!loading && processedHotels.length > 0 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex-wrap gap-3">
             {/* LEFT */}
             <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
@@ -387,11 +481,11 @@ const Accommodation = () => {
                 </span>{" "}
                 to{" "}
                 <span className="font-bold text-slate-700">
-                  {Math.min(currentPage * pageSize, filteredHotels.length)}
+                  {Math.min(currentPage * pageSize, processedHotels.length)}
                 </span>{" "}
                 of{" "}
                 <span className="font-bold text-slate-700">
-                  {filteredHotels.length}
+                  {processedHotels.length}
                 </span>{" "}
                 properties
               </p>
