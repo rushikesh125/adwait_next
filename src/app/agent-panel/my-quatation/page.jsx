@@ -13,7 +13,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Hotel, Plane } from "lucide-react";
+import {
+  Hotel,
+  Plane,
+  PackagePlus,
+  FileText,
+  Send,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
@@ -42,7 +50,27 @@ const MyQuotations = () => {
       return dateB - dateA;
     });
   }, [state.filteredQuotations]);
+  const overviewMetrics = useMemo(() => {
+    const totalQuotations = state.quotations.length;
+    const draft = state.quotations.filter(
+      (q) => q.status === "Draft" || !q.status,
+    ).length;
+    const sent = state.quotations.filter((q) => q.status === "Sent").length;
+    const accepted = state.quotations.filter(
+      (q) => q.status === "Accepted",
+    ).length;
+    const rejected = state.quotations.filter(
+      (q) => q.status === "Rejected",
+    ).length;
 
+    return {
+      totalQuotations,
+      draft,
+      sent,
+      accepted,
+      rejected,
+    };
+  }, [state.quotations]);
   // Use PAGE_SIZE instead of hardcoded 50
   const paginatedQuotations = sortedQuotations.slice(
     (currentPage - 1) * pageSize,
@@ -148,6 +176,77 @@ const MyQuotations = () => {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <PackagePlus className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-xs text-slate-500">Total Quotations</p>
+              <p className="text-lg font-bold text-slate-900">
+                {overviewMetrics.totalQuotations}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-gray-100 rounded-lg">
+              <FileText className="h-4 w-4 text-gray-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-xs text-slate-500">Draft</p>
+              <p className="text-lg font-bold text-slate-900">
+                {overviewMetrics.draft}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <Send className="h-4 w-4 text-amber-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-xs text-slate-500">Sent</p>
+              <p className="text-lg font-bold text-slate-900">
+                {overviewMetrics.sent}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-xs text-slate-500">Accepted</p>
+              <p className="text-lg font-bold text-slate-900">
+                {overviewMetrics.accepted}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="p-2 bg-red-100 rounded-lg">
+              <XCircle className="h-4 w-4 text-red-600" />
+            </div>
+            <div className="ml-3">
+              <p className="text-xs text-slate-500">Rejected</p>
+              <p className="text-lg font-bold text-slate-900">
+                {overviewMetrics.rejected}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
       <QuotationsTable
         filteredQuotations={paginatedQuotations}
         searchTerm={state.searchTerm}

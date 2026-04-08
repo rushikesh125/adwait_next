@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   Briefcase,
   Plus,
@@ -11,6 +11,7 @@ import {
   PlusSquare,
   UserPlus,
   Trash2,
+  FilePlus2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,35 @@ export default function LeadsPage() {
   const router = useRouter();
   const nameInputRef = useRef(null);
   const suggestionsRef = useRef(null);
+  const overviewMetrics = useMemo(() => {
+    const totalLeads = leads.length;
+    const quotationSent = leads.filter(
+      (lead) => lead.status === "Quotation Sent",
+    ).length;
+    const closedLost = leads.filter(
+      (lead) => lead.status === "Closed Lost",
+    ).length;
+    const closedWon = leads.filter(
+      (lead) => lead.status === "Closed Won",
+    ).length;
+    const contacted = leads.filter(
+      (lead) => lead.status === "Contacted",
+    ).length;
+    const newLeads = leads.filter((lead) => lead.status === "New").length;
 
+    const conversionRate =
+      totalLeads > 0 ? ((closedWon / totalLeads) * 100).toFixed(2) : 0;
+
+    return {
+      totalLeads,
+      quotationSent,
+      closedLost,
+      closedWon,
+      contacted,
+      newLeads,
+      conversionRate,
+    };
+  }, [leads]);
   const [customerForm, setCustomerForm] = useState({
     name: "",
     mobile: "",
@@ -214,6 +243,81 @@ export default function LeadsPage() {
   return (
     <div className="min-h-screen bg-slate-50/50 w-full pb-8 sm:pb-12">
       <Toaster position="top-right" />
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* OVERVIEW CARDS - CLEAN BENTO GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 mb-8">
+          
+          {/* 1. Main Hero Card (Total & New Leads) - 8 Cols */}
+          <div className="col-span-1 md:col-span-12 lg:col-span-8 bg-white rounded-[2rem] p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-theme-primary/10 rounded-2xl">
+                  <User className="h-6 w-6 text-theme-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Lead Volume</h3>
+                  <p className="text-sm text-slate-500">Overall tracking & fresh inquiries</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 divide-x divide-slate-100">
+              <div>
+                <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Total Leads</p>
+                <h4 className="text-5xl md:text-6xl font-black text-slate-900">{overviewMetrics.totalLeads}</h4>
+              </div>
+              <div className="pl-6 md:pl-8">
+                <p className="text-sm font-semibold inline-flex items-center gap-1.5 text-indigo-500 uppercase tracking-wider mb-2">
+                  <Plus className="h-4 w-4" /> New This Week
+                </p>
+                <h4 className="text-5xl md:text-6xl font-black text-indigo-600">{overviewMetrics.newLeads}</h4>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Conversion Rate (Accent Card) - 4 Cols */}
+          <div className="col-span-1 md:col-span-12 lg:col-span-4 bg-theme-primary rounded-[2rem] p-6 md:p-8 text-white shadow-lg flex flex-col justify-between relative overflow-hidden">
+            {/* Subtle background decoration */}
+            <div className="absolute right-0 bottom-0 opacity-10 translate-x-1/4 translate-y-1/4">
+              <TrendingUp className="w-48 h-48" />
+            </div>
+            
+            <div className="relative z-10 h-full flex flex-col justify-between">
+              <div className="p-3 bg-white/20 rounded-2xl w-fit backdrop-blur-md border border-white/20 mb-6">
+                <TrendingUp className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white/80 uppercase tracking-wider mb-2">Conversion Rate</p>
+                <div className="flex items-baseline gap-1">
+                  <h4 className="text-6xl font-black">{overviewMetrics.conversionRate}</h4>
+                  <span className="text-3xl font-bold text-white/80">%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Pipeline Metrics - 4 Mini Cards (3 cols each) */}
+          {[
+            { label: "Contacted", value: overviewMetrics.contacted, icon: RefreshCw, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+            { label: "Quotes Sent", value: overviewMetrics.quotationSent, icon: FilePlus2, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
+            { label: "Closed Won", value: overviewMetrics.closedWon, icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+            { label: "Closed Lost", value: overviewMetrics.closedLost, icon: X, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
+          ].map((metric, i) => (
+            <div key={i} className="col-span-1 md:col-span-6 lg:col-span-3 bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 hover:-translate-y-1 transition-transform duration-300">
+              <div className={`p-3.5 rounded-2xl ${metric.bg} ${metric.border} border shrink-0`}>
+                <metric.icon className={`h-6 w-6 ${metric.color}`} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{metric.label}</p>
+                <p className="text-2xl font-black text-slate-800">{metric.value}</p>
+              </div>
+            </div>
+          ))}
+
+        </div>
+      
+      </main>
 
       {/* QUICK ADD CUSTOMER MODAL */}
       {showQuickAddCustomer && (
