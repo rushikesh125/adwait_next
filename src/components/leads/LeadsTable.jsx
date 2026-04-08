@@ -379,7 +379,7 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
 
                   {/* Actions - Right Aligned */}
                   <TableCell className="text-right pr-6">
-                    <div className="flex justify-end gap-1.5">
+                    <div className="flex justify-center gap-1.5">
                       <Button
                         size="sm"
                         className="bg-theme-primary text-white h-8 px-3"
