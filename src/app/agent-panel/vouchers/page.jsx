@@ -4,36 +4,61 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
-  FileText, Download, Search, Filter,
-  RefreshCw, Plus, Plane, Hotel, Trash2, ChevronDown, Eye,
-  MessageCircle, ChevronLeft, ChevronRight,
+  FileText,
+  Download,
+  Search,
+  Filter,
+  RefreshCw,
+  Plus,
+  Plane,
+  Hotel,
+  Trash2,
+  ChevronDown,
+  Eye,
+  MessageCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Table, TableBody, TableCell, TableHead,
-  TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 import { useQuotationState } from "@/app/hooks/useQuotationState";
 import { updateQuotation } from "@/firebase/quotations";
-import { fetchAllVouchersForAgent, deleteVoucherDocument } from "@/firebase/voucher";
+import {
+  fetchAllVouchersForAgent,
+  deleteVoucherDocument,
+} from "@/firebase/voucher";
 
 // ── NEW: hotel voucher PDF + WhatsApp helpers
 import {
   generateHotelVoucherPDF,
   shareHotelVoucherWhatsApp,
 } from "@/lib/generateHotelVoucher";
+import { pageLengthsForPagination } from "@/lib/pagination_size";
 
 // 1. Pagination Constant
-const PAGE_SIZE = 10;
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 const fmt = (dateStr) => {
@@ -63,47 +88,113 @@ const VoucherViewModal = ({ voucher, onClose }) => {
 
         <div className="border rounded-lg p-6 space-y-4 text-sm">
           <h2 className="text-center text-xl font-bold text-blue-800">
-            {voucher.voucherType === "Hotel" ? "Hotel" : "Flight"} Booking Voucher
+            {voucher.voucherType === "Hotel" ? "Hotel" : "Flight"} Booking
+            Voucher
           </h2>
           <div className="grid grid-cols-2 gap-2 border-t pt-4">
-            <p><span className="font-semibold">Voucher No:</span> {voucher.voucherNumber || "—"}</p>
-            <p><span className="font-semibold">Issue Date:</span> {voucher.issueDate ? fmt(voucher.issueDate) : "—"}</p>
-            <p><span className="font-semibold">Status:</span> {voucher.status || "—"}</p>
+            <p>
+              <span className="font-semibold">Voucher No:</span>{" "}
+              {voucher.voucherNumber || "—"}
+            </p>
+            <p>
+              <span className="font-semibold">Issue Date:</span>{" "}
+              {voucher.issueDate ? fmt(voucher.issueDate) : "—"}
+            </p>
+            <p>
+              <span className="font-semibold">Status:</span>{" "}
+              {voucher.status || "—"}
+            </p>
             {voucher.quotationId && (
-              <p className="text-slate-500 text-xs">Quotation: #{voucher.quotationId.substring(0, 8).toUpperCase()}</p>
+              <p className="text-slate-500 text-xs">
+                Quotation: #{voucher.quotationId.substring(0, 8).toUpperCase()}
+              </p>
             )}
           </div>
 
           {voucher.voucherType === "Hotel" && (
             <div className="border-t pt-3 grid grid-cols-2 gap-2">
-              <p className="col-span-2 font-semibold text-base">{voucher.hotelName || "—"}</p>
-              <p><span className="font-semibold">Check-in:</span> {fmt(voucher.checkIn)} at 12:00 Noon</p>
-              <p><span className="font-semibold">Check-out:</span> {fmt(voucher.checkOut)} at 11:00 AM</p>
-              <p><span className="font-semibold">Nights:</span> {voucher.nights || "—"}</p>
-              <p><span className="font-semibold">Rooms:</span> {voucher.rooms || "—"}</p>
-              <p><span className="font-semibold">Room Type:</span> {voucher.roomCategory || "—"}</p>
-              <p><span className="font-semibold">Meal Plan:</span> {voucher.meal || "—"}</p>
+              <p className="col-span-2 font-semibold text-base">
+                {voucher.hotelName || "—"}
+              </p>
+              <p>
+                <span className="font-semibold">Check-in:</span>{" "}
+                {fmt(voucher.checkIn)} at 12:00 Noon
+              </p>
+              <p>
+                <span className="font-semibold">Check-out:</span>{" "}
+                {fmt(voucher.checkOut)} at 11:00 AM
+              </p>
+              <p>
+                <span className="font-semibold">Nights:</span>{" "}
+                {voucher.nights || "—"}
+              </p>
+              <p>
+                <span className="font-semibold">Rooms:</span>{" "}
+                {voucher.rooms || "—"}
+              </p>
+              <p>
+                <span className="font-semibold">Room Type:</span>{" "}
+                {voucher.roomCategory || "—"}
+              </p>
+              <p>
+                <span className="font-semibold">Meal Plan:</span>{" "}
+                {voucher.meal || "—"}
+              </p>
             </div>
           )}
 
           <div className="border-t pt-3 space-y-1.5">
             {voucher.guests?.length > 0 && (
-              <p><span className="font-semibold">Guests:</span>{" "}
-                {voucher.guests.map((g) => `${g.title} ${g.name}`).join(", ")}</p>
+              <p>
+                <span className="font-semibold">Guests:</span>{" "}
+                {voucher.guests.map((g) => `${g.title} ${g.name}`).join(", ")}
+              </p>
             )}
-            {voucher.contact && <p><span className="font-semibold">Contact:</span> {voucher.contact}</p>}
-            {voucher.address && <p><span className="font-semibold">Hotel Address:</span> {voucher.address}</p>}
-            {voucher.phone && <p><span className="font-semibold">Hotel Phone:</span> {voucher.phone}</p>}
-            <p><span className="font-semibold">Payment:</span> {voucher.paymentStatus || "—"}{voucher.amount ? ` — ₹${voucher.amount}` : ""}</p>
-            {voucher.requests && <p><span className="font-semibold">Special Requests:</span> {voucher.requests}</p>}
-            {voucher.cancellation && <p><span className="font-semibold">Cancellation Policy:</span> {voucher.cancellation}</p>}
+            {voucher.contact && (
+              <p>
+                <span className="font-semibold">Contact:</span>{" "}
+                {voucher.contact}
+              </p>
+            )}
+            {voucher.address && (
+              <p>
+                <span className="font-semibold">Hotel Address:</span>{" "}
+                {voucher.address}
+              </p>
+            )}
+            {voucher.phone && (
+              <p>
+                <span className="font-semibold">Hotel Phone:</span>{" "}
+                {voucher.phone}
+              </p>
+            )}
+            <p>
+              <span className="font-semibold">Payment:</span>{" "}
+              {voucher.paymentStatus || "—"}
+              {voucher.amount ? ` — ₹${voucher.amount}` : ""}
+            </p>
+            {voucher.requests && (
+              <p>
+                <span className="font-semibold">Special Requests:</span>{" "}
+                {voucher.requests}
+              </p>
+            )}
+            {voucher.cancellation && (
+              <p>
+                <span className="font-semibold">Cancellation Policy:</span>{" "}
+                {voucher.cancellation}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Action buttons */}
         <div className="flex justify-between items-center mt-3 gap-2 flex-wrap">
           <div className="flex gap-2">
-            <Button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+            <Button
+              onClick={handleDownload}
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            >
               <Download className="h-4 w-4" />
               Download PDF
             </Button>
@@ -118,7 +209,9 @@ const VoucherViewModal = ({ voucher, onClose }) => {
               </Button>
             )}
           </div>
-          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -129,7 +222,7 @@ const VoucherViewModal = ({ voucher, onClose }) => {
 const VoucherDashboard = () => {
   const router = useRouter();
   const state = useQuotationState();
-
+  const [pageSize, setPageSize] = useState(50);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -187,15 +280,15 @@ const VoucherDashboard = () => {
   // Reset to page 1 on search
   useEffect(() => {
     setCurrentPage(1);
-  }, [localSearch]);
-
+  }, [pageSize, localSearch]);
+  
   // 4. Pagination Logic
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
 
   const pagedData = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredData.slice(start, start + PAGE_SIZE);
-  }, [filteredData, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  }, [filteredData, currentPage, pageSize]);
 
   const handleDeleteVoucher = async (voucherRecord) => {
     if (!window.confirm("Delete this voucher?")) return;
@@ -209,14 +302,25 @@ const VoucherDashboard = () => {
 
   const handleStatusUpdate = async (voucherRecord, newStatus) => {
     setAllVouchers((prev) =>
-      prev.map((v) => (v.id === voucherRecord.id ? { ...v, status: newStatus } : v))
+      prev.map((v) =>
+        v.id === voucherRecord.id ? { ...v, status: newStatus } : v,
+      ),
     );
     if (voucherRecord.quotationId) {
       try {
-        await updateQuotation(authUser.uid, voucherRecord.quotationId, { voucherStatus: newStatus });
-      } catch (e) { console.error(e); }
+        await updateQuotation(authUser.uid, voucherRecord.quotationId, {
+          voucherStatus: newStatus,
+        });
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
+  useEffect(() => {
+  if (currentPage > totalPages) {
+    setCurrentPage(1);
+  }
+}, [totalPages]);
 
   if (authLoading) {
     return (
@@ -230,14 +334,17 @@ const VoucherDashboard = () => {
   }
 
   if (!authUser?.uid) {
-    return <div className="p-20 text-center text-slate-400">Not authenticated. Please log in.</div>;
+    return (
+      <div className="p-20 text-center text-slate-400">
+        Not authenticated. Please log in.
+      </div>
+    );
   }
 
   return (
     <>
       <div className="min-h-screen bg-slate-50/50 p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
-
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -245,19 +352,36 @@ const VoucherDashboard = () => {
                 <FileText className="text-blue-600 h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">Voucher Management</h1>
-                <p className="text-slate-500 text-sm">Manage and track issued travel vouchers.</p>
+                <h1 className="text-2xl font-bold text-slate-800">
+                  Voucher Management
+                </h1>
+                <p className="text-slate-500 text-sm">
+                  Manage and track issued travel vouchers.
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="bg-white" onClick={loadVouchers} disabled={isFetching}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white"
+                onClick={loadVouchers}
+                disabled={isFetching}
+              >
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+                />
                 Refresh
               </Button>
               <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
                 <Plus className="mr-2 h-4 w-4" /> Create Flight Voucher
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => router.push("/agent-panel/vouchers/create-hotel")}>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                onClick={() =>
+                  router.push("/agent-panel/vouchers/create-hotel")
+                }
+              >
                 <Plus className="mr-2 h-4 w-4" /> Create Hotel Voucher
               </Button>
             </div>
@@ -266,7 +390,12 @@ const VoucherDashboard = () => {
           {fetchError && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
               <strong>Error loading vouchers:</strong> {fetchError}
-              <button className="ml-3 underline text-red-500" onClick={loadVouchers}>Retry</button>
+              <button
+                className="ml-3 underline text-red-500"
+                onClick={loadVouchers}
+              >
+                Retry
+              </button>
             </div>
           )}
 
@@ -282,7 +411,10 @@ const VoucherDashboard = () => {
                   onChange={(e) => setLocalSearch(e.target.value)}
                 />
               </div>
-              <Button variant="outline" className="text-slate-600 border-slate-200">
+              <Button
+                variant="outline"
+                className="text-slate-600 border-slate-200"
+              >
                 <Filter className="mr-2 h-4 w-4" /> Filter by Status
               </Button>
             </CardContent>
@@ -301,21 +433,30 @@ const VoucherDashboard = () => {
                   <Table>
                     <TableHeader className="bg-slate-50 border-y">
                       <TableRow>
-                        <TableHead className="w-[50px] text-center font-bold">S.No</TableHead>
+                        <TableHead className="w-[50px] text-center font-bold">
+                          S.No
+                        </TableHead>
                         <TableHead className="font-bold">Voucher No</TableHead>
                         <TableHead className="font-bold">Client</TableHead>
-                        <TableHead className="font-bold">Hotel / Details</TableHead>
+                        <TableHead className="font-bold">
+                          Hotel / Details
+                        </TableHead>
                         <TableHead className="font-bold">Type</TableHead>
                         <TableHead className="font-bold">Status</TableHead>
-                        <TableHead className="font-bold text-right">Actions</TableHead>
+                        <TableHead className="font-bold text-right">
+                          Actions
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {/* 5. Map over pagedData */}
                       {pagedData.map((item, index) => (
-                        <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                        <TableRow
+                          key={item.id}
+                          className="hover:bg-slate-50/50 transition-colors"
+                        >
                           <TableCell className="text-center text-slate-500">
-                            {(currentPage - 1) * PAGE_SIZE + index + 1}
+                            {(currentPage - 1) * pageSize + index + 1}
                           </TableCell>
 
                           <TableCell className="font-mono text-sm font-semibold text-slate-700 uppercase">
@@ -327,38 +468,75 @@ const VoucherDashboard = () => {
                           </TableCell>
 
                           <TableCell className="text-sm">
-                            <p className="font-medium text-slate-700">{item.hotelName || "—"}</p>
+                            <p className="font-medium text-slate-700">
+                              {item.hotelName || "—"}
+                            </p>
                             {item.checkIn && (
-                              <p className="text-xs text-slate-400">{fmt(item.checkIn)} → {fmt(item.checkOut)}</p>
+                              <p className="text-xs text-slate-400">
+                                {fmt(item.checkIn)} → {fmt(item.checkOut)}
+                              </p>
                             )}
                           </TableCell>
 
                           <TableCell>
                             <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                              {item.voucherType === "Hotel"
-                                ? <><Hotel className="h-3.5 w-3.5 text-orange-400" /> Hotel</>
-                                : <><Plane className="h-3.5 w-3.5 text-blue-400" /> Flight</>}
+                              {item.voucherType === "Hotel" ? (
+                                <>
+                                  <Hotel className="h-3.5 w-3.5 text-orange-400" />{" "}
+                                  Hotel
+                                </>
+                              ) : (
+                                <>
+                                  <Plane className="h-3.5 w-3.5 text-blue-400" />{" "}
+                                  Flight
+                                </>
+                              )}
                             </div>
                           </TableCell>
 
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 p-0 px-2 flex items-center gap-1 focus:ring-0">
-                                  <Badge className={`${
-                                    item.status === "SENT" ? "bg-green-100 text-green-700" :
-                                    item.status === "CANCELLED" ? "bg-red-100 text-red-700" :
-                                    "bg-yellow-100 text-yellow-700"
-                                  } border-none shadow-none text-[10px]`}>
+                                <Button
+                                  variant="ghost"
+                                  className="h-8 p-0 px-2 flex items-center gap-1 focus:ring-0"
+                                >
+                                  <Badge
+                                    className={`${
+                                      item.status === "SENT"
+                                        ? "bg-green-100 text-green-700"
+                                        : item.status === "CANCELLED"
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-yellow-100 text-yellow-700"
+                                    } border-none shadow-none text-[10px]`}
+                                  >
                                     {item.status || "PENDING"}
                                   </Badge>
                                   <ChevronDown className="h-3 w-3 text-slate-400" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleStatusUpdate(item, "PENDING")}>Pending</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleStatusUpdate(item, "SENT")}>Sent</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleStatusUpdate(item, "CANCELLED")}>Cancelled</DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleStatusUpdate(item, "PENDING")
+                                  }
+                                >
+                                  Pending
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleStatusUpdate(item, "SENT")
+                                  }
+                                >
+                                  Sent
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleStatusUpdate(item, "CANCELLED")
+                                  }
+                                >
+                                  Cancelled
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -367,7 +545,9 @@ const VoucherDashboard = () => {
                             <div className="flex justify-end gap-1">
                               {/* View */}
                               <Button
-                                variant="ghost" size="sm" className="h-8 w-8 p-0"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
                                 title="View Voucher"
                                 onClick={() => setViewingVoucher(item)}
                               >
@@ -376,10 +556,12 @@ const VoucherDashboard = () => {
 
                               {/* Download PDF */}
                               <Button
-                                variant="ghost" size="sm" className="h-8 w-8 p-0"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
                                 title="Download PDF"
                                 onClick={async () =>
-                                    item.voucherType === "Hotel"
+                                  item.voucherType === "Hotel"
                                     ? await generateHotelVoucherPDF(item)
                                     : alert("Flight voucher PDF coming soon.")
                                 }
@@ -390,9 +572,13 @@ const VoucherDashboard = () => {
                               {/* WhatsApp */}
                               {item.voucherType === "Hotel" && item.contact && (
                                 <Button
-                                  variant="ghost" size="sm" className="h-8 w-8 p-0"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
                                   title="Share on WhatsApp"
-                                  onClick={() => shareHotelVoucherWhatsApp(item)}
+                                  onClick={() =>
+                                    shareHotelVoucherWhatsApp(item)
+                                  }
                                 >
                                   <MessageCircle className="h-4 w-4 text-green-500" />
                                 </Button>
@@ -400,7 +586,9 @@ const VoucherDashboard = () => {
 
                               {/* Delete */}
                               <Button
-                                variant="ghost" size="sm" className="h-8 w-8 p-0"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
                                 title="Delete Voucher"
                                 onClick={() => handleDeleteVoucher(item)}
                               >
@@ -415,35 +603,71 @@ const VoucherDashboard = () => {
 
                   {/* 6. Pagination Footer */}
                   {!isFetching && filteredData.length > 0 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-                      <p className="text-xs text-slate-500 font-medium">
-                        Showing{" "}
-                        <span className="font-bold text-slate-700">
-                          {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredData.length)}
-                        </span>{" "}
-                        of <span className="font-bold text-slate-700">{filteredData.length}</span> vouchers
-                      </p>
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex-wrap gap-3">
+                      {/* LEFT SIDE */}
+                      <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
+                        <p>
+                          Showing{" "}
+                          <span className="font-bold text-slate-700">
+                            {(currentPage - 1) * pageSize + 1}
+                          </span>{" "}
+                          to{" "}
+                          <span className="font-bold text-slate-700">
+                            {Math.min(
+                              currentPage * pageSize,
+                              filteredData.length,
+                            )}
+                          </span>{" "}
+                          of{" "}
+                          <span className="font-bold text-slate-700">
+                            {filteredData.length}
+                          </span>{" "}
+                          vouchers
+                        </p>
+                      </div>
+
+                      {/* RIGHT SIDE */}
                       <div className="flex items-center gap-2">
+                        {/* 🔽 DROPDOWN */}
+                        <select
+                          value={pageSize}
+                          onChange={(e) => setPageSize(Number(e.target.value))}
+                          className="h-8 border rounded-lg px-2 text-xs"
+                        >
+                          {pageLengthsForPagination.map((num) => (
+                            <option key={num} value={num}>
+                              {num} / page
+                            </option>
+                          ))}
+                        </select>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                          }
                           disabled={currentPage === 1}
-                          className="h-8 w-8 p-0 border-slate-200"
+                          className="h-8"
                         >
-                          <ChevronLeft className="h-4 w-4" />
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          Prev
                         </Button>
-                        <span className="text-sm font-bold text-slate-700 min-w-[80px] text-center">
+
+                        <div className="text-xs font-bold text-slate-700 px-2">
                           {currentPage} / {totalPages}
-                        </span>
+                        </div>
+
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                          }
                           disabled={currentPage === totalPages}
-                          className="h-8 w-8 p-0 border-slate-200"
+                          className="h-8"
                         >
-                          <ChevronRight className="h-4 w-4" />
+                          Next
+                          <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
                       </div>
                     </div>
@@ -452,7 +676,9 @@ const VoucherDashboard = () => {
                   {filteredData.length === 0 && (
                     <div className="py-24 text-center">
                       <FileText className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-slate-900">No Vouchers Found</h3>
+                      <h3 className="text-lg font-medium text-slate-900">
+                        No Vouchers Found
+                      </h3>
                       <p className="text-slate-500 text-sm">
                         {allVouchers.length > 0
                           ? "No vouchers match your search."
@@ -467,7 +693,10 @@ const VoucherDashboard = () => {
         </div>
       </div>
 
-      <VoucherViewModal voucher={viewingVoucher} onClose={() => setViewingVoucher(null)} />
+      <VoucherViewModal
+        voucher={viewingVoucher}
+        onClose={() => setViewingVoucher(null)}
+      />
     </>
   );
 };
