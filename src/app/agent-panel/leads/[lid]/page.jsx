@@ -33,6 +33,7 @@ import {
   Star,
 } from "lucide-react";
 import QuotationModals from "@/app/agent-panel/my-quatation/QuotationModals";
+import LeadForm from "@/components/leads/LeadForm";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ import {
   deleteLeadNote,
   updateLeadNote,
   getAgentQuotationsForLead,
+  updateLeadDetails,
 } from "@/firebase/leadsService";
 import toast, { Toaster } from "react-hot-toast";
 import { icon } from "@fortawesome/fontawesome-svg-core";
@@ -74,6 +76,8 @@ export default function LeadProfilePage({ params }) {
   const [newNote, setNewNote] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState(null);
+  const [isLeadEditOpen, setIsLeadEditOpen] = useState(false);
+  const [leadForm, setLeadForm] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Modal States
@@ -83,6 +87,29 @@ export default function LeadProfilePage({ params }) {
   useEffect(() => {
     if (lid && user?.uid) loadData();
   }, [lid, user]);
+
+  useEffect(() => {
+    if (!lead) return;
+    setLeadForm({
+      name: lead.name || "",
+      travelDate: lead.travelDate || "",
+      days: lead.days || "",
+      destination: lead.destination || "",
+      adults: lead.adults || "",
+      children: lead.children || "",
+      hotelPreference: lead.hotelPreference || "",
+      transportPreference: lead.transportPreference || "",
+      budget: lead.budget || "",
+      notes: lead.notes || "",
+      mealPlan: lead.mealPlan || "",
+      hotelCategory: lead.hotelCategory || "",
+      departureCity: lead.departureCity || "",
+      tripType: lead.tripType || "",
+      rooms: lead.rooms || "",
+      sightseeingVehicle: lead.sightseeingVehicle || "",
+      ticketHelp: lead.ticketHelp || [],
+    });
+  }, [lead]);
 
   const loadData = async () => {
     try {
@@ -160,6 +187,26 @@ export default function LeadProfilePage({ params }) {
       [name]: value,
     }));
   };
+
+  const handleLeadFormChange = (e) => {
+    const { name, value } = e.target;
+    setLeadForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleUpdateLead = async (e) => {
+    e.preventDefault();
+    try {
+      await updateLeadDetails(lid, leadForm);
+      toast.success("Lead updated");
+      setIsLeadEditOpen(false);
+      loadData();
+    } catch (error) {
+      toast.error("Failed to update lead");
+    }
+  };
   if (loading)
     return (
       <div className="h-screen flex items-center justify-center">
@@ -210,12 +257,21 @@ export default function LeadProfilePage({ params }) {
               </div>
             </div>
           </div>
-          <Button
-            onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
-            className="bg-theme-primary text-white px-6 rounded-xl"
-          >
-            <Plus className="h-4 w-4 mr-2" /> Create Quotation
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsLeadEditOpen(true)}
+              className="rounded-xl border-slate-200"
+            >
+              <Edit3 className="h-4 w-4 mr-2" /> Edit Lead
+            </Button>
+            <Button
+              onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
+              className="bg-theme-primary text-white px-6 rounded-xl"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Create Quotation
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -476,6 +532,22 @@ export default function LeadProfilePage({ params }) {
           </div>
         </div>
       </main>
+      <Dialog open={isLeadEditOpen} onOpenChange={setIsLeadEditOpen}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Lead</DialogTitle>
+            <DialogDescription>Update this customer enquiry before preparing the quotation.</DialogDescription>
+          </DialogHeader>
+          {leadForm && (
+            <LeadForm
+              form={leadForm}
+              onChange={handleLeadFormChange}
+              onSubmit={handleUpdateLead}
+              submitLabel="Update Lead"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
       <QuotationModals
         isViewModalOpen={isModalOpen}
         setIsViewModalOpen={setIsModalOpen}

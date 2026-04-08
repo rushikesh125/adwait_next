@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   getCustomerById, getAgentQuotationsForCustomer, 
-  addCustomerNote, getCustomerNotes, deleteCustomerNote, updateCustomerNote 
+  addCustomerNote, getCustomerNotes, deleteCustomerNote, updateCustomerNote, getCustomerLeads 
 } from "@/firebase/customersService";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -31,6 +31,7 @@ export default function CustomerProfilePage({ params }) {
 
   const [customer, setCustomer] = useState(null);
   const [quotations, setQuotations] = useState([]);
+  const [customerLeads, setCustomerLeads] = useState([]);
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -48,14 +49,16 @@ export default function CustomerProfilePage({ params }) {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [customerData, quotesData, notesData] = await Promise.all([
+      const [customerData, quotesData, notesData, leadsData] = await Promise.all([
         getCustomerById(cid),
         getAgentQuotationsForCustomer(user.uid, cid),
         getCustomerNotes(cid),
+        getCustomerLeads(cid),
       ]);
       setCustomer(customerData);
       setQuotations(quotesData);
       setNotes(notesData);
+      setCustomerLeads(leadsData);
     } catch (error) {
       toast.error("Error loading data");
     } finally {
@@ -165,7 +168,7 @@ export default function CustomerProfilePage({ params }) {
                    </div>
                    <div className="space-y-1">
                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Created On</p>
-                     <p className="text-sm font-semibold text-slate-700">{customer?.createdAt.toDate().toLocaleDateString("en-GB")}</p>
+                     <p className="text-sm font-semibold text-slate-700">{formatDate(customer?.createdAt)}</p>
                    </div>
                  </div>
                  <div className="space-y-4 pt-2">
@@ -227,6 +230,44 @@ export default function CustomerProfilePage({ params }) {
 
           {/* RIGHT: QUOTATIONS LIST */}
           <div className="lg:col-span-8">
+            <div className="space-y-6">
+            <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
+              <CardHeader className="px-8 py-6 border-b border-slate-50">
+                <CardTitle className="text-lg font-bold">Associated Enquiries</CardTitle>
+                <p className="text-sm text-slate-500">Leads linked to this customer profile.</p>
+              </CardHeader>
+              <CardContent className="p-0">
+                {customerLeads.length === 0 ? (
+                  <div className="px-8 py-10 text-sm text-slate-500">No linked enquiries yet.</div>
+                ) : (
+                  customerLeads.map((lead) => (
+                    <div
+                      key={lead.id}
+                      className="flex items-center justify-between border-b border-slate-50 p-6 last:border-0"
+                    >
+                      <div className="space-y-1">
+                        <h4 className="font-semibold text-slate-800">{lead.destination || "Travel enquiry"}</h4>
+                        <div className="flex items-center gap-4 text-xs text-slate-400">
+                          <span>{formatDate(lead.createdAt)}</span>
+                          <Badge variant="secondary" className="text-[10px] px-2 py-0 h-5">
+                            {lead.status || "New"}
+                          </Badge>
+                          {lead.tripType && <span>{lead.tripType}</span>}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        className="rounded-xl hover:bg-theme-primary hover:text-white"
+                        onClick={() => router.push(`/agent-panel/leads/${lead.id}`)}
+                      >
+                        View Lead <ExternalLink className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="border-none shadow-sm rounded-2xl overflow-hidden min-h-full bg-white">
               <CardHeader className="px-8 py-6 border-b border-slate-50">
                 <CardTitle className="text-lg font-bold">Package Quotations</CardTitle>
@@ -257,6 +298,7 @@ export default function CustomerProfilePage({ params }) {
                 ))}
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
       </main>

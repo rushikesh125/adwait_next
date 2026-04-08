@@ -19,6 +19,8 @@ import {
 const customersRef = collection(db, "customers");
 const COLLECTION = "customers";
 const PAGE_SIZE = 10;
+const normalizeEmail = (email = "") => email.trim().toLowerCase();
+const normalizeMobile = (mobile = "") => mobile.replace(/\D/g, "");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -37,6 +39,8 @@ export const addCustomer = async (customerData) => {
   try {
     const ref = await addDoc(customersRef, {
       ...customerData,
+      normalizedEmail: normalizeEmail(customerData.email || ""),
+      normalizedMobile: normalizeMobile(customerData.mobile || ""),
       createdAt: serverTimestamp(),
     });
     console.info(`[customersService] addCustomer: created ${ref.id}`);
@@ -115,6 +119,46 @@ export const getCustomerById = async (id) => {
   }
 };
 
+export const findExistingCustomerByEmailOrMobile = async ({ email, mobile }) => {
+  try {
+    const cleanEmail = normalizeEmail(email);
+    const cleanMobile = normalizeMobile(mobile);
+
+    if (cleanEmail) {
+      const emailMatches = await Promise.all([
+        getDocs(query(customersRef, where("normalizedEmail", "==", cleanEmail), limit(1))),
+        getDocs(query(customersRef, where("email", "==", cleanEmail), limit(1))),
+      ]);
+
+      for (const snapshot of emailMatches) {
+        if (!snapshot.empty) {
+          const docSnap = snapshot.docs[0];
+          return { id: docSnap.id, ...docSnap.data() };
+        }
+      }
+    }
+
+    if (cleanMobile) {
+      const mobileMatches = await Promise.all([
+        getDocs(query(customersRef, where("normalizedMobile", "==", cleanMobile), limit(1))),
+        getDocs(query(customersRef, where("mobile", "==", cleanMobile), limit(1))),
+      ]);
+
+      for (const snapshot of mobileMatches) {
+        if (!snapshot.empty) {
+          const docSnap = snapshot.docs[0];
+          return { id: docSnap.id, ...docSnap.data() };
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    logError("findExistingCustomerByEmailOrMobile", error);
+    throw error;
+  }
+};
+
 // ─── Quotations ───────────────────────────────────────────────────────────────
 
 /**
@@ -135,6 +179,19 @@ export const getAgentQuotationsForCustomer = async (agentUid, customerId) => {
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (error) {
     logError("getAgentQuotationsForCustomer", error);
+    throw error;
+  }
+};
+
+export const getCustomerLeads = async (customerId) => {
+  try {
+    const q = query(collection(db, "leads"), where("customerId", "==", customerId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  } catch (error) {
+    logError("getCustomerLeads", error);
     throw error;
   }
 };

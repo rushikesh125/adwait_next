@@ -2,6 +2,7 @@
 import {
   ChevronDown,
   HelpCircle,
+  Link2,
   LogOut,
   Settings,
   Shield,
@@ -23,8 +24,13 @@ const UserDropdown = ({ user }) => {
   const { name, email, role, uid, photoURL } = user;
   const [imgSrc, setImgSrc] = useState(photoURL ?? "/profile.png");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const dropdownRef = useRef(null);
   const router = useRouter();
+  const enquiryLink =
+    typeof window !== "undefined" && role === "agent"
+      ? `${window.location.origin}/enquiry/${uid}`
+      : "";
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -39,6 +45,18 @@ const UserDropdown = ({ user }) => {
 
   const handleLogout = () => {
     router.push("/login");
+  };
+
+  const handleCopyLink = async () => {
+    if (!enquiryLink) return;
+    try {
+      await navigator.clipboard.writeText(enquiryLink);
+      setCopied(true);
+      toast.success("Enquiry link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast.error("Could not copy the link");
+    }
   };
 
   return (
@@ -76,6 +94,24 @@ const UserDropdown = ({ user }) => {
               <p className="text-[12px] text-gray-500">{email}</p>
               <p className="text-[12px] text-gray-500">Role:{role}</p>
             </div>
+
+            {role === "agent" && (
+              <div className="border-b border-gray-100 px-4 py-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <Link2 className="h-3.5 w-3.5" />
+                  Enquiry Link
+                </div>
+                <p className="mt-2 break-all text-[12px] text-gray-600">
+                  {enquiryLink}
+                </p>
+                <Button
+                  onClick={handleCopyLink}
+                  className="mt-3 h-8 w-full bg-theme-primary text-xs text-white"
+                >
+                  {copied ? "Copied" : "Copy Link"}
+                </Button>
+              </div>
+            )}
 
             {/* <div className="py-2">
               <Link

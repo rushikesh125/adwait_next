@@ -21,6 +21,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Pencil,
 } from "lucide-react";
 import {
   Dialog,
@@ -53,6 +54,7 @@ import {
   fetchAllVouchersForAgent,
   deleteVoucherDocument,
 } from "@/firebase/voucher";
+import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 
 // ── NEW: hotel voucher PDF + WhatsApp helpers
 import {
@@ -261,6 +263,7 @@ const VoucherDashboard = () => {
   const [localSearch, setLocalSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1); // 2. Pagination State
   const [viewingVoucher, setViewingVoucher] = useState(null);
+  const [editingVoucher, setEditingVoucher] = useState(null);
   const [allVouchers, setAllVouchers] = useState([]);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState(null);
@@ -666,6 +669,18 @@ const VoucherDashboard = () => {
                                 <Download className="h-4 w-4 text-slate-500" />
                               </Button>
 
+                              {item.voucherType === "Hotel" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  title="Edit Voucher"
+                                  onClick={() => setEditingVoucher(item)}
+                                >
+                                  <Pencil className="h-4 w-4 text-slate-500" />
+                                </Button>
+                              )}
+
                               {/* WhatsApp */}
                               {item.voucherType === "Hotel" && item.contact && (
                                 <Button
@@ -793,6 +808,14 @@ const VoucherDashboard = () => {
       <VoucherViewModal
         voucher={viewingVoucher}
         onClose={() => setViewingVoucher(null)}
+      />
+
+      <HotelVoucherDrawer
+        isOpen={!!editingVoucher}
+        onClose={() => setEditingVoucher(null)}
+        initialVoucher={editingVoucher}
+        agentId={authUser?.uid || ""}
+        onSaved={loadVouchers}
       />
     </>
   );

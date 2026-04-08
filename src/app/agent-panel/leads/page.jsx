@@ -19,17 +19,20 @@ import LeadsTable from "@/components/leads/LeadsTable";
 import CustomerForm from "@/components/customers/CustomerForm";
 import {
   addLead,
-  getAllLeads,
+  getLeadsByAgent,
   updateLeadStatus,
   deleteLead,
 } from "@/firebase/leadsService";
 import { addCustomer } from "@/firebase/customersService";
 import { db } from "@/firebase/config";
 import { collection, getDocs } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
+import { enquiryInitialValues, normalizeMobile } from "@/lib/enquiryForm";
 
 export default function LeadsPage() {
+  const { user } = useSelector((state) => state.auth);
   const [leads, setLeads] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
@@ -39,6 +42,7 @@ export default function LeadsPage() {
   const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const nameInputRef = useRef(null);
   const suggestionsRef = useRef(null);
 
@@ -51,31 +55,18 @@ export default function LeadsPage() {
   });
 
   const [form, setForm] = useState({
-    name: "",
-    travelDate: "",
-    days: "",
-    destination: "",
-    adults: "",
-    children: "",
-    hotelPreference: "",
-    transportPreference: "",
-    budget: "",
-    notes: "",
-    mealPlan: "",
-    hotelCategory: "",
-    departureCity: "",
-    tripType: "",
-    rooms: "",
-    sightseeingVehicle: "",
-    ticketHelp: [],
+    ...enquiryInitialValues,
+    email: "",
+    mobile: "",
   });
 
   // --- Logic Functions ---
 
   const loadLeads = async () => {
+    if (!user?.uid) return;
     try {
       setLoading(true);
-      const data = await getAllLeads();
+      const data = await getLeadsByAgent(user.uid);
       setLeads(data);
     } catch (error) {
       toast.error("Failed to fetch leads");
@@ -100,7 +91,13 @@ export default function LeadsPage() {
   useEffect(() => {
     loadLeads();
     loadCustomers();
-  }, []);
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (searchParams.get("open") === "new") {
+      setShowAddLead(true);
+    }
+  }, [searchParams]);
 
   // Handle Name Search
   const handleNameChange = (e) => {
@@ -149,29 +146,23 @@ export default function LeadsPage() {
     try {
       await addLead({
         ...form,
+        email: form.email || "",
+        mobile: form.mobile ? normalizeMobile(form.mobile) : "",
+        agentId: user?.uid || null,
+        assignedAgentId: user?.uid || null,
+        assignedAgentName: user?.name || "",
         status: "New",
         createdAt: new Date().toISOString(),
       });
       toast.success("Lead added successfully", { id: toastId });
       setShowAddLead(false);
+      if (searchParams.get("open") === "new") {
+        router.replace("/agent-panel/leads");
+      }
       setForm({
-        name: "",
-        travelDate: "",
-        days: "",
-        destination: "",
-        adults: "",
-        children: "",
-        hotelPreference: "",
-        transportPreference: "",
-        budget: "",
-        notes: "",
-        mealPlan: "",
-        hotelCategory: "",
-        departureCity: "",
-        tripType: "",
-        rooms: "",
-        sightseeingVehicle: "",
-        ticketHelp: [],
+        ...enquiryInitialValues,
+        email: "",
+        mobile: "",
       });
       loadLeads();
     } catch (error) {
@@ -265,7 +256,12 @@ export default function LeadsPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowAddLead(false)}
+                onClick={() => {
+                  setShowAddLead(false);
+                  if (searchParams.get("open") === "new") {
+                    router.replace("/agent-panel/leads");
+                  }
+                }}
               >
                 <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>

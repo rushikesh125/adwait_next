@@ -7,6 +7,7 @@ import {
   addDoc,
   getDocs,
   deleteDoc,
+  updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -149,4 +150,23 @@ export async function deleteVoucherDocument(agentId, voucherRecord) {
 
   console.log("[voucher] deleting:", path);
   await deleteDoc(doc(db, path));
+}
+
+export async function updateVoucherDocument(agentId, voucherRecord, voucherData) {
+  if (!agentId) throw new Error("Missing agentId");
+
+  let path;
+  if (voucherRecord._collection === "standalone") {
+    path = `saved_packages_by_agents/${agentId}/standalone_vouchers/${voucherRecord.id}`;
+  } else {
+    const quotationDocId = voucherRecord._quotationDocId || voucherRecord.quotationId;
+    if (!quotationDocId) throw new Error("Missing quotationDocId for linked voucher");
+    path = `saved_packages_by_agents/${agentId}/packages/${quotationDocId}/vouchers/${voucherRecord.id}`;
+  }
+
+  console.log("[voucher] updating:", path);
+  await updateDoc(doc(db, path), {
+    ...voucherData,
+    updatedAt: serverTimestamp(),
+  });
 }
