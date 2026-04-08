@@ -1,14 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  Users,
-  UserPlus,
-  Search,
-  X,
-  RefreshCw,
-  Filter,
-} from "lucide-react";
+import { Users, UserPlus, Search, X, RefreshCw, Filter } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +17,6 @@ import {
   getCustomersCount,
 } from "@/firebase/customersService";
 import toast, { Toaster } from "react-hot-toast";
-
-
 
 // ─── Logging helpers ──────────────────────────────────────────────────────────
 
@@ -44,7 +35,7 @@ export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [pageSize,setPageSize]=useState(50)
+  const [pageSize, setPageSize] = useState(50);
 
   // ── Search / filter state ────────────────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -95,7 +86,7 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pageSize]);
 
   /**
    * Fetch and cache the next page using the last cursor from pages[].
@@ -110,10 +101,11 @@ export default function CustomersPage() {
     logInfo("loadNextPage", `fetching page ${pages.length + 1}`);
     setLoading(true);
     try {
-      const { customers, lastDoc, hasMore: more } = await getCustomersPage(
-        lastEntry.lastDoc,
-        pageSize
-      );
+      const {
+        customers,
+        lastDoc,
+        hasMore: more,
+      } = await getCustomersPage(lastEntry.lastDoc, pageSize);
 
       setPages((prev) => [...prev, { customers, lastDoc }]);
       setHasMore(more);
@@ -125,7 +117,7 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [pages]);
+  }, [pages, pageSize]);
 
   /**
    * Go back one page using the cached pages array (no Firestore call).
@@ -148,7 +140,7 @@ export default function CustomersPage() {
     } else {
       await loadNextPage();
     }
-  }, [currentPage, pages, loadNextPage]);
+  }, [currentPage, pages, loadNextPage, pageSize]);
 
   // ─── Search mode: load all ────────────────────────────────────────────────
 
@@ -173,8 +165,11 @@ export default function CustomersPage() {
 
   // Initial load
   useEffect(() => {
+    // Reset everything when page size changes
+    setPages([]);
+    setCurrentPage(1);
     loadFirstPage();
-  }, []);
+  }, [pageSize]);
 
   // When search term appears, load all customers (once)
   useEffect(() => {
@@ -193,28 +188,33 @@ export default function CustomersPage() {
     if (!isSearchMode) return [];
     const term = search.toLowerCase();
     return allCustomers.filter((c) =>
-      `${c.name} ${c.mobile} ${c.email}`.toLowerCase().includes(term)
+      `${c.name} ${c.mobile} ${c.email}`.toLowerCase().includes(term),
     );
   }, [search, allCustomers, isSearchMode]);
 
-  const searchTotalPages = Math.max(1, Math.ceil(filteredAll.length / pageSize));
+  const searchTotalPages = Math.max(
+    1,
+    Math.ceil(filteredAll.length / pageSize),
+  );
 
   const searchPageCustomers = useMemo(() => {
     const start = (searchPage - 1) * pageSize;
     return filteredAll.slice(start, start + pageSize);
-  }, [filteredAll, searchPage]);
+  }, [filteredAll, searchPage, pageSize]);
 
   /**
    * What actually renders in the table.
    */
   const displayedCustomers = isSearchMode
     ? searchPageCustomers
-    : pages[currentPage - 1]?.customers ?? [];
+    : (pages[currentPage - 1]?.customers ?? []);
 
   // Count shown in pagination footer
   const displayTotalCount = isSearchMode ? filteredAll.length : totalCount;
   const displayCurrentPage = isSearchMode ? searchPage : currentPage;
-  const displayTotalPages = isSearchMode ? searchTotalPages : Math.ceil(totalCount / pageSize);
+  const displayTotalPages = isSearchMode
+    ? searchTotalPages
+    : Math.ceil(totalCount / pageSize);
 
   // ─── CRUD handlers ────────────────────────────────────────────────────────
 
@@ -238,7 +238,12 @@ export default function CustomersPage() {
     setForm(customer);
     setShowAddCustomer(true);
   };
-
+  useEffect(() => {
+    const totalPages = Math.ceil(displayTotalCount / pageSize);
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [pageSize, displayTotalCount]);
   const handleCloseModal = () => {
     setShowAddCustomer(false);
     setEditMode(false);
@@ -295,7 +300,7 @@ export default function CustomersPage() {
 
   const handleDelete = async (id) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this customer? This action cannot be undone."
+      "Are you sure you want to delete this customer? This action cannot be undone.",
     );
     if (!confirmed) return;
 
@@ -476,21 +481,23 @@ export default function CustomersPage() {
                 customers={displayedCustomers}
                 setCustomers={
                   // not used for mutations anymore, kept for compatibility
-                  isSearchMode ? setAllCustomers : (updater) => {
-                    setPages((prev) => {
-                      const copy = [...prev];
-                      if (copy[currentPage - 1]) {
-                        copy[currentPage - 1] = {
-                          ...copy[currentPage - 1],
-                          customers:
-                            typeof updater === "function"
-                              ? updater(copy[currentPage - 1].customers)
-                              : updater,
-                        };
+                  isSearchMode
+                    ? setAllCustomers
+                    : (updater) => {
+                        setPages((prev) => {
+                          const copy = [...prev];
+                          if (copy[currentPage - 1]) {
+                            copy[currentPage - 1] = {
+                              ...copy[currentPage - 1],
+                              customers:
+                                typeof updater === "function"
+                                  ? updater(copy[currentPage - 1].customers)
+                                  : updater,
+                            };
+                          }
+                          return copy;
+                        });
                       }
-                      return copy;
-                    });
-                  }
                 }
                 onEdit={handleEditCustomer}
                 onDelete={handleDelete}
