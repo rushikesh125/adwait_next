@@ -154,6 +154,7 @@ const MyQuotations = () => {
     if (quotation.itinerarySummary) {
       normalized.itineraryData = quotation.itinerarySummary;
     }
+    normalized.refNumber = quotation.refNumber || null;  // ✅ ADD THIS
     exportPackagePDF(normalized);
   };
 

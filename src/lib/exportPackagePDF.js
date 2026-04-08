@@ -377,6 +377,7 @@ const drawCoverPage = async (
   packageName,
   selectedTransport,
   selectedActivities,
+  refNumber = null,
 ) => {
   const overlayY = PAGE_H * 0.45;
 
@@ -466,12 +467,9 @@ const drawCoverPage = async (
   pdfdoc.setTextColor("#FFFFFF");
   pdfdoc.text(tripLabel, cardX + 30, currentY, { align: "center" });
   pdfdoc.text(todayFormatted(), PAGE_W / 2, currentY, { align: "center" });
-  pdfdoc.text(
-    `AT-${new Date().getFullYear() % 100}${Math.floor(1000 + Math.random() * 900)}`,
-    cardX + cardW - 30,
-    currentY,
-    { align: "center" },
-  );
+  pdfdoc.text(refNumber || "Q-N/A", cardX + cardW - 30, currentY, {
+    align: "center",
+  });
 
   // 6. Centered Inclusion Icons
   currentY += 20;
@@ -561,6 +559,7 @@ export const exportPackagePDF = async ({
   customerName,
   packageName,
   itineraryData = null,
+  refNumber = null,
 }) => {
   if (!hotelEntries.length) {
     alert("Add at least one hotel before exporting.");
@@ -598,6 +597,7 @@ export const exportPackagePDF = async ({
     packageName,
     selectedTransport,
     selectedActivities,
+    refNumber,
   );
 
   addFooter(pdfdoc);
@@ -628,26 +628,26 @@ export const exportPackagePDF = async ({
       ],
     ],
     didDrawCell: function (data) {
-    if (data.section === "body" && data.column.index === 0) {
-      const h = hotelEntries[data.row.index];
+      if (data.section === "body" && data.column.index === 0) {
+        const h = hotelEntries[data.row.index];
 
-      const link =
-        h.GoogleListingURL ||
-        h.googleLink ||
-        h.tripAdvisorLink ||
-        h.TripAdvisorURL;
+        const link =
+          h.GoogleListingURL ||
+          h.googleLink ||
+          h.tripAdvisorLink ||
+          h.TripAdvisorURL;
 
-      if (link) {
-        pdfdoc.link(
-          data.cell.x,
-          data.cell.y,
-          data.cell.width,
-          data.cell.height,
-          { url: link }
-        );
+        if (link) {
+          pdfdoc.link(
+            data.cell.x,
+            data.cell.y,
+            data.cell.width,
+            data.cell.height,
+            { url: link },
+          );
+        }
       }
-    }
-  },
+    },
     body: hotelEntries.map((h) => {
       const guestParts = [
         `${h.numDouble || 0} Rm`,

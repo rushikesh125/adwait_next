@@ -336,8 +336,9 @@ const QuotationsTable = ({
                         className="cursor-pointer hover:bg-theme-muted/20 transition-colors"
                         onClick={() => handleViewClick(q)}
                       >
-                        <TableCell className="font-medium text-theme-primary">
-                          #{orderNumber}
+                        <TableCell className="font-medium text-theme-primary font-mono text-xs">
+                          {q.refNumber || `#${orderNumber}`}{" "}
+                          {/* fallback for old records */}
                         </TableCell>
                         <TableCell className="font-medium">
                           {q.customerName || q.leadName || "—"}
@@ -518,9 +519,6 @@ const QuotationsTable = ({
                 <strong>{Math.min(currentPage * pageSize, totalItems)}</strong>{" "}
                 of <strong>{totalItems}</strong>
               </p>
-
-              
-              
             </div>
 
             {/* RIGHT SIDE */}

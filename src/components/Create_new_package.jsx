@@ -25,7 +25,7 @@ import {
   setConfirmedMarkup,
   setPackageName,
   setCustomerName,
-  setPackageContext 
+  setPackageContext,
 } from "@/store/packageSlice";
 import toast from "react-hot-toast";
 
@@ -76,6 +76,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import ItinerarySection from "./ItinerarySection";
+import { generateQuotationRef } from "@/firebase/quotationRef";
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1909,9 +1910,21 @@ const Create_new_package = ({
     d.setDate(d.getDate() + parseInt(nights));
     setCheckOutDate(d.toISOString().split("T")[0]);
   }, [checkInDate, nights]);
-// ADD this useEffect (after the existing useEffects):
-useEffect(() => {
-  dispatch(setPackageContext({
+  // ADD this useEffect (after the existing useEffects):
+  useEffect(() => {
+    dispatch(
+      setPackageContext({
+        hotelEntries,
+        selectedTransport,
+        selectedActivities,
+        selectedState,
+        checkInDate,
+        checkOutDate,
+        packageName,
+        customerName,
+      }),
+    );
+  }, [
     hotelEntries,
     selectedTransport,
     selectedActivities,
@@ -1920,8 +1933,7 @@ useEffect(() => {
     checkOutDate,
     packageName,
     customerName,
-  }));
-}, [hotelEntries, selectedTransport, selectedActivities, selectedState, checkInDate, checkOutDate, packageName, customerName]);
+  ]);
 
   const filteredHotels = useMemo(
     () =>
@@ -2138,12 +2150,14 @@ useEffect(() => {
         : leadId
           ? { leadId, leadName: customerName }
           : { customerName };
+      const refNumber = await generateQuotationRef();
       await addDoc(
         collection(doc(db, "saved_packages_by_agents", agentId), "packages"),
         {
           packageName,
           ...c_data,
           status: "Draft",
+          refNumber,
           createdAt: serverTimestamp(),
           markup: confirmedMarkup || 0,
           grandTotal: grandTotal || 0,
@@ -2171,7 +2185,7 @@ useEffect(() => {
         },
       );
       toast("Package saved successfully! ✅");
-      router.push("./agent-panel/my-quatation");
+      router.back()
       setShowSaveModal(false);
       dispatch(setPackageName(""));
     } catch (err) {
