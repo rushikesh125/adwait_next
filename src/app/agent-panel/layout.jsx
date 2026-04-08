@@ -53,12 +53,12 @@ const AgentPanelLayout = ({ children }) => {
 
   const navItems = [
     { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
+    { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
     { name: "My Qutations", href: "/agent-panel/my-quatation", icon: Map },
     { name: "Customers", href: "/agent-panel/customers", icon: Users },
-    { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
-    { name: "Booking Form", href: "/agent-panel/bookingform", icon: Component },
     { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
     { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon},
+    { name: "Booking Form", href: "/agent-panel/bookingform", icon: Component },
   ];
 
   const SidebarContent = ({ mobile = false }) => (

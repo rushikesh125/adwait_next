@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   FilePlus2,
@@ -10,8 +10,10 @@ import {
   Mail,
   Phone,
   User,
-  MoreHorizontal,
-  Trash2, // Added Trash2 import
+  Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,150 +31,205 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export default function CustomersTable({ customers, setCustomers, onEdit, onDelete }) {
+// --- Reusable Sortable Header Component ---
+const SortableHeader = ({ label, column, sortConfig, onSort }) => {
+  const isActive = sortConfig.key === column;
+  const Icon = !isActive
+    ? ArrowUpDown
+    : sortConfig.direction === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  return (
+    <button
+      className={`flex items-center justify-start gap-1 hover:text-foreground transition-colors ${
+        isActive ? "text-foreground font-bold" : "text-slate-600"
+      }`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  );
+};
+
+export default function CustomersTable({ customers, onEdit, onDelete }) {
   const router = useRouter();
+
+  // 1. Sorting State
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+
+  const handleSort = (key) => {
+    setSortConfig((prev) =>
+      prev.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: "asc" },
+    );
+  };
+
+  // 2. Memoized Sorted Data
+  const sortedCustomers = useMemo(() => {
+    if (!sortConfig.key) return customers;
+
+    return [...customers].sort((a, b) => {
+      const aVal = (a[sortConfig.key] || "").toString().toLowerCase();
+      const bVal = (b[sortConfig.key] || "").toString().toLowerCase();
+
+      if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [customers, sortConfig]);
 
   return (
     <div className="w-full">
-      {customers.length === 0 ? (
+      {sortedCustomers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-xl border border-dashed border-slate-300">
           <div className="p-4 bg-slate-50 rounded-full mb-4">
             <User className="h-8 w-8 text-slate-300" />
           </div>
           <h3 className="text-lg font-medium text-slate-900">No leads found</h3>
-          <p className="text-slate-500 max-w-xs mx-auto">
-            Try adjusting your search or add a new customer to get started.
-          </p>
         </div>
       ) : (
         <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
-          <Table> 
-            <TableHeader className="bg-slate-50/50  ">
+          <Table>
+            <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="py-4 font-bold text-center text-slate-600 uppercase text-[11px] tracking-wider">
-                  Customer Info
+                {/* Customer Name */}
+                <TableHead className="py-4 w-[25%]">
+                  <SortableHeader
+                    label="Customer Name"
+                    column="name"
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                  />
                 </TableHead>
-                <TableHead className="py-4 font-bold text-center text-slate-600  uppercase text-[11px] tracking-wider">
-                  Location
+
+                {/* Phone */}
+                <TableHead className="py-4">
+                  <SortableHeader
+                    label="Phone"
+                    column="mobile"
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                  />
                 </TableHead>
-                <TableHead className=" text-center py-4 font-bold  text-center text-slate-600   uppercase text-[11px] tracking-wider ">
+
+                {/* Email */}
+                <TableHead className="py-4">
+                  <SortableHeader
+                    label="Email"
+                    column="email"
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                  />
+                </TableHead>
+
+                {/* Location */}
+                <TableHead className="py-4">
+                  <SortableHeader
+                    label="Location"
+                    column="city"
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                  />
+                </TableHead>
+
+                {/* Actions - Changed from text-center to text-left to match */}
+                <TableHead className="py-4 text-center pr-6 font-bold text-slate-600 uppercase text-[11px] tracking-wider">
                   Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
-              {customers.map((c, i) => (
+              {sortedCustomers.map((c, i) => (
                 <TableRow
                   key={c.id || i}
                   className="group transition-colors hover:bg-theme-muted/20"
                 >
-                  {/* Customer Main Info */}
+                  {/* Name: Left Aligned with Avatar */}
                   <TableCell className="py-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-theme-muted  flex items-center justify-center text-theme-primary font-bold text-sm">
+                      <div className="h-9 w-9 shrink-0 rounded-full bg-theme-muted flex items-center justify-center text-theme-primary font-bold text-xs">
                         {c.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-slate-900 leading-tight">
-                          {c.name}
-                        </span>
-                        <div className="md:flex items-center gap-3 mt-1">
-                          <span className="flex items-center text-xs text-slate-500">
-                            <Phone className="h-3 w-3 mr-1 text-slate-400" />
-                            {c.mobile}
-                          </span>
-                          <span className="flex items-center text-xs text-slate-500">
-                            <Mail className="h-3 w-3 mr-1 text-slate-400" />
-                            {c.email}
-                          </span>
-                        </div>
-                      </div>
+                      <span className="font-semibold text-slate-900 truncate">
+                        {c.name}
+                      </span>
                     </div>
                   </TableCell>
 
-                  {/* Location Info */}
-                  <TableCell>
-                    <div className="flex flex-col gap-0.5">
+                  {/* Phone: Left Aligned */}
+                  <TableCell className="text-slate-600 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3.5 w-3.5 text-slate-400" />
+                      {c.mobile}
+                    </div>
+                  </TableCell>
+
+                  {/* Email: Left Aligned */}
+                  <TableCell className="text-slate-600 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 text-slate-400" />
+                      {c.email}
+                    </div>
+                  </TableCell>
+
+                  {/* Location: Centered */}
+                  <TableCell className="text-left">
+                    <div className="inline-flex flex-col items-start min-w-[80px]">
                       <div className="flex items-center text-sm font-medium text-slate-700">
-                        <MapPin className="h-3.5 w-3.5 mr-1.5 text-theme-primary/60" />
+                        <MapPin className="h-3.5 w-3.5 mr-1 text-theme-primary/60" />
                         {c.city}
                       </div>
-                      <span className="text-[11px] text-slate-500 ml-5 font-semibold uppercase tracking-tighter">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase pl-5">
                         {c.state}
                       </span>
                     </div>
                   </TableCell>
 
-                  {/* Refined Actions */}
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  {/* Actions: Right Aligned */}
+                  <TableCell className="text-center pr-4">
+                    <div className="flex items-center justify-center gap-1">
                       <TooltipProvider>
-                        {/* Primary Action: Create Quotation */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="sm"
-                              className="bg-theme-primary hover:bg-theme-secondary text-white h-9 px-4 rounded-lg shadow-sm"
-                              onClick={() =>
-                                router.push(`/agent-panel?customerId=${c.id}`)
-                              }
-                            >
-                              <FilePlus2 className="h-4 w-4 mr-2" />
-                              <span className="hidden sm:inline">
-                              Create Quotation
-                              </span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Generate new package</TooltipContent>
-                        </Tooltip>
+                        <Button
+                          size="sm"
+                          className="bg-theme-primary hover:bg-theme-secondary text-white h-8 px-3 rounded-md shadow-sm"
+                          onClick={() =>
+                            router.push(`/agent-panel?customerId=${c.id}`)
+                          }
+                        >
+                          <FilePlus2 className="h-3.5 w-3.5 mr-1.5" />
+                          <span className="text-xs">Quotation</span>
+                        </Button>
 
-                        {/* View Action */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={() =>
-                                router.push(`./customers/${c.id}`)
-                              }
-                              size="icon"
-                              variant="ghost"
-                              className="h-9 w-9 text-slate-500 hover:text-theme-primary hover:bg-theme-muted"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>View Details</TooltipContent>
-                        </Tooltip>
+                        <Button
+                          onClick={() => router.push(`./customers/${c.id}`)}
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-slate-400 hover:text-theme-primary"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
 
-                        {/* Edit Action */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-9 w-9 text-slate-500 hover:text-theme-primary hover:bg-theme-muted"
-                              onClick={() => onEdit(c)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Edit Lead</TooltipContent>
-                        </Tooltip>
+                        <Button
+                          onClick={() => onEdit(c)}
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-slate-400 hover:text-theme-primary"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
 
-                        {/* Delete Action (NEW) */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-9 w-9 text-slate-500 hover:text-red-600 hover:bg-red-50"
-                              onClick={() => onDelete(c.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Delete Lead</TooltipContent>
-                        </Tooltip>
-
+                        <Button
+                          onClick={() => onDelete(c.id)}
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-slate-400 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </TooltipProvider>
                     </div>
                   </TableCell>
