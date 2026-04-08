@@ -57,6 +57,7 @@ import {
   PackagePlus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { pageLengthsForPagination } from "@/lib/pagination_size";
 
 const STATUS_VARIANT_MAP = {
   Accepted: "success",
@@ -107,10 +108,12 @@ const QuotationsTable = ({
   currentPage = 1,
   onNextPage,
   onPrevPage,
+  pageSize,
+  setPageSize,
+  totalItems,
   hasNextPage = false,
   hasPrevPage = false,
   isFetching = false,
-  pageSize,
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
@@ -507,11 +510,33 @@ const QuotationsTable = ({
           </div>
 
           {/* ── Pagination Controls ────────────────────────────────────────── */}
-          <div className="flex items-center justify-between px-6 py-4 border-t">
-            <div className="text-sm text-muted-foreground">
-              Page <strong>{currentPage}</strong>
+          <div className="flex items-center justify-between px-6 py-4 border-t flex-wrap gap-3">
+            {/* LEFT SIDE */}
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <p>
+                Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> to{" "}
+                <strong>{Math.min(currentPage * pageSize, totalItems)}</strong>{" "}
+                of <strong>{totalItems}</strong>
+              </p>
+
+              
+              
             </div>
-            <div className="flex items-center space-x-2">
+
+            {/* RIGHT SIDE */}
+            <div className="flex items-center gap-2">
+              {/* 🔽 DROPDOWN */}
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="h-8 border rounded-lg px-2 text-xs"
+              >
+                {pageLengthsForPagination.map((num) => (
+                  <option key={num} value={num}>
+                    {num} / page
+                  </option>
+                ))}
+              </select>
               <Button
                 variant="outline"
                 size="sm"
@@ -522,6 +547,9 @@ const QuotationsTable = ({
                 <ChevronLeft className="h-4 w-4" />
                 Previous
               </Button>
+
+              <div className="text-sm font-medium px-2">{currentPage}</div>
+
               <Button
                 variant="outline"
                 size="sm"

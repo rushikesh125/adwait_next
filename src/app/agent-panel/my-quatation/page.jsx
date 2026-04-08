@@ -33,7 +33,7 @@ const MyQuotations = () => {
   const [hotelSelectionOpen, setHotelSelectionOpen] = React.useState(false);
   const [hotelList, setHotelList] = React.useState([]);
   const [currentPage, setCurrentPage] = React.useState(1);
-  const PAGE_SIZE = 50; // Set default to 50 as requested
+  const [pageSize, setPageSize] = React.useState(50);
 
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
@@ -45,10 +45,11 @@ const MyQuotations = () => {
 
   // Use PAGE_SIZE instead of hardcoded 50
   const paginatedQuotations = sortedQuotations.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
-  const totalPages = Math.ceil(sortedQuotations.length / PAGE_SIZE);
+
+  const totalPages = Math.ceil(sortedQuotations.length / pageSize);
 
   // Update the useEffect that handles pagination reset
   useEffect(() => {
@@ -58,8 +59,9 @@ const MyQuotations = () => {
     state.startDate,
     state.endDate,
     state.filterDestination,
+    pageSize, // ✅ IMPORTANT
   ]);
-// Add these functions
+  // Add these functions
   const onNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage((prev) => prev + 1);
@@ -108,7 +110,6 @@ const MyQuotations = () => {
   };
 
   // ── Sort: newest first ────────────────────────────────────────────────────
-  
 
   // ── Auto-open edit modal when editId is in URL ────────────────────────────
   useEffect(() => {
@@ -170,7 +171,9 @@ const MyQuotations = () => {
         hasNextPage={currentPage < totalPages}
         hasPrevPage={currentPage > 1}
         isFetching={state.isFetchingQuotations}
-        pageSize={PAGE_SIZE}
+        pageSize={pageSize}
+        setPageSize={setPageSize} // ✅ NEW
+        totalItems={sortedQuotations.length} // ✅ NEW
       />
       {/* ── Hotel Voucher Drawer ──────────────────────────────────────────── */}
       <HotelVoucherDrawer

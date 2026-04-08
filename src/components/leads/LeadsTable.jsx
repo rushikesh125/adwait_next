@@ -36,6 +36,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { pageLengthsForPagination } from "@/lib/pagination_size";
 
 // --- Reusable Sortable Header Component ---
 const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
@@ -72,7 +73,7 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
     direction: "desc",
   });
 
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const statusOptions = [
     "New",
     "Contacted",
@@ -417,10 +418,10 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
       </div>
 
       {/* Pagination Controls */}
-      {processedLeads.length > 0 &&  (
+      {processedLeads.length > 0 && (
         <div className="flex items-center justify-between px-2 py-2 flex-wrap gap-2">
           {/* LEFT SIDE */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 ">
             <p className="text-xs text-slate-500 font-medium">
               Showing <span className="text-slate-900">{startIndex + 1}</span>{" "}
               to{" "}
@@ -432,21 +433,22 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
             </p>
 
             {/* 🔽 NEW DROPDOWN */}
-            <select
-              value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              className="h-8 border rounded-lg px-2 text-xs text-slate-600"
-            >
-              {[10, 20, 30, 40, 50].map((num) => (
-                <option key={num} value={num}>
-                  {num} / page
-                </option>
-              ))}
-            </select>
+          
           </div>
 
           {/* RIGHT SIDE */}
           <div className="flex items-center gap-2">
+            <select
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="h-8 border rounded-lg px-2 text-xs text-slate-600"
+              >
+                {pageLengthsForPagination.map((num) => (
+                  <option key={num} value={num}>
+                    {num} / page
+                  </option>
+                ))}
+              </select>
             <Button
               variant="outline"
               size="sm"
