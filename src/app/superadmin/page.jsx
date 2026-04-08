@@ -66,29 +66,11 @@ import { Textarea } from "@/components/ui/textarea";
 import UserDropdown from "@/components/UserDropdown";
 import { useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
+import StatusBadge from "@/components/StatusBadge";
 
 /* ─────────────────────────────────────────────────────────────
    MODULE-LEVEL CONSTANTS
 ───────────────────────────────────────────────────────────── */
-const STATUS_MAP = {
-  accepted: {
-    label: "Active",
-    theme: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  },
-  rejected: {
-    label: "Rejected",
-    theme: "bg-red-50 text-red-600 border-red-200",
-  },
-  suspended: {
-    label: "Suspended",
-    theme: "bg-slate-100 text-slate-500 border-slate-200",
-  },
-  pending: {
-    label: "Pending",
-    theme: "bg-amber-50 text-amber-600 border-amber-200",
-  },
-};
-
 /* ─────────────────────────────────────────────────────────────
    STABLE COMPONENTS (Outside Dashboard)
 ───────────────────────────────────────────────────────────── */
@@ -102,8 +84,6 @@ const UserRow = ({
   onSuspend,
   onDelete,
 }) => {
-  const current = STATUS_MAP[user.approved] || STATUS_MAP.pending;
-
   return (
     <tr
       className="group hover:bg-[#1E88E5]/[0.03] transition-colors duration-200"
@@ -147,12 +127,11 @@ const UserRow = ({
         </div>
       </td>
       <td className="px-4 sm:px-8 py-4 sm:py-5 align-middle">
-        <Badge
-          variant="outline"
-          className={`${current.theme} border font-bold uppercase text-[10px] px-2.5 py-0.5 rounded-lg whitespace-nowrap`}
-        >
-          {current.label}
-        </Badge>
+        <StatusBadge
+          status={user.approved || "pending"}
+          fallback="Pending"
+          className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-lg whitespace-nowrap"
+        />
       </td>
       <td className="px-4 sm:px-8 py-4 sm:py-5 align-middle text-right">
         <DropdownMenu>

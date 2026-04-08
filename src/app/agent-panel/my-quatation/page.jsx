@@ -263,6 +263,7 @@ const MyQuotations = () => {
         handleEditClick={state.handleEditClick}
         handleDownloadPDF={handleDownloadPDF}
         handleDeleteQuotation={state.handleDeleteQuotation}
+        handleQuotationStatusChange={state.handleQuotationStatusChange}
         handleCopyToClipboard={handleCopyToClipboard}
         handleGenerateVoucher={handleGenerateVoucher}
         currentPage={currentPage}

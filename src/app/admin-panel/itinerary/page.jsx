@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
-  MoreVertical,
   Eye,
   Edit,
+  Pencil,
   Trash2,
   MapPin,
   Loader2,
@@ -30,6 +30,7 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  updateDoc,
   orderBy,
   query,
 } from "firebase/firestore";
@@ -60,6 +61,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
+import StatusBadge from "@/components/StatusBadge";
 
 // ── SortHeader Component
 const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
@@ -72,7 +74,7 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
 
   return (
     <button
-      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors font-bold ${
+      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors uppercase text-[11px] tracking-[0.16em] ${
         isActive ? "text-theme-primary" : "text-slate-600"
       } ${align === "center" ? "justify-center" : ""} ${align === "right" ? "justify-end" : ""}`}
       onClick={() => onSort(column)}
@@ -115,12 +117,11 @@ function QuickViewDialog({ item, open, onClose }) {
                 {(item.days || []).length} Days /{" "}
                 {item.durationNights ?? (item.days?.length || 1) - 1} Nights
               </span>
-              <Badge
-                className={`text-[10px] px-2 py-0.5 ${item.status === "Published" ? "bg-green-100 text-green-700 border-green-200" : "bg-amber-100 text-amber-700 border-amber-200"}`}
-                variant="outline"
-              >
-                {item.status || "Draft"}
-              </Badge>
+              <StatusBadge
+                status={item.status || "Draft"}
+                fallback="Draft"
+                className="text-[10px] px-2 py-0.5"
+              />
             </div>
           </div>
         </div>
@@ -288,10 +289,12 @@ export default function ItineraryListPage() {
   const [selectedView, setSelectedView] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [editingStatusId, setEditingStatusId] = useState(null);
   const [sortConfig, setSortConfig] = useState({
     key: "createdAt",
     direction: "desc",
   });
+  const statusOptions = ["Draft", "Published"];
 
   const fetchItineraries = async () => {
     setLoading(true);
@@ -339,6 +342,20 @@ export default function ItineraryListPage() {
 
   const handleEdit = (id) =>
     router.push(`/admin-panel/itinerary/create?itineraryid=${id}`);
+
+  const handleStatusUpdate = async (item, status) => {
+    try {
+      await updateDoc(doc(db, "itinerary_templates", item.id), { status });
+      setItineraries((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id ? { ...entry, status } : entry,
+        ),
+      );
+      toast.success(`Status updated to ${status}`);
+    } catch {
+      toast.error("Failed to update itinerary status");
+    }
+  };
 
   // ── Filtered and sorted list (global — across all data, not just current page) ──────
   const processedData = useMemo(() => {
@@ -399,10 +416,8 @@ export default function ItineraryListPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Itinerary Templates
-          </h1>
-          <p className="text-slate-500 text-sm">
+          <h1 className="app-page-title">Itinerary Templates</h1>
+          <p className="app-page-subtitle">
             Manage and create travel plans for your clients.
           </p>
         </div>
@@ -448,11 +463,11 @@ export default function ItineraryListPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="table-shell">
         <Table>
-          <TableHeader className="bg-slate-50">
-            <TableRow>
-              <TableHead className="font-bold text-slate-700">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[30%]">
                 <SortHeader
                   label="Template Title"
                   column="title"
@@ -460,7 +475,7 @@ export default function ItineraryListPage() {
                   onSort={handleSort}
                 />
               </TableHead>
-              <TableHead className="font-bold text-slate-700">
+              <TableHead className="w-[25%]">
                 <SortHeader
                   label="State / Cities"
                   column="state"
@@ -468,7 +483,7 @@ export default function ItineraryListPage() {
                   onSort={handleSort}
                 />
               </TableHead>
-              <TableHead className="font-bold text-slate-700 text-center">
+              <TableHead className="w-[15%] text-center">
                 <SortHeader
                   label="Duration"
                   column="durationNights"
@@ -477,7 +492,7 @@ export default function ItineraryListPage() {
                   align="center"
                 />
               </TableHead>
-              <TableHead className="font-bold text-slate-700 text-center">
+              <TableHead className="w-[15%] text-center">
                 <SortHeader
                   label="Activities"
                   column="totalActivities"
@@ -486,7 +501,7 @@ export default function ItineraryListPage() {
                   align="center"
                 />
               </TableHead>
-              <TableHead className="font-bold text-slate-700 text-center">
+              <TableHead className="w-[10%] text-center">
                 <SortHeader
                   label="Status"
                   column="status"
@@ -495,7 +510,9 @@ export default function ItineraryListPage() {
                   align="center"
                 />
               </TableHead>
-              <TableHead className="w-[60px]"></TableHead>
+              <TableHead className="w-[14%] text-center">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -588,49 +605,86 @@ export default function ItineraryListPage() {
                     </TableCell>
 
                     <TableCell className="text-center">
-                      <div className="w-full flex justify-start">
-
-
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${item.status === "Published" ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}
+                      <div
+                        className="w-full flex items-center justify-start gap-2"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {item.status || "Draft"}
-                      </Badge>
+                        {editingStatusId !== item.id ? (
+                          <>
+                            <StatusBadge
+                              status={item.status || "Draft"}
+                              fallback="Draft"
+                              className="text-xs"
+                            />
+                            <button
+                              onClick={() => setEditingStatusId(item.id)}
+                              className="text-slate-400 hover:text-slate-800 opacity-70 hover:opacity-100 transition-opacity"
+                              title="Change status"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <DropdownMenu
+                            onOpenChange={(open) =>
+                              !open && setEditingStatusId(null)
+                            }
+                            open={true}
+                          >
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center justify-between h-7 min-w-[110px] px-3 text-[11px] font-bold rounded-full border bg-white text-slate-800 focus:ring-2 focus:ring-theme-primary/30">
+                                {item.status || "Draft"}
+                                <Search className="h-3 w-3 rotate-90" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              {statusOptions.map((status) => (
+                                <DropdownMenuItem
+                                  key={status}
+                                  onClick={async () => {
+                                    await handleStatusUpdate(item, status);
+                                    setEditingStatusId(null);
+                                  }}
+                                >
+                                  {status}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </TableCell>
 
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                          >
-                            <MoreVertical className="w-4 h-4 text-slate-400" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onSelect={() => setSelectedView(item)}
-                          >
-                            <Eye className="w-4 h-4 mr-2 text-slate-500" />{" "}
-                            Quick View
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => handleEdit(item.id)}
-                          >
-                            <Edit className="w-4 h-4 mr-2 text-blue-500" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                            onSelect={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-theme-primary"
+                          onClick={() => setSelectedView(item)}
+                          title="Quick View"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-blue-600"
+                          onClick={() => handleEdit(item.id)}
+                          title="Edit"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => handleDelete(item.id)}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -641,7 +695,7 @@ export default function ItineraryListPage() {
 
         {/* Pagination Footer */}
         {!loading && processedData.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+          <div className="table-footer-bar flex-wrap">
             <p className="text-xs text-slate-500 font-medium">
               Showing{" "}
               <span className="font-bold text-slate-700">

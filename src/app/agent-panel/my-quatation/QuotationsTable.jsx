@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -48,6 +47,7 @@ import {
   Trash2,
   Copy,
   Eye,
+  Pencil,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -58,14 +58,10 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
+import StatusBadge from "@/components/StatusBadge";
 
-const STATUS_VARIANT_MAP = {
-  Accepted: "success",
-  Sent: "default",
-  Rejected: "destructive",
-};
-
-const STATUS_ORDER = { Accepted: 1, Sent: 2, Rejected: 3 };
+const STATUS_ORDER = { Draft: 1, Sent: 2, Accepted: 3, Rejected: 4 };
+const QUOTATION_STATUS_OPTIONS = ["Draft", "Sent", "Accepted", "Rejected"];
 
 const SortableHeader = ({ label, column, sortConfig, onSort }) => {
   const isActive = sortConfig.key === column;
@@ -114,8 +110,10 @@ const QuotationsTable = ({
   hasNextPage = false,
   hasPrevPage = false,
   isFetching = false,
+  handleQuotationStatusChange,
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [editingStatusId, setEditingStatusId] = useState(null);
 
   const handleSort = (key) => {
     setSortConfig((prev) =>
@@ -360,13 +358,59 @@ const QuotationsTable = ({
                             : "—"}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              STATUS_VARIANT_MAP[q.status] || "secondary"
-                            }
-                          >
-                            {q.status || "Draft"}
-                          </Badge>
+                          <div className="flex items-center justify-center gap-2">
+                            {editingStatusId !== q.id ? (
+                              <>
+                                <StatusBadge
+                                  status={q.status || "Draft"}
+                                  fallback="Draft"
+                                  className="justify-center px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingStatusId(q.id);
+                                  }}
+                                  className="text-slate-400 hover:text-slate-800 transition-opacity"
+                                  title="Change status"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <DropdownMenu
+                                open={true}
+                                onOpenChange={(open) =>
+                                  !open && setEditingStatusId(null)
+                                }
+                              >
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="flex items-center justify-between h-7 px-3 text-[11px] font-bold rounded-full border bg-white text-slate-800 focus:ring-2 focus:ring-theme-primary/30"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {q.status || "Draft"}
+                                    <Search className="h-3 w-3 rotate-90" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="center" className="w-40">
+                                  {QUOTATION_STATUS_OPTIONS.map((status) => (
+                                    <DropdownMenuItem
+                                      key={status}
+                                      onClick={() => {
+                                        handleQuotationStatusChange?.(q.id, status);
+                                        setEditingStatusId(null);
+                                      }}
+                                    >
+                                      {status}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell
                           className="text-right"

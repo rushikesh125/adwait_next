@@ -21,6 +21,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Pencil,
 } from "lucide-react";
 import {
   Dialog,
@@ -39,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import StatusBadge from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -53,6 +55,7 @@ import {
   fetchAllVouchersForAgent,
   deleteVoucherDocument,
 } from "@/firebase/voucher";
+import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 
 // ── NEW: hotel voucher PDF + WhatsApp helpers
 import {
@@ -261,6 +264,7 @@ const VoucherDashboard = () => {
   const [localSearch, setLocalSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1); // 2. Pagination State
   const [viewingVoucher, setViewingVoucher] = useState(null);
+  const [editingVoucher, setEditingVoucher] = useState(null);
   const [allVouchers, setAllVouchers] = useState([]);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState(null);
@@ -598,17 +602,11 @@ const VoucherDashboard = () => {
                                   variant="ghost"
                                   className="h-8 p-0 px-2 flex items-center gap-1 focus:ring-0"
                                 >
-                                  <Badge
-                                    className={`${
-                                      item.status === "SENT"
-                                        ? "bg-green-100 text-green-700"
-                                        : item.status === "CANCELLED"
-                                          ? "bg-red-100 text-red-700"
-                                          : "bg-yellow-100 text-yellow-700"
-                                    } border-none shadow-none text-[10px]`}
-                                  >
-                                    {item.status || "PENDING"}
-                                  </Badge>
+                                  <StatusBadge
+                                    status={item.status || "PENDING"}
+                                    fallback="PENDING"
+                                    className="border-none shadow-none text-[10px]"
+                                  />
                                   <ChevronDown className="h-3 w-3 text-slate-400" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -665,6 +663,18 @@ const VoucherDashboard = () => {
                               >
                                 <Download className="h-4 w-4 text-slate-500" />
                               </Button>
+
+                              {item.voucherType === "Hotel" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  title="Edit Voucher"
+                                  onClick={() => setEditingVoucher(item)}
+                                >
+                                  <Pencil className="h-4 w-4 text-slate-500" />
+                                </Button>
+                              )}
 
                               {/* WhatsApp */}
                               {item.voucherType === "Hotel" && item.contact && (
@@ -793,6 +803,14 @@ const VoucherDashboard = () => {
       <VoucherViewModal
         voucher={viewingVoucher}
         onClose={() => setViewingVoucher(null)}
+      />
+
+      <HotelVoucherDrawer
+        isOpen={!!editingVoucher}
+        onClose={() => setEditingVoucher(null)}
+        initialVoucher={editingVoucher}
+        agentId={authUser?.uid || ""}
+        onSaved={loadVouchers}
       />
     </>
   );

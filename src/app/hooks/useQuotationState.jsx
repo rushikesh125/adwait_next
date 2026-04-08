@@ -820,6 +820,45 @@ const handleTransportSummaryChange = (field, value) => {
     }
   };
 
+  const handleQuotationStatusChange = async (quotationId, nextStatus) => {
+    const agentId = user?.uid;
+    if (!agentId) {
+      alert("Must be logged in.");
+      return;
+    }
+
+    try {
+      const ref = doc(
+        db,
+        "saved_packages_by_agents",
+        agentId,
+        "packages",
+        quotationId,
+      );
+
+      await updateDoc(ref, { status: nextStatus });
+
+      setQuotations((prev) =>
+        prev.map((quotation) =>
+          quotation.id === quotationId
+            ? { ...quotation, status: nextStatus }
+            : quotation,
+        ),
+      );
+
+      setViewingQuotation((prev) =>
+        prev?.id === quotationId ? { ...prev, status: nextStatus } : prev,
+      );
+
+      setEditingQuotation((prev) =>
+        prev?.id === quotationId ? { ...prev, status: nextStatus } : prev,
+      );
+    } catch (err) {
+      console.error("Failed to update quotation status:", err);
+      alert("Failed to update quotation status.");
+    }
+  };
+
   const handleDeleteQuotation = async (quotationId) => {
     const agentId = user?.uid;
     if (!agentId) { alert("Not authenticated."); return; }
@@ -963,7 +1002,7 @@ const handleTransportSummaryChange = (field, value) => {
 
   return {
     // Data
-    quotations, allHotels, AllDestinations, transportStates, filteredQuotations,
+    user, quotations, allHotels, AllDestinations, transportStates, filteredQuotations,
     // Loading — `loading` is auth-only (read-only, managed by Firebase/Redux auth slice).
     // `isFetchingQuotations` is the local data-fetch indicator for this hook.
     loading, isFetchingQuotations,
@@ -997,7 +1036,7 @@ const handleTransportSummaryChange = (field, value) => {
     handleToggle, handleTransportSummaryChange, handlePackageChange, handleVehicleChange,
     handleAddHotel, handleAddCustomHotel, handleRemoveHotel, handleHotelChange, handleHotelSummaryChange,
     handleAddActivity, handleAddCustomActivity, handleRemoveActivity, handleActivitySummaryChange,
-    handleUpdateQuotation, handleDeleteQuotation,
+    handleUpdateQuotation, handleQuotationStatusChange, handleDeleteQuotation,
     handleSaveAs, handleConfirmSaveAs,
     handleCopyToClipboard,
   };

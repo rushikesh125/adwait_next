@@ -17,7 +17,7 @@ const leadsRef = collection(db, "leads");
 
 // --- Existing Functions ---
 export const addLead = async (data) => {
-  await addDoc(leadsRef, {
+  return await addDoc(leadsRef, {
     ...data,
     createdAt: serverTimestamp(),
     status: "New",
@@ -30,9 +30,35 @@ export const getAllLeads = async () => {
   return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 };
 
+export const getLeadsByAgent = async (agentId) => {
+  const q = query(leadsRef, where("agentId", "==", agentId));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+};
+
+export const createAssignedLead = async ({ agentId, customerId, agentName, ...data }) => {
+  return await addDoc(leadsRef, {
+    ...data,
+    agentId,
+    assignedAgentId: agentId,
+    assignedAgentName: agentName || "",
+    customerId: customerId || null,
+    createdAt: serverTimestamp(),
+    status: "New",
+    source: data.source || "Enquiry Form",
+  });
+};
+
 export const updateLeadStatus = async (id, status) => {
   const ref = doc(db, "leads", id);
   await updateDoc(ref, { status });
+};
+
+export const updateLeadDetails = async (id, data) => {
+  const ref = doc(db, "leads", id);
+  await updateDoc(ref, data);
 };
 
 // --- New Functions for Profile Page ---

@@ -36,8 +36,17 @@ const AgentPanelLayout = ({ children }) => {
     setIsMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (initialized && !loading && !user) {
+      router.replace("/login");
+    }
+  }, [initialized, loading, router, user]);
+
   if (loading) return <Loading />;
-  if (initialized && (!user || user.role !== "agent")) {
+  if (initialized && !user) {
+    return <Loading />;
+  }
+  if (initialized && user.role !== "agent") {
     return <Page403 />;
   }
 
@@ -45,7 +54,7 @@ const AgentPanelLayout = ({ children }) => {
     try {
       await signOut(auth);
       toast.success("Logged out successfully");
-      router.push("/login");
+      router.replace("/login");
     } catch (error) {
       toast.error("Logout failed");
     }

@@ -26,7 +26,7 @@ export default function Home() {
   if (loading) {
     return <Loading />;
   }
-  if (!initialized && !user) {
+  if (initialized && !user) {
     return <NotLoggedIn/>
   }
   return <h1>Hi</h1>;

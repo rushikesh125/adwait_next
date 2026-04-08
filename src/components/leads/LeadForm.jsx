@@ -31,7 +31,12 @@ import { Textarea } from "@/components/ui/textarea";
 const selectTriggerClass =
   "h-11 w-full bg-white border-slate-200 px-3 py-2.5 text-sm leading-6 focus:ring-theme-primary";
 
-export default function LeadForm({ form, onChange, onSubmit }) {
+export default function LeadForm({
+  form,
+  onChange,
+  onSubmit,
+  submitLabel = "Save Lead",
+}) {
   return (
     <div className="w-full">
       <form onSubmit={onSubmit} noValidate className="space-y-8">
@@ -395,7 +400,7 @@ export default function LeadForm({ form, onChange, onSubmit }) {
             type="submit"
             className=" cursor-pointer bg-theme-primary hover:bg-theme-secondary text-white px-10 shadow-lg shadow-theme-primary/20 rounded-xl"
           >
-            Save Lead
+            {submitLabel}
           </Button>
         </div>
       </form>

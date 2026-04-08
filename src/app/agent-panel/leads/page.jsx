@@ -12,6 +12,9 @@ import {
   UserPlus,
   Trash2,
   FilePlus2,
+  Clock3,
+  Target,
+  ArrowRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,17 +23,20 @@ import LeadsTable from "@/components/leads/LeadsTable";
 import CustomerForm from "@/components/customers/CustomerForm";
 import {
   addLead,
-  getAllLeads,
+  getLeadsByAgent,
   updateLeadStatus,
   deleteLead,
 } from "@/firebase/leadsService";
 import { addCustomer } from "@/firebase/customersService";
 import { db } from "@/firebase/config";
 import { collection, getDocs } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
+import { enquiryInitialValues, normalizeMobile } from "@/lib/enquiryForm";
 
 export default function LeadsPage() {
+  const { user } = useSelector((state) => state.auth);
   const [leads, setLeads] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
@@ -38,8 +44,10 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddLead, setShowAddLead] = useState(false);
   const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("All");
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const nameInputRef = useRef(null);
   const suggestionsRef = useRef(null);
   const overviewMetrics = useMemo(() => {
@@ -57,6 +65,8 @@ export default function LeadsPage() {
       (lead) => lead.status === "Contacted",
     ).length;
     const newLeads = leads.filter((lead) => lead.status === "New").length;
+    const activePipeline = newLeads + contacted + quotationSent;
+    const needsAttention = newLeads + contacted;
 
     const conversionRate =
       totalLeads > 0 ? ((closedWon / totalLeads) * 100).toFixed(2) : 0;
@@ -68,9 +78,75 @@ export default function LeadsPage() {
       closedWon,
       contacted,
       newLeads,
+      activePipeline,
+      needsAttention,
       conversionRate,
     };
   }, [leads]);
+
+  const statusCards = [
+    {
+      key: "All",
+      label: "All Leads",
+      value: overviewMetrics.totalLeads,
+      helper: "Complete enquiry base",
+      icon: Briefcase,
+      tone: "border-slate-200 bg-white text-slate-900",
+      iconTone: "bg-slate-100 text-slate-700",
+    },
+    {
+      key: "New",
+      label: "New",
+      value: overviewMetrics.newLeads,
+      helper: "Fresh enquiries",
+      icon: Plus,
+      tone: "border-blue-200 bg-blue-50 text-blue-900",
+      iconTone: "bg-blue-100 text-blue-700",
+    },
+    {
+      key: "Contacted",
+      label: "Contacted",
+      value: overviewMetrics.contacted,
+      helper: "Follow-up in progress",
+      icon: RefreshCw,
+      tone: "border-amber-200 bg-amber-50 text-amber-900",
+      iconTone: "bg-amber-100 text-amber-700",
+    },
+    {
+      key: "Quotation Sent",
+      label: "Quotation Sent",
+      value: overviewMetrics.quotationSent,
+      helper: "Awaiting decision",
+      icon: FilePlus2,
+      tone: "border-violet-200 bg-violet-50 text-violet-900",
+      iconTone: "bg-violet-100 text-violet-700",
+    },
+    {
+      key: "Closed Won",
+      label: "Closed Won",
+      value: overviewMetrics.closedWon,
+      helper: "Successful conversions",
+      icon: TrendingUp,
+      tone: "border-emerald-200 bg-emerald-50 text-emerald-900",
+      iconTone: "bg-emerald-100 text-emerald-700",
+    },
+    {
+      key: "Closed Lost",
+      label: "Closed Lost",
+      value: overviewMetrics.closedLost,
+      helper: "Dropped enquiries",
+      icon: X,
+      tone: "border-rose-200 bg-rose-50 text-rose-900",
+      iconTone: "bg-rose-100 text-rose-700",
+    },
+  ];
+
+  const primaryInsight =
+    overviewMetrics.newLeads > 0
+      ? `${overviewMetrics.newLeads} new lead(s) are waiting for first contact.`
+      : overviewMetrics.quotationSent > 0
+        ? `${overviewMetrics.quotationSent} lead(s) already have quotations sent and need follow-up.`
+        : "Your lead pipeline is up to date right now.";
   const [customerForm, setCustomerForm] = useState({
     name: "",
     mobile: "",
@@ -80,31 +156,18 @@ export default function LeadsPage() {
   });
 
   const [form, setForm] = useState({
-    name: "",
-    travelDate: "",
-    days: "",
-    destination: "",
-    adults: "",
-    children: "",
-    hotelPreference: "",
-    transportPreference: "",
-    budget: "",
-    notes: "",
-    mealPlan: "",
-    hotelCategory: "",
-    departureCity: "",
-    tripType: "",
-    rooms: "",
-    sightseeingVehicle: "",
-    ticketHelp: [],
+    ...enquiryInitialValues,
+    email: "",
+    mobile: "",
   });
 
   // --- Logic Functions ---
 
   const loadLeads = async () => {
+    if (!user?.uid) return;
     try {
       setLoading(true);
-      const data = await getAllLeads();
+      const data = await getLeadsByAgent(user.uid);
       setLeads(data);
     } catch (error) {
       toast.error("Failed to fetch leads");
@@ -129,7 +192,13 @@ export default function LeadsPage() {
   useEffect(() => {
     loadLeads();
     loadCustomers();
-  }, []);
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (searchParams.get("open") === "new") {
+      setShowAddLead(true);
+    }
+  }, [searchParams]);
 
   // Handle Name Search
   const handleNameChange = (e) => {
@@ -178,29 +247,23 @@ export default function LeadsPage() {
     try {
       await addLead({
         ...form,
+        email: form.email || "",
+        mobile: form.mobile ? normalizeMobile(form.mobile) : "",
+        agentId: user?.uid || null,
+        assignedAgentId: user?.uid || null,
+        assignedAgentName: user?.name || "",
         status: "New",
         createdAt: new Date().toISOString(),
       });
       toast.success("Lead added successfully", { id: toastId });
       setShowAddLead(false);
+      if (searchParams.get("open") === "new") {
+        router.replace("/agent-panel/leads");
+      }
       setForm({
-        name: "",
-        travelDate: "",
-        days: "",
-        destination: "",
-        adults: "",
-        children: "",
-        hotelPreference: "",
-        transportPreference: "",
-        budget: "",
-        notes: "",
-        mealPlan: "",
-        hotelCategory: "",
-        departureCity: "",
-        tripType: "",
-        rooms: "",
-        sightseeingVehicle: "",
-        ticketHelp: [],
+        ...enquiryInitialValues,
+        email: "",
+        mobile: "",
       });
       loadLeads();
     } catch (error) {
@@ -245,76 +308,87 @@ export default function LeadsPage() {
       <Toaster position="top-right" />
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* OVERVIEW CARDS - CLEAN BENTO GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 mb-8">
-          
-          {/* 1. Main Hero Card (Total & New Leads) - 8 Cols */}
-          <div className="col-span-1 md:col-span-12 lg:col-span-8 bg-white rounded-[2rem] p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-theme-primary/10 rounded-2xl">
-                  <User className="h-6 w-6 text-theme-primary" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">Lead Volume</h3>
-                  <p className="text-sm text-slate-500">Overall tracking & fresh inquiries</p>
-                </div>
+        <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
+          <div className="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-theme-primary/10 p-2.5">
+                <User className="h-5 w-5 text-theme-primary" />
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 divide-x divide-slate-100">
               <div>
-                <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Total Leads</p>
-                <h4 className="text-5xl md:text-6xl font-black text-slate-900">{overviewMetrics.totalLeads}</h4>
-              </div>
-              <div className="pl-6 md:pl-8">
-                <p className="text-sm font-semibold inline-flex items-center gap-1.5 text-indigo-500 uppercase tracking-wider mb-2">
-                  <Plus className="h-4 w-4" /> New This Week
-                </p>
-                <h4 className="text-5xl md:text-6xl font-black text-indigo-600">{overviewMetrics.newLeads}</h4>
+                <h3 className="text-base font-bold text-slate-900">Lead Pipeline</h3>
+                <p className="mt-1 text-sm text-slate-600">{primaryInsight}</p>
               </div>
             </div>
           </div>
 
-          {/* 2. Conversion Rate (Accent Card) - 4 Cols */}
-          <div className="col-span-1 md:col-span-12 lg:col-span-4 bg-theme-primary rounded-[2rem] p-6 md:p-8 text-white shadow-lg flex flex-col justify-between relative overflow-hidden">
-            {/* Subtle background decoration */}
-            <div className="absolute right-0 bottom-0 opacity-10 translate-x-1/4 translate-y-1/4">
-              <TrendingUp className="w-48 h-48" />
-            </div>
-            
-            <div className="relative z-10 h-full flex flex-col justify-between">
-              <div className="p-3 bg-white/20 rounded-2xl w-fit backdrop-blur-md border border-white/20 mb-6">
-                <TrendingUp className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-white/80 uppercase tracking-wider mb-2">Conversion Rate</p>
-                <div className="flex items-baseline gap-1">
-                  <h4 className="text-6xl font-black">{overviewMetrics.conversionRate}</h4>
-                  <span className="text-3xl font-bold text-white/80">%</span>
-                </div>
-              </div>
-            </div>
+          <div className="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+              Active
+            </p>
+            <p className="mt-2 text-2xl font-black text-slate-900">
+              {overviewMetrics.activePipeline}
+            </p>
           </div>
 
-          {/* 3. Pipeline Metrics - 4 Mini Cards (3 cols each) */}
-          {[
-            { label: "Contacted", value: overviewMetrics.contacted, icon: RefreshCw, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
-            { label: "Quotes Sent", value: overviewMetrics.quotationSent, icon: FilePlus2, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
-            { label: "Closed Won", value: overviewMetrics.closedWon, icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
-            { label: "Closed Lost", value: overviewMetrics.closedLost, icon: X, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
-          ].map((metric, i) => (
-            <div key={i} className="col-span-1 md:col-span-6 lg:col-span-3 bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 hover:-translate-y-1 transition-transform duration-300">
-              <div className={`p-3.5 rounded-2xl ${metric.bg} ${metric.border} border shrink-0`}>
-                <metric.icon className={`h-6 w-6 ${metric.color}`} />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{metric.label}</p>
-                <p className="text-2xl font-black text-slate-800">{metric.value}</p>
-              </div>
-            </div>
-          ))}
+          <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 px-4 py-4 shadow-sm">
+            <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">
+              <Clock3 className="h-4 w-4" />
+              Attention
+            </p>
+            <p className="mt-2 text-2xl font-black text-blue-900">
+              {overviewMetrics.needsAttention}
+            </p>
+          </div>
 
+          <button
+            type="button"
+            onClick={() => setStatusFilter("Quotation Sent")}
+            className="rounded-[1.5rem] bg-theme-primary px-4 py-4 text-left text-white shadow-sm transition hover:bg-theme-secondary"
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/75">
+              Follow Up
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-2xl font-black">{overviewMetrics.quotationSent}</p>
+                <p className="text-xs text-white/80">Quotation Sent</p>
+              </div>
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </button>
+        </div>
+
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+          {statusCards.map((card) => {
+            const isActive = statusFilter === card.key;
+            const Icon = card.icon;
+
+            return (
+              <button
+                key={card.key}
+                type="button"
+                onClick={() => setStatusFilter(card.key)}
+                className={`rounded-3xl border p-4 text-left shadow-sm transition-all ${
+                  isActive
+                    ? "border-theme-primary ring-2 ring-theme-primary/15 shadow-md"
+                    : card.tone
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                      {card.label}
+                    </p>
+                    <p className="mt-2 text-2xl font-black">{card.value}</p>
+                    <p className="mt-1 text-xs text-slate-500">{card.helper}</p>
+                  </div>
+                  <div className={`rounded-2xl p-2.5 ${card.iconTone}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       
       </main>
@@ -369,7 +443,12 @@ export default function LeadsPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowAddLead(false)}
+                onClick={() => {
+                  setShowAddLead(false);
+                  if (searchParams.get("open") === "new") {
+                    router.replace("/agent-panel/leads");
+                  }
+                }}
               >
                 <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
@@ -498,6 +577,8 @@ export default function LeadsPage() {
               onStatusChange={handleStatusChange}
               onDeleteLead={handleDeleteLead} // New Prop
               onCreateQuotation={handleCreateQuotation}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
             />
           </CardContent>
         </Card>

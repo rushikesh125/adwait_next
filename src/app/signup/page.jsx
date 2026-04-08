@@ -109,10 +109,17 @@ export default function SignupPage() {
     await setDoc(doc(db, collectionName, user.uid), {
       uid: user.uid,
       name: name || user.displayName,
-      email: user.email,
+      email: user.email?.toLowerCase(),
       phone: phone || "",
       role: role,
       approved: "pending", // Set default status to pending
+      authProvider:
+        user.providerData?.some((provider) => provider.providerId === "google.com")
+          ? "google"
+          : "password",
+      hasPassword: user.providerData?.some(
+        (provider) => provider.providerId === "password",
+      ),
       createdAt: new Date(),
     });
   };

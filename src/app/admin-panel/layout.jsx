@@ -32,10 +32,19 @@ const AdminPanelLayout = ({ children }) => {
     setIsMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (initialized && !loading && !user) {
+      router.replace("/login");
+    }
+  }, [initialized, loading, router, user]);
+
   if (loading) return <Loading />;
   
   // Guard Logic
-  if (initialized && (!user || user.role !== "admin")) {
+  if (initialized && !user) {
+    return <Loading />;
+  }
+  if (initialized && user.role !== "admin") {
     return <Page403 />;
   }
 
@@ -43,7 +52,7 @@ const AdminPanelLayout = ({ children }) => {
     try {
       await signOut(auth);
       toast.success("Admin signed out");
-      router.push("/login");
+      router.replace("/login");
     } catch (error) {
       toast.error("Logout failed");
     }
