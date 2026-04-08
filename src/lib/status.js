@@ -21,7 +21,6 @@ export const STATUS_STYLES = {
 };
 
 export const STATUS_LABELS = {
-  accepted: "Active",
   approved: "Active",
 };
 

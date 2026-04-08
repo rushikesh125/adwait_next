@@ -9,11 +9,15 @@ import { useQuotationState } from "@/app/hooks/useQuotationState";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
+  ClipboardCopy,
   Hotel,
   Plane,
   PackagePlus,
@@ -27,29 +31,45 @@ import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 import { copyPackageSummary } from "@/lib/copyPackageSummary";
 import { normaliseQuotation } from "@/lib/quotationAdapter";
+import { generateHotelBookingConfirmationMessage } from "@/lib/generateHotelBookingConfirmation";
 
 const MyQuotations = () => {
   const state = useQuotationState();
   const searchParams = useSearchParams();
   const editId = searchParams.get("editId");
+  const { quotations, handleEditClick } = state;
+  const [statusFilter, setStatusFilter] = React.useState("All");
 
   const [voucherDrawerOpen, setVoucherDrawerOpen] = React.useState(false);
   const [selectedHotelForVoucher, setSelectedHotelForVoucher] =
     React.useState(null);
   const [activeQuotation, setActiveQuotation] = React.useState(null);
+  const [hotelSelectionMode, setHotelSelectionMode] = React.useState("voucher");
+  const [bookingConfirmationOpen, setBookingConfirmationOpen] =
+    React.useState(false);
+  const [bookingConfirmationMessage, setBookingConfirmationMessage] =
+    React.useState("");
+  const [copySuccessMessage, setCopySuccessMessage] = React.useState("");
 
   const [hotelSelectionOpen, setHotelSelectionOpen] = React.useState(false);
   const [hotelList, setHotelList] = React.useState([]);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(50);
 
+  const statusFilteredQuotations = useMemo(() => {
+    if (statusFilter === "All") return state.filteredQuotations;
+    return state.filteredQuotations.filter(
+      (quotation) => (quotation.status || "Draft") === statusFilter,
+    );
+  }, [state.filteredQuotations, statusFilter]);
+
   const sortedQuotations = useMemo(() => {
-    return [...state.filteredQuotations].sort((a, b) => {
+    return [...statusFilteredQuotations].sort((a, b) => {
       const dateA = a.createdAt?.seconds || 0;
       const dateB = b.createdAt?.seconds || 0;
       return dateB - dateA;
     });
-  }, [state.filteredQuotations]);
+  }, [statusFilteredQuotations]);
   const overviewMetrics = useMemo(() => {
     const totalQuotations = state.quotations.length;
     const draft = state.quotations.filter(
@@ -81,7 +101,8 @@ const MyQuotations = () => {
 
   // Update the useEffect that handles pagination reset
   useEffect(() => {
-    setCurrentPage(1);
+    const timer = setTimeout(() => setCurrentPage(1), 0);
+    return () => clearTimeout(timer);
   }, [
     state.searchTerm,
     state.startDate,
@@ -127,6 +148,7 @@ const MyQuotations = () => {
     }
 
     setActiveQuotation(quotation);
+    setHotelSelectionMode("voucher");
 
     if (hotels.length === 1) {
       setSelectedHotelForVoucher(hotels[0]);
@@ -137,15 +159,63 @@ const MyQuotations = () => {
     }
   };
 
+  const openBookingConfirmationDialog = (quotation, hotel) => {
+    setActiveQuotation(quotation);
+    setBookingConfirmationMessage(
+      generateHotelBookingConfirmationMessage(quotation, hotel),
+    );
+    setCopySuccessMessage("");
+    setBookingConfirmationOpen(true);
+  };
+
+  const handleOpenBookingConfirmation = (quotation, selectedHotel = null) => {
+    const rawHotels = quotation.hotelSummary || quotation.hotel_summary || [];
+    const hotels = rawHotels.map((hotel) => ({
+      ...hotel,
+      hotelName: hotel.hotel || hotel.hotelName || "Hotel",
+    }));
+
+    if (hotels.length === 0) {
+      alert("No hotel data found in this quotation.");
+      return;
+    }
+
+    if (selectedHotel) {
+      openBookingConfirmationDialog(quotation, selectedHotel);
+      return;
+    }
+
+    setActiveQuotation(quotation);
+    setHotelSelectionMode("booking-confirmation");
+
+    if (hotels.length === 1) {
+      openBookingConfirmationDialog(quotation, hotels[0]);
+      return;
+    }
+
+    setHotelList(hotels);
+    setHotelSelectionOpen(true);
+  };
+
+  const handleCopyBookingConfirmation = async () => {
+    try {
+      await navigator.clipboard.writeText(bookingConfirmationMessage);
+      setCopySuccessMessage("Booking confirmation copied successfully.");
+    } catch (error) {
+      console.error("Failed to copy booking confirmation:", error);
+      alert("Failed to copy booking confirmation.");
+    }
+  };
+
   // ── Sort: newest first ────────────────────────────────────────────────────
 
   // ── Auto-open edit modal when editId is in URL ────────────────────────────
   useEffect(() => {
-    if (editId && state.quotations.length > 0) {
-      const quoteToEdit = state.quotations.find((q) => q.id === editId);
-      if (quoteToEdit) state.handleEditClick(quoteToEdit);
+    if (editId && quotations.length > 0) {
+      const quoteToEdit = quotations.find((q) => q.id === editId);
+      if (quoteToEdit) handleEditClick(quoteToEdit);
     }
-  }, [editId, state.quotations, state.handleEditClick]);
+  }, [editId, quotations, handleEditClick]);
 
   // ── PDF download — uses shared exportPackagePDF via adapter ───────────────
   const handleDownloadPDF = (quotation) => {
@@ -173,11 +243,22 @@ const MyQuotations = () => {
 
   // ── Determine if the currently-viewed quotation is Accepted ──────────────
   const viewedIsAccepted = state.viewingQuotation?.status === "Accepted";
+  const isStatusActive = (value) => statusFilter === value;
+  const getTileClassName = (value) =>
+    `rounded-xl border bg-white p-4 shadow-sm text-left transition-all ${
+      isStatusActive(value)
+        ? "border-theme-primary ring-2 ring-theme-primary/20"
+        : "border-slate-200 hover:border-slate-300"
+    }`;
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("All")}
+          className={getTileClassName("All")}
+        >
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
               <PackagePlus className="h-4 w-4 text-blue-600" />
@@ -189,9 +270,13 @@ const MyQuotations = () => {
               </p>
             </div>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("Draft")}
+          className={getTileClassName("Draft")}
+        >
           <div className="flex items-center">
             <div className="p-2 bg-gray-100 rounded-lg">
               <FileText className="h-4 w-4 text-gray-600" />
@@ -203,9 +288,13 @@ const MyQuotations = () => {
               </p>
             </div>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("Sent")}
+          className={getTileClassName("Sent")}
+        >
           <div className="flex items-center">
             <div className="p-2 bg-amber-100 rounded-lg">
               <Send className="h-4 w-4 text-amber-600" />
@@ -217,9 +306,13 @@ const MyQuotations = () => {
               </p>
             </div>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("Accepted")}
+          className={getTileClassName("Accepted")}
+        >
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckCircle className="h-4 w-4 text-green-600" />
@@ -231,9 +324,13 @@ const MyQuotations = () => {
               </p>
             </div>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("Rejected")}
+          className={getTileClassName("Rejected")}
+        >
           <div className="flex items-center">
             <div className="p-2 bg-red-100 rounded-lg">
               <XCircle className="h-4 w-4 text-red-600" />
@@ -245,7 +342,7 @@ const MyQuotations = () => {
               </p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
       <QuotationsTable
         filteredQuotations={paginatedQuotations}
@@ -265,6 +362,7 @@ const MyQuotations = () => {
         handleQuotationStatusChange={state.handleQuotationStatusChange}
         handleCopyToClipboard={handleCopyToClipboard}
         handleGenerateVoucher={handleGenerateVoucher}
+        handleOpenBookingConfirmation={handleOpenBookingConfirmation}
         currentPage={currentPage}
         onNextPage={onNextPage}
         onPrevPage={onPrevPage}
@@ -288,10 +386,16 @@ const MyQuotations = () => {
       <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Select Hotel for Voucher</DialogTitle>
+            <DialogTitle>
+              {hotelSelectionMode === "booking-confirmation"
+                ? "Select Hotel for Booking Request"
+                : "Select Hotel for Voucher"}
+            </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-500 -mt-1">
-            This quotation has multiple hotels. Pick one to generate a voucher.
+            {hotelSelectionMode === "booking-confirmation"
+              ? "This quotation has multiple hotels. Pick one to generate a hotel-specific booking confirmation message."
+              : "This quotation has multiple hotels. Pick one to generate a voucher."}
           </p>
           <div className="grid grid-cols-2 gap-4 mt-2">
             {hotelList.map((h, i) => (
@@ -299,9 +403,13 @@ const MyQuotations = () => {
                 key={i}
                 className="border rounded-xl p-4 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition"
                 onClick={() => {
-                  setSelectedHotelForVoucher(h);
                   setHotelSelectionOpen(false);
-                  setVoucherDrawerOpen(true);
+                  if (hotelSelectionMode === "booking-confirmation") {
+                    handleOpenBookingConfirmation(activeQuotation, h);
+                  } else {
+                    setSelectedHotelForVoucher(h);
+                    setVoucherDrawerOpen(true);
+                  }
                 }}
               >
                 <p className="font-semibold text-base text-slate-800">
@@ -324,6 +432,49 @@ const MyQuotations = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={bookingConfirmationOpen}
+        onOpenChange={(open) => {
+          setBookingConfirmationOpen(open);
+          if (!open) setCopySuccessMessage("");
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Booking Request Message</DialogTitle>
+            <DialogDescription>
+              Review and edit the generated hotel booking confirmation before copying it.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Textarea
+            value={bookingConfirmationMessage}
+            onChange={(event) => setBookingConfirmationMessage(event.target.value)}
+            rows={20}
+            className="font-medium"
+          />
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            {copySuccessMessage && (
+              <p className="mr-auto text-sm text-green-600">{copySuccessMessage}</p>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBookingConfirmationOpen(false);
+                setCopySuccessMessage("");
+              }}
+            >
+              Close
+            </Button>
+            <Button onClick={handleCopyBookingConfirmation} className="gap-2">
+              <ClipboardCopy className="h-4 w-4" />
+              Copy to Clipboard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Quotation View Modal — with Voucher buttons in footer ─────────── */}
       <QuotationModals
         // View modal
@@ -332,6 +483,7 @@ const MyQuotations = () => {
         viewingQuotation={state.viewingQuotation}
         // ↓ Pass the voucher trigger + accepted flag so the view modal can render buttons
         onGenerateVoucher={handleGenerateVoucher}
+        onOpenBookingConfirmation={handleOpenBookingConfirmation}
         viewedIsAccepted={viewedIsAccepted}
         // Edit modal
         isEditModalOpen={state.isEditModalOpen}

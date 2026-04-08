@@ -456,6 +456,7 @@ const QuotationModals = ({
   newCustomerName,
   setNewCustomerName,
   handleConfirmSaveAs,
+  onOpenBookingConfirmation,
 }) => {
   const truncateText = (text, maxLength) => {
     if (!text) return "";
@@ -761,6 +762,15 @@ const QuotationModals = ({
                           >
                             <Plus className="h-3.5 w-3.5" />
                             Hotel Voucher
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onOpenBookingConfirmation?.(viewingQuotation, hotel)}
+                            className="flex-shrink-0 gap-1.5"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Booking Request
                           </Button>
                         </CardContent>
                       </Card>

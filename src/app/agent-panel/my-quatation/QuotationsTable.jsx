@@ -55,10 +55,12 @@ import {
   ArrowUp,
   ArrowDown,
   PackagePlus,
+  ClipboardCopy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
 import StatusBadge from "@/components/StatusBadge";
+import { getStatusLabel } from "@/lib/status";
 
 const STATUS_ORDER = { Draft: 1, Sent: 2, Accepted: 3, Rejected: 4 };
 const QUOTATION_STATUS_OPTIONS = ["Draft", "Sent", "Accepted", "Rejected"];
@@ -92,6 +94,7 @@ const QuotationsTable = ({
   setFilterDestination,
   startDate,
   handleGenerateVoucher,
+  handleOpenBookingConfirmation,
   setStartDate,
   endDate,
   setEndDate,
@@ -390,20 +393,25 @@ const QuotationsTable = ({
                                     className="flex items-center justify-between h-7 px-3 text-[11px] font-bold rounded-full border bg-white text-slate-800 focus:ring-2 focus:ring-theme-primary/30"
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    {q.status || "Draft"}
+                                    {getStatusLabel(q.status || "Draft", "Draft")}
                                     <Search className="h-3 w-3 rotate-90" />
                                   </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="center" className="w-40">
+                                <DropdownMenuContent
+                                  align="center"
+                                  className="w-40"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {QUOTATION_STATUS_OPTIONS.map((status) => (
                                     <DropdownMenuItem
                                       key={status}
-                                      onClick={() => {
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         handleQuotationStatusChange?.(q.id, status);
                                         setEditingStatusId(null);
                                       }}
                                     >
-                                      {status}
+                                      {getStatusLabel(status, status)}
                                     </DropdownMenuItem>
                                   ))}
                                 </DropdownMenuContent>
@@ -466,9 +474,17 @@ const QuotationsTable = ({
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuLabel>
-                                    Voucher Actions
+                                    Accepted Actions
                                   </DropdownMenuLabel>
                                   <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleOpenBookingConfirmation?.(q)
+                                    }
+                                  >
+                                    <ClipboardCopy className="mr-2 h-4 w-4" />
+                                    Send Booking Request
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() =>
                                       handleGenerateVoucher(q, "hotel")
