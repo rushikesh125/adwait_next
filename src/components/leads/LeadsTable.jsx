@@ -72,7 +72,7 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
     direction: "desc",
   });
 
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const statusOptions = [
     "New",
     "Contacted",
@@ -120,8 +120,7 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
-
+  }, [searchTerm, statusFilter, itemsPerPage]);
   // Pagination Calculations
   const totalPages = Math.ceil(processedLeads.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -384,7 +383,9 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
                         size="sm"
                         className="bg-theme-primary text-white h-8 px-3"
                         onClick={() =>
-                          router.push(`/agent-panel/my-quatation/create?leadId=${lead.id}`)
+                          router.push(
+                            `/agent-panel/my-quatation/create?leadId=${lead.id}`,
+                          )
                         }
                       >
                         <FilePlus2 className="h-3.5 w-3.5 mr-1.5" />
@@ -416,16 +417,35 @@ export default function LeadsTable({ leads, onStatusChange, onDeleteLead }) {
       </div>
 
       {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2 py-2">
-          <p className="text-xs text-slate-500 font-medium">
-            Showing <span className="text-slate-900">{startIndex + 1}</span> to{" "}
-            <span className="text-slate-900">
-              {Math.min(startIndex + itemsPerPage, processedLeads.length)}
-            </span>{" "}
-            of <span className="text-slate-900">{processedLeads.length}</span>{" "}
-            entries
-          </p>
+      {processedLeads.length > 0 &&  (
+        <div className="flex items-center justify-between px-2 py-2 flex-wrap gap-2">
+          {/* LEFT SIDE */}
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-slate-500 font-medium">
+              Showing <span className="text-slate-900">{startIndex + 1}</span>{" "}
+              to{" "}
+              <span className="text-slate-900">
+                {Math.min(startIndex + itemsPerPage, processedLeads.length)}
+              </span>{" "}
+              of <span className="text-slate-900">{processedLeads.length}</span>{" "}
+              entries
+            </p>
+
+            {/* 🔽 NEW DROPDOWN */}
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="h-8 border rounded-lg px-2 text-xs text-slate-600"
+            >
+              {[10, 20, 30, 40, 50].map((num) => (
+                <option key={num} value={num}>
+                  {num} / page
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* RIGHT SIDE */}
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

@@ -138,7 +138,7 @@ export default function CustomerProfilePage({ params }) {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </div>
-          <Button onClick={() => router.push(`/agent-panel?customerId=${cid}`)} className="bg-theme-primary text-white px-4 lg:px-6 rounded-xl">
+          <Button onClick={() => router.push(`/agent-panel/my-quatation/create?customerId=${cid}`)} className="bg-theme-primary text-white px-4 lg:px-6 rounded-xl">
             <Plus className="h-4 w-4 mr-2" /> Generate Quote
           </Button>
         </div>
