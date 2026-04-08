@@ -1235,7 +1235,7 @@ const QuotationModals = ({
           <DialogFooter className="pt-4 sm:pt-6 border-t mt-4 flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setIsEditModalOpen(false)} className="w-full sm:w-auto">Cancel</Button>
             <Button variant="outline" onClick={handleSaveAs} className="border-theme-primary text-theme-primary hover:bg-theme-primary/10 w-full sm:w-auto">Save As New</Button>
-            <Button onClick={handleUpdateQuotation} className="bg-theme-primary hover:bg-theme-secondary w-full sm:w-auto">Save Changes</Button>
+            {/* <Button onClick={handleUpdateQuotation} className="bg-theme-primary hover:bg-theme-secondary w-full sm:w-auto">Save Changes</Button> */}
           </DialogFooter>
         </DialogContent>
       </Dialog>

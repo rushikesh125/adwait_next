@@ -10,7 +10,7 @@ import {
   User,
   PlusSquare,
   UserPlus,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
   addLead,
   getAllLeads,
   updateLeadStatus,
-  deleteLead
+  deleteLead,
 } from "@/firebase/leadsService";
 import { addCustomer } from "@/firebase/customersService";
 import { db } from "@/firebase/config";
@@ -180,18 +180,18 @@ export default function LeadsPage() {
   };
 
   const handleDeleteLead = async (id) => {
-  if (!window.confirm("Are you sure you want to delete this lead?")) return;
+    if (!window.confirm("Are you sure you want to delete this lead?")) return;
 
-  const tid = toast.loading("Deleting lead...");
-  try {
-    await deleteLead(id);
-    setLeads((prev) => prev.filter((lead) => lead.id !== id));
-    toast.success("Lead deleted successfully", { id: tid });
-  } catch (error) {
-    console.error("Delete error:", error);
-    toast.error("Failed to delete lead", { id: tid });
-  }
-};
+    const tid = toast.loading("Deleting lead...");
+    try {
+      await deleteLead(id);
+      setLeads((prev) => prev.filter((lead) => lead.id !== id));
+      toast.success("Lead deleted successfully", { id: tid });
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("Failed to delete lead", { id: tid });
+    }
+  };
 
   const handleStatusChange = async (id, status) => {
     try {
@@ -205,7 +205,7 @@ export default function LeadsPage() {
 
   const handleCreateQuotation = (lead) => {
     router.push(
-      `/agent-panel?leadId=${lead.id}&leadName=${encodeURIComponent(lead.name)}`,
+      `/agent-panel/my-quatation/create?leadId=${lead.id}&leadName=${encodeURIComponent(lead.name)}`,
     );
   };
 
@@ -238,7 +238,7 @@ export default function LeadsPage() {
                 onChange={(e) =>
                   setCustomerForm({
                     ...customerForm,
-              
+
                     [e.target.name]: e.target.value,
                   })
                 }
@@ -328,13 +328,13 @@ export default function LeadsPage() {
                     {/* This button stays visible even if filteredCustomers is empty */}
                     <Button
                       type="button"
-                     onClick={() => {
-  setCustomerForm((prev) => ({
-    ...prev,
-    name: form.name, 
-  }));
-  setShowQuickAddCustomer(true);
-}}
+                      onClick={() => {
+                        setCustomerForm((prev) => ({
+                          ...prev,
+                          name: form.name,
+                        }));
+                        setShowQuickAddCustomer(true);
+                      }}
                       className="w-full bg-theme-primary hover:bg-theme-dark text-white rounded-t-none rounded-b-xl py-6 cursor-pointer"
                     >
                       <PlusSquare className="mr-2 h-4 w-4" />
@@ -390,11 +390,11 @@ export default function LeadsPage() {
         <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
           <CardContent className="p-0">
             <LeadsTable
-  leads={leads}
-  onStatusChange={handleStatusChange}
-  onDeleteLead={handleDeleteLead} // New Prop
-  onCreateQuotation={handleCreateQuotation}
-/>
+              leads={leads}
+              onStatusChange={handleStatusChange}
+              onDeleteLead={handleDeleteLead} // New Prop
+              onCreateQuotation={handleCreateQuotation}
+            />
           </CardContent>
         </Card>
       </main>

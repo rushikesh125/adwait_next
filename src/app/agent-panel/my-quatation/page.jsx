@@ -26,12 +26,51 @@ const MyQuotations = () => {
   const editId = searchParams.get("editId");
 
   const [voucherDrawerOpen, setVoucherDrawerOpen] = React.useState(false);
-  const [selectedHotelForVoucher, setSelectedHotelForVoucher] = React.useState(null);
+  const [selectedHotelForVoucher, setSelectedHotelForVoucher] =
+    React.useState(null);
   const [activeQuotation, setActiveQuotation] = React.useState(null);
 
   const [hotelSelectionOpen, setHotelSelectionOpen] = React.useState(false);
   const [hotelList, setHotelList] = React.useState([]);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const PAGE_SIZE = 50; // Set default to 50 as requested
 
+  const sortedQuotations = useMemo(() => {
+    return [...state.filteredQuotations].sort((a, b) => {
+      const dateA = a.createdAt?.seconds || 0;
+      const dateB = b.createdAt?.seconds || 0;
+      return dateB - dateA;
+    });
+  }, [state.filteredQuotations]);
+
+  // Use PAGE_SIZE instead of hardcoded 50
+  const paginatedQuotations = sortedQuotations.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+  const totalPages = Math.ceil(sortedQuotations.length / PAGE_SIZE);
+
+  // Update the useEffect that handles pagination reset
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    state.searchTerm,
+    state.startDate,
+    state.endDate,
+    state.filterDestination,
+  ]);
+// Add these functions
+  const onNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const onPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
   // ── Core voucher trigger — works from table row AND from view modal ────────
   const handleGenerateVoucher = (quotation, type) => {
     if (type !== "hotel") {
@@ -69,13 +108,7 @@ const MyQuotations = () => {
   };
 
   // ── Sort: newest first ────────────────────────────────────────────────────
-  const sortedQuotations = useMemo(() => {
-    return [...state.filteredQuotations].sort((a, b) => {
-      const dateA = a.createdAt?.seconds || 0;
-      const dateB = b.createdAt?.seconds || 0;
-      return dateB - dateA;
-    });
-  }, [state.filteredQuotations]);
+  
 
   // ── Auto-open edit modal when editId is in URL ────────────────────────────
   useEffect(() => {
@@ -86,14 +119,14 @@ const MyQuotations = () => {
   }, [editId, state.quotations, state.handleEditClick]);
 
   // ── PDF download — uses shared exportPackagePDF via adapter ───────────────
- const handleDownloadPDF = (quotation) => {
-  const normalized = normaliseQuotation(quotation);
-  // Add itinerary data from the stored quotation if present
-  if (quotation.itinerarySummary) {
-    normalized.itineraryData = quotation.itinerarySummary;
-  }
-  exportPackagePDF(normalized);
-};
+  const handleDownloadPDF = (quotation) => {
+    const normalized = normaliseQuotation(quotation);
+    // Add itinerary data from the stored quotation if present
+    if (quotation.itinerarySummary) {
+      normalized.itineraryData = quotation.itinerarySummary;
+    }
+    exportPackagePDF(normalized);
+  };
 
   const handleCopyToClipboard = (quotation) => {
     copyPackageSummary({
@@ -115,7 +148,7 @@ const MyQuotations = () => {
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <QuotationsTable
-        filteredQuotations={sortedQuotations}
+        filteredQuotations={paginatedQuotations}
         searchTerm={state.searchTerm}
         setSearchTerm={state.setSearchTerm}
         filterDestination={state.filterDestination}
@@ -131,8 +164,14 @@ const MyQuotations = () => {
         handleDeleteQuotation={state.handleDeleteQuotation}
         handleCopyToClipboard={handleCopyToClipboard}
         handleGenerateVoucher={handleGenerateVoucher}
+        currentPage={currentPage}
+        onNextPage={onNextPage}
+        onPrevPage={onPrevPage}
+        hasNextPage={currentPage < totalPages}
+        hasPrevPage={currentPage > 1}
+        isFetching={state.isFetchingQuotations}
+        pageSize={PAGE_SIZE}
       />
-
       {/* ── Hotel Voucher Drawer ──────────────────────────────────────────── */}
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
@@ -162,9 +201,13 @@ const MyQuotations = () => {
                   setVoucherDrawerOpen(true);
                 }}
               >
-                <p className="font-semibold text-base text-slate-800">{h.hotelName || "Hotel"}</p>
+                <p className="font-semibold text-base text-slate-800">
+                  {h.hotelName || "Hotel"}
+                </p>
                 {(h.city || h.destination) && (
-                  <p className="text-sm text-slate-500 mt-0.5">{h.city || h.destination}</p>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {h.city || h.destination}
+                  </p>
                 )}
                 <p className="text-sm mt-2 text-slate-600">
                   {h.checkIn} → {h.checkOut}
@@ -215,7 +258,9 @@ const MyQuotations = () => {
         transportStates={state.transportStates}
         toTitleCase={state.toTitleCase}
         handlePackageChange={state.handlePackageChange}
-        availableTransportPackagesForSelectedState={state.availableTransportPackagesForSelectedState}
+        availableTransportPackagesForSelectedState={
+          state.availableTransportPackagesForSelectedState
+        }
         handleVehicleChange={state.handleVehicleChange}
         // Activities
         isFetchingActivities={state.isFetchingActivities}
