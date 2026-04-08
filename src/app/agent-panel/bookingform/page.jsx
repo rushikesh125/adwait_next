@@ -27,8 +27,11 @@ import {
   Loader2,
   Eye,
   ChevronDown,
-  ChevronLeft,    // Added for pagination
-  ChevronRight,   // Added for pagination
+  ChevronLeft, // Added for pagination
+  ChevronRight, // Added for pagination
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +52,27 @@ import {
 import toast from "react-hot-toast";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
 
+// ── SortHeader Component
+const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
+  const isActive = sortConfig.key === column;
+  const Icon = !isActive
+    ? ArrowUpDown
+    : sortConfig.direction === "asc"
+      ? ArrowUp
+      : ArrowDown;
 
+  return (
+    <button
+      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors font-bold ${
+        isActive ? "text-theme-primary" : "text-slate-600"
+      } ${align === "center" ? "justify-center" : ""} ${align === "right" ? "justify-end" : ""}`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      <Icon className={`h-4 w-4 ${isActive ? "opacity-100" : "opacity-40"}`} />
+    </button>
+  );
+};
 
 export default function AgentDashboard() {
   const [trips, setTrips] = useState([]);
@@ -59,6 +82,10 @@ export default function AgentDashboard() {
   const [pageSize, setPageSize] = useState(10);
   // 2. Added Pagination State
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState({
+    key: "createdAt",
+    direction: "desc",
+  });
 
   const fetchTrips = async () => {
     if (!auth.currentUser) {
@@ -86,10 +113,17 @@ export default function AgentDashboard() {
     fetchTrips();
   }, []);
 
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
   // 3. Reset to page 1 when user searches
   useEffect(() => {
-  setCurrentPage(1);
-}, [searchTerm, pageSize]);
+    setCurrentPage(1);
+  }, [searchTerm, pageSize, sortConfig]);
 
   const copyLink = (id) => {
     navigator.clipboard.writeText(`${window.location.origin}/book/${id}`);
@@ -121,19 +155,43 @@ export default function AgentDashboard() {
     }
   };
 
-  // 4. Memoized Filtering and Pagination Logic
-  const filteredData = useMemo(() => {
-    return trips.filter((t) =>
+  // 4. Memoized Filtering and Sorting/Pagination Logic
+  const processedData = useMemo(() => {
+    let filtered = [...trips];
+
+    // Apply search filter
+    filtered = filtered.filter((t) =>
       t.tripName.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-  }, [trips, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
-  
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        // Handle Firebase Timestamps or Date objects
+        if (aVal?.seconds) aVal = aVal.seconds;
+        if (bVal?.seconds) bVal = bVal.seconds;
+
+        if (typeof aVal === "string") aVal = aVal.toLowerCase();
+        if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [trips, searchTerm, sortConfig]);
+
+  const totalPages = Math.max(1, Math.ceil(processedData.length / pageSize));
+
   const pagedData = useMemo(() => {
-  const start = (currentPage - 1) * pageSize;
-  return filteredData.slice(start, start + pageSize);
-}, [filteredData, currentPage, pageSize]);
+    const start = (currentPage - 1) * pageSize;
+    return processedData.slice(start, start + pageSize);
+  }, [processedData, currentPage, pageSize]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -191,14 +249,29 @@ export default function AgentDashboard() {
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4 pl-6">
-                  Trip Details
+                  <SortHeader
+                    label="Trip Details"
+                    column="tripName"
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                  />
                 </TableHead>
                 <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4">
-                  Created
+                  <SortHeader
+                    label="Created"
+                    column="createdAt"
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                  />
                 </TableHead>
-                
+
                 <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4">
-                  Status
+                  <SortHeader
+                    label="Status"
+                    column="status"
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                  />
                 </TableHead>
                 <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4 text-right pr-42">
                   Actions
@@ -227,7 +300,6 @@ export default function AgentDashboard() {
                     <TableCell className="py-4 text-slate-500 text-xs tabular-nums">
                       {trip.createdAt?.toDate().toLocaleDateString("en-GB")}
                     </TableCell>
-                  
 
                     <TableCell className="py-8">
                       <StatusBadge status={trip.status} />
@@ -290,7 +362,11 @@ export default function AgentDashboard() {
 
                         {/* ICON ACTIONS */}
                         <Link href={`./bookingform/view/${trip.id}`}>
-                          <Button variant="ghost" size="icon" className="h-9 w-9">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9"
+                          >
                             <Eye className="w-4 h-4" />
                           </Button>
                         </Link>
@@ -322,78 +398,79 @@ export default function AgentDashboard() {
           </Table>
 
           {/* 5. Pagination UI Footer */}
-          {!loading && filteredData.length > 0 && (
+          {!loading && processedData.length > 0 && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex-wrap gap-3">
+              {/* LEFT */}
+              <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
+                <p>
+                  Showing{" "}
+                  <span className="font-bold text-slate-800">
+                    {(currentPage - 1) * pageSize + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-bold text-slate-800">
+                    {Math.min(currentPage * pageSize, processedData.length)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-bold text-slate-800">
+                    {processedData.length}
+                  </span>{" "}
+                  trips
+                </p>
+              </div>
 
-  {/* LEFT */}
-  <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
-    <p>
-      Showing{" "}
-      <span className="font-bold text-slate-800">
-        {(currentPage - 1) * pageSize + 1}
-      </span>{" "}
-      to{" "}
-      <span className="font-bold text-slate-800">
-        {Math.min(currentPage * pageSize, filteredData.length)}
-      </span>{" "}
-      of{" "}
-      <span className="font-bold text-slate-800">
-        {filteredData.length}
-      </span>{" "}
-      trips
-    </p>
+              {/* RIGHT */}
+              <div className="flex items-center gap-2">
+                {/* 🔽 DROPDOWN */}
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="h-8 border rounded-lg px-2 text-xs"
+                >
+                  {pageLengthsForPagination.map((num) => (
+                    <option key={num} value={num}>
+                      {num} / page
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Prev
+                </Button>
 
-    
-  </div>
+                <div className="text-xs font-bold text-slate-700 px-2">
+                  {currentPage} / {totalPages}
+                </div>
 
-  {/* RIGHT */}
-  <div className="flex items-center gap-2">
-    {/* 🔽 DROPDOWN */}
-    <select
-      value={pageSize}
-      onChange={(e) => setPageSize(Number(e.target.value))}
-      className="h-8 border rounded-lg px-2 text-xs"
-    >
-      {pageLengthsForPagination.map((num) => (
-        <option key={num} value={num}>
-          {num} / page
-        </option>
-      ))}
-    </select>
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-      disabled={currentPage === 1}
-      className="h-8"
-    >
-      <ChevronLeft className="h-4 w-4 mr-1" />
-      Prev
-    </Button>
-
-    <div className="text-xs font-bold text-slate-700 px-2">
-      {currentPage} / {totalPages}
-    </div>
-
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-      disabled={currentPage === totalPages}
-      className="h-8"
-    >
-      Next
-      <ChevronRight className="h-4 w-4 ml-1" />
-    </Button>
-  </div>
-</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="h-8"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
           )}
 
           {/* Empty State */}
-          {!loading && filteredData.length === 0 && (
+          {!loading && processedData.length === 0 && (
             <div className="py-20 text-center">
               <Ticket className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm font-medium">No trips found matching your search.</p>
+              <p className="text-slate-400 text-sm font-medium">
+                No trips found matching your search.
+              </p>
             </div>
           )}
         </div>
