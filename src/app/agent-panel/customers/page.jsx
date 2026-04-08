@@ -13,8 +13,6 @@ import {
   getAllCustomers,
   udpateCustomer,
   deleteCustomer,
-  getCustomersPage,
-  getCustomersCount,
 } from "@/firebase/customersService";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -31,10 +29,10 @@ function logError(context, error) {
 
 export default function CustomersPage() {
   // ── Server-pagination state ──────────────────────────────────────────────
-  const [pages, setPages] = useState([]); // array of { customers[], lastDoc }
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+
   const [pageSize, setPageSize] = useState(50);
 
   // ── Search / filter state ────────────────────────────────────────────────
@@ -63,84 +61,8 @@ export default function CustomersPage() {
   // ─── Server Pagination ────────────────────────────────────────────────────
 
   /**
-   * Load the first page and the total count.
-   * Resets cursor history.
-   */
-  const loadFirstPage = useCallback(async () => {
-    logInfo("loadFirstPage", "fetching page 1 + total count");
-    setLoading(true);
-    try {
-      const [{ customers, lastDoc, hasMore: more }, count] = await Promise.all([
-        getCustomersPage(null, pageSize),
-        getCustomersCount(),
-      ]);
-
-      setPages([{ customers, lastDoc }]);
-      setHasMore(more);
-      setTotalCount(count);
-      setCurrentPage(1);
-      logInfo("loadFirstPage", `loaded ${customers.length} | total=${count}`);
-    } catch (error) {
-      logError("loadFirstPage", error);
-      toast.error("Failed to load customers. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [pageSize]);
-
-  /**
-   * Fetch and cache the next page using the last cursor from pages[].
-   */
-  const loadNextPage = useCallback(async () => {
-    const lastEntry = pages[pages.length - 1];
-    if (!lastEntry?.lastDoc) {
-      logInfo("loadNextPage", "no cursor available, aborting");
-      return;
-    }
-
-    logInfo("loadNextPage", `fetching page ${pages.length + 1}`);
-    setLoading(true);
-    try {
-      const {
-        customers,
-        lastDoc,
-        hasMore: more,
-      } = await getCustomersPage(lastEntry.lastDoc, pageSize);
-
-      setPages((prev) => [...prev, { customers, lastDoc }]);
-      setHasMore(more);
-      setCurrentPage((p) => p + 1);
-      logInfo("loadNextPage", `loaded ${customers.length} | hasMore=${more}`);
-    } catch (error) {
-      logError("loadNextPage", error);
-      toast.error("Failed to load next page.");
-    } finally {
-      setLoading(false);
-    }
-  }, [pages, pageSize]);
-
-  /**
    * Go back one page using the cached pages array (no Firestore call).
    */
-  const goToPrevPage = useCallback(() => {
-    if (currentPage <= 1) return;
-    logInfo("goToPrevPage", `navigating to page ${currentPage - 1} (cached)`);
-    setCurrentPage((p) => p - 1);
-  }, [currentPage]);
-
-  /**
-   * Navigate forward: use cache if available, else fetch.
-   */
-  const handleNextPage = useCallback(async () => {
-    const nextPageIndex = currentPage; // 0-based index for pages array
-    if (pages[nextPageIndex]) {
-      // Already cached
-      logInfo("handleNextPage", `using cached page ${currentPage + 1}`);
-      setCurrentPage((p) => p + 1);
-    } else {
-      await loadNextPage();
-    }
-  }, [currentPage, pages, loadNextPage, pageSize]);
 
   // ─── Search mode: load all ────────────────────────────────────────────────
 
@@ -162,14 +84,6 @@ export default function CustomersPage() {
   }, [allCustomersLoaded]);
 
   // ─── Effects ──────────────────────────────────────────────────────────────
-
-  // Initial load
-  useEffect(() => {
-    // Reset everything when page size changes
-    setPages([]);
-    setCurrentPage(1);
-    loadFirstPage();
-  }, [pageSize]);
 
   // When search term appears, load all customers (once)
   useEffect(() => {
@@ -207,7 +121,7 @@ export default function CustomersPage() {
    */
   const displayedCustomers = isSearchMode
     ? searchPageCustomers
-    : (pages[currentPage - 1]?.customers ?? []);
+    : (pageSize[currentPage - 1]?.customers ?? []);
 
   // Count shown in pagination footer
   const displayTotalCount = isSearchMode ? filteredAll.length : totalCount;
@@ -221,16 +135,7 @@ export default function CustomersPage() {
   /**
    * Full reset: clear page cache, reload from scratch.
    */
-  const hardRefresh = useCallback(async () => {
-    logInfo("hardRefresh", "invalidating all caches");
-    setPages([]);
-    setAllCustomers([]);
-    setAllCustomersLoaded(false);
-    setCurrentPage(1);
-    setSearch("");
-    setSearchPage(1);
-    await loadFirstPage();
-  }, [loadFirstPage]);
+  
 
   const handleEditCustomer = (customer) => {
     setEditMode(true);
@@ -348,7 +253,54 @@ export default function CustomersPage() {
     }
     // "Last" not available in server-pagination mode (we don't know the final cursor)
   };
+  const loadCustomers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getAllCustomers();
+      setAllCustomers(data);
+    } catch (error) {
+      toast.error("Failed to load customers");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  const hardRefresh = useCallback(async () => {
+    logInfo("hardRefresh", "reloading customers");
 
+    setAllCustomers([]);
+    setAllCustomersLoaded(false);
+    setCurrentPage(1);
+    setSearch("");
+
+    await loadCustomers();
+  }, [loadCustomers]);
+
+  const filteredCustomers = useMemo(() => {
+    const term = search.toLowerCase();
+    return allCustomers.filter((c) =>
+      `${c.name} ${c.mobile} ${c.email}`.toLowerCase().includes(term),
+    );
+  }, [search, allCustomers]);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredCustomers.length / pageSize),
+  );
+
+  const pagedCustomers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredCustomers.slice(start, start + pageSize);
+  }, [filteredCustomers, currentPage, pageSize]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, pageSize]);
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [totalPages]);
+  useEffect(() => {
+    loadCustomers();
+  }, []);
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -478,7 +430,7 @@ export default function CustomersPage() {
           <CardContent className="p-0">
             <div className="min-h-[400px]">
               <CustomersTable
-                customers={displayedCustomers}
+                customers={pagedCustomers}
                 setCustomers={
                   // not used for mutations anymore, kept for compatibility
                   isSearchMode
@@ -506,17 +458,13 @@ export default function CustomersPage() {
 
             {/* ── Pagination ─────────────────────────────────────────────── */}
             <CustomersPagination
-              currentPage={displayCurrentPage}
-              totalPages={displayTotalPages}
-              totalCount={displayTotalCount}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCount={filteredCustomers.length}
               pageSize={pageSize}
-              hasMore={hasMore}
               loading={loading}
-              onFirst={handlePaginationFirst}
-              onPrev={handlePaginationPrev}
-              onNext={handlePaginationNext}
-              onLast={handlePaginationLast}
-              isSearchMode={isSearchMode}
+              onPrev={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               setPageSize={setPageSize}
             />
           </CardContent>

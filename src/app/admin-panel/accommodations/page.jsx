@@ -28,12 +28,13 @@ import {
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { pageLengthsForPagination } from "@/lib/pagination_size";
 
-const PAGE_SIZE = 10;
+
 
 const Accommodation = () => {
   const router = useRouter();
-
+const [pageSize, setPageSize] = useState(10);
   // ── All hotels (fetched once, for search + pagination) ──────────────────
   const [allHotels, setAllHotels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,14 +94,16 @@ const Accommodation = () => {
   }, [allHotels, searchQuery, stateFilter, sortBy]);
 
   // Reset to page 1 whenever filters change
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, stateFilter, sortBy]);
+  useEffect(() => {
+  setCurrentPage(1);
+}, [searchQuery, stateFilter, sortBy, pageSize]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredHotels.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredHotels.length / pageSize));
 
   const pagedHotels = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredHotels.slice(start, start + PAGE_SIZE);
-  }, [filteredHotels, currentPage]);
+  const start = (currentPage - 1) * pageSize;
+  return filteredHotels.slice(start, start + pageSize);
+}, [filteredHotels, currentPage, pageSize]);
 
   const toTitleCase = (str) => (str || "").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 
@@ -179,7 +182,7 @@ const Accommodation = () => {
           </TableHeader>
           <TableBody>
             {loading ? (
-              [...Array(PAGE_SIZE)].map((_, i) => (
+              [...Array(pageSize)].map((_, i) => (
                 <TableRow key={i}>
                   <TableCell colSpan={4} className="p-4">
                     <Skeleton className="h-14 w-full rounded-lg" />
@@ -289,38 +292,70 @@ const Accommodation = () => {
 
         {/* Pagination Footer */}
         {!loading && filteredHotels.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-            <p className="text-xs text-slate-500 font-medium">
-              Showing{" "}
-              <span className="font-bold text-slate-700">
-                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredHotels.length)}
-              </span>{" "}
-              of <span className="font-bold text-slate-700">{filteredHotels.length}</span> properties
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-bold text-slate-700 min-w-[80px] text-center">
-                {currentPage} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="h-8 w-8 p-0 border-slate-200 disabled:opacity-40"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex-wrap gap-3">
+
+  {/* LEFT */}
+  <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
+    <p>
+      Showing{" "}
+      <span className="font-bold text-slate-700">
+        {(currentPage - 1) * pageSize + 1}
+      </span>{" "}
+      to{" "}
+      <span className="font-bold text-slate-700">
+        {Math.min(currentPage * pageSize, filteredHotels.length)}
+      </span>{" "}
+      of{" "}
+      <span className="font-bold text-slate-700">
+        {filteredHotels.length}
+      </span>{" "}
+      properties
+    </p>
+
+    
+  </div>
+
+  {/* RIGHT */}
+  <div className="flex items-center gap-2">
+    {/* 🔽 DROPDOWN */}
+    <select
+      value={pageSize}
+      onChange={(e) => setPageSize(Number(e.target.value))}
+      className="h-8 border rounded-lg px-2 text-xs"
+    >
+      {pageLengthsForPagination.map((num) => (
+        <option key={num} value={num}>
+          {num} / page
+        </option>
+      ))}
+    </select>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+      disabled={currentPage === 1}
+      className="h-8"
+    >
+      <ChevronLeft className="h-4 w-4 mr-1" />
+      Prev
+    </Button>
+
+    <div className="text-xs font-bold text-slate-700 px-2">
+      {currentPage} / {totalPages}
+    </div>
+
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+      disabled={currentPage === totalPages}
+      className="h-8"
+    >
+      Next
+      <ChevronRight className="h-4 w-4 ml-1" />
+    </Button>
+  </div>
+</div>
         )}
       </Card>
 
