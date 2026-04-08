@@ -21,6 +21,9 @@ import {
   ListChecks,
   Clock,
   ChevronLeft,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import {
   collection,
@@ -57,6 +60,28 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
+
+// ── SortHeader Component
+const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
+  const isActive = sortConfig.key === column;
+  const Icon = !isActive
+    ? ArrowUpDown
+    : sortConfig.direction === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  return (
+    <button
+      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors font-bold ${
+        isActive ? "text-theme-primary" : "text-slate-600"
+      } ${align === "center" ? "justify-center" : ""} ${align === "right" ? "justify-end" : ""}`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      <Icon className={`h-4 w-4 ${isActive ? "opacity-100" : "opacity-40"}`} />
+    </button>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quick View Dialog
@@ -263,6 +288,11 @@ export default function ItineraryListPage() {
   const [selectedView, setSelectedView] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [sortConfig, setSortConfig] = useState({
+    key: "createdAt",
+    direction: "desc",
+  });
+
   const fetchItineraries = async () => {
     setLoading(true);
     try {
@@ -283,10 +313,17 @@ export default function ItineraryListPage() {
     fetchItineraries();
   }, []);
 
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
   // Reset to page 1 whenever search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, pageSize]);
+  }, [searchQuery, statusFilter, pageSize, sortConfig]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this template?"))
@@ -303,10 +340,13 @@ export default function ItineraryListPage() {
   const handleEdit = (id) =>
     router.push(`/admin-panel/itinerary/create?itineraryid=${id}`);
 
-  // ── Filtered list (global — across all data, not just current page) ──────
-  const filteredData = useMemo(() => {
-    return itineraries.filter((item) => {
-      const q = searchQuery.toLowerCase();
+  // ── Filtered and sorted list (global — across all data, not just current page) ──────
+  const processedData = useMemo(() => {
+    let filtered = [...itineraries];
+
+    // Apply search filter
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter((item) => {
       const matchesSearch =
         item.title?.toLowerCase().includes(q) ||
         item.state?.toLowerCase().includes(q) ||
@@ -315,7 +355,28 @@ export default function ItineraryListPage() {
         statusFilter === "All" || item.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [itineraries, searchQuery, statusFilter]);
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        // Handle Firebase Timestamps or Date objects
+        if (aVal?.seconds) aVal = aVal.seconds;
+        if (bVal?.seconds) bVal = bVal.seconds;
+
+        if (typeof aVal === "string") aVal = aVal.toLowerCase();
+        if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [itineraries, searchQuery, statusFilter, sortConfig]);
 
   const counts = useMemo(
     () => ({
@@ -326,12 +387,12 @@ export default function ItineraryListPage() {
     [itineraries],
   );
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(processedData.length / pageSize));
 
   const pagedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, currentPage, pageSize]);
+    return processedData.slice(start, start + pageSize);
+  }, [processedData, currentPage, pageSize]);
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
@@ -382,7 +443,7 @@ export default function ItineraryListPage() {
         </div>
 
         <div className="text-xs text-slate-400 font-medium ml-auto hidden sm:block">
-          Showing {filteredData.length} of {itineraries.length}
+          Showing {processedData.length} of {itineraries.length}
         </div>
       </div>
 
@@ -392,19 +453,47 @@ export default function ItineraryListPage() {
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableHead className="font-bold text-slate-700">
-                Template Title
+                <SortHeader
+                  label="Template Title"
+                  column="title"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                />
               </TableHead>
               <TableHead className="font-bold text-slate-700">
-                State / Cities
+                <SortHeader
+                  label="State / Cities"
+                  column="state"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                />
               </TableHead>
               <TableHead className="font-bold text-slate-700 text-center">
-                Duration
+                <SortHeader
+                  label="Duration"
+                  column="durationNights"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                  align="center"
+                />
               </TableHead>
               <TableHead className="font-bold text-slate-700 text-center">
-                Activities
+                <SortHeader
+                  label="Activities"
+                  column="totalActivities"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                  align="center"
+                />
               </TableHead>
               <TableHead className="font-bold text-slate-700 text-center">
-                Status
+                <SortHeader
+                  label="Status"
+                  column="status"
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                  align="center"
+                />
               </TableHead>
               <TableHead className="w-[60px]"></TableHead>
             </TableRow>
@@ -479,28 +568,36 @@ export default function ItineraryListPage() {
                     </TableCell>
 
                     <TableCell className="text-center">
-                      <Badge
-                        variant="outline"
-                        className="bg-blue-50 border-blue-100 text-blue-700 text-xs"
-                      >
-                        {nights}N / {days}D
-                      </Badge>
+                      <div className="w-full flex justify-start">
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 border-blue-100 text-blue-700 text-xs"
+                        >
+                          {nights}N / {days}D
+                        </Badge>
+                      </div>
                     </TableCell>
 
                     <TableCell className="text-center">
-                      <span className="text-sm font-semibold text-slate-700">
-                        {totalActivities}
-                      </span>
-                      <div className="text-[10px] text-slate-400">linked</div>
+                      <div className="w-full flex justify-start">
+                        <span className="text-sm font-semibold text-slate-700">
+                          {totalActivities}
+                        </span>&nbsp;
+                        <div className="text-[10px] text-slate-400">linked</div>
+                      </div>
                     </TableCell>
 
                     <TableCell className="text-center">
+                      <div className="w-full flex justify-start">
+
+
                       <Badge
                         variant="outline"
                         className={`text-xs ${item.status === "Published" ? "bg-green-50 border-green-200 text-green-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}
                       >
                         {item.status || "Draft"}
                       </Badge>
+                      </div>
                     </TableCell>
 
                     <TableCell>
@@ -543,70 +640,68 @@ export default function ItineraryListPage() {
         </Table>
 
         {/* Pagination Footer */}
-        {!loading && filteredData.length > 0 && (
-  <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-    
-    <p className="text-xs text-slate-500 font-medium">
-      Showing{" "}
-      <span className="font-bold text-slate-700">
-        {(currentPage - 1) * pageSize + 1}
-      </span>{" "}
-      to{" "}
-      <span className="font-bold text-slate-700">
-        {Math.min(currentPage * pageSize, filteredData.length)}
-      </span>{" "}
-      of{" "}
-      <span className="font-bold text-slate-700">
-        {filteredData.length}
-      </span>{" "}
-      templates
-    </p>
+        {!loading && processedData.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+            <p className="text-xs text-slate-500 font-medium">
+              Showing{" "}
+              <span className="font-bold text-slate-700">
+                {(currentPage - 1) * pageSize + 1}
+              </span>{" "}
+              to{" "}
+              <span className="font-bold text-slate-700">
+                {Math.min(currentPage * pageSize, processedData.length)}
+              </span>{" "}
+              of{" "}
+              <span className="font-bold text-slate-700">
+                {processedData.length}
+              </span>{" "}
+              templates
+            </p>
 
-    <div className="flex items-center gap-2">
-      
-      {/* 🔽 PAGE SIZE DROPDOWN */}
-      <select
-        value={pageSize}
-        onChange={(e) => setPageSize(Number(e.target.value))}
-        className="h-8 border rounded-lg px-2 text-xs"
-      >
-        {pageLengthsForPagination.map((num) => (
-          <option key={num} value={num}>
-            {num} / page
-          </option>
-        ))}
-      </select>
+            <div className="flex items-center gap-2">
+              {/* 🔽 PAGE SIZE DROPDOWN */}
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="h-8 border rounded-lg px-2 text-xs"
+              >
+                {pageLengthsForPagination.map((num) => (
+                  <option key={num} value={num}>
+                    {num} / page
+                  </option>
+                ))}
+              </select>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-        disabled={currentPage === 1}
-        className="h-8"
-      >
-        <ChevronLeft className="h-4 w-4 mr-1" />
-        Prev
-      </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Prev
+              </Button>
 
-      <div className="text-xs font-bold text-slate-700 px-2">
-        {currentPage} / {totalPages}
-      </div>
+              <div className="text-xs font-bold text-slate-700 px-2">
+                {currentPage} / {totalPages}
+              </div>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() =>
-          setCurrentPage((p) => Math.min(totalPages, p + 1))
-        }
-        disabled={currentPage === totalPages}
-        className="h-8"
-      >
-        Next
-        <ChevronRight className="h-4 w-4 ml-1" />
-      </Button>
-    </div>
-  </div>
-)}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="h-8"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick View Dialog */}
