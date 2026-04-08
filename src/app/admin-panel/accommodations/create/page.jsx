@@ -796,11 +796,11 @@ function HotelFormPageInner() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="max-w-5xl mx-auto px-4  min-h-80 sm:px-6 py-8 space-y-6">
 
         {/* ── STEP 1: Basic Info ──────────────────────────────────────────── */}
-        <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden ${hotelSaved && !editMode ? "opacity-60 pointer-events-none select-none" : ""}`}>
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className={`bg-white rounded-2xl border  border-slate-100 shadow-sm overflow-hidden ${hotelSaved && !editMode ? "opacity-60 pointer-events-none select-none" : ""}`}>
+          <div className="flex items-center gap-3  px-6 py-4 border-b border-slate-100 bg-slate-50/50">
             <div className="p-1.5 bg-theme-primary/10 rounded-lg">
               <Building2 className="h-4 w-4 text-theme-primary" />
             </div>
@@ -808,7 +808,7 @@ function HotelFormPageInner() {
           </div>
           <div className="p-6 space-y-5">
             {/* Location */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid min-h-30 grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">State / Region</label>
                 <div className="relative">

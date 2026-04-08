@@ -18,6 +18,9 @@ import {
   MessageCircle,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -58,7 +61,27 @@ import {
 } from "@/lib/generateHotelVoucher";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
 
-// 1. Pagination Constant
+// ── NEW: SortHeader Component
+const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
+  const isActive = sortConfig.key === column;
+  const Icon = !isActive
+    ? ArrowUpDown
+    : sortConfig.direction === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  return (
+    <button
+      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors font-bold ${
+        isActive ? "text-theme-primary" : "text-slate-600"
+      } ${align === "center" ? "justify-center" : ""} ${align === "right" ? "justify-end" : ""}`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      <Icon className={`h-4 w-4 ${isActive ? "opacity-100" : "opacity-40"}`} />
+    </button>
+  );
+};
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 const fmt = (dateStr) => {
@@ -129,7 +152,7 @@ const VoucherViewModal = ({ voucher, onClose }) => {
                 {voucher.nights || "—"}
               </p>
               <p>
-                <span className="font-semibold">Rooms:</span>{" "}
+                <span className="font-semibold">{" "}</span>
                 {voucher.rooms || "—"}
               </p>
               <p>
@@ -241,6 +264,10 @@ const VoucherDashboard = () => {
   const [allVouchers, setAllVouchers] = useState([]);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+  const [sortConfig, setSortConfig] = useState({
+    key: "issueDate",
+    direction: "desc",
+  });
 
   const loadVouchers = useCallback(async () => {
     const uid = authUser?.uid;
@@ -262,10 +289,13 @@ const VoucherDashboard = () => {
     if (!authLoading && authUser?.uid) loadVouchers();
   }, [authLoading, authUser?.uid, loadVouchers]);
 
-  // 3. Filtered Logic (useMemo)
-  const filteredData = useMemo(() => {
+  // 3. Filtered Logic (useMemo) with sorting
+  const processedData = useMemo(() => {
+    let filtered = [...allVouchers];
+
+    // Apply search filter
     const q = localSearch.toLowerCase();
-    return allVouchers.filter((v) => {
+    filtered = filtered.filter((v) => {
       return (
         !q ||
         v.customerName?.toLowerCase().includes(q) ||
@@ -275,20 +305,48 @@ const VoucherDashboard = () => {
         v.hotelName?.toLowerCase().includes(q)
       );
     });
-  }, [allVouchers, localSearch]);
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        // Handle Firebase Timestamps or Date objects
+        if (aVal?.seconds) aVal = aVal.seconds;
+        if (bVal?.seconds) bVal = bVal.seconds;
+
+        if (typeof aVal === "string") aVal = aVal.toLowerCase();
+        if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [allVouchers, localSearch, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
 
   // Reset to page 1 on search
   useEffect(() => {
     setCurrentPage(1);
-  }, [pageSize, localSearch]);
+  }, [pageSize, localSearch, sortConfig]);
   
   // 4. Pagination Logic
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(processedData.length / pageSize));
 
   const pagedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, currentPage, pageSize]);
+    return processedData.slice(start, start + pageSize);
+  }, [processedData, currentPage, pageSize]);
 
   const handleDeleteVoucher = async (voucherRecord) => {
     if (!window.confirm("Delete this voucher?")) return;
@@ -434,16 +492,55 @@ const VoucherDashboard = () => {
                     <TableHeader className="bg-slate-50 border-y">
                       <TableRow>
                         <TableHead className="w-[50px] text-center font-bold">
-                          S.No
+                          <SortHeader
+                            label="S.No"
+                            column="id"
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                            align="center"
+                          />
                         </TableHead>
-                        <TableHead className="font-bold">Voucher No</TableHead>
-                        <TableHead className="font-bold">Client</TableHead>
                         <TableHead className="font-bold">
-                          Hotel / Details
+                          <SortHeader
+                            label="Voucher No"
+                            column="voucherNumber"
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                          />
                         </TableHead>
-                        <TableHead className="font-bold">Type</TableHead>
-                        <TableHead className="font-bold">Status</TableHead>
-                        <TableHead className="font-bold text-right">
+                        <TableHead className="font-bold">
+                          <SortHeader
+                            label="Client"
+                            column="customerName"
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                          />
+                        </TableHead>
+                        <TableHead className="font-bold">
+                          <SortHeader
+                            label="Hotel / Details"
+                            column="hotelName"
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                          />
+                        </TableHead>
+                        <TableHead className="font-bold">
+                          <SortHeader
+                            label="Type"
+                            column="voucherType"
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                          />
+                        </TableHead>
+                        <TableHead className="font-bold">
+                          <SortHeader
+                            label="Status"
+                            column="status"
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                          />
+                        </TableHead>
+                        <TableHead className="font-bold text-center">
                           Actions
                         </TableHead>
                       </TableRow>
@@ -542,7 +639,7 @@ const VoucherDashboard = () => {
                           </TableCell>
 
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
+                            <div className="flex justify-center gap-1">
                               {/* View */}
                               <Button
                                 variant="ghost"
@@ -602,7 +699,7 @@ const VoucherDashboard = () => {
                   </Table>
 
                   {/* 6. Pagination Footer */}
-                  {!isFetching && filteredData.length > 0 && (
+                  {!isFetching && processedData.length > 0 && (
                     <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex-wrap gap-3">
                       {/* LEFT SIDE */}
                       <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
@@ -615,12 +712,12 @@ const VoucherDashboard = () => {
                           <span className="font-bold text-slate-700">
                             {Math.min(
                               currentPage * pageSize,
-                              filteredData.length,
+                              processedData.length,
                             )}
                           </span>{" "}
                           of{" "}
                           <span className="font-bold text-slate-700">
-                            {filteredData.length}
+                            {processedData.length}
                           </span>{" "}
                           vouchers
                         </p>
@@ -673,7 +770,7 @@ const VoucherDashboard = () => {
                     </div>
                   )}
 
-                  {filteredData.length === 0 && (
+                  {processedData.length === 0 && (
                     <div className="py-24 text-center">
                       <FileText className="h-12 w-12 text-slate-200 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-slate-900">

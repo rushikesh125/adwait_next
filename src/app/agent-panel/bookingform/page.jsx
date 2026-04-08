@@ -196,10 +196,11 @@ export default function AgentDashboard() {
                 <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4">
                   Created
                 </TableHead>
+                
                 <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4">
                   Status
                 </TableHead>
-                <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4 text-right pr-6">
+                <TableHead className="font-bold text-slate-500 text-[11px] uppercase py-4 text-right pr-42">
                   Actions
                 </TableHead>
               </TableRow>
@@ -226,8 +227,9 @@ export default function AgentDashboard() {
                     <TableCell className="py-4 text-slate-500 text-xs tabular-nums">
                       {trip.createdAt?.toDate().toLocaleDateString("en-GB")}
                     </TableCell>
+                  
 
-                    <TableCell className="py-4">
+                    <TableCell className="py-8">
                       <StatusBadge status={trip.status} />
                     </TableCell>
 
