@@ -34,7 +34,7 @@ import { pageLengthsForPagination } from "@/lib/pagination_size";
 
 const Accommodation = () => {
   const router = useRouter();
-const [pageSize, setPageSize] = useState(10);
+const [pageSize, setPageSize] = useState(50);
   // ── All hotels (fetched once, for search + pagination) ──────────────────
   const [allHotels, setAllHotels] = useState([]);
   const [loading, setLoading] = useState(true);
