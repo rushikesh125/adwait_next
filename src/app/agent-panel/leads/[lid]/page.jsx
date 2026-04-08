@@ -211,7 +211,7 @@ export default function LeadProfilePage({ params }) {
             </div>
           </div>
           <Button
-            onClick={() => router.push(`/agent-panel?leadId=${lid}`)}
+            onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
             className="bg-theme-primary text-white px-6 rounded-xl"
           >
             <Plus className="h-4 w-4 mr-2" /> Create Quotation
