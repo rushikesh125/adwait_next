@@ -97,7 +97,7 @@ const QuotationsTable = ({
   setEndDate,
   getDestinationOfpkg,
   handleViewClick,
-  handleEditClick,
+  handleEditRedirect,
   handleDownloadPDF,
   handleDeleteQuotation,
   handleCopyToClipboard,
@@ -429,7 +429,7 @@ const QuotationsTable = ({
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleEditClick(q)}
+                              onClick={() => handleEditRedirect(q)}
                               title="Edit Quotation"
                               className="h-8 w-8"
                             >

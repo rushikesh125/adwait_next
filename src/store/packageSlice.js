@@ -10,6 +10,7 @@ const initialState = {
   packageName: "",
   customerName: "",
   itinerary: null,
+  editingQuotation: null,
   packageContext: {},
 };
 
@@ -53,6 +54,12 @@ const packageSlice = createSlice({
     setPackageContext: (state, action) => {
       state.packageContext = action.payload;
     },
+    setEditingQuotation: (state, action) => {
+      state.editingQuotation = action.payload;
+    },
+    clearEditingQuotation: (state) => {
+      state.editingQuotation = null;
+    },
     resetPackage: () => initialState,
   },
 });
@@ -68,7 +75,9 @@ export const {
   setCustomerName,
   resetPackage,
   setItinerary,
-  setPackageContext
+  setPackageContext,
+   setEditingQuotation,      // ← new
+  clearEditingQuotation,
 } = packageSlice.actions;
 
 export default packageSlice.reducer;

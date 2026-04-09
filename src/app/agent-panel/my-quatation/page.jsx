@@ -1,10 +1,10 @@
 "use client";
 import React, { useMemo } from "react";
 import "@/app/globals.css";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import QuotationsTable from "./QuotationsTable";
-import QuotationModals from "./QuotationModals";
+
 import { useQuotationState } from "@/app/hooks/useQuotationState";
 import {
   Dialog,
@@ -27,12 +27,15 @@ import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 import { copyPackageSummary } from "@/lib/copyPackageSummary";
 import { normaliseQuotation } from "@/lib/quotationAdapter";
+import { setEditingQuotation } from "@/store/packageSlice";
+import { useDispatch } from "react-redux";
 
 const MyQuotations = () => {
   const state = useQuotationState();
   const searchParams = useSearchParams();
   const editId = searchParams.get("editId");
-
+  const router = useRouter()
+  const dispatch = useDispatch()
   const [voucherDrawerOpen, setVoucherDrawerOpen] = React.useState(false);
   const [selectedHotelForVoucher, setSelectedHotelForVoucher] =
     React.useState(null);
@@ -136,6 +139,18 @@ const MyQuotations = () => {
       setHotelSelectionOpen(true);
     }
   };
+  const handleEditRedirect = (quotation) => {
+  // Store full quotation in Redux for instant hydration
+  dispatch(setEditingQuotation(quotation));
+
+  // Build URL — preserve customerId/leadId if the quotation has them
+  const params = new URLSearchParams();
+  params.set("quotationId", quotation.id);
+  if (quotation.customerId) params.set("customerId", quotation.customerId);
+  if (quotation.leadId)     params.set("leadId",     quotation.leadId);
+
+  router.push(`/agent-panel/my-quatation/create?${params.toString()}`);
+};
 
   // ── Sort: newest first ────────────────────────────────────────────────────
 
@@ -275,6 +290,7 @@ const MyQuotations = () => {
         pageSize={pageSize}
         setPageSize={setPageSize} // ✅ NEW
         totalItems={sortedQuotations.length} // ✅ NEW
+        handleEditRedirect={handleEditRedirect}
       />
       {/* ── Hotel Voucher Drawer ──────────────────────────────────────────── */}
       <HotelVoucherDrawer
@@ -326,7 +342,7 @@ const MyQuotations = () => {
       </Dialog>
 
       {/* ── Quotation View Modal — with Voucher buttons in footer ─────────── */}
-      <QuotationModals
+      {/* <QuotationModals
         // View modal
         isViewModalOpen={state.isViewModalOpen}
         setIsViewModalOpen={state.setIsViewModalOpen}
@@ -390,7 +406,7 @@ const MyQuotations = () => {
         newCustomerName={state.newCustomerName}
         setNewCustomerName={state.setNewCustomerName}
         handleConfirmSaveAs={state.handleConfirmSaveAs}
-      />
+      /> */}
     </div>
   );
 };
