@@ -20,7 +20,11 @@ import {
 } from "firebase/auth";
 
 import { auth } from "@/firebase/config";
-import { updateUserAuthMetadata } from "@/firebase/users";
+import {
+  normalizeEnquirySlug,
+  updateAgentEnquirySlug,
+  updateUserAuthMetadata,
+} from "@/firebase/users";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,9 +53,12 @@ export default function UserProfilePanel({ user }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [savingEnquirySlug, setSavingEnquirySlug] = useState(false);
   const [passwordEnabled, setPasswordEnabled] = useState(
     Boolean(user?.hasPassword || user?.providerIds?.includes("password")),
   );
+  const [enquirySlugInput, setEnquirySlugInput] = useState(user?.enquirySlug || "");
+  const [activeEnquirySlug, setActiveEnquirySlug] = useState(user?.enquirySlug || "");
   const [setPasswordOpen, setSetPasswordOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [setPasswordForm, setSetPasswordForm] = useState({
@@ -66,8 +73,8 @@ export default function UserProfilePanel({ user }) {
 
   const enquiryLink = useMemo(() => {
     if (typeof window === "undefined" || user?.role !== "agent") return "";
-    return `${window.location.origin}/enquiry/${user.uid}`;
-  }, [user?.role, user?.uid]);
+    return `${window.location.origin}/enquiry/${activeEnquirySlug || user.uid}`;
+  }, [activeEnquirySlug, user?.role, user?.uid]);
 
   const effectiveProvider =
     user?.authProvider ||
@@ -100,6 +107,26 @@ export default function UserProfilePanel({ user }) {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Could not copy the enquiry link");
+    }
+  };
+
+  const handleSaveEnquirySlug = async () => {
+    if (!user?.uid) return;
+
+    setSavingEnquirySlug(true);
+    try {
+      const savedSlug = await updateAgentEnquirySlug(user.uid, enquirySlugInput);
+      setActiveEnquirySlug(savedSlug);
+      setEnquirySlugInput(savedSlug);
+      toast.success(
+        savedSlug
+          ? "Enquiry link updated successfully."
+          : "Custom enquiry link removed. UID link remains active.",
+      );
+    } catch (error) {
+      toast.error(error.message || "Could not update the enquiry link");
+    } finally {
+      setSavingEnquirySlug(false);
     }
   };
 
@@ -313,6 +340,36 @@ export default function UserProfilePanel({ user }) {
                       <p className="break-all text-sm font-medium text-slate-700">
                         {enquiryLink}
                       </p>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="enquiry-slug">Custom link ending</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="enquiry-slug"
+                          value={enquirySlugInput}
+                          onChange={(e) =>
+                            setEnquirySlugInput(normalizeEnquirySlug(e.target.value))
+                          }
+                          placeholder="e.g. adwait-travel"
+                          maxLength={40}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleSaveEnquirySlug}
+                          disabled={savingEnquirySlug}
+                        >
+                          {savingEnquirySlug ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Use lowercase letters, numbers, and hyphens. Leave blank to use the default UID-based link.
+                      </p>
+                      {activeEnquirySlug ? (
+                        <p className="text-xs text-slate-500">
+                          Existing UID-based enquiry links will continue to work.
+                        </p>
+                      ) : null}
                     </div>
                     <Button
                       onClick={handleCopyLink}
