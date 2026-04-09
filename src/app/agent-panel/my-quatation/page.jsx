@@ -25,6 +25,8 @@ import {
   Send,
   CheckCircle,
   XCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
@@ -50,6 +52,7 @@ const MyQuotations = () => {
   const [bookingConfirmationMessage, setBookingConfirmationMessage] =
     React.useState("");
   const [copySuccessMessage, setCopySuccessMessage] = React.useState("");
+  const [showDashboard, setShowDashboard] = React.useState(false);
 
   const [hotelSelectionOpen, setHotelSelectionOpen] = React.useState(false);
   const [hotelList, setHotelList] = React.useState([]);
@@ -253,96 +256,135 @@ const MyQuotations = () => {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <button
           type="button"
-          onClick={() => setStatusFilter("All")}
-          className={getTileClassName("All")}
+          onClick={() => setShowDashboard((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left sm:px-5"
         >
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="rounded-xl bg-blue-100 p-2">
               <PackagePlus className="h-4 w-4 text-blue-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-xs text-slate-500">Total Quotations</p>
-              <p className="text-lg font-bold text-slate-900">
-                {overviewMetrics.totalQuotations}
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 sm:text-xl">
+                Quotations Dashboard
+              </h1>
+              <p className="text-xs text-slate-500 sm:text-sm">
+                {showDashboard
+                  ? "Hide dashboard"
+                  : "Show dashboard"}{" "}
+                to view quotation summary and status filters.
               </p>
             </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+            <span className="hidden sm:inline">
+              {showDashboard ? "Hide Dashboard" : "Show Dashboard"}
+            </span>
+            {showDashboard ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
           </div>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setStatusFilter("Draft")}
-          className={getTileClassName("Draft")}
-        >
-          <div className="flex items-center">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <FileText className="h-4 w-4 text-gray-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-xs text-slate-500">Draft</p>
-              <p className="text-lg font-bold text-slate-900">
-                {overviewMetrics.draft}
-              </p>
-            </div>
-          </div>
-        </button>
+        {showDashboard && (
+          <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <button
+                type="button"
+                onClick={() => setStatusFilter("All")}
+                className={getTileClassName("All")}
+              >
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <PackagePlus className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-xs text-slate-500">Total Quotations</p>
+                    <p className="text-lg font-bold text-slate-900">
+                      {overviewMetrics.totalQuotations}
+                    </p>
+                  </div>
+                </div>
+              </button>
 
-        <button
-          type="button"
-          onClick={() => setStatusFilter("Sent")}
-          className={getTileClassName("Sent")}
-        >
-          <div className="flex items-center">
-            <div className="p-2 bg-amber-100 rounded-lg">
-              <Send className="h-4 w-4 text-amber-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-xs text-slate-500">Sent</p>
-              <p className="text-lg font-bold text-slate-900">
-                {overviewMetrics.sent}
-              </p>
-            </div>
-          </div>
-        </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("Draft")}
+                className={getTileClassName("Draft")}
+              >
+                <div className="flex items-center">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <FileText className="h-4 w-4 text-gray-600" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-xs text-slate-500">Draft</p>
+                    <p className="text-lg font-bold text-slate-900">
+                      {overviewMetrics.draft}
+                    </p>
+                  </div>
+                </div>
+              </button>
 
-        <button
-          type="button"
-          onClick={() => setStatusFilter("Accepted")}
-          className={getTileClassName("Accepted")}
-        >
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-xs text-slate-500">Accepted</p>
-              <p className="text-lg font-bold text-slate-900">
-                {overviewMetrics.accepted}
-              </p>
-            </div>
-          </div>
-        </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("Sent")}
+                className={getTileClassName("Sent")}
+              >
+                <div className="flex items-center">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <Send className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-xs text-slate-500">Sent</p>
+                    <p className="text-lg font-bold text-slate-900">
+                      {overviewMetrics.sent}
+                    </p>
+                  </div>
+                </div>
+              </button>
 
-        <button
-          type="button"
-          onClick={() => setStatusFilter("Rejected")}
-          className={getTileClassName("Rejected")}
-        >
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <XCircle className="h-4 w-4 text-red-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-xs text-slate-500">Rejected</p>
-              <p className="text-lg font-bold text-slate-900">
-                {overviewMetrics.rejected}
-              </p>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("Accepted")}
+                className={getTileClassName("Accepted")}
+              >
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-xs text-slate-500">Accepted</p>
+                    <p className="text-lg font-bold text-slate-900">
+                      {overviewMetrics.accepted}
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("Rejected")}
+                className={getTileClassName("Rejected")}
+              >
+                <div className="flex items-center">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-xs text-slate-500">Rejected</p>
+                    <p className="text-lg font-bold text-slate-900">
+                      {overviewMetrics.rejected}
+                    </p>
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
-        </button>
+        )}
       </div>
       <QuotationsTable
         filteredQuotations={paginatedQuotations}
