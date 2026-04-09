@@ -256,7 +256,7 @@ const HotelRoomSelector = ({
   const pricePerNight = total / (parseInt(nights) || 1);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Room categories */}
       <div className="space-y-2">
         <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -267,7 +267,7 @@ const HotelRoomSelector = ({
             <button
               key={r.categoryName}
               onClick={() => setSelectedRoomCategory(r.categoryName)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all shadow-sm ${
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border transition-all shadow-sm ${
                 selectedRoomCategory === r.categoryName
                   ? "bg-theme-primary text-white border-theme-primary shadow-theme-primary/25"
                   : "bg-white border-slate-200 text-slate-700 hover:border-theme-primary/50 hover:shadow-md"
@@ -279,49 +279,50 @@ const HotelRoomSelector = ({
         </div>
       </div>
 
-      {/* Meal plan */}
-      {availableMealPlans.length > 0 && (
+      <div className="grid gap-3 lg:grid-cols-[1.05fr_1.4fr]">
+        {availableMealPlans.length > 0 && (
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Utensils className="h-3.5 w-3.5" /> Meal Plan
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              {availableMealPlans.map((plan) => (
+                <button
+                  key={plan}
+                  onClick={() => setSelectedMealPlan(plan)}
+                  className={`px-2.5 py-2 rounded-lg border transition-all text-left ${
+                    selectedMealPlan === plan
+                      ? "bg-theme-primary text-white border-theme-primary"
+                      : "bg-white border-slate-200 hover:border-theme-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-sm">{MEAL_PLAN_ICONS[plan]}</div>
+                    <div className="font-bold text-xs sm:text-sm">{plan}</div>
+                  </div>
+                  <div
+                    className={`text-[10px] leading-tight mt-1 ${selectedMealPlan === plan ? "text-white/80" : "text-slate-500"}`}
+                  >
+                    {MEAL_PLAN_LABELS[plan]}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {!season && checkInDate && (
+              <div className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">
+                <Info className="h-4 w-4 flex-shrink-0" />
+                No pricing season found for the selected check-in date.
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-            <Utensils className="h-3.5 w-3.5" /> Meal Plan
+            <Users className="h-3.5 w-3.5" /> Guest Configuration
           </Label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {availableMealPlans.map((plan) => (
-              <button
-                key={plan}
-                onClick={() => setSelectedMealPlan(plan)}
-                className={`p-3 rounded-xl border-2 transition-all text-left ${
-                  selectedMealPlan === plan
-                    ? "bg-theme-primary text-white border-theme-primary"
-                    : "bg-white border-slate-200 hover:border-theme-primary/40"
-                }`}
-              >
-                <div className="text-lg mb-0.5">{MEAL_PLAN_ICONS[plan]}</div>
-                <div className="font-bold text-sm">{plan}</div>
-                <div
-                  className={`text-[10px] leading-tight mt-0.5 ${selectedMealPlan === plan ? "text-white/80" : "text-slate-500"}`}
-                >
-                  {MEAL_PLAN_LABELS[plan]}
-                </div>
-              </button>
-            ))}
-          </div>
-          {!season && checkInDate && (
-            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">
-              <Info className="h-4 w-4 flex-shrink-0" />
-              No pricing season found for the selected check-in date.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Guest counts */}
-      <div className="space-y-2">
-        <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-          <Users className="h-3.5 w-3.5" /> Guest Configuration
-        </Label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
+          <div className="grid grid-cols-2 gap-2">
+            {[
             {
               label: "Rooms (Double)",
               val: numDouble,
@@ -343,13 +344,13 @@ const HotelRoomSelector = ({
             { label: "CNB", val: numCNB, set: setNumCNB, icon: "🛌" },
           ].map(({ label, val, set, icon }) => (
             <div key={label} className="space-y-1">
-              <Label className="text-xs text-slate-500">
+              <Label className="text-[11px] text-slate-500">
                 {icon} {label}
               </Label>
-              <div className="flex items-center border-2 border-slate-200 rounded-xl overflow-hidden focus-within:border-theme-primary transition-colors">
+              <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden focus-within:border-theme-primary transition-colors bg-white">
                 <button
                   onClick={() => set(Math.max(0, val - 1))}
-                  className="px-2.5 py-2 text-slate-600 hover:bg-slate-100 text-sm font-bold"
+                  className="px-2 py-1.5 text-slate-600 hover:bg-slate-100 text-sm font-bold"
                 >
                   −
                 </button>
@@ -358,18 +359,19 @@ const HotelRoomSelector = ({
                 </span>
                 <button
                   onClick={() => set(val + 1)}
-                  className="px-2.5 py-2 text-slate-600 hover:bg-slate-100 text-sm font-bold"
+                  className="px-2 py-1.5 text-slate-600 hover:bg-slate-100 text-sm font-bold"
                 >
                   +
                 </button>
               </div>
             </div>
           ))}
+          </div>
         </div>
       </div>
 
       {/* Price summary */}
-      <div className="rounded-xl border-2 border-theme-primary/20 bg-gradient-to-br from-theme-primary/5 to-theme-primary/10 p-4">
+      <div className="rounded-xl border border-theme-primary/20 bg-gradient-to-br from-theme-primary/5 to-theme-primary/10 p-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-slate-500">
@@ -1667,15 +1669,15 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border-2 shadow-sm transition-all hover:shadow-md
+      className={`relative overflow-hidden rounded-2xl border shadow-sm transition-all hover:shadow-md
       ${entry.isCustom ? "border-theme-primary/30 bg-gradient-to-br from-purple-50 via-white to-theme-primary/5" : "border-slate-200 bg-white"}`}
     >
       <div className="absolute top-3 right-3 flex items-center gap-1 bg-theme-dark text-white text-xs px-2.5 py-1 rounded-full font-semibold shadow-sm">
         <Moon className="h-3 w-3" />
         {entry.nights}N
       </div>
-      <div className="p-4 sm:p-5">
-        <div className="flex items-start gap-3 mb-4 pr-14">
+      <div className="p-3.5 sm:p-4">
+        <div className="flex items-start gap-3 mb-3 pr-14">
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${entry.isCustom ? "bg-purple-100" : "bg-theme-primary/10"}`}
           >
@@ -1685,7 +1687,7 @@ const HotelItineraryCard = ({ entry, index, onEdit, onDelete }) => {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
-              <h4 className="font-bold text-slate-800 text-base leading-tight">
+              <h4 className="font-bold text-slate-800 text-sm sm:text-base leading-tight">
                 {entry.hotel}
               </h4>
               {entry.isCustom && (
@@ -1847,6 +1849,13 @@ const Create_new_package = ({
   const [markupType, setMarkupType] = useState("lumpsum");
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [customerName, setCustomerName] = useState("");
+  const [expandedSections, setExpandedSections] = useState({
+    hotelPicker: true,
+    savedHotels: true,
+    transport: true,
+    activities: true,
+    itinerary: false,
+  });
 
   const [roomCategory, setRoomCategory] = useState("");
   const [mealPlan, setMealPlan] = useState("");
@@ -2014,11 +2023,24 @@ useEffect(() => {
   ]);
 
   const transportTotalPrice = transportBreakdown?.total || 0;
+  const totalNights = hotelEntries.reduce(
+    (sum, e) => sum + (parseInt(e.nights) || 0),
+    0,
+  );
+  const totalRooms = hotelEntries.reduce(
+    (sum, e) => sum + (parseInt(e.numDouble) || 0),
+    0,
+  );
   const grandTotal =
     hotelTotalPrice +
     transportTotalPrice +
     activityTotalPrice +
     confirmedMarkup;
+  const toggleSection = (section) =>
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
   const handleSaveHotel = () => {
     if (!selectedHotelData) {
       alert("Please select a hotel.");
@@ -2171,7 +2193,7 @@ useEffect(() => {
         },
       );
       toast("Package saved successfully! ✅");
-      router.push("./agent-panel/my-quatation");
+      router.push("/agent-panel/my-quatation");
       setShowSaveModal(false);
       dispatch(setPackageName(""));
     } catch (err) {
@@ -2186,89 +2208,160 @@ useEffect(() => {
 
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-12">
-      <div className="mx-auto p-0 md:px-4 lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:gap-8 xl:gap-10">
+    <div className="min-h-screen pb-8">
+      <div className="mx-auto p-0 md:px-3 lg:px-6">
+        <div className="flex flex-col lg:flex-row lg:gap-6 xl:gap-8">
           {/* ══ LEFT COLUMN ══════════════════════════════════════════════════ */}
-          <div className="flex-1 space-y-6 lg:pr-4 pb-8 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-            {/* 1. Date + Nights + State */}
-            <Card className="border-slate-200 shadow-sm">
-              <CardContent className="p-3 sm:p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm flex items-center gap-1.5 font-medium">
-                      <Calendar className="h-4 w-4 text-theme-primary" />{" "}
-                      Check-in
-                    </Label>
-                    <Input
-                      type="date"
-                      value={checkInDate}
-                      min={new Date().toISOString().split("T")[0]}
-                      onChange={(e) => setCheckInDate(e.target.value)}
-                    />
+          <div className="flex-1 space-y-4 lg:pr-2 pb-6 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+            <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-blue-50 px-4 py-3 shadow-sm">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-theme-primary/10">
+                      <Hotel className="h-4 w-4 text-theme-primary" />
+                    </div>
+                    Hotel Builder
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <Moon className="h-4 w-4 text-theme-primary" /> Nights
-                    </Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={nights}
-                      onChange={(e) => setNights(parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <Sun className="h-4 w-4 text-theme-primary" /> Check-out
-                    </Label>
-                    <Input
-                      type="date"
-                      value={checkOutDate}
-                      readOnly
-                      className="bg-slate-50 cursor-not-allowed"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4 text-theme-primary" />{" "}
-                      Destination State
-                    </Label>
-                    <Select
-                      value={selectedState}
-                      onValueChange={(v) => {
-                        setSelectedState(v);
-                        setSelectedHotelId(null);
-                        setShowCustomHotelForm(false);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select state" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {states.map((s) => (
-                          <SelectItem key={s.id} value={s.name}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Build the stay plan first, then add transport, activities,
+                    and itinerary only when needed.
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-xl border border-white bg-white/80 px-3 py-2 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                      Hotels
+                    </p>
+                    <p className="text-sm font-bold text-slate-800">
+                      {hotelEntries.length}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white bg-white/80 px-3 py-2 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                      Nights
+                    </p>
+                    <p className="text-sm font-bold text-slate-800">
+                      {totalNights || nights}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white bg-white/80 px-3 py-2 shadow-sm">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                      Rooms
+                    </p>
+                    <p className="text-sm font-bold text-slate-800">
+                      {totalRooms || guests.numDouble}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("hotelPicker")}
+                    className="rounded-xl border border-theme-primary/15 bg-theme-primary/5 px-3 py-2 text-left transition-colors hover:bg-theme-primary/10"
+                  >
+                    <p className="text-[10px] uppercase tracking-wide text-theme-primary/70">
+                      Selection
+                    </p>
+                    <p className="flex items-center gap-1 text-sm font-bold text-theme-primary">
+                      {expandedSections.hotelPicker ? "Open" : "Compact"}
+                      {expandedSections.hotelPicker ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </p>
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 rounded-xl border border-white/80 bg-white/70 p-2.5">
+                <div className="space-y-1">
+                  <Label className="text-xs flex items-center gap-1.5 font-medium">
+                    <Calendar className="h-3.5 w-3.5 text-theme-primary" />
+                    Check-in
+                  </Label>
+                  <Input
+                    type="date"
+                    value={checkInDate}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setCheckInDate(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Moon className="h-3.5 w-3.5 text-theme-primary" />
+                    Nights
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={nights}
+                    onChange={(e) => setNights(parseInt(e.target.value) || 1)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <Sun className="h-3.5 w-3.5 text-theme-primary" />
+                    Check-out
+                  </Label>
+                  <Input
+                    type="date"
+                    value={checkOutDate}
+                    readOnly
+                    className="h-9 bg-slate-50 cursor-not-allowed text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-theme-primary" />
+                    Destination State
+                  </Label>
+                  <Select
+                    value={selectedState}
+                    onValueChange={(v) => {
+                      setSelectedState(v);
+                      setSelectedHotelId(null);
+                      setShowCustomHotelForm(false);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {states.map((s) => (
+                        <SelectItem key={s.id} value={s.name}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
 
             {/* 2. Hotel Selection */}
-            {selectedState && (
+            {selectedState &&
+              expandedSections.hotelPicker &&
+              !selectedHotelData &&
+              !showCustomHotelForm && (
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="p-3 sm:p-5 pb-2">
+                <CardHeader className="p-3 sm:p-4 pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Hotel className="h-5 w-5 text-theme-primary" />
                     Hotels in{" "}
                     <span className="text-theme-primary">{selectedState}</span>
                   </CardTitle>
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedHotelId(null)}
+                      className="text-xs border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5"
+                    >
+                      Change Hotel
+                    </Button>
+                  </div>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-5 pt-2 space-y-4">
+                <CardContent className="p-3 sm:p-4 pt-1 space-y-3">
                   {filteredHotels.length === 0 ? (
                     <div className="text-center py-8 space-y-3">
                       <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
@@ -2287,34 +2380,36 @@ useEffect(() => {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
+                      <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                         {Object.keys(groupedHotels).map((city) => (
                           <div key={city} className="space-y-1.5">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-theme-secondary px-1">
                               📍 {city}
                             </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
                             {groupedHotels[city].map((h) => (
-                              <label
+                              <button
                                 key={h.id}
-                                className={`flex items-center gap-2.5 p-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+                                type="button"
+                                onClick={() => {
+                                  setSelectedHotelId(h.id);
+                                  setShowCustomHotelForm(false);
+                                }}
+                                className={`flex min-w-0 items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-all ${
                                   selectedHotelId === h.id
                                     ? "border-theme-primary bg-theme-primary/5 shadow-sm"
                                     : "border-slate-100 hover:border-theme-primary/30 hover:bg-slate-50"
                                 }`}
                               >
-                                <input
-                                  type="radio"
-                                  name="hotel"
-                                  value={h.id}
-                                  checked={selectedHotelId === h.id}
-                                  onChange={() => {
-                                    setSelectedHotelId(h.id);
-                                    setShowCustomHotelForm(false);
-                                  }}
-                                  className="accent-theme-primary flex-shrink-0"
+                                <div
+                                  className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${
+                                    selectedHotelId === h.id
+                                      ? "bg-theme-primary"
+                                      : "bg-slate-300"
+                                  }`}
                                 />
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-semibold text-slate-800 truncate">
+                                  <p className="truncate text-xs sm:text-sm font-semibold text-slate-800">
                                     {h.name}
                                   </p>
                                   <div className="flex items-center gap-1 mt-0.5">
@@ -2327,8 +2422,9 @@ useEffect(() => {
                                     </span>
                                   </div>
                                 </div>
-                              </label>
+                              </button>
                             ))}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2361,7 +2457,7 @@ useEffect(() => {
             {/* 3. Room Selector (DB hotel) */}
             {selectedHotelData && !showCustomHotelForm && (
               <Card className="border-2 border-theme-primary/20 shadow-sm">
-                <CardHeader className="p-3 sm:p-5 pb-3">
+                <CardHeader className="p-3 sm:p-4 pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Hotel className="h-5 w-5 text-theme-primary" />
                     <div>
@@ -2373,8 +2469,18 @@ useEffect(() => {
                       </span>
                     </div>
                   </CardTitle>
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedHotelId(null)}
+                      className="text-xs border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5"
+                    >
+                      Change Hotel
+                    </Button>
+                  </div>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-5 pt-0">
+                <CardContent className="p-3 sm:p-4 pt-0">
                   <HotelRoomSelector
                     hotel={selectedHotelData}
                     checkInDate={checkInDate}
@@ -2387,9 +2493,10 @@ useEffect(() => {
                       editingIndex !== null ? hotelEntries[editingIndex] : {}
                     }
                   />
-                  <div className="flex flex-wrap gap-3 mt-6 pt-5 border-t">
+                  <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t">
                     <Button
                       onClick={handleSaveHotel}
+                      size="sm"
                       className="bg-theme-primary hover:bg-theme-secondary shadow-sm"
                     >
                       {editingIndex !== null
@@ -2400,6 +2507,7 @@ useEffect(() => {
                       <Button
                         variant="outline"
                         onClick={handleAddAnotherHotel}
+                        size="sm"
                         className="border-theme-primary text-theme-primary hover:bg-theme-primary/5"
                       >
                         <Plus className="h-4 w-4 mr-1" /> Add Another Hotel
@@ -2412,33 +2520,46 @@ useEffect(() => {
 
             {/* 4. Saved Hotel Itinerary */}
             {hotelEntries.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <h3 className="text-base font-bold text-slate-800">
-                    Hotel Itinerary
-                    <span className="ml-2 text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {hotelEntries.length} hotel
-                      {hotelEntries.length > 1 ? "s" : ""}
-                    </span>
-                  </h3>
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <h3 className="text-base font-bold text-slate-800">
+                      Hotel Itinerary
+                      <span className="ml-2 text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {hotelEntries.length} hotel
+                        {hotelEntries.length > 1 ? "s" : ""}
+                      </span>
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("savedHotels")}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-theme-primary/30 hover:text-theme-primary"
+                  >
+                    {expandedSections.savedHotels ? "Collapse" : "Expand"}
+                    {expandedSections.savedHotels ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
                 </div>
-                <div className="space-y-3 relative">
-                  {hotelEntries.length > 1 && (
-                    <div className="absolute left-7 top-14 bottom-14 w-0.5 bg-gradient-to-b from-theme-primary/30 via-theme-primary/20 to-transparent z-0 hidden sm:block" />
-                  )}
-                  {hotelEntries.map((entry, idx) => (
-                    <div key={idx} className="relative z-10">
-                      <HotelItineraryCard
-                        entry={entry}
-                        index={idx}
-                        onEdit={handleEditHotel}
-                        onDelete={(i) => dispatch(deleteHotelEntry(i))}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between bg-theme-primary/5 border border-theme-primary/20 rounded-xl px-4 py-3">
+                {expandedSections.savedHotels && (
+                  <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                    {hotelEntries.map((entry, idx) => (
+                      <div key={idx}>
+                        <HotelItineraryCard
+                          entry={entry}
+                          index={idx}
+                          onEdit={handleEditHotel}
+                          onDelete={(i) => dispatch(deleteHotelEntry(i))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center justify-between bg-theme-primary/5 border border-theme-primary/20 rounded-xl px-3 py-2.5">
                   <span className="text-sm font-semibold text-slate-700">
                     Hotels Subtotal
                   </span>
@@ -2449,62 +2570,94 @@ useEffect(() => {
               </div>
             )}
 
+            <div className="grid gap-4 xl:grid-cols-2">
             {/* 5. Transport */}
             <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="p-3 sm:p-5 pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Car className="h-5 w-5 text-theme-primary" /> Transport
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
-                {selectedTransport?.selectedVehicle && (
-                  <TransportSummaryCard
-                    transport={selectedTransport}
-                    totalPrice={transportTotalPrice}
-                    transportBreakdown={transportBreakdown}
-                    minKm={minKm}
-                    setMinKm={setMinKm}
-                    tollCharges={tollCharges}
-                    setTollCharges={setTollCharges}
-                    permitCharges={permitCharges}
-                    setPermitCharges={setPermitCharges}
-                    otherCharges={otherCharges}
-                    setOtherCharges={setOtherCharges}
-                    editableBaseCost={editableBaseCost}
-                    setEditableBaseCost={setEditableBaseCost}
-                    onEdit={() => setShowTransportSection(true)}
-                  />
-                )}
-                {!showTransportSection &&
-                !selectedTransport?.selectedVehicle ? (
-                  <Button
-                    onClick={() => setShowTransportSection(true)}
-                    className="w-full bg-theme-primary hover:bg-theme-secondary"
+              <CardHeader className="p-3 sm:p-4 pb-2">
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Car className="h-5 w-5 text-theme-primary" /> Transport
+                  </CardTitle>
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("transport")}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-theme-primary/30 hover:text-theme-primary"
                   >
-                    <Plus className="h-4 w-4 mr-2" /> Add Transport
-                  </Button>
-                ) : showTransportSection ? (
-                  <div className="mt-2">
-                    <TransportSelector
-                      onTransportSelect={(t) => {
-                        dispatch(setSelectedTransport(t));
-                        setShowTransportSection(false);
-                      }}
+                    {expandedSections.transport ? "Collapse" : "Expand"}
+                    {expandedSections.transport ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </div>
+              </CardHeader>
+              {expandedSections.transport && (
+                <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
+                  {selectedTransport?.selectedVehicle && (
+                    <TransportSummaryCard
+                      transport={selectedTransport}
+                      totalPrice={transportTotalPrice}
+                      transportBreakdown={transportBreakdown}
+                      minKm={minKm}
+                      setMinKm={setMinKm}
+                      tollCharges={tollCharges}
+                      setTollCharges={setTollCharges}
+                      permitCharges={permitCharges}
+                      setPermitCharges={setPermitCharges}
+                      otherCharges={otherCharges}
+                      setOtherCharges={setOtherCharges}
+                      editableBaseCost={editableBaseCost}
+                      setEditableBaseCost={setEditableBaseCost}
+                      onEdit={() => setShowTransportSection(true)}
                     />
-                  </div>
-                ) : null}
-              </CardContent>
+                  )}
+                  {!showTransportSection &&
+                  !selectedTransport?.selectedVehicle ? (
+                    <Button
+                      onClick={() => setShowTransportSection(true)}
+                      className="w-full bg-theme-primary hover:bg-theme-secondary"
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Add Transport
+                    </Button>
+                  ) : showTransportSection ? (
+                    <div className="mt-2">
+                      <TransportSelector
+                        onTransportSelect={(t) => {
+                          dispatch(setSelectedTransport(t));
+                          setShowTransportSection(false);
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </CardContent>
+              )}
             </Card>
 
             {/* 6. Activities */}
             <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="p-3 sm:p-5 pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Palmtree className="h-5 w-5 text-theme-primary" /> Activities
-                  & Sightseeing
-                </CardTitle>
+              <CardHeader className="p-3 sm:p-4 pb-2">
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Palmtree className="h-5 w-5 text-theme-primary" /> Activities
+                    & Sightseeing
+                  </CardTitle>
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("activities")}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-theme-primary/30 hover:text-theme-primary"
+                  >
+                    {expandedSections.activities ? "Collapse" : "Expand"}
+                    {expandedSections.activities ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </div>
               </CardHeader>
-              <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
+              {expandedSections.activities && (
+              <CardContent className="p-3 sm:p-4 pt-0 space-y-3">
                 {selectedActivities.length > 0 && (
                   <ActivitySummaryCard
                     activities={selectedActivities}
@@ -2571,40 +2724,53 @@ useEffect(() => {
                   </Button>
                 )}
               </CardContent>
+              )}
             </Card>
+            </div>
 
             {/* 7 Itineraty  */}
             {hotelEntries.length > 0 && (
-              <ItinerarySection
-                hotelEntries={hotelEntries}
-                selectedState={selectedState}
-                onChange={(data) => setItineraryData(data)}
-              />
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="p-3 sm:p-4 pb-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-theme-primary" />
+                      Day-wise Itinerary
+                    </CardTitle>
+                    <button
+                      type="button"
+                      onClick={() => toggleSection("itinerary")}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-theme-primary/30 hover:text-theme-primary"
+                    >
+                      {expandedSections.itinerary ? "Collapse" : "Expand"}
+                      {expandedSections.itinerary ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </CardHeader>
+                {expandedSections.itinerary && (
+                  <CardContent className="p-3 sm:p-4 pt-0">
+                    <ItinerarySection
+                      hotelEntries={hotelEntries}
+                      selectedState={selectedState}
+                      onChange={(data) => setItineraryData(data)}
+                    />
+                  </CardContent>
+                )}
+              </Card>
             )}
 
-            {/* Export buttons */}
-            <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200">
-              <button
-                onClick={handleCopyToClipboard}
-                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-black text-sm shadow-sm font-medium transition-all"
-              >
-                <Copy className="h-4 w-4" /> Copy WhatsApp Summary
-              </button>
-              <button
-                onClick={handleExportToPDF}
-                className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm shadow-sm font-medium transition-all"
-              >
-                <FileText className="h-4 w-4" /> Export PDF
-              </button>
-            </div>
           </div>
 
           {/* ══ RIGHT COLUMN — Sticky Pricing Panel ══════════════════════════ */}
           {showRightPanel && (
-            <div className="lg:w-96 xl:w-[420px] lg:min-w-[360px] lg:sticky lg:top-6 lg:self-start space-y-5 pt-6 lg:pt-0">
+            <div className="lg:w-[360px] xl:w-[390px] lg:min-w-[340px] lg:sticky lg:top-6 lg:self-start space-y-4 pt-4 lg:pt-0">
               {/* Package breakdown */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 text-sm">
                     Package Breakdown
                   </h3>
@@ -2613,7 +2779,7 @@ useEffect(() => {
                     {selectedActivities.length}A
                   </span>
                 </div>
-                <div className="p-4 space-y-2.5">
+                <div className="p-3.5 space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2 text-slate-600">
                       <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -2677,12 +2843,12 @@ useEffect(() => {
 
               {/* Markup */}
               <Card className="shadow-sm border-slate-200">
-                <CardHeader className="p-4 sm:p-5 pb-3">
+                <CardHeader className="p-3.5 sm:p-4 pb-2">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-theme-primary" /> Add Markup
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-5 pt-0">
+                <CardContent className="p-3.5 sm:p-4 pt-0">
                   <div className="flex gap-2">
                     <Input
                       type="number"
@@ -2726,16 +2892,16 @@ useEffect(() => {
               <div className="relative overflow-hidden rounded-2xl bg-theme-dark text-white shadow-2xl">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-                <div className="relative p-5 sm:p-6">
-                  <div className="flex items-center gap-2 mb-5">
+                <div className="relative p-4 sm:p-5">
+                  <div className="flex items-center gap-2 mb-4">
                     <IndianRupee className="h-5 w-5 opacity-70" />
                     <h3 className="text-lg font-bold">Grand Total</h3>
                   </div>
-                  <div className="text-center mb-6">
+                  <div className="text-center mb-4">
                     <p className="text-xs text-white/60 uppercase tracking-widest font-medium mb-1">
                       Total Package Cost
                     </p>
-                    <p className="text-5xl font-black tracking-tight">
+                    <p className="text-4xl xl:text-5xl font-black tracking-tight">
                       ₹
                       {grandTotal.toLocaleString("en-IN", {
                         maximumFractionDigits: 0,
@@ -2753,9 +2919,28 @@ useEffect(() => {
                       </p>
                     )}
                   </div>
+                  <div className="mb-4 flex flex-wrap justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleCopyToClipboard}
+                      className="bg-white text-slate-900 hover:bg-slate-100"
+                    >
+                      <Copy className="h-4 w-4 mr-1.5" />
+                      Copy WhatsApp Summary
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleExportToPDF}
+                      className="bg-red-600 text-white hover:bg-red-700"
+                    >
+                      <FileText className="h-4 w-4 mr-1.5" />
+                      Export PDF
+                    </Button>
+                  </div>
                   <Button
                     onClick={() => setShowSaveModal(true)}
-                    className="w-full py-6 bg-theme-primary hover:bg-theme-secondary font-bold text-base shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full py-5 bg-theme-primary hover:bg-theme-secondary font-bold text-base shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Save className="h-5 w-5 mr-2" /> Save Package
                   </Button>

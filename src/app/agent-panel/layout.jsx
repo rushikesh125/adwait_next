@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import Loading from "../loading";
@@ -74,8 +75,14 @@ const AgentPanelLayout = ({ children }) => {
     <div className="flex flex-col h-full bg-white">
       <div className="h-20 flex items-center justify-between px-6 border-b border-slate-50 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="min-w-[36px] h-9 bg-gradient-to-tr from-theme-gradient-from to-theme-gradient-to rounded-xl flex items-center justify-center shadow-lg">
-            <Map className="text-white w-5 h-5" />
+          <div className="relative min-w-[42px] h-10 w-10 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <Image
+              src="/adwait-logo.jpg"
+              alt="Adwait Tours"
+              fill
+              className="object-contain p-1"
+              priority
+            />
           </div>
           {(isSidebarOpen || mobile) && (
             <span className="font-black text-lg tracking-tighter text-theme-dark uppercase italic">
