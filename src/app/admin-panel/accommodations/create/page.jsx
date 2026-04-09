@@ -104,19 +104,40 @@ const StepIndicator = ({ current }) => {
 const useTripAdvisorSearch = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   const search = async (query, city, state) => {
-    if (!query || query.length < 2) { setSuggestions([]); return; }
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      setSearchError("");
+      return;
+    }
     setSearching(true);
+    setSearchError("");
     try {
       const location = [city, state].filter(Boolean).join(", ");
-      const searchQuery = location ? `${query} ${location}` : query;
-      const res = await fetch(`/api/tripadvisor/search?query=${encodeURIComponent(searchQuery)}`);
-      const data = await res.json();
-      setSuggestions(data?.data || []);
+      const scopedQuery = location ? `${query} ${location}` : query;
+
+      const runSearch = async (searchQuery) => {
+        const res = await fetch(
+          `/api/tripadvisor/search?query=${encodeURIComponent(searchQuery)}`,
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error || "TripAdvisor search failed");
+        }
+        return data?.data || [];
+      };
+
+      let results = await runSearch(scopedQuery);
+      if (results.length === 0 && scopedQuery !== query) {
+        results = await runSearch(query);
+      }
+      setSuggestions(results);
     } catch (err) {
       console.error("TripAdvisor search error:", err);
       setSuggestions([]);
+      setSearchError(err.message || "TripAdvisor search failed");
     } finally {
       setSearching(false);
     }
@@ -132,7 +153,15 @@ const useTripAdvisorSearch = () => {
     }
   };
 
-  return { suggestions, searching, search, fetchDetails, setSuggestions };
+  return {
+    suggestions,
+    searching,
+    search,
+    fetchDetails,
+    setSuggestions,
+    searchError,
+    setSearchError,
+  };
 };
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -423,7 +452,15 @@ function HotelFormPageInner() {
   const [pendingClone, setPendingClone] = useState(null);
 
   // TripAdvisor
-  const { suggestions, searching, search: taSearch, fetchDetails, setSuggestions } = useTripAdvisorSearch();
+  const {
+    suggestions,
+    searching,
+    search: taSearch,
+    fetchDetails,
+    setSuggestions,
+    searchError,
+    setSearchError,
+  } = useTripAdvisorSearch();
   const [showTaSuggestions, setShowTaSuggestions] = useState(false);
   const [taSearchTimeout, setTaSearchTimeout] = useState(null);
 
@@ -504,6 +541,7 @@ function HotelFormPageInner() {
     } else {
       setShowTaSuggestions(false);
       setSuggestions([]);
+      setSearchError("");
     }
   };
 
@@ -900,7 +938,19 @@ function HotelFormPageInner() {
                           ))}
                         </div>
                       )}
+                      {showTaSuggestions && !searching && hotelName.length >= 2 && suggestions.length === 0 && (
+                        <div className="absolute w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-40">
+                          <div className="px-4 py-3 text-sm text-slate-600">
+                            {searchError || "No TripAdvisor hotels found for this search."}
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    {searchError && (
+                      <p className="mt-1 text-[11px] text-amber-600">
+                        {searchError}
+                      </p>
+                    )}
                   </div>
 
                   {/* Star Rating */}
