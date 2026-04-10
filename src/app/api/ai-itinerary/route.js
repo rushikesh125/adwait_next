@@ -5,19 +5,19 @@ import { z } from "zod";
 // Zod Schemas — validation only, NOT passed to Gemini
 // ─────────────────────────────────────────────────────────────────────────────
 const DaySchema = z.object({
-  id:          z.string(),
-  dayNumber:   z.number(),
-  title:       z.string(),
+  id: z.string(),
+  dayNumber: z.number(),
+  title: z.string(),
   description: z.string(),
   activityIds: z.array(z.string()),
 });
 
 const ItineraryResponseSchema = z.object({
-  title:  z.string(),
-  state:  z.string(),
+  title: z.string(),
+  state: z.string(),
   cities: z.array(z.string()),
-  tags:   z.array(z.string()),
-  days:   z.array(DaySchema),
+  tags: z.array(z.string()),
+  days: z.array(DaySchema),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,9 +26,9 @@ const ItineraryResponseSchema = z.object({
 const daySchema = {
   type: "object",
   properties: {
-    id:          { type: "string" },
-    dayNumber:   { type: "number" },
-    title:       { type: "string" },
+    id: { type: "string" },
+    dayNumber: { type: "number" },
+    title: { type: "string" },
     description: { type: "string" },
     activityIds: { type: "array", items: { type: "string" } },
   },
@@ -38,11 +38,11 @@ const daySchema = {
 const geminiSchema = {
   type: "object",
   properties: {
-    title:  { type: "string" },
-    state:  { type: "string" },
+    title: { type: "string" },
+    state: { type: "string" },
     cities: { type: "array", items: { type: "string" } },
-    tags:   { type: "array", items: { type: "string" } },
-    days:   { type: "array", items: daySchema },
+    tags: { type: "array", items: { type: "string" } },
+    days: { type: "array", items: daySchema },
   },
   required: ["title", "state", "cities", "tags", "days"],
 };
@@ -65,13 +65,13 @@ function buildBasePrompt({
   return `
 You are an expert Indian tour itinerary writer for Adwait Tours.
 Generate a complete, detailed, day-wise tour itinerary strictly following the rules below.
-
+note : no emojies is text 
 ## TRIP DETAILS
 - Origin: ${origin}
 - Destination(s): ${citiesList}
 - Total Days: ${numDays}
 - Transport Mode: ${transport}
-${arrivalTime   ? `- Check-in Date:  ${arrivalTime}`   : ""}
+${arrivalTime ? `- Check-in Date:  ${arrivalTime}` : ""}
 ${departureTime ? `- Check-out Date: ${departureTime}` : ""}
 ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
@@ -99,7 +99,7 @@ ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 ### General Rules
 - Write descriptions in second-person ("proceed to...", "enjoy...", "check in at...").
 - Use bullet points with '•' prefix for each activity/step, starting each on a new line.
-- Include meal plan at the end of each day: "🍽 Meal Plan: [Breakfast / Lunch / Dinner / No Meals]"
+- Include meal plan at the end of each day: " Meal Plan: [Breakfast / Lunch / Dinner / No Meals]"
 - Be specific about timings (approximate is fine).
 - Vehicle type is "${transport}" — mention it naturally in transfer descriptions.
 - Generate EXACTLY ${numDays} day objects in the days array.
@@ -109,7 +109,8 @@ Return valid JSON matching the provided schema exactly.
 - IDs: use short slugs like "day-001", "day-002", etc.
 - Keep language simple and friendly.
 - Day descriptions: start each bullet point on a new line.
-- Include day-wise meals for each day as a final bullet point in the description.
+- Include day-wise meals for each day as a final bullet point in the description 
+
 `.trim();
 }
 
@@ -160,14 +161,14 @@ export async function POST(req) {
   } catch {
     return Response.json(
       { error: "Invalid JSON in request body." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   const {
     packageContext,
-    chatHistory      = [],
-    userPrompt       = null,
+    chatHistory = [],
+    userPrompt = null,
     currentItinerary = null,
   } = body;
 
@@ -175,7 +176,7 @@ export async function POST(req) {
   if (!packageContext) {
     return Response.json(
       { error: "packageContext is required." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -185,49 +186,53 @@ export async function POST(req) {
           m &&
           typeof m === "object" &&
           (m.role === "user" || m.role === "assistant") &&
-          typeof m.content === "string"
+          typeof m.content === "string",
       )
     : [];
 
   // ── 3. Destructure packageContext ─────────────────────────────────────────
   const {
-    hotelEntries       = [],
-    selectedTransport  = null,
+    hotelEntries = [],
+    selectedTransport = null,
     selectedActivities = [],
-    selectedState      = "",
-    checkInDate        = "",
-    checkOutDate       = "",
-    packageName        = "",
-    customerName       = "",
+    selectedState = "",
+    checkInDate = "",
+    checkOutDate = "",
+    packageName = "",
+    customerName = "",
   } = packageContext;
 
   // ── 4. Derive cities & destination ────────────────────────────────────────
-  const cities = [
-    ...new Set(hotelEntries.map((e) => e.city).filter(Boolean)),
-  ];
+  const cities = [...new Set(hotelEntries.map((e) => e.city).filter(Boolean))];
   const destination = cities[0] || selectedState || null;
 
   if (!destination) {
     return Response.json(
-      { error: "Could not determine destination. Please add at least one hotel." },
-      { status: 400 }
+      {
+        error:
+          "Could not determine destination. Please add at least one hotel.",
+      },
+      { status: 400 },
     );
   }
 
   // ── 5. Derive numDays ─────────────────────────────────────────────────────
   const totalNights = hotelEntries.reduce(
     (sum, e) => sum + (Number(e.nights) || 0),
-    0
+    0,
   );
   const numDays = totalNights > 0 ? totalNights + 1 : 3;
 
   // ── 6. Derive transport mode ──────────────────────────────────────────────
-  const vehicleType  = selectedTransport?.selectedVehicle?.type || "";
+  const vehicleType = selectedTransport?.selectedVehicle?.type || "";
   const vehicleLower = vehicleType.toLowerCase();
-  const transport    = vehicleLower.includes("train")  ? "train"
-                     : vehicleLower.includes("flight") ? "flight"
-                     : vehicleLower.includes("bus")    ? "bus"
-                     : vehicleType                     || "private car";
+  const transport = vehicleLower.includes("train")
+    ? "train"
+    : vehicleLower.includes("flight")
+      ? "flight"
+      : vehicleLower.includes("bus")
+        ? "bus"
+        : vehicleType || "private car";
 
   // ── 7. Origin ─────────────────────────────────────────────────────────────
   const origin = selectedState || "Origin City";
@@ -237,20 +242,24 @@ export async function POST(req) {
     .map((e) =>
       [e.hotel, e.city, e.nights ? `${e.nights}N` : null, e.selectedMealPlan]
         .filter(Boolean)
-        .join(" | ")
+        .join(" | "),
     )
     .join("; ");
 
-  const activityNames = selectedActivities.map((a) => a.name).filter(Boolean).join(", ");
+  const activityNames = selectedActivities
+    .map((a) => a.name)
+    .filter(Boolean)
+    .join(", ");
 
   const additionalContext = [
-    hotelLines    ? `Hotels: ${hotelLines}`                            : null,
-    activityNames ? `Activities: ${activityNames}`                     : null,
-    packageName   ? `Package: ${packageName}`                          : null,
-    customerName  ? `Customer: ${customerName}`                        : null,
-    vehicleType   ? `Vehicle: ${vehicleType}`                          : null,
+    hotelLines ? `Hotels: ${hotelLines}` : null,
+    activityNames ? `Activities: ${activityNames}` : null,
+    packageName ? `Package: ${packageName}` : null,
+    customerName ? `Customer: ${customerName}` : null,
+    vehicleType ? `Vehicle: ${vehicleType}` : null,
     selectedTransport?.name
-                  ? `Transport package: ${selectedTransport.name}`     : null,
+      ? `Transport package: ${selectedTransport.name}`
+      : null,
   ]
     .filter(Boolean)
     .join(". ");
@@ -266,8 +275,8 @@ export async function POST(req) {
     cities,
     numDays,
     transport,
-    arrivalTime:       checkInDate   || undefined,
-    departureTime:     checkOutDate  || undefined,
+    arrivalTime: checkInDate || undefined,
+    departureTime: checkOutDate || undefined,
     additionalContext: additionalContext || undefined,
   });
 
@@ -284,7 +293,7 @@ export async function POST(req) {
     console.error("[ai-itinerary] GEMINI_API_KEY is not set.");
     return Response.json(
       { error: "AI service is not configured. Please contact support." },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -295,7 +304,7 @@ export async function POST(req) {
     console.error("[ai-itinerary] Failed to init GoogleGenAI:", initErr);
     return Response.json(
       { error: "Failed to initialise AI service." },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -303,10 +312,10 @@ export async function POST(req) {
   let rawText;
   try {
     const response = await ai.models.generateContent({
-      model:    "gemini-2.5-flash-lite",
+      model: "gemini-2.5-flash-lite",
       contents: fullPrompt,
       config: {
-        responseMimeType:   "application/json",
+        responseMimeType: "application/json",
         responseJsonSchema: geminiSchema,
       },
     });
@@ -318,25 +327,31 @@ export async function POST(req) {
     if (msg.includes("quota") || msg.includes("429")) {
       return Response.json(
         { error: "AI quota exceeded. Please try again in a moment." },
-        { status: 429 }
+        { status: 429 },
       );
     }
     if (msg.includes("safety") || msg.includes("blocked")) {
       return Response.json(
-        { error: "The AI blocked this request due to content policy. Try rephrasing your request." },
-        { status: 422 }
+        {
+          error:
+            "The AI blocked this request due to content policy. Try rephrasing your request.",
+        },
+        { status: 422 },
       );
     }
     if (msg.includes("deadline") || msg.includes("timeout")) {
       return Response.json(
         { error: "The AI took too long to respond. Please try again." },
-        { status: 504 }
+        { status: 504 },
       );
     }
 
     return Response.json(
-      { error: "AI generation failed. Please try again.", details: msg || "Unknown Gemini error" },
-      { status: 502 }
+      {
+        error: "AI generation failed. Please try again.",
+        details: msg || "Unknown Gemini error",
+      },
+      { status: 502 },
     );
   }
 
@@ -345,7 +360,7 @@ export async function POST(req) {
     console.error("[ai-itinerary] Gemini returned empty text.");
     return Response.json(
       { error: "AI returned an empty response. Please try again." },
-      { status: 502 }
+      { status: 502 },
     );
   }
 
@@ -361,10 +376,16 @@ export async function POST(req) {
     parsed = JSON.parse(cleanedText);
   } catch (jsonErr) {
     console.error("[ai-itinerary] JSON parse failed:", jsonErr);
-    console.error("[ai-itinerary] Raw output (first 500 chars):", rawText.slice(0, 500));
+    console.error(
+      "[ai-itinerary] Raw output (first 500 chars):",
+      rawText.slice(0, 500),
+    );
     return Response.json(
-      { error: "AI returned malformed data. Please try again.", details: `JSON parse error: ${jsonErr.message}` },
-      { status: 422 }
+      {
+        error: "AI returned malformed data. Please try again.",
+        details: `JSON parse error: ${jsonErr.message}`,
+      },
+      { status: 422 },
     );
   }
 
@@ -374,10 +395,15 @@ export async function POST(req) {
     validated = ItineraryResponseSchema.parse(parsed);
   } catch (zodErr) {
     console.error("[ai-itinerary] Zod validation failed:", zodErr);
-    console.warn("[ai-itinerary] Returning unvalidated parsed data as fallback.");
+    console.warn(
+      "[ai-itinerary] Returning unvalidated parsed data as fallback.",
+    );
     return Response.json(parsed, {
       status: 200,
-      headers: { "X-Validation-Warning": "Schema validation failed; data may be incomplete." },
+      headers: {
+        "X-Validation-Warning":
+          "Schema validation failed; data may be incomplete.",
+      },
     });
   }
 
