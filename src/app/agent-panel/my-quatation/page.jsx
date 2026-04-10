@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import "@/app/globals.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
@@ -29,13 +29,14 @@ import { copyPackageSummary } from "@/lib/copyPackageSummary";
 import { normaliseQuotation } from "@/lib/quotationAdapter";
 import { setEditingQuotation } from "@/store/packageSlice";
 import { useDispatch } from "react-redux";
+import QuotationPreviewModal from "./QuotationPreviewModal";
 
 const MyQuotations = () => {
   const state = useQuotationState();
   const searchParams = useSearchParams();
   const editId = searchParams.get("editId");
-  const router = useRouter()
-  const dispatch = useDispatch()
+  const router = useRouter();
+  const dispatch = useDispatch();
   const [voucherDrawerOpen, setVoucherDrawerOpen] = React.useState(false);
   const [selectedHotelForVoucher, setSelectedHotelForVoucher] =
     React.useState(null);
@@ -45,7 +46,7 @@ const MyQuotations = () => {
   const [hotelList, setHotelList] = React.useState([]);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(50);
-
+  const [previewQuotation, setPreviewQuotation] = useState(null);
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
       const dateA = a.createdAt?.seconds || 0;
@@ -81,7 +82,9 @@ const MyQuotations = () => {
   );
 
   const totalPages = Math.ceil(sortedQuotations.length / pageSize);
-
+  const handleViewClick = (q) => {
+    setPreviewQuotation(q); // ← change this line
+  };
   // Update the useEffect that handles pagination reset
   useEffect(() => {
     setCurrentPage(1);
@@ -140,17 +143,17 @@ const MyQuotations = () => {
     }
   };
   const handleEditRedirect = (quotation) => {
-  // Store full quotation in Redux for instant hydration
-  dispatch(setEditingQuotation(quotation));
+    // Store full quotation in Redux for instant hydration
+    dispatch(setEditingQuotation(quotation));
 
-  // Build URL — preserve customerId/leadId if the quotation has them
-  const params = new URLSearchParams();
-  params.set("quotationId", quotation.id);
-  if (quotation.customerId) params.set("customerId", quotation.customerId);
-  if (quotation.leadId)     params.set("leadId",     quotation.leadId);
+    // Build URL — preserve customerId/leadId if the quotation has them
+    const params = new URLSearchParams();
+    params.set("quotationId", quotation.id);
+    if (quotation.customerId) params.set("customerId", quotation.customerId);
+    if (quotation.leadId) params.set("leadId", quotation.leadId);
 
-  router.push(`/agent-panel/my-quatation/create?${params.toString()}`);
-};
+    router.push(`/agent-panel/my-quatation/create?${params.toString()}`);
+  };
 
   // ── Sort: newest first ────────────────────────────────────────────────────
 
@@ -169,7 +172,7 @@ const MyQuotations = () => {
     if (quotation.itinerarySummary) {
       normalized.itineraryData = quotation.itinerarySummary;
     }
-    normalized.refNumber = quotation.refNumber || null;  // ✅ ADD THIS
+    normalized.refNumber = quotation.refNumber || null; // ✅ ADD THIS
     exportPackagePDF(normalized);
   };
 
@@ -274,7 +277,7 @@ const MyQuotations = () => {
         endDate={state.endDate}
         setEndDate={state.setEndDate}
         getDestinationOfpkg={state.getDestinationOfpkg}
-        handleViewClick={state.handleViewClick}
+        handleViewClick={handleViewClick}
         handleEditClick={state.handleEditClick}
         handleDownloadPDF={handleDownloadPDF}
         handleDeleteQuotation={state.handleDeleteQuotation}
@@ -407,6 +410,15 @@ const MyQuotations = () => {
         setNewCustomerName={state.setNewCustomerName}
         handleConfirmSaveAs={state.handleConfirmSaveAs}
       /> */}
+      {previewQuotation && (
+        <QuotationPreviewModal
+          quotation={previewQuotation}
+          onClose={() => setPreviewQuotation(null)}
+          onEdit={handleEditRedirect}
+          onCopy={handleCopyToClipboard}
+          onPDF={handleDownloadPDF}
+        />
+      )}
     </div>
   );
 };
