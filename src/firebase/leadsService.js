@@ -103,3 +103,9 @@ export const getAgentQuotationsForLead = async (uid, lid) => {
 export const deleteLead = async (id) => {
   await deleteDoc(doc(db, "leads", id));
 };
+
+export const deleteQuotation = async (quotationId) => {
+  if (!quotationId) throw new Error("Quotation ID is required");
+
+  await deleteDoc(doc(db, "quotations", quotationId));
+};

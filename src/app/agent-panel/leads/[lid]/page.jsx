@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, use } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
 import {
   Mail,
@@ -32,7 +32,6 @@ import {
   User,
   Star,
 } from "lucide-react";
-import QuotationModals from "@/app/agent-panel/my-quatation/QuotationModals";
 import LeadForm from "@/components/leads/LeadForm";
 import {
   Dialog,
@@ -41,12 +40,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getLeadById,
   getLeadNotes,
@@ -57,7 +54,6 @@ import {
   updateLeadDetails,
 } from "@/firebase/leadsService";
 import toast, { Toaster } from "react-hot-toast";
-import { icon } from "@fortawesome/fontawesome-svg-core";
 import {
   Tooltip,
   TooltipContent,
@@ -65,25 +61,28 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import StatusBadge from "@/components/StatusBadge";
+import { setEditingQuotation } from "@/store/packageSlice";
+
+// ── Use the new preview modal instead of QuotationModals ──────────────────────
+import QuotationPreviewModal from "@/app/agent-panel/my-quatation/QuotationPreviewModal";
+import { deleteQuotation } from "@/firebase/quotations";
 
 export default function LeadProfilePage({ params }) {
   const { lid } = use(params);
   const router = useRouter();
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
 
   const [lead, setLead] = useState(null);
   const [quotations, setQuotations] = useState([]);
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingQuotation, setEditingQuotation] = useState(null);
   const [isLeadEditOpen, setIsLeadEditOpen] = useState(false);
   const [leadForm, setLeadForm] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Modal States
-  const [selectedQuote, setSelectedQuote] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // ── Preview modal state ───────────────────────────────────────────────────
+  const [previewQuotation, setPreviewQuotation] = useState(null);
 
   useEffect(() => {
     if (lid && user?.uid) loadData();
@@ -129,26 +128,22 @@ export default function LeadProfilePage({ params }) {
       setLoading(false);
     }
   };
+
   const formatDate = (value) => {
     if (!value) return "-";
-
     let date;
-
-    // Firestore Timestamp
     if (value?.seconds) {
       date = new Date(value.seconds * 1000);
     } else {
       date = new Date(value);
     }
-
     if (isNaN(date)) return "-";
-
     const day = String(date.getDate()).padStart(2, "0");
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
-
     return `${day}/${month}/${year}`;
   };
+
   const handleAddNote = async (e) => {
     e.preventDefault();
     if (!newNote.trim()) return;
@@ -162,17 +157,27 @@ export default function LeadProfilePage({ params }) {
     }
   };
 
+  // ── Open preview modal ────────────────────────────────────────────────────
   const handleOpenDetails = (quote) => {
-    setSelectedQuote(quote);
-    setIsModalOpen(true);
+    setPreviewQuotation(quote);
   };
 
+  // ── Edit: store in Redux + navigate to create page with both IDs ──────────
   const handleEditQuotation = (quote) => {
-    // deep copy to avoid mutating original data
-    const deepCopy = JSON.parse(JSON.stringify(quote));
-    setEditingQuotation(deepCopy);
-    setIsEditModalOpen(true);
+    if (!quote?.id) {
+      toast.error("Cannot edit: quotation ID missing.");
+      return;
+    }
+    // Deep-clone to avoid Redux serialization issues
+    dispatch(setEditingQuotation(JSON.parse(JSON.stringify(quote))));
+
+    const params = new URLSearchParams();
+    params.set("quotationId", quote.id);
+    params.set("leadId", lid); // keeps lead association on save
+
+    router.push(`/agent-panel/my-quatation/create?${params.toString()}`);
   };
+
   const handleDeleteNote = async (noteId) => {
     if (!confirm("Delete this note?")) return;
     await deleteLeadNote(lid, noteId);
@@ -180,21 +185,9 @@ export default function LeadProfilePage({ params }) {
     toast.success("Note removed");
   };
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-
-    setEditingQuotation((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
   const handleLeadFormChange = (e) => {
     const { name, value } = e.target;
-    setLeadForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setLeadForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleUpdateLead = async (e) => {
@@ -206,6 +199,28 @@ export default function LeadProfilePage({ params }) {
       loadData();
     } catch (error) {
       toast.error("Failed to update lead");
+    }
+  };
+  const handleDeleteQuotation = async (quoteId) => {
+    if (!quoteId || !user?.uid) {
+      toast.error("Missing required data");
+      return;
+    }
+
+    const confirmDelete = confirm(
+      "Are you sure you want to delete this quotation?",
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await deleteQuotation(user.uid, quoteId); // ✅ pass agentId
+
+      setQuotations((prev) => prev.filter((q) => q.id !== quoteId));
+
+      toast.success("Quotation deleted successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete quotation");
     }
   };
   if (loading)
@@ -236,7 +251,6 @@ export default function LeadProfilePage({ params }) {
                 {lead?.name}
               </h1>
               <div className="flex items-center gap-4 pb-4 flex-nowrap">
-                {/* STATUS */}
                 <div className="flex items-center gap-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Status:
@@ -247,8 +261,6 @@ export default function LeadProfilePage({ params }) {
                     className="border-none text-xs"
                   />
                 </div>
-
-                {/* CREATED ON */}
                 <div className="flex items-center gap-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Created On:
@@ -269,7 +281,9 @@ export default function LeadProfilePage({ params }) {
               <Edit3 className="h-4 w-4 mr-2" /> Edit Lead
             </Button>
             <Button
-              onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
+              onClick={() =>
+                router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)
+              }
               className="bg-theme-primary text-white px-6 rounded-xl"
             >
               <Plus className="h-4 w-4 mr-2" /> Create Quotation
@@ -283,13 +297,13 @@ export default function LeadProfilePage({ params }) {
           {/* LEFT: TRIP REQUIREMENTS */}
           <div className="lg:col-span-4 space-y-6">
             <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
-              <CardHeader className="border-b border-slate-50 ">
+              <CardHeader className="border-b border-slate-50">
                 <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-600">
                   <ClipboardList className="h-4 w-4 text-theme-primary" />
                   Trip Requirements
                 </CardTitle>
               </CardHeader>
-              <CardContent className=" space-y-4">
+              <CardContent className="space-y-4">
                 <div className="space-y-4">
                   {[
                     {
@@ -391,6 +405,11 @@ export default function LeadProfilePage({ params }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+                {notes.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center pt-6">
+                    No notes yet. Add one below.
+                  </p>
+                )}
                 {notes.map((note) => (
                   <div
                     key={note.id}
@@ -457,27 +476,40 @@ export default function LeadProfilePage({ params }) {
                         <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-theme-primary">
                           <FileText className="h-6 w-6" />
                         </div>
-                        <div className="flex items-center gap-3">
-                          <h4 className="font-bold text-slate-800 text-lg">
-                            {quote.packageName}
-                          </h4>
-                          <StatusBadge
-                            status={quote.status || "Draft"}
-                            fallback="Draft"
-                            className="border-none text-[10px] px-2 py-0 uppercase tracking-wider"
-                          />
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-3">
+                            <h4 className="font-bold text-slate-800 text-lg">
+                              {quote.packageName}
+                            </h4>
+                            <StatusBadge
+                              status={quote.status || "Draft"}
+                              fallback="Draft"
+                              className="border-none text-[10px] px-2 py-0 uppercase tracking-wider"
+                            />
+                          </div>
+                          {quote.refNumber && (
+                            <p className="text-xs text-slate-400 font-mono">
+                              Ref: {quote.refNumber}
+                            </p>
+                          )}
+                          {quote.grandTotal > 0 && (
+                            <p className="text-sm font-semibold text-theme-primary">
+                              ₹
+                              {Number(quote.grandTotal).toLocaleString("en-IN")}
+                            </p>
+                          )}
                         </div>
                       </div>
 
                       <TooltipProvider>
                         <div className="flex items-center gap-1">
-                          {/* View Quotation */}
+                          {/* View — opens QuotationPreviewModal */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="rounded-lg hover:bg-theme-primary hover:text-white"
+                                className="rounded-lg hover:bg-theme-primary cursor-pointer hover:text-white"
                                 onClick={() => handleOpenDetails(quote)}
                               >
                                 <ExternalLink className="h-4 w-4" />
@@ -487,24 +519,37 @@ export default function LeadProfilePage({ params }) {
                               View Quotation
                             </TooltipContent>
                           </Tooltip>
-                          {/* Edit Quotation */}
+
+                          {/* Edit — redirects to Create_new_package in edit mode */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="rounded-lg hover:bg-theme-primary hover:text-white"
-                                onClick={() =>
-                                  router.push(
-                                    `/agent-panel/my-quatation/edit/${lid}`,
-                                  )
-                                }
+                                className="rounded-lg hover:bg-theme-primary cursor-pointer hover:text-white"
+                                onClick={() => handleEditQuotation(quote)}
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top">
                               Edit Quotation
+                            </TooltipContent>
+                          </Tooltip>
+                          {/* Delete */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="rounded-lg hover:bg-red-500 cursor-pointer hover:text-white"
+                                onClick={() => handleDeleteQuotation(quote.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Delete Quotation
                             </TooltipContent>
                           </Tooltip>
                         </div>
@@ -519,6 +564,16 @@ export default function LeadProfilePage({ params }) {
                     <p className="text-slate-400 font-medium">
                       No quotations generated yet.
                     </p>
+                    <Button
+                      onClick={() =>
+                        router.push(
+                          `/agent-panel/my-quatation/create?leadId=${lid}`,
+                        )
+                      }
+                      className="bg-theme-primary text-white rounded-xl"
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Create First Quotation
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -526,11 +581,15 @@ export default function LeadProfilePage({ params }) {
           </div>
         </div>
       </main>
+
+      {/* ── Edit Lead Dialog ── */}
       <Dialog open={isLeadEditOpen} onOpenChange={setIsLeadEditOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Lead</DialogTitle>
-            <DialogDescription>Update this customer enquiry before preparing the quotation.</DialogDescription>
+            <DialogDescription>
+              Update this customer enquiry before preparing the quotation.
+            </DialogDescription>
           </DialogHeader>
           {leadForm && (
             <LeadForm
@@ -542,55 +601,18 @@ export default function LeadProfilePage({ params }) {
           )}
         </DialogContent>
       </Dialog>
-      <QuotationModals
-        isViewModalOpen={isModalOpen}
-        setIsViewModalOpen={setIsModalOpen}
-        viewingQuotation={selectedQuote}
-        /* EDIT MODE */
-        isEditModalOpen={isEditModalOpen}
-        setIsEditModalOpen={setIsEditModalOpen}
-        editingQuotation={editingQuotation}
-        handleEditChange={handleEditChange}
-        /* keep rest as-is */
-        AllDestinations={[]}
-        SelectedDestination={null}
-        setSelectedDestination={() => {}}
-        selectedHotelToAdd={null}
-        setSelectedHotelToAdd={() => {}}
-        allHotels={[]}
-        handleAddHotel={() => {}}
-        handleRemoveHotel={() => {}}
-        handleHotelChange={() => {}}
-        handleHotelSummaryChange={() => {}}
-        getAvailableMealPlans={() => []}
-        toggleValue={false}
-        handleToggle={() => {}}
-        handleTransportSummaryChange={() => {}}
-        selectedTransportStateId={null}
-        setSelectedTransportStateId={() => {}}
-        transportStates={[]}
-        toTitleCase={(v) => v}
-        handlePackageChange={() => {}}
-        availableTransportPackagesForSelectedState={[]}
-        handleVehicleChange={() => {}}
-        isFetchingActivities={false}
-        selectedActivityToAdd={null}
-        setSelectedActivityToAdd={() => {}}
-        availableActivities={[]}
-        handleAddActivity={() => {}}
-        handleRemoveActivity={() => {}}
-        handleActivitySummaryChange={() => {}}
-        handleMarkupInputChange={() => {}}
-        handleUpdateQuotation={() => {}}
-        handleSaveAs={() => {}}
-        showSaveAsModal={false}
-        setShowSaveAsModal={() => {}}
-        newPackageName=""
-        setNewPackageName={() => {}}
-        newCustomerName=""
-        setNewCustomerName={() => {}}
-        handleConfirmSaveAs={() => {}}
-      />
+
+      {/* ── Quotation Preview Modal ── */}
+      {previewQuotation && (
+        <QuotationPreviewModal
+          quotation={previewQuotation}
+          onClose={() => setPreviewQuotation(null)}
+          onEdit={(q) => {
+            setPreviewQuotation(null);
+            handleEditQuotation(q);
+          }}
+        />
+      )}
     </div>
   );
 }
