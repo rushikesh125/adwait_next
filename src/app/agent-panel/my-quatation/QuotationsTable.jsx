@@ -260,7 +260,7 @@ const QuotationsTable = ({
             <Table>
               <TableHeader>
                 <TableRow className="bg-theme-muted/30 hover:bg-theme-muted/50">
-                  <TableHead className="w-24">Order</TableHead>
+                  <TableHead className="w-24">Ref. No.</TableHead>
                   <TableHead>
                     <SortableHeader
                       label="Customer"
