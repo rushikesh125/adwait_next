@@ -56,12 +56,17 @@ import {
   deleteVoucherDocument,
 } from "@/firebase/voucher";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
+import CreateFlightVoucherPage from "@/app/agent-panel/vouchers/CreateFlightVoucherPage";
 
 // ── NEW: hotel voucher PDF + WhatsApp helpers
 import {
   generateHotelVoucherPDF,
   shareHotelVoucherWhatsApp,
 } from "@/lib/generateHotelVoucher";
+import {
+  generateFlightVoucherPDF,
+  shareFlightVoucherWhatsApp,
+} from "@/lib/generateFlightVoucher";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
 
 // ── NEW: SortHeader Component
@@ -100,10 +105,13 @@ const VoucherViewModal = ({ voucher, onClose }) => {
 
   const handleDownload = async () => {
     if (voucher.voucherType === "Hotel") await generateHotelVoucherPDF(voucher);
-    else alert("Flight voucher PDF coming soon.");
+    else await generateFlightVoucherPDF(voucher);
   };
 
-  const handleWhatsApp = () => shareHotelVoucherWhatsApp(voucher);
+  const handleWhatsApp = () =>
+    voucher.voucherType === "Hotel"
+      ? shareHotelVoucherWhatsApp(voucher)
+      : shareFlightVoucherWhatsApp(voucher);
 
   return (
     <Dialog open={!!voucher} onOpenChange={onClose}>
@@ -169,11 +177,75 @@ const VoucherViewModal = ({ voucher, onClose }) => {
             </div>
           )}
 
+          {voucher.voucherType === "Flight" && (
+            <div className="border-t pt-3 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <p>
+                  <span className="font-semibold">Booking Ref / PNR:</span>{" "}
+                  {voucher.bookingReference || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold">Seat Class:</span>{" "}
+                  {voucher.seatClass || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold">Baggage:</span>{" "}
+                  {voucher.baggageAllowance || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold">Segments:</span>{" "}
+                  {voucher.segments?.length || 0}
+                </p>
+              </div>
+              <div className="space-y-3">
+                {voucher.segments?.map((segment, index) => (
+                  <div
+                    key={`${segment.flightNumber || "-"}-${index}`}
+                    className="rounded-lg border border-slate-200 p-3"
+                  >
+                    <p className="font-semibold text-slate-800">
+                      Segment {index + 1}: {segment.origin || "-"} {"->"} {segment.destination || "-"}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                      <p>Airline: {segment.airline || "-"}</p>
+                      <p>Flight: {segment.flightNumber || "-"}</p>
+                      <p>
+                        Departure:{" "}
+                        {segment.departureDateTime
+                          ? new Date(segment.departureDateTime).toLocaleString()
+                          : "-"}
+                      </p>
+                      <p>
+                        Arrival:{" "}
+                        {segment.arrivalDateTime
+                          ? new Date(segment.arrivalDateTime).toLocaleString()
+                          : "-"}
+                      </p>
+                      <p>Terminal: {segment.terminal || "-"}</p>
+                      <p>
+                        PNR: {segment.bookingReference || voucher.bookingReference || "-"}
+                      </p>
+                    </div>
+                    {segment.notes && (
+                      <p className="mt-2 text-xs text-slate-500">
+                        <span className="font-semibold">Notes:</span> {segment.notes}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="border-t pt-3 space-y-1.5">
-            {voucher.guests?.length > 0 && (
+            {(voucher.guests?.length > 0 || voucher.passengers?.length > 0) && (
               <p>
-                <span className="font-semibold">Guests:</span>{" "}
-                {voucher.guests.map((g) => `${g.title} ${g.name}`).join(", ")}
+                <span className="font-semibold">
+                  {voucher.voucherType === "Flight" ? "Passengers" : "Guests"}:
+                </span>{" "}
+                {(voucher.passengers || voucher.guests)
+                  .map((g) => `${g.title || ""} ${g.name}`.trim())
+                  .join(", ")}
               </p>
             )}
             {voucher.contact && (
@@ -194,6 +266,12 @@ const VoucherViewModal = ({ voucher, onClose }) => {
                 {voucher.phone}
               </p>
             )}
+            {voucher.customerEmail && (
+              <p>
+                <span className="font-semibold">Email:</span>{" "}
+                {voucher.customerEmail}
+              </p>
+            )}
             <p>
               <span className="font-semibold">Payment:</span>{" "}
               {voucher.paymentStatus || "—"}
@@ -211,6 +289,12 @@ const VoucherViewModal = ({ voucher, onClose }) => {
                 {voucher.cancellation}
               </p>
             )}
+            {voucher.importantNotes && (
+              <p>
+                <span className="font-semibold">Important Notes:</span>{" "}
+                {voucher.importantNotes}
+              </p>
+            )}
           </div>
         </div>
 
@@ -224,7 +308,7 @@ const VoucherViewModal = ({ voucher, onClose }) => {
               <Download className="h-4 w-4" />
               Download PDF
             </Button>
-            {voucher.voucherType === "Hotel" && voucher.contact && (
+            {voucher.contact && (
               <Button
                 onClick={handleWhatsApp}
                 variant="outline"
@@ -306,7 +390,15 @@ const VoucherDashboard = () => {
         v.voucherNumber?.toLowerCase().includes(q) ||
         v.quotationId?.toLowerCase().includes(q) ||
         v.destination?.toLowerCase().includes(q) ||
-        v.hotelName?.toLowerCase().includes(q)
+        v.hotelName?.toLowerCase().includes(q) ||
+        v.bookingReference?.toLowerCase().includes(q) ||
+        v.segments?.some(
+          (segment) =>
+            segment.airline?.toLowerCase().includes(q) ||
+            segment.flightNumber?.toLowerCase().includes(q) ||
+            segment.origin?.toLowerCase().includes(q) ||
+            segment.destination?.toLowerCase().includes(q),
+        )
       );
     });
 
@@ -382,7 +474,7 @@ const VoucherDashboard = () => {
   if (currentPage > totalPages) {
     setCurrentPage(1);
   }
-}, [totalPages]);
+}, [currentPage, totalPages]);
 
   if (authLoading) {
     return (
@@ -435,7 +527,10 @@ const VoucherDashboard = () => {
                 />
                 Refresh
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                onClick={() => router.push("/agent-panel/vouchers/create-flight")}
+              >
                 <Plus className="mr-2 h-4 w-4" /> Create Flight Voucher
               </Button>
               <Button
@@ -570,11 +665,16 @@ const VoucherDashboard = () => {
 
                           <TableCell className="text-sm">
                             <p className="font-medium text-slate-700">
-                              {item.hotelName || "—"}
+                              {item.voucherType === "Flight" ? (item.segments?.[0] ? `${item.segments[0].origin || "-"} to ${item.segments[item.segments.length - 1]?.destination || "-"}` : "-") : item.hotelName || "-"}
                             </p>
-                            {item.checkIn && (
+                            {item.voucherType === "Hotel" && item.checkIn && (
                               <p className="text-xs text-slate-400">
-                                {fmt(item.checkIn)} → {fmt(item.checkOut)}
+                                {fmt(item.checkIn)} {"->"} {fmt(item.checkOut)}
+                              </p>
+                            )}
+                            {item.voucherType === "Flight" && item.segments?.[0]?.departureDateTime && (
+                              <p className="text-xs text-slate-400">
+                                {new Date(item.segments[0].departureDateTime).toLocaleString()}
                               </p>
                             )}
                           </TableCell>
@@ -658,13 +758,14 @@ const VoucherDashboard = () => {
                                 onClick={async () =>
                                   item.voucherType === "Hotel"
                                     ? await generateHotelVoucherPDF(item)
-                                    : alert("Flight voucher PDF coming soon.")
+                                    : await generateFlightVoucherPDF(item)
                                 }
                               >
                                 <Download className="h-4 w-4 text-slate-500" />
                               </Button>
 
-                              {item.voucherType === "Hotel" && (
+                              {(item.voucherType === "Hotel" ||
+                                item.voucherType === "Flight") && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -677,14 +778,16 @@ const VoucherDashboard = () => {
                               )}
 
                               {/* WhatsApp */}
-                              {item.voucherType === "Hotel" && item.contact && (
+                              {item.contact && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 w-8 p-0"
                                   title="Share on WhatsApp"
                                   onClick={() =>
-                                    shareHotelVoucherWhatsApp(item)
+                                    item.voucherType === "Hotel"
+                                      ? shareHotelVoucherWhatsApp(item)
+                                      : shareFlightVoucherWhatsApp(item)
                                   }
                                 >
                                   <MessageCircle className="h-4 w-4 text-green-500" />
@@ -806,9 +909,17 @@ const VoucherDashboard = () => {
       />
 
       <HotelVoucherDrawer
-        isOpen={!!editingVoucher}
+        isOpen={!!editingVoucher && editingVoucher?.voucherType === "Hotel"}
         onClose={() => setEditingVoucher(null)}
         initialVoucher={editingVoucher}
+        agentId={authUser?.uid || ""}
+        onSaved={loadVouchers}
+      />
+
+      <CreateFlightVoucherPage
+        isOpen={!!editingVoucher && editingVoucher?.voucherType === "Flight"}
+        onClose={() => setEditingVoucher(null)}
+        initialVoucher={editingVoucher?.voucherType === "Flight" ? editingVoucher : null}
         agentId={authUser?.uid || ""}
         onSaved={loadVouchers}
       />

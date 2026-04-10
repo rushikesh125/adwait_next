@@ -15,6 +15,8 @@ import {
   Clock3,
   Target,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,7 @@ export default function LeadsPage() {
   const [showAddLead, setShowAddLead] = useState(false);
   const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All");
+  const [showDashboard, setShowDashboard] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -306,91 +309,151 @@ export default function LeadsPage() {
   return (
     <div className="min-h-screen bg-slate-50/50 w-full pb-8 sm:pb-12">
       <Toaster position="top-right" />
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-theme-primary/10 p-2.5">
-                <User className="h-5 w-5 text-theme-primary" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Lead Pipeline</h3>
-                <p className="mt-1 text-sm text-slate-600">{primaryInsight}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-              Active
-            </p>
-            <p className="mt-2 text-2xl font-black text-slate-900">
-              {overviewMetrics.activePipeline}
-            </p>
-          </div>
-
-          <div className="rounded-[1.5rem] border border-blue-200 bg-blue-50 px-4 py-4 shadow-sm">
-            <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700">
-              <Clock3 className="h-4 w-4" />
-              Attention
-            </p>
-            <p className="mt-2 text-2xl font-black text-blue-900">
-              {overviewMetrics.needsAttention}
-            </p>
-          </div>
-
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
           <button
             type="button"
-            onClick={() => setStatusFilter("Quotation Sent")}
-            className="rounded-[1.5rem] bg-theme-primary px-4 py-4 text-left text-white shadow-sm transition hover:bg-theme-secondary"
+            onClick={() => setShowDashboard((prev) => !prev)}
+            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left sm:px-5"
           >
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/75">
-              Follow Up
-            </p>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-2xl font-black">{overviewMetrics.quotationSent}</p>
-                <p className="text-xs text-white/80">Quotation Sent</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="rounded-xl bg-theme-primary/10 p-2">
+                  <TrendingUp className="h-4 w-4 text-theme-primary" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-theme-dark sm:text-xl">
+                    Travel Leads
+                  </h1>
+                  <p className="text-xs text-slate-500 sm:text-sm">
+                    {showDashboard
+                      ? "Hide dashboard"
+                      : "Show dashboard"}{" "}
+                    to view lead metrics and quick filters.
+                  </p>
+                </div>
               </div>
-              <ArrowRight className="h-4 w-4" />
+            </div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+              <span className="hidden sm:inline">
+                {showDashboard ? "Hide Dashboard" : "Show Dashboard"}
+              </span>
+              {showDashboard ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
             </div>
           </button>
-        </div>
 
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-          {statusCards.map((card) => {
-            const isActive = statusFilter === card.key;
-            const Icon = card.icon;
-
-            return (
-              <button
-                key={card.key}
-                type="button"
-                onClick={() => setStatusFilter(card.key)}
-                className={`rounded-3xl border p-4 text-left shadow-sm transition-all ${
-                  isActive
-                    ? "border-theme-primary ring-2 ring-theme-primary/15 shadow-md"
-                    : card.tone
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                      {card.label}
-                    </p>
-                    <p className="mt-2 text-2xl font-black">{card.value}</p>
-                    <p className="mt-1 text-xs text-slate-500">{card.helper}</p>
-                  </div>
-                  <div className={`rounded-2xl p-2.5 ${card.iconTone}`}>
-                    <Icon className="h-4 w-4" />
+          {showDashboard && (
+            <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
+              <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-500">
+                    Track and convert travel inquiries into bookings.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
+                      <User className="h-4 w-4 text-theme-primary" />
+                      <span className="font-medium">{primaryInsight}</span>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                        Active
+                      </span>
+                      <span className="font-black text-slate-900">{overviewMetrics.activePipeline}</span>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-800">
+                      <Clock3 className="h-4 w-4" />
+                      <span className="text-xs font-bold uppercase tracking-[0.14em]">
+                        Attention
+                      </span>
+                      <span className="font-black">{overviewMetrics.needsAttention}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter("Quotation Sent")}
+                      className="inline-flex items-center gap-2 rounded-full bg-theme-primary px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-theme-secondary"
+                    >
+                      <span>Follow Up</span>
+                      <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-black">
+                        {overviewMetrics.quotationSent}
+                      </span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-              </button>
-            );
-          })}
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={loadLeads}
+                    disabled={loading}
+                    className="bg-white"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                    />
+                    Refresh
+                  </Button>
+                  <Button
+                    className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg px-5 cursor-pointer"
+                    onClick={() => setShowAddLead(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> Add Lead
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                {statusCards.map((card) => {
+                  const isActive = statusFilter === card.key;
+                  const Icon = card.icon;
+
+                  return (
+                    <button
+                      key={card.key}
+                      type="button"
+                      onClick={() => setStatusFilter(card.key)}
+                      className={`rounded-2xl border p-3 text-left shadow-sm transition-all ${
+                        isActive
+                          ? "border-theme-primary ring-2 ring-theme-primary/15 shadow-md"
+                          : card.tone
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                            {card.label}
+                          </p>
+                          <p className="mt-1.5 text-xl font-black">{card.value}</p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">{card.helper}</p>
+                        </div>
+                        <div className={`rounded-xl p-2 ${card.iconTone}`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
-      
+
+        <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
+          <CardContent className="p-0">
+            <LeadsTable
+              leads={leads}
+              onStatusChange={handleStatusChange}
+              onDeleteLead={handleDeleteLead}
+              onCreateQuotation={handleCreateQuotation}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+            />
+          </CardContent>
+        </Card>
       </main>
 
       {/* QUICK ADD CUSTOMER MODAL */}
@@ -531,58 +594,6 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* PAGE HEADER */}
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="p-2 bg-theme-primary/10 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-theme-primary" />
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-theme-dark">
-                Travel Leads
-              </h1>
-            </div>
-            <p className="text-slate-500">
-              Track and convert travel inquiries into bookings.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={loadLeads}
-              disabled={loading}
-              className="bg-white"
-            >
-              <RefreshCw
-                className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
-              />{" "}
-              Refresh
-            </Button>
-            <Button
-              className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg px-6 cursor-pointer"
-              onClick={() => setShowAddLead(true)}
-            >
-              <Plus className="h-5 w-5 mr-2" /> Add Lead
-            </Button>
-          </div>
-        </div>
-
-        {/* TABLE */}
-        <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
-          <CardContent className="p-0">
-            <LeadsTable
-              leads={leads}
-              onStatusChange={handleStatusChange}
-              onDeleteLead={handleDeleteLead} // New Prop
-              onCreateQuotation={handleCreateQuotation}
-              statusFilter={statusFilter}
-              setStatusFilter={setStatusFilter}
-            />
-          </CardContent>
-        </Card>
-      </main>
     </div>
   );
 }

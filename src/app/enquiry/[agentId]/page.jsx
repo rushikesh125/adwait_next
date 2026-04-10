@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import {
   CheckCircle2,
   Compass,
@@ -17,6 +17,7 @@ import LeadForm from "@/components/leads/LeadForm";
 import { db } from "@/firebase/config";
 import { addCustomer, findExistingCustomerByEmailOrMobile } from "@/firebase/customersService";
 import { createAssignedLead } from "@/firebase/leadsService";
+import { getAgentByEnquiryIdentifier } from "@/firebase/users";
 import {
   enquiryInitialValues,
   normalizeEmail,
@@ -47,21 +48,21 @@ export default function PublicEnquiryPage() {
       setFatalError("");
 
       try {
-        const snap = await getDoc(doc(db, "agents", String(agentId)));
-        if (!snap.exists()) {
+        const record = await getAgentByEnquiryIdentifier(agentId);
+        if (!record) {
           setFatalError("This enquiry link is not valid.");
           setAgent(null);
           return;
         }
 
-        const data = snap.data();
+        const data = record;
         if (data.approved && data.approved !== "accepted") {
           setFatalError("This enquiry link is not active right now.");
           setAgent(null);
           return;
         }
 
-        setAgent({ id: snap.id, ...data });
+        setAgent(data);
       } catch (error) {
         console.error(error);
         setFatalError("We could not open this enquiry form right now.");
