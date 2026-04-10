@@ -155,28 +155,46 @@ const CreateHotelVoucherPage = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
-  useEffect(() => {
-    const handler = setTimeout(async () => {
-      if (!hotelFields.hotelName || hotelFields.hotelName.length < 3) {
-        setHotelSearchResults([]);
-        return;
-      }
 
-      try {
-        const res = await fetch(
-          `/api/tripadvisor/search?query=${encodeURIComponent(hotelFields.hotelName)}`,
-        );
-        const data = await res.json();
+useEffect(() => {
+  const handler = setTimeout(async () => {
+    if (!hotelFields.hotelName || hotelFields.hotelName.length < 2) {
+      setHotelSearchResults([]);
+      setShowHotelSuggestions(false);
+      return;
+    }
 
-        setHotelSearchResults(data?.data || []);
-        setShowHotelSuggestions(true);
-      } catch (err) {
-        console.error("Search error:", err);
-      }
-    }, 400); // debounce
+    try {
+      const { getDocs, collection } = await import("firebase/firestore");
+      const { db } = await import("@/firebase/config");
 
-    return () => clearTimeout(handler);
-  }, [hotelFields.hotelName]);
+      const searchTerm = hotelFields.hotelName.toLowerCase();
+      const snap = await getDocs(collection(db, "hotels"));
+
+      const matches = [];
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        const hotelName = (data.name || "").toLowerCase();
+        if (hotelName.includes(searchTerm)) {
+          matches.push({
+            name: data.name || "",
+            city: data.city || "",
+            state: data.state || "",
+            address: data.address || "",   
+            phone: data.phone || "",      
+          });
+        }
+      });
+
+      setHotelSearchResults(matches.slice(0, 8));
+      setShowHotelSuggestions(matches.length > 0);
+    } catch (err) {
+      console.error("Hotel DB search error:", err);
+    }
+  }, 300);
+
+  return () => clearTimeout(handler);
+}, [hotelFields.hotelName]);
 
   /* ── Quotation search autocomplete ───────────────────────────────────── */
   useEffect(() => {
@@ -250,34 +268,21 @@ const CreateHotelVoucherPage = () => {
       contact: q.customerMobile || prev.contact,
     }));
   };
-  const handleSelectHotelSuggestion = async (hotel) => {
-    try {
-      setHotelFields((prev) => ({
-        ...prev,
-        hotelName: hotel.name,
-      }));
+const handleSelectHotelSuggestion = (hotel) => {
+  setHotelFields((prev) => ({
+    ...prev,
+    hotelName: hotel.name,
+  }));
 
-      setShowHotelSuggestions(false);
+  setShowHotelSuggestions(false);
 
-      // fetch details
-      const res = await fetch(
-        `/api/tripadvisor/details?locationId=${hotel.location_id}`,
-      );
-      const details = await res.json();
 
-      const d = details;
-
-      setForm((prev) => ({
-        ...prev,
-        address: d.address_obj
-          ? `${d.address_obj.street1 || ""}, ${d.address_obj.city || ""}, ${d.address_obj.country || ""}`
-          : prev.address,
-        phone: d.phone || prev.phone,
-      }));
-    } catch (err) {
-      console.error("Details fetch error:", err);
-    }
-  };
+  setForm((prev) => ({
+    ...prev,
+    address: hotel.address || "", 
+    phone: hotel.phone || prev.phone,
+  }));
+};
 
   const applyHotel = (h) => {
     setHotelFields({
@@ -548,25 +553,31 @@ const CreateHotelVoucherPage = () => {
                   hotelSearchResults.length > 0 && setShowHotelSuggestions(true)
                 }
               />
-
-              {showHotelSuggestions && hotelSearchResults.length > 0 && (
-                <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
-                  {hotelSearchResults.map((h) => (
-                    <div
-                      key={h.location_id}
-                      className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0"
-                      onMouseDown={() => handleSelectHotelSuggestion(h)}
-                    >
-                      <p className="text-sm font-medium text-slate-800">
-                        {h.name}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {h.address_obj?.city}, {h.address_obj?.country}
-                      </p>
+            
+            
+            {  showHotelSuggestions && hotelSearchResults.length > 0 && (
+              <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
+                {hotelSearchResults.map((h, idx) => (
+                  <div
+                    key={idx}
+                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0 flex items-start gap-3"
+                    onMouseDown={() => handleSelectHotelSuggestion(h)}
+                  >
+                    <div className="bg-theme-muted rounded-xl p-1.5 mt-0.5">
+                      <Hotel className="h-3.5 w-3.5 text-theme-primary" />
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{h.name}</p>
+                      {(h.city || h.state) && (
+                        <p className="text-xs text-slate-400">
+                          {[h.city, h.state].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             </div>
             <div className="space-y-1.5">
               <Label>Check-in Date</Label>
