@@ -27,12 +27,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import {
   MapPin,
@@ -47,8 +42,8 @@ import {
   ClipboardList,
 } from "lucide-react";
 
-import { Button }   from "@/components/ui/button";
-import { Badge }    from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import ItineraryEditor from "./ItineraryEditor";
@@ -66,11 +61,15 @@ const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 function TemplateSummaryCard({ template, onSelect, isSelected }) {
   const [expanded, setExpanded] = useState(false);
 
-  const dayCount          = template.days?.length ?? 0;
-  const nightCount        = dayCount > 0 ? dayCount - 1 : 0;
-  const inclusionCount    = template.inclusions?.filter((i) => i.selected).length ?? 0;
-  const exclusionCount    = template.exclusions?.filter((i) => i.selected).length ?? 0;
-  const previewDays       = expanded ? template.days : (template.days || []).slice(0, 2);
+  const dayCount = template.days?.length ?? 0;
+  const nightCount = dayCount > 0 ? dayCount - 1 : 0;
+  const inclusionCount =
+    template.inclusions?.filter((i) => i.selected).length ?? 0;
+  const exclusionCount =
+    template.exclusions?.filter((i) => i.selected).length ?? 0;
+  const previewDays = expanded
+    ? template.days
+    : (template.days || []).slice(0, 2);
 
   return (
     <div
@@ -119,12 +118,8 @@ function TemplateSummaryCard({ template, onSelect, isSelected }) {
           <span className="flex items-center gap-0.5">
             🌙 {nightCount}N / {dayCount}D
           </span>
-          {inclusionCount > 0 && (
-            <span>✅ {inclusionCount} inclusions</span>
-          )}
-          {exclusionCount > 0 && (
-            <span>❌ {exclusionCount} exclusions</span>
-          )}
+          {inclusionCount > 0 && <span>✅ {inclusionCount} inclusions</span>}
+          {exclusionCount > 0 && <span>❌ {exclusionCount} exclusions</span>}
         </div>
 
         {/* Day preview */}
@@ -138,7 +133,9 @@ function TemplateSummaryCard({ template, onSelect, isSelected }) {
                 <span className="font-bold text-blue-600 flex-shrink-0 w-10">
                   Day {day.dayNumber}
                 </span>
-                <span className="text-slate-600 line-clamp-1">{day.title || "—"}</span>
+                <span className="text-slate-600 line-clamp-1">
+                  {day.title || "—"}
+                </span>
               </div>
             ))}
             {(template.days || []).length > 2 && (
@@ -148,9 +145,14 @@ function TemplateSummaryCard({ template, onSelect, isSelected }) {
                 className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700"
               >
                 {expanded ? (
-                  <><ChevronUp className="w-3 h-3" /> Show less</>
+                  <>
+                    <ChevronUp className="w-3 h-3" /> Show less
+                  </>
                 ) : (
-                  <><ChevronDown className="w-3 h-3" /> +{(template.days || []).length - 2} more days</>
+                  <>
+                    <ChevronDown className="w-3 h-3" /> +
+                    {(template.days || []).length - 2} more days
+                  </>
                 )}
               </button>
             )}
@@ -187,35 +189,47 @@ function TemplateSummaryCard({ template, onSelect, isSelected }) {
 // MAIN: ItinerarySection
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ItinerarySection({
-  hotelEntries  = [],
+  hotelEntries = [],
   selectedState = "",
   onChange,
+  itineraryData,
+  setItineraryData,
 }) {
   // ── Derive cities from hotel entries ─────────────────────────────────────
   const cities = useMemo(
     () => [...new Set(hotelEntries.map((e) => e.city).filter(Boolean))],
-    [hotelEntries]
+    [hotelEntries],
   );
 
   // ── Component state ───────────────────────────────────────────────────────
-  const [phase, setPhase]                     = useState("idle");
+  const [phase, setPhase] = useState("idle");
   // idle | loading | picker | editor | done
 
-  const [templates, setTemplates]             = useState([]);
-  const [fetchError, setFetchError]           = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [fetchError, setFetchError] = useState(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
-  const [editorOpen, setEditorOpen]           = useState(false);
-  const [itineraryData, setItineraryData]     = useState(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  // const [itineraryData, setItineraryData]     = useState(null);
 
   // Activities for the editor (state-scoped, read-only from Firestore)
   const [availableActivities, setAvailableActivities] = useState([]);
 
   // Track last-fetched city set so we don't re-query on unrelated re-renders
   const lastCitiesRef = useRef("");
-
+  useEffect(() => {
+    if (itineraryData) {
+      setEditorOpen(true);
+      setPhase("editor");
+    }
+  }, [itineraryData]);
+  useEffect(() => {
+  console.log("Itinerary Loaded:", itineraryData);
+}, [itineraryData]);
   // ── Fetch templates whenever cities change ─────────────────────────────
   useEffect(() => {
     const key = cities.slice().sort().join("|");
+    if (itineraryData) return; // 🚀 ADD THIS LINE
+
     if (key === lastCitiesRef.current || cities.length === 0) return;
     lastCitiesRef.current = key;
 
@@ -231,14 +245,14 @@ export default function ItinerarySection({
               query(
                 collection(db, "itinerary_templates"),
                 where("cities", "array-contains", city),
-                where("status", "==", "Published")
-              )
-            )
-          )
+                where("status", "==", "Published"),
+              ),
+            ),
+          ),
         );
 
         // Deduplicate by doc id
-        const seen  = new Set();
+        const seen = new Set();
         const found = [];
         for (const snap of snapshots) {
           for (const d of snap.docs) {
@@ -259,7 +273,9 @@ export default function ItinerarySection({
         }
       } catch (err) {
         console.error("ItinerarySection fetch error:", err);
-        setFetchError("Could not load itinerary templates. You can still create one below.");
+        setFetchError(
+          "Could not load itinerary templates. You can still create one below.",
+        );
         setPhase("editor");
         setEditorOpen(true);
       }
@@ -272,10 +288,12 @@ export default function ItinerarySection({
   useEffect(() => {
     if (!selectedState) return;
     getDocs(
-      query(collection(db, "activities"), where("state", "==", selectedState))
+      query(collection(db, "activities"), where("state", "==", selectedState)),
     )
       .then((snap) =>
-        setAvailableActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        setAvailableActivities(
+          snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        ),
       )
       .catch(console.error);
   }, [selectedState]);
@@ -290,7 +308,7 @@ export default function ItinerarySection({
     const cloned = deepClone(template);
     setSelectedTemplateId(template.id);
     setItineraryData(cloned);
-    setEditorOpen(true);          // always open editor on select
+    setEditorOpen(true); // always open editor on select
     setPhase("editor");
   };
 
@@ -322,7 +340,6 @@ export default function ItinerarySection({
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-
       {/* Section header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -375,12 +392,15 @@ export default function ItinerarySection({
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-xs uppercase tracking-widest text-slate-500 font-semibold flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5" />
-              {templates.length} template{templates.length > 1 ? "s" : ""} available for {cities.join(" / ")}
+              {templates.length} template{templates.length > 1 ? "s" : ""}{" "}
+              available for {cities.join(" / ")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
             <p className="text-xs text-slate-500">
-              Select a template to pre-fill the itinerary. You can customise every detail after selecting — nothing in the original template will be changed.
+              Select a template to pre-fill the itinerary. You can customise
+              every detail after selecting — nothing in the original template
+              will be changed.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -449,13 +469,14 @@ export default function ItinerarySection({
             </div>
             {selectedTemplateId && (
               <p className="text-[11px] text-blue-500 mt-1">
-                Changes here only affect this quotation — the original template is unchanged.
+                Changes here only affect this quotation — the original template
+                is unchanged.
               </p>
             )}
           </CardHeader>
           <CardContent className="p-4">
             <ItineraryEditor
-              key={selectedTemplateId ?? "custom"}   /* remount when switching templates */
+              key={JSON.stringify(itineraryData)?.slice(0, 50)}
               initialData={itineraryData}
               onChange={handleEditorChange}
               onCancel={handleDiscard}
