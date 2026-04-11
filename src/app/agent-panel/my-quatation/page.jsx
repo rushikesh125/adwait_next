@@ -25,11 +25,16 @@ import {
 
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
-import { copyPackageSummary } from "@/lib/copyPackageSummary";
+import {
+  copyPackageSummary,
+  sharePackageSummaryOnWhatsApp,
+} from "@/lib/copyPackageSummary";
 import { normaliseQuotation } from "@/lib/quotationAdapter";
 import { setEditingQuotation } from "@/store/packageSlice";
 import { useDispatch } from "react-redux";
 import QuotationPreviewModal from "./QuotationPreviewModal";
+import { db } from "@/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -183,6 +188,45 @@ const MyQuotations = () => {
     });
   };
 
+  const handleShareOnWhatsApp = async (quotation) => {
+    let guestPhone = quotation?.customerMobile || quotation?.mobile || "";
+
+    if (!guestPhone && quotation?.leadId) {
+      try {
+        const leadSnap = await getDoc(doc(db, "leads", quotation.leadId));
+        if (leadSnap.exists()) {
+          guestPhone = leadSnap.data()?.mobile || "";
+        }
+      } catch (error) {
+        console.error("Failed to fetch lead phone for WhatsApp share:", error);
+      }
+    }
+
+    if (!guestPhone && quotation?.customerId) {
+      try {
+        const customerSnap = await getDoc(
+          doc(db, "customers", quotation.customerId),
+        );
+        if (customerSnap.exists()) {
+          guestPhone = customerSnap.data()?.mobile || "";
+        }
+      } catch (error) {
+        console.error(
+          "Failed to fetch customer phone for WhatsApp share:",
+          error,
+        );
+      }
+    }
+
+    sharePackageSummaryOnWhatsApp(
+      {
+        ...normaliseQuotation(quotation),
+        hotels: state.allHotels,
+      },
+      guestPhone,
+    );
+  };
+
   if (state.loading)
     return <p className="p-8 text-center">Authenticating...</p>;
   if (state.isFetchingQuotations)
@@ -283,6 +327,7 @@ const MyQuotations = () => {
         handleDeleteQuotation={state.handleDeleteQuotation}
         handleQuotationStatusChange={state.handleQuotationStatusChange}
         handleCopyToClipboard={handleCopyToClipboard}
+        handleShareOnWhatsApp={handleShareOnWhatsApp}
         handleGenerateVoucher={handleGenerateVoucher}
         currentPage={currentPage}
         onNextPage={onNextPage}

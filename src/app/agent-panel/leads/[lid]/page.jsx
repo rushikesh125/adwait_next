@@ -14,6 +14,7 @@ import {
   FileText,
   Pencil,
   MessageSquare,
+  MessageCircle,
   Send,
   Clock,
   Loader2,
@@ -66,6 +67,10 @@ import { setEditingQuotation } from "@/store/packageSlice";
 // ── Use the new preview modal instead of QuotationModals ──────────────────────
 import QuotationPreviewModal from "@/app/agent-panel/my-quatation/QuotationPreviewModal";
 import { deleteQuotation } from "@/firebase/quotations";
+import {
+  sharePackageSummaryOnWhatsApp,
+} from "@/lib/copyPackageSummary";
+import { normaliseQuotation } from "@/lib/quotationAdapter";
 
 export default function LeadProfilePage({ params }) {
   const { lid } = use(params);
@@ -222,6 +227,16 @@ export default function LeadProfilePage({ params }) {
       console.error(error);
       toast.error("Failed to delete quotation");
     }
+  };
+
+  const handleShareQuotationOnWhatsApp = (quote) => {
+    sharePackageSummaryOnWhatsApp(
+      {
+        ...normaliseQuotation(quote),
+        hotels: [],
+      },
+      lead?.mobile || quote?.customerMobile || quote?.mobile || "",
+    );
   };
   if (loading)
     return (
@@ -504,6 +519,21 @@ export default function LeadProfilePage({ params }) {
                       <TooltipProvider>
                         <div className="flex items-center gap-1">
                           {/* View — opens QuotationPreviewModal */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="rounded-lg hover:bg-green-500 cursor-pointer hover:text-white text-green-600"
+                                onClick={() => handleShareQuotationOnWhatsApp(quote)}
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Share on WhatsApp
+                            </TooltipContent>
+                          </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button

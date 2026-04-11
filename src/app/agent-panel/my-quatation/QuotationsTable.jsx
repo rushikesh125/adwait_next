@@ -56,6 +56,7 @@ import {
   ArrowDown,
   PackagePlus,
   ClipboardCopy,
+  MessageCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
@@ -104,6 +105,7 @@ const QuotationsTable = ({
   handleDownloadPDF,
   handleDeleteQuotation,
   handleCopyToClipboard,
+  handleShareOnWhatsApp,
   currentPage = 1,
   onNextPage,
   onPrevPage,
@@ -460,6 +462,15 @@ const QuotationsTable = ({
                               className="h-8 w-8"
                             >
                               <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleShareOnWhatsApp?.(q)}
+                              title="Share on WhatsApp"
+                              className="h-8 w-8 text-green-600 hover:text-green-700"
+                            >
+                              <MessageCircle className="h-4 w-4" />
                             </Button>
 
                             {isAccepted ? (
