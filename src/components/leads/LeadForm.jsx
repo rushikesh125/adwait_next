@@ -31,15 +31,58 @@ import { Textarea } from "@/components/ui/textarea";
 const selectTriggerClass =
   "h-11 w-full bg-white border-slate-200 px-3 py-2.5 text-sm leading-6 focus:ring-theme-primary";
 
+function FieldLabel({ icon: Icon, children, required = false, optional = false }) {
+  return (
+    <Label className="flex items-center gap-2 text-slate-700 font-medium">
+      {Icon ? <Icon className="h-4 w-4 text-theme-primary/60" /> : null}
+      <span>{children}</span>
+      {required ? <span className="text-red-500">*</span> : null}
+      {optional ? (
+        <span className="text-xs font-normal text-slate-400">(Optional)</span>
+      ) : null}
+    </Label>
+  );
+}
+
 export default function LeadForm({
   form,
   onChange,
   onSubmit,
   submitLabel = "Save Lead",
 }) {
+  const childCount = Math.max(0, Number(form.children || 0));
+  const childAges = Array.isArray(form.childAges) ? form.childAges : [];
+
+  const updateChildCount = (value) => {
+    const nextCount = Math.max(0, Number(value || 0));
+    const nextAges = Array.from(
+      { length: nextCount },
+      (_, index) => childAges[index] ?? "",
+    );
+
+    onChange({ target: { name: "children", value } });
+    onChange({ target: { name: "childAges", value: nextAges } });
+  };
+
+  const updateChildAge = (index, value) => {
+    const nextAges = Array.from(
+      { length: childCount },
+      (_, ageIndex) => (ageIndex === index ? value : childAges[ageIndex] ?? ""),
+    );
+
+    onChange({ target: { name: "childAges", value: nextAges } });
+  };
+
   return (
     <div className="w-full">
       <form onSubmit={onSubmit} noValidate className="space-y-8">
+        <div className="rounded-xl border border-red-100 bg-red-50/60 px-4 py-3 text-xs text-slate-600">
+          <span className="font-semibold text-slate-800">
+            Fields marked <span className="text-red-500">*</span> are required.
+          </span>{" "}
+          All other fields are optional.
+        </div>
+
         {/* --- Section 1: Basic Trip Info --- */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
@@ -51,14 +94,13 @@ export default function LeadForm({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2 relative">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <User className="h-4 w-4 text-theme-primary/60" /> Lead
-                Name{" "}
-              </Label>
+              <FieldLabel icon={User} required>
+                Lead Name
+              </FieldLabel>
               <Input
                 name="name"
                 value={form.name}
-                placeholder="Type name to see suggestions..."
+                placeholder="Enter full name"
                 onChange={onChange}
                 autoComplete="off"
                 className="h-11 border-slate-200 focus-visible:ring-theme-primary transition-all pr-10"
@@ -72,9 +114,9 @@ export default function LeadForm({
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <MapPin className="h-4 w-4 text-theme-primary/60" /> Travel To
-              </Label>
+              <FieldLabel icon={MapPin} required>
+                Travel To
+              </FieldLabel>
               <Input
                 name="destination"
                 value={form.destination}
@@ -86,10 +128,9 @@ export default function LeadForm({
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Calendar className="h-4 w-4 text-theme-primary/60" /> Travel
-                Date
-              </Label>
+              <FieldLabel icon={Calendar} required>
+                Travel Date
+              </FieldLabel>
               <Input
                 type="date"
                 name="travelDate"
@@ -101,10 +142,9 @@ export default function LeadForm({
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Clock className="h-4 w-4 text-theme-primary/60" /> Number of
-                Days
-              </Label>
+              <FieldLabel icon={Clock} required>
+                Number of Days
+              </FieldLabel>
               <Input
                 type="text"
                 name="days"
@@ -117,10 +157,9 @@ export default function LeadForm({
             </div>
             {/* Departure City */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <MapPin className="h-4 w-4 text-theme-primary/60" />
+              <FieldLabel icon={MapPin} required>
                 Departure City
-              </Label>
+              </FieldLabel>
               <Input
                 name="departureCity"
                 value={form.departureCity}
@@ -132,10 +171,9 @@ export default function LeadForm({
             </div>
             {/* Type of Trip */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Users className="h-4 w-4 text-theme-primary/60" />
+              <FieldLabel icon={Users} required>
                 Type of Trip
-              </Label>
+              </FieldLabel>
               <Select
                 value={form.tripType}
                 onValueChange={(value) =>
@@ -180,9 +218,9 @@ export default function LeadForm({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Users className="h-4 w-4 text-theme-primary/60" /> Adults
-              </Label>
+              <FieldLabel icon={Users} required>
+                Adults
+              </FieldLabel>
               <Input
                 type="number"
                 name="adults"
@@ -195,24 +233,52 @@ export default function LeadForm({
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Users className="h-4 w-4 text-theme-primary/60" /> Children
-              </Label>
+              <FieldLabel icon={Users} optional>
+                Children
+              </FieldLabel>
               <Input
                 type="number"
                 name="children"
                 value={form.children}
                 placeholder="Number of children"
-                onChange={onChange}
+                onChange={(e) => updateChildCount(e.target.value)}
                 className="h-11 border-slate-200 focus-visible:ring-theme-primary"
               />
             </div>
 
+            {childCount > 0 && (
+              <div className="space-y-3 md:col-span-2">
+                <FieldLabel icon={Coffee} required>
+                  Child Ages
+                </FieldLabel>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  {Array.from({ length: childCount }).map((_, index) => (
+                    <div key={index} className="space-y-1">
+                      <Label className="text-xs font-medium text-slate-500">
+                        Child {index + 1} Age <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={childAges[index] ?? ""}
+                        placeholder="Age"
+                        onChange={(e) => updateChildAge(index, e.target.value)}
+                        className="h-11 border-slate-200 focus-visible:ring-theme-primary"
+                        required
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Please enter the age of each child. These ages are mandatory.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Hotel className="h-4 w-4 text-theme-primary/60" /> Hotel
-                Preference
-              </Label>
+              <FieldLabel icon={Hotel} optional>
+                Hotel Preference
+              </FieldLabel>
 
               <div className="flex flex-wrap gap-4">
                 {["3 Star", "4 Star", "5 Star"].map((category) => (
@@ -234,10 +300,9 @@ export default function LeadForm({
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Utensils className="h-4 w-4 text-theme-primary/60" />
+              <FieldLabel icon={Utensils} required>
                 Meal Plan
-              </Label>
+              </FieldLabel>
 
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 text-sm">
@@ -248,7 +313,7 @@ export default function LeadForm({
                     checked={form.mealPlan === "CP"}
                     onChange={onChange}
                   />
-                  CP
+                  CP - Breakfast
                 </label>
 
                 <label className="flex items-center gap-2 text-sm">
@@ -259,7 +324,7 @@ export default function LeadForm({
                     checked={form.mealPlan === "MAP"}
                     onChange={onChange}
                   />
-                  MAP
+                  MAP - Breakfast & Dinner
                 </label>
 
                 <label className="flex items-center gap-2 text-sm">
@@ -270,15 +335,14 @@ export default function LeadForm({
                     checked={form.mealPlan === "AP"}
                     onChange={onChange}
                   />
-                  AP
+                  AP - Breakfast, Lunch & Dinner
                 </label>
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Wallet className="h-4 w-4 text-theme-primary/60" /> Budget
-                (approx)
-              </Label>
+              <FieldLabel icon={Wallet} optional>
+                Budget (approx)
+              </FieldLabel>
               <Input
                 type="number"
                 name="budget"
@@ -290,10 +354,9 @@ export default function LeadForm({
             </div>
             {/* No of Rooms Required */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Hotel className="h-4 w-4 text-theme-primary/60" />
+              <FieldLabel icon={Hotel} required>
                 No. of Rooms Required
-              </Label>
+              </FieldLabel>
               <Input
                 type="number"
                 name="rooms"
@@ -301,15 +364,15 @@ export default function LeadForm({
                 placeholder="Number of rooms"
                 onChange={onChange}
                 className="h-11 border-slate-200 focus-visible:ring-theme-primary"
+                required
               />
             </div>
 
             {/* Vehicle for Sightseeing */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Plane className="h-4 w-4 text-theme-primary/60" />
+              <FieldLabel icon={Plane} optional>
                 Vehicle for Sightseeing
-              </Label>
+              </FieldLabel>
 
               <Select
                 value={form.sightseeingVehicle}
@@ -345,10 +408,9 @@ export default function LeadForm({
 
             {/* Need Help With Ticket Booking */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-slate-700 font-medium">
-                <Send className="h-4 w-4 text-theme-primary/60" />
+              <FieldLabel icon={Send} optional>
                 Need Help With Tickets Booking?
-              </Label>
+              </FieldLabel>
 
               <div className="flex flex-wrap gap-4">
                 {["Flight", "Train", "Bus", "Not Required"].map((item) => (
@@ -379,10 +441,9 @@ export default function LeadForm({
 
         {/* --- Section 3: Notes --- */}
         <div className="space-y-2">
-          <Label className="flex items-center gap-2 text-slate-700 font-medium">
-            <FileText className="h-4 w-4 text-theme-primary/60" /> Additional
-            Requirements
-          </Label>
+          <FieldLabel icon={FileText} optional>
+            Additional Requirements
+          </FieldLabel>
           <Textarea
             name="notes"
             value={form.notes}

@@ -524,7 +524,11 @@ export default function LeadsPage() {
                   nameInputRef={nameInputRef}
                   onChange={(e) => {
                     if (e.target.name === "name") handleNameChange(e);
-                    else setForm({ ...form, [e.target.name]: e.target.value });
+                    else
+                      setForm((prev) => ({
+                        ...prev,
+                        [e.target.name]: e.target.value,
+                      }));
                   }}
                   onSubmit={handleSubmit}
                 />
