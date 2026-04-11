@@ -5,7 +5,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/firebase/config";
 import { useDispatch } from "react-redux";
 import { doc, getDoc } from "firebase/firestore";
-import { clearUser, setUser } from "@/store/authSlice";
+import { clearUser, setUser, setInitialized } from "@/store/authSlice";
 
 const AuthSetup = () => {
   const dispatch = useDispatch();
@@ -49,7 +49,10 @@ const AuthSetup = () => {
             ...userData,
             uid: currentUser.uid,
             role,
-            providerIds: currentUser.providerData?.map((provider) => provider.providerId) || [],
+            providerIds:
+              currentUser.providerData?.map(
+                (provider) => provider.providerId,
+              ) || [],
             emailVerified: currentUser.emailVerified,
           };
           dispatch(setUser(finalUser));
@@ -61,11 +64,12 @@ const AuthSetup = () => {
         // No user authenticated
         dispatch(clearUser());
       }
+      // ✅ VERY IMPORTANT
+      dispatch(setInitialized());
     });
 
     return () => unsubscribe();
   }, [dispatch]);
-
 };
 
 export default AuthSetup;

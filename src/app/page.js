@@ -22,7 +22,7 @@ export default function Home() {
       toast.error("Wait for Admin Approval")
       router.push("/login")
     }
-  }, [user]);
+  }, [user,initialized]);
   if (loading) {
     return <Loading />;
   }
