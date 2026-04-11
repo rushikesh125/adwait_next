@@ -202,7 +202,7 @@ export default function AgentDashboard() {
               <Ticket size={20} />
             </div>
             <h1 className="app-section-title uppercase tracking-tight">
-              Agent Panel
+              Railway Booking Forms
             </h1>
           </div>
           <Link href="./bookingform/create">

@@ -64,7 +64,7 @@ const AgentPanelLayout = ({ children }) => {
   const navItems = [
     { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
     { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
-    { name: "My Qutations", href: "/agent-panel/my-quatation", icon: Map },
+    { name: "My Quotations", href: "/agent-panel/my-quatation", icon: Map },
     { name: "Customers", href: "/agent-panel/customers", icon: Users },
     { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
     { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon},
