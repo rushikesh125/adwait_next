@@ -13,6 +13,7 @@ import {
   addDoc,
 } from "firebase/firestore";
 import { useSelector } from "react-redux";
+import { updateQuotation } from "@/firebase/quotations";
 
 export function useQuotationState() {
   // `loading` here is the auth loading state — managed automatically by Redux/auth slice.
@@ -828,15 +829,7 @@ const handleTransportSummaryChange = (field, value) => {
     }
 
     try {
-      const ref = doc(
-        db,
-        "saved_packages_by_agents",
-        agentId,
-        "packages",
-        quotationId,
-      );
-
-      await updateDoc(ref, { status: nextStatus });
+      await updateQuotation(agentId, quotationId, { status: nextStatus });
 
       setQuotations((prev) =>
         prev.map((quotation) =>

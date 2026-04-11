@@ -14,6 +14,7 @@ getDoc,
   addDoc,
 } from "firebase/firestore";
 import { db } from "./config";
+import { updateLeadStatus } from "./leadsService";
 
 /* ──────────────────────────────────────────────
    QUOTATIONS CRUD
@@ -73,7 +74,60 @@ export async function updateQuotation(agentId, quotationId, data) {
     quotationId
   );
 
-  await updateDoc(ref, data);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const quotation = snap.data();
+    const leadId = quotation.leadId;
+
+    // Update the quotation first
+    await updateDoc(ref, data);
+
+    // Check if status is being set to Accepted
+    if (data.status === "Accepted" && leadId) {
+      await updateLeadStatus(leadId, "Closed Won");
+    }
+
+    // After update, check if status is being set to Sent
+    if (data.status === "Sent" && leadId) {
+      // Get the lead to find its agent
+      const leadRef = doc(db, "leads", leadId);
+      const leadSnap = await getDoc(leadRef);
+      
+      if (leadSnap.exists()) {
+        const leadData = leadSnap.data();
+        const leadAgentId = leadData.agentId;
+        
+        if (leadAgentId) {
+          // Query quotations only from this specific agent
+          const packagesRef = collection(db, "saved_packages_by_agents", leadAgentId, "packages");
+          const q = query(packagesRef, where("leadId", "==", leadId));
+          const packageSnap = await getDocs(q);
+          const leadQuotations = packageSnap.docs.map(doc => ({
+            id: doc.id,
+            agentId: leadAgentId,
+            ...doc.data()
+          }));
+          
+          if (leadQuotations.length > 0) {
+            // Sort by createdAt descending to find the absolute latest quotation
+            const sortedByDate = leadQuotations.sort(
+              (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+            );
+
+            const latestQuotationId = sortedByDate[0].id;
+
+            // Check if current quotation is the latest (regardless of status)
+            if (latestQuotationId === quotationId) {
+              await updateLeadStatus(leadId, "Quotation Sent");
+            }
+          }
+        }
+      }
+    }
+  } else {
+    // If quotation doesn't exist yet, just update it normally
+    await updateDoc(ref, data);
+  }
 }
 
 /**
