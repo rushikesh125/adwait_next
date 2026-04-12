@@ -14,6 +14,7 @@ import {
   FileText,
   Pencil,
   MessageSquare,
+  MessageCircle,
   Send,
   Clock,
   Loader2,
@@ -31,6 +32,7 @@ import {
   Tag,
   User,
   Star,
+  Hash,
 } from "lucide-react";
 import LeadForm from "@/components/leads/LeadForm";
 import {
@@ -66,6 +68,10 @@ import { setEditingQuotation } from "@/store/packageSlice";
 // ── Use the new preview modal instead of QuotationModals ──────────────────────
 import QuotationPreviewModal from "@/app/agent-panel/my-quatation/QuotationPreviewModal";
 import { deleteQuotation } from "@/firebase/quotations";
+import {
+  sharePackageSummaryOnWhatsApp,
+} from "@/lib/copyPackageSummary";
+import { normaliseQuotation } from "@/lib/quotationAdapter";
 
 export default function LeadProfilePage({ params }) {
   const { lid } = use(params);
@@ -106,6 +112,7 @@ export default function LeadProfilePage({ params }) {
       departureCity: lead.departureCity || "",
       tripType: lead.tripType || "",
       rooms: lead.rooms || "",
+      childAges: Array.isArray(lead.childAges) ? lead.childAges : [],
       sightseeingVehicle: lead.sightseeingVehicle || "",
       ticketHelp: lead.ticketHelp || [],
     });
@@ -223,6 +230,16 @@ export default function LeadProfilePage({ params }) {
       toast.error("Failed to delete quotation");
     }
   };
+
+  const handleShareQuotationOnWhatsApp = (quote) => {
+    sharePackageSummaryOnWhatsApp(
+      {
+        ...normaliseQuotation(quote),
+        hotels: [],
+      },
+      lead?.mobile || quote?.customerMobile || quote?.mobile || "",
+    );
+  };
   if (loading)
     return (
       <div className="h-screen flex items-center justify-center">
@@ -250,7 +267,7 @@ export default function LeadProfilePage({ params }) {
               <h1 className="text-2xl font-bold text-slate-900 capitalize">
                 {lead?.name}
               </h1>
-              <div className="flex items-center gap-4 pb-4 flex-nowrap">
+              <div className="mt-2 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Status:
@@ -269,6 +286,22 @@ export default function LeadProfilePage({ params }) {
                     {formatDate(lead?.createdAt)}
                   </p>
                 </div>
+                {lead?.mobile && (
+                  <div className="flex items-center gap-1">
+                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                    <p className="text-sm font-semibold text-slate-700">
+                      {lead.mobile}
+                    </p>
+                  </div>
+                )}
+                {lead?.email && (
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Mail className="h-3.5 w-3.5 text-slate-400" />
+                    <p className="max-w-[260px] truncate text-sm font-semibold text-slate-700">
+                      {lead.email}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -304,8 +337,23 @@ export default function LeadProfilePage({ params }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {[
+                    {
+                      icon: User,
+                      label: "Lead Name",
+                      value: lead?.name || "-",
+                    },
+                    {
+                      icon: Phone,
+                      label: "Mobile",
+                      value: lead?.mobile || "-",
+                    },
+                    {
+                      icon: Mail,
+                      label: "Email",
+                      value: lead?.email || "-",
+                    },
                     {
                       icon: MapPin,
                       label: "Destination",
@@ -342,9 +390,24 @@ export default function LeadProfilePage({ params }) {
                       value: lead?.children ?? "0",
                     },
                     {
+                      icon: Hash,
+                      label: "Child Ages",
+                      value:
+                        Array.isArray(lead?.childAges) && lead.childAges.length > 0
+                          ? lead.childAges.join(", ")
+                          : lead?.children
+                            ? "-"
+                            : "N/A",
+                    },
+                    {
                       icon: Hotel,
                       label: "Hotel Preference",
                       value: lead?.hotelPreference || "-",
+                    },
+                    {
+                      icon: Tag,
+                      label: "Meal Plan",
+                      value: lead?.mealPlan || "-",
                     },
                     {
                       icon: Hotel,
@@ -368,23 +431,25 @@ export default function LeadProfilePage({ params }) {
                   ].map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between group"
+                      className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 transition-colors group hover:border-slate-200"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-slate-50 text-slate-400 group-hover:text-theme-primary transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-white text-slate-400 shadow-sm group-hover:text-theme-primary transition-colors">
                           <item.icon className="h-4 w-4" />
                         </div>
-                        <span className="text-xs font-semibold text-slate-500">
-                          {item.label}
-                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            {item.label}
+                          </p>
+                          <p className="mt-1 break-words text-sm font-bold text-slate-700">
+                            {item.value}
+                          </p>
+                        </div>
                       </div>
-                      <span className="text-sm font-bold text-slate-700">
-                        {item.value}
-                      </span>
                     </div>
                   ))}
                   {lead?.notes && (
-                    <div className="pt-4 border-t">
+                    <div className="sm:col-span-2 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
                       <p className="text-xs font-semibold text-slate-500 mb-1">
                         Additional Requirements
                       </p>
@@ -504,6 +569,21 @@ export default function LeadProfilePage({ params }) {
                       <TooltipProvider>
                         <div className="flex items-center gap-1">
                           {/* View — opens QuotationPreviewModal */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="rounded-lg hover:bg-green-500 cursor-pointer hover:text-white text-green-600"
+                                onClick={() => handleShareQuotationOnWhatsApp(quote)}
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Share on WhatsApp
+                            </TooltipContent>
+                          </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button

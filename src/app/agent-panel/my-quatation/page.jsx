@@ -26,11 +26,16 @@ import {
 
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
-import { copyPackageSummary } from "@/lib/copyPackageSummary";
+import {
+  copyPackageSummary,
+  sharePackageSummaryOnWhatsApp,
+} from "@/lib/copyPackageSummary";
 import { normaliseQuotation } from "@/lib/quotationAdapter";
 import { setEditingQuotation } from "@/store/packageSlice";
 import { useDispatch } from "react-redux";
 import QuotationPreviewModal from "./QuotationPreviewModal";
+import { db } from "@/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -179,6 +184,45 @@ const MyQuotations = () => {
     });
   };
 
+  const handleShareOnWhatsApp = async (quotation) => {
+    let guestPhone = quotation?.customerMobile || quotation?.mobile || "";
+
+    if (!guestPhone && quotation?.leadId) {
+      try {
+        const leadSnap = await getDoc(doc(db, "leads", quotation.leadId));
+        if (leadSnap.exists()) {
+          guestPhone = leadSnap.data()?.mobile || "";
+        }
+      } catch (error) {
+        console.error("Failed to fetch lead phone for WhatsApp share:", error);
+      }
+    }
+
+    if (!guestPhone && quotation?.customerId) {
+      try {
+        const customerSnap = await getDoc(
+          doc(db, "customers", quotation.customerId),
+        );
+        if (customerSnap.exists()) {
+          guestPhone = customerSnap.data()?.mobile || "";
+        }
+      } catch (error) {
+        console.error(
+          "Failed to fetch customer phone for WhatsApp share:",
+          error,
+        );
+      }
+    }
+
+    sharePackageSummaryOnWhatsApp(
+      {
+        ...normaliseQuotation(quotation),
+        hotels: state.allHotels,
+      },
+      guestPhone,
+    );
+  };
+
   if (state.loading)
     return <p className="p-8 text-center text-slate-500">Authenticating...</p>;
   if (state.isFetchingQuotations)
@@ -264,58 +308,37 @@ const MyQuotations = () => {
           </div>
         </div>
       </div>
-
-      {/* ✅ NEW: Conditional Rendering for Empty State vs Table */}
-      {state.quotations.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl shadow-sm border border-slate-200 mt-8">
-          <div className="bg-blue-50 p-4 rounded-full mb-4">
-            <PackagePlus className="h-12 w-12 text-blue-500" />
-          </div>
-          <h3 className="text-xl font-semibold text-slate-900">No Quotations Found</h3>
-          <p className="text-slate-500 mt-2 mb-6 text-center max-w-md">
-            It looks like you haven't created any quotations yet. Get started by creating a new package for your clients!
-          </p>
-          <Button 
-            onClick={() => router.push('/agent-panel/my-quatation/create')} 
-            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Plus className="w-4 h-4" />
-            Create New Quotation
-          </Button>
-        </div>
-      ) : (
-        <QuotationsTable
-          filteredQuotations={paginatedQuotations}
-          searchTerm={state.searchTerm}
-          setSearchTerm={state.setSearchTerm}
-          filterDestination={state.filterDestination}
-          setFilterDestination={state.setFilterDestination}
-          startDate={state.startDate}
-          setStartDate={state.setStartDate}
-          endDate={state.endDate}
-          setEndDate={state.setEndDate}
-          getDestinationOfpkg={state.getDestinationOfpkg}
-          handleViewClick={handleViewClick}
-          handleEditClick={state.handleEditClick}
-          handleDownloadPDF={handleDownloadPDF}
-          handleDeleteQuotation={state.handleDeleteQuotation}
-          handleQuotationStatusChange={state.handleQuotationStatusChange}
-          handleCopyToClipboard={handleCopyToClipboard}
-          handleGenerateVoucher={handleGenerateVoucher}
-          currentPage={currentPage}
-          onNextPage={onNextPage}
-          onPrevPage={onPrevPage}
-          hasNextPage={currentPage < totalPages}
-          hasPrevPage={currentPage > 1}
-          isFetching={state.isFetchingQuotations}
-          pageSize={pageSize}
-          setPageSize={setPageSize}
-          totalItems={sortedQuotations.length}
-          handleEditRedirect={handleEditRedirect}
-        />
-      )}
-
-      {/* ── Hotel Voucher Drawer ── */}
+      <QuotationsTable
+        filteredQuotations={paginatedQuotations}
+        searchTerm={state.searchTerm}
+        setSearchTerm={state.setSearchTerm}
+        filterDestination={state.filterDestination}
+        setFilterDestination={state.setFilterDestination}
+        startDate={state.startDate}
+        setStartDate={state.setStartDate}
+        endDate={state.endDate}
+        setEndDate={state.setEndDate}
+        getDestinationOfpkg={state.getDestinationOfpkg}
+        handleViewClick={handleViewClick}
+        handleEditClick={state.handleEditClick}
+        handleDownloadPDF={handleDownloadPDF}
+        handleDeleteQuotation={state.handleDeleteQuotation}
+        handleQuotationStatusChange={state.handleQuotationStatusChange}
+        handleCopyToClipboard={handleCopyToClipboard}
+        handleShareOnWhatsApp={handleShareOnWhatsApp}
+        handleGenerateVoucher={handleGenerateVoucher}
+        currentPage={currentPage}
+        onNextPage={onNextPage}
+        onPrevPage={onPrevPage}
+        hasNextPage={currentPage < totalPages}
+        hasPrevPage={currentPage > 1}
+        isFetching={state.isFetchingQuotations}
+        pageSize={pageSize}
+        setPageSize={setPageSize} // ✅ NEW
+        totalItems={sortedQuotations.length} // ✅ NEW
+        handleEditRedirect={handleEditRedirect}
+      />
+      {/* ── Hotel Voucher Drawer ──────────────────────────────────────────── */}
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
         onClose={() => setVoucherDrawerOpen(false)}

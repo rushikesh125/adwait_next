@@ -49,7 +49,7 @@ export const buildPackageSummary = ({
   selectedTransport,
   selectedActivities,
   grandTotal,
-  hotels,
+  hotels = [],
 }) => {
   if (!hotelEntries.length) return "Hotel details not available.";
 
@@ -138,5 +138,25 @@ export const copyPackageSummary = (params) => {
     toast.error("Copy error.");
   } finally {
     document.body.removeChild(ta);
+  }
+};
+
+const normalizeWhatsAppNumber = (value = "") => {
+  const digits = String(value).replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.length === 10 ? `91${digits}` : digits;
+};
+
+export const sharePackageSummaryOnWhatsApp = (params, guestPhone = "") => {
+  const summary = buildPackageSummary(params);
+  const phone = normalizeWhatsAppNumber(guestPhone);
+  const url = phone
+    ? `https://wa.me/${phone}?text=${encodeURIComponent(summary)}`
+    : `https://api.whatsapp.com/send?text=${encodeURIComponent(summary)}`;
+
+  window.open(url, "_blank", "noopener,noreferrer");
+
+  if (!phone) {
+    toast("Opening WhatsApp. Select the guest manually.");
   }
 };

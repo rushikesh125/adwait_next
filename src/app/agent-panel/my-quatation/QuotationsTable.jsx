@@ -56,6 +56,7 @@ import {
   ArrowDown,
   PackagePlus,
   ClipboardCopy,
+  MessageCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
@@ -104,6 +105,7 @@ const QuotationsTable = ({
   handleDownloadPDF,
   handleDeleteQuotation,
   handleCopyToClipboard,
+  handleShareOnWhatsApp,
   currentPage = 1,
   onNextPage,
   onPrevPage,
@@ -178,15 +180,7 @@ const QuotationsTable = ({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-theme-primary">
-            My Quotations
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and edit your travel quotations
-          </p>
-        </div>
+      <div className="flex justify-end mb-8">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Button
             onClick={() => router.push("/agent-panel/my-quatation/create")}
@@ -460,6 +454,15 @@ const QuotationsTable = ({
                               className="h-8 w-8"
                             >
                               <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleShareOnWhatsApp?.(q)}
+                              title="Share on WhatsApp"
+                              className="h-8 w-8 text-green-600 hover:text-green-700"
+                            >
+                              <MessageCircle className="h-4 w-4" />
                             </Button>
 
                             {isAccepted ? (

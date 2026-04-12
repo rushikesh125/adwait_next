@@ -156,6 +156,12 @@ export default function PublicEnquiryPage() {
     }
   };
 
+  const renderFieldLabel = (label, required = false) => (
+    <Label className="text-slate-700">
+      {label} {required ? <span className="text-red-500">*</span> : null}
+    </Label>
+  );
+
   if (loadingAgent) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -318,11 +324,11 @@ export default function PublicEnquiryPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6 bg-white px-6 py-6 sm:px-8">
-              <div className="grid gap-5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="mobile">Contact Number *</Label>
-                  <Input
-                    id="mobile"
+                <div className="grid gap-5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    {renderFieldLabel("Contact Number", true)}
+                    <Input
+                      id="mobile"
                     name="mobile"
                     maxLength={10}
                     value={form.mobile}
@@ -330,11 +336,11 @@ export default function PublicEnquiryPage() {
                     placeholder="10-digit mobile number"
                   />
                   {errors.mobile && <p className="text-xs text-red-600">{errors.mobile}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email ID *</Label>
-                  <Input
-                    id="email"
+                  </div>
+                  <div className="space-y-2">
+                    {renderFieldLabel("Email ID", true)}
+                    <Input
+                      id="email"
                     name="email"
                     type="email"
                     value={form.email}

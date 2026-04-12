@@ -27,6 +27,8 @@ import {
   User,
   Hash,
   Tag,
+  Eye,
+  ClipboardList,
 } from "lucide-react";
 import {
   Dialog,
@@ -70,6 +72,24 @@ export default function CustomerProfilePage({ params }) {
   // State for the Quotation Detail Modal
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const customerMetrics = [
+    {
+      label: "Active Enquiries",
+      value: customerLeads.length,
+      icon: ClipboardList,
+    },
+    {
+      label: "Package Quotations",
+      value: quotations.length,
+      icon: FileText,
+    },
+    {
+      label: "Notes",
+      value: notes.length,
+      icon: MessageSquare,
+    },
+  ];
 
   useEffect(() => {
     if (cid && user?.uid) loadData();
@@ -256,6 +276,24 @@ export default function CustomerProfilePage({ params }) {
                     </div>
                   ))}
                 </div>
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {customerMetrics.map(({ label, value, icon: Icon }) => (
+                    <div
+                      key={label}
+                      className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+                    >
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <Icon className="h-4 w-4" />
+                        <p className="text-[10px] font-bold uppercase tracking-wider">
+                          {label}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-xl font-bold text-slate-900">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
@@ -371,31 +409,50 @@ export default function CustomerProfilePage({ params }) {
                     customerLeads.map((lead) => (
                       <div
                         key={lead.id}
-                        className="flex items-center justify-between border-b border-slate-50 p-6 last:border-0"
+                        className="flex flex-col gap-4 border-b border-slate-50 p-6 last:border-0 md:flex-row md:items-center md:justify-between"
                       >
-                        <div className="space-y-1">
-                          <h4 className="font-semibold text-slate-800">
-                            {lead.destination || "Travel enquiry"}
-                          </h4>
-                          <div className="flex items-center gap-4 text-xs text-slate-400">
-                            <span>{formatDate(lead.createdAt)}</span>
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <h4 className="font-semibold text-slate-800">
+                              {lead.destination || "Travel enquiry"}
+                            </h4>
                             <StatusBadge
                               status={lead.status || "New"}
                               fallback="New"
                               className="text-[10px] px-2 py-0 h-5"
                             />
-                            {lead.tripType && <span>{lead.tripType}</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                            <span>Created: {formatDate(lead.createdAt)}</span>
+                            <span>Travel: {formatDate(lead.travelDate)}</span>
+                            <span>Duration: {lead.days ? `${lead.days} days` : "-"}</span>
+                            <span>Trip: {lead.tripType || "-"}</span>
+                            <span>Meal: {lead.mealPlan || "-"}</span>
+                            <span>Rooms: {lead.rooms || "-"}</span>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          className="rounded-xl hover:bg-theme-primary hover:text-white"
-                          onClick={() =>
-                            router.push(`/agent-panel/leads/${lead.id}`)
-                          }
-                        >
-                          View Lead <ExternalLink className="ml-2 h-4 w-4" />
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            className="rounded-xl"
+                            onClick={() =>
+                              router.push(`/agent-panel/my-quatation/create?leadId=${lead.id}`)
+                            }
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Quotation
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="rounded-xl hover:bg-theme-primary hover:text-white"
+                            onClick={() =>
+                              router.push(`/agent-panel/leads/${lead.id}`)
+                            }
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Open Lead
+                          </Button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -412,44 +469,66 @@ export default function CustomerProfilePage({ params }) {
                   </p>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {quotations.map((quote) => (
-                    <div
-                      key={quote.id}
-                      className="p-6 md:p-8 hover:bg-slate-50/50 transition-all flex items-center justify-between border-b last:border-0 border-slate-50"
-                    >
-                      <div className="flex items-center gap-6">
-                        <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-theme-primary">
-                          <FileText className="h-6 w-6" />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-slate-800 text-lg">
-                            {quote.packageName || "Custom Package"}
-                          </h4>
-                          <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />{" "}
-                              {quote.createdAt?.toDate().toLocaleDateString()}
-                            </span>
-                            <span className="flex items-center gap-1 text-slate-900 font-bold">
-                              <Wallet className="h-3 w-3" /> ₹{quote.grandTotal}
-                            </span>
-                            <StatusBadge
-                              status={quote.status || "Draft"}
-                              fallback="Draft"
-                              className="text-[10px] px-2 py-0 h-5"
-                            />
+                  {quotations.length === 0 ? (
+                    <div className="px-8 py-10 text-sm text-slate-500">
+                      No package quotations created for this customer yet.
+                    </div>
+                  ) : (
+                    quotations.map((quote) => (
+                      <div
+                        key={quote.id}
+                        className="p-6 md:p-8 hover:bg-slate-50/50 transition-all flex flex-col gap-4 border-b last:border-0 border-slate-50 md:flex-row md:items-center md:justify-between"
+                      >
+                        <div className="flex items-center gap-6">
+                          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-theme-primary">
+                            <FileText className="h-6 w-6" />
+                          </div>
+                          <div className="space-y-1">
+                            <h4 className="font-bold text-slate-800 text-lg">
+                              {quote.packageName || "Custom Package"}
+                            </h4>
+                            <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
+                              {quote.refNumber && <span>Ref: {quote.refNumber}</span>}
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />{" "}
+                                {quote.createdAt?.toDate().toLocaleDateString()}
+                              </span>
+                              <span className="flex items-center gap-1 text-slate-900 font-bold">
+                                <Wallet className="h-3 w-3" /> ₹{quote.grandTotal}
+                              </span>
+                              <StatusBadge
+                                status={quote.status || "Draft"}
+                                fallback="Draft"
+                                className="text-[10px] px-2 py-0 h-5"
+                              />
+                            </div>
                           </div>
                         </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            className="rounded-xl"
+                            onClick={() =>
+                              router.push(
+                                `/agent-panel/my-quatation/create?quotationId=${quote.id}&customerId=${cid}`,
+                              )
+                            }
+                          >
+                            <Edit3 className="mr-2 h-4 w-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="hover:bg-theme-primary hover:text-white rounded-xl"
+                            onClick={() => handleOpenDetails(quote)}
+                          >
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            View Details
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        className="hover:bg-theme-primary hover:text-white rounded-xl"
-                        onClick={() => handleOpenDetails(quote)}
-                      >
-                        View Details <ExternalLink className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </CardContent>
               </Card>
             </div>
