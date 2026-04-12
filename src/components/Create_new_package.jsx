@@ -30,7 +30,6 @@ import {
 } from "@/store/packageSlice";
 import toast from "react-hot-toast";
 
-// ── Modularised utilities (PDF + clipboard) ───────────────────────────────────
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import { copyPackageSummary } from "@/lib/copyPackageSummary";
 
@@ -79,7 +78,6 @@ import {
 import ItinerarySection from "./ItinerarySection";
 import { generateQuotationRef } from "@/firebase/quotationRef";
 
-// ── Imported components ──────────────────────────────────────────────────────
 import HotelRoomSelector from "@/components/package/HotelRoomSelector";
 import CustomHotelForm from "@/components/package/CustomHotelForm";
 import TransportSelector from "@/components/package/TransportSelector";
@@ -95,9 +93,6 @@ import {
   EMPTY_PRICING,
 } from "@/lib/utils";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ── MAIN: Create_new_package ───────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
 const Create_new_package = ({
   userData,
   checkInDate: propCheckInDate,
@@ -120,19 +115,15 @@ const Create_new_package = ({
     confirmedMarkup,
     packageName,
     customerName: reduxCustomerName,
-    editingQuotation, // ← new: from Redux
+    editingQuotation,
   } = useSelector((state) => state.package);
 
-  // ── Edit mode detection ──────────────────────────────────────────────────
   const quotationId = searchParams.get("quotationId");
   const isEditMode = !!quotationId;
-
-  // ── URL params ───────────────────────────────────────────────────────────
   const customerId =
     searchParams.get("customerId") || searchParams.get("customerid");
   const leadId = searchParams.get("leadId");
 
-  // ── Prop bindings ────────────────────────────────────────────────────────
   const checkInDate = propCheckInDate;
   const setCheckInDate = propSetCheckInDate;
   const checkOutDate = propCheckOutDate;
@@ -140,7 +131,6 @@ const Create_new_package = ({
   const saveChanges = propSaveChanges;
   const setSaveChanges = propSetSaveChanges;
 
-  // ── Local state ──────────────────────────────────────────────────────────
   const [itineraryData, setItineraryData] = useState(null);
   const [hotels, setHotels] = useState([]);
   const [states, setStates] = useState([]);
@@ -171,7 +161,6 @@ const Create_new_package = ({
   });
   const [currentHotelTotal, setCurrentHotelTotal] = useState(0);
 
-  // ── Customer name: Redux / Firestore fallbacks (unchanged) ───────────────
   useEffect(() => {
     if (reduxCustomerName && !customerName) setCustomerName(reduxCustomerName);
   }, [reduxCustomerName]);
@@ -190,22 +179,14 @@ const Create_new_package = ({
     });
   }, [leadId]);
 
-  // ── EDIT MODE: one-time hydration from Redux editingQuotation ────────────
-  // ref-guard prevents double-fire in React StrictMode
   const hydratedRef = React.useRef(false);
-
   useEffect(() => {
     if (!isEditMode || !editingQuotation || hydratedRef.current) return;
     hydratedRef.current = true;
-
     const q = editingQuotation;
-
-    // 1. Hotels
     if (q.hotelSummary?.length) {
       q.hotelSummary.forEach((h) => dispatch(addHotelEntry(h)));
     }
-
-    // 2. Transport
     if (q.transportSummary) {
       const t = q.transportSummary;
       dispatch(
@@ -221,7 +202,7 @@ const Create_new_package = ({
             isCustom: t.isCustom || false,
             driverAllowance: t.driverAllowance || 0,
           },
-        }),
+        })
       );
       setMinKm(t.minKm || 300);
       setTollCharges(t.tollCharges || 0);
@@ -229,39 +210,23 @@ const Create_new_package = ({
       setOtherCharges(t.otherCharges || 0);
       if (t.vehicleCost) setEditableBaseCost(t.vehicleCost);
     }
-
-    // 3. Activities
     if (q.activitySummary?.length) {
       const totalPrice = q.activitySummary.reduce(
         (s, a) => s + (a.totalPrice || 0),
-        0,
+        0
       );
-      dispatch(
-        setSelectedActivities({ activities: q.activitySummary, totalPrice }),
-      );
+      dispatch(setSelectedActivities({ activities: q.activitySummary, totalPrice }));
     }
-
-    // 4. Markup
     if (q.markup) dispatch(setConfirmedMarkup(q.markup));
-
-    // 5. Package name & customer
     dispatch(setPackageName(q.packageName || ""));
     setCustomerName(q.customerName || q.leadName || "");
-    // 6. Itinerary (FIX)
-    if (q.itinerarySummary) {
-      setItineraryData(q.itinerarySummary);
-    }
-    // 6. Dates from first hotel entry
+    if (q.itinerarySummary) setItineraryData(q.itinerarySummary);
     const firstHotel = q.hotelSummary?.[0];
     if (firstHotel?.checkInDate) setCheckInDate(firstHotel.checkInDate);
     if (firstHotel?.checkOutDate) setCheckOutDate(firstHotel.checkOutDate);
-
-    // 7. Clear from Redux — no longer needed
     dispatch(clearEditingQuotation());
   }, [isEditMode, editingQuotation]);
-  // ────────────────────────────────────────────────────────────────────────
 
-  // ── Static data fetch: hotels + states (unchanged) ───────────────────────
   useEffect(() => {
     getDocs(collection(db, "hotels")).then((snap) => {
       const list = snap.docs.map((d) => ({
@@ -274,17 +239,16 @@ const Create_new_package = ({
           list.map((h) => [
             `${h.name?.toLowerCase()}-${h.state?.toLowerCase()}-${h.city?.toLowerCase()}`,
             h,
-          ]),
+          ])
         ).values(),
       ];
       setHotels(unique);
     });
     getDocs(collection(db, "locations")).then((snap) =>
-      setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
   }, []);
 
-  // ── Auto-compute checkout date (unchanged) ────────────────────────────────
   useEffect(() => {
     if (!checkInDate || !nights) return;
     const d = new Date(checkInDate);
@@ -293,7 +257,6 @@ const Create_new_package = ({
     setCheckOutDate(d.toISOString().split("T")[0]);
   }, [checkInDate, nights]);
 
-  // ── Sync package context to Redux (unchanged) ─────────────────────────────
   useEffect(() => {
     dispatch(
       setPackageContext({
@@ -305,7 +268,7 @@ const Create_new_package = ({
         checkOutDate,
         packageName,
         customerName,
-      }),
+      })
     );
   }, [
     hotelEntries,
@@ -318,13 +281,12 @@ const Create_new_package = ({
     customerName,
   ]);
 
-  // ── Derived / computed values (unchanged) ─────────────────────────────────
   const filteredHotels = useMemo(
     () =>
       hotels.filter(
-        (h) => h.state?.toLowerCase() === selectedState.toLowerCase(),
+        (h) => h.state?.toLowerCase() === selectedState.toLowerCase()
       ),
-    [hotels, selectedState],
+    [hotels, selectedState]
   );
   const groupedHotels = useMemo(
     () =>
@@ -334,13 +296,13 @@ const Create_new_package = ({
         acc[c].push(h);
         return acc;
       }, {}),
-    [filteredHotels],
+    [filteredHotels]
   );
 
   const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
   const hotelTotalPrice = hotelEntries.reduce(
     (s, e) => s + Number(e.hotelTotal || 0),
-    0,
+    0
   );
 
   const transportBreakdown = useMemo(() => {
@@ -348,7 +310,7 @@ const Create_new_package = ({
     const vehicle = selectedTransport.selectedVehicle;
     const totalNights = hotelEntries.reduce(
       (sum, e) => sum + (Number(e.nights) || 0),
-      0,
+      0
     );
     const days = totalNights > 0 ? totalNights + 1 : 1;
     const perKm = Number(vehicle.perKmprice || 0);
@@ -358,9 +320,7 @@ const Create_new_package = ({
     if (perKm > 0) {
       const calculatedBaseCost = Number(minKm || 0) * perKm * days;
       const baseCost =
-        editableBaseCost !== null
-          ? Number(editableBaseCost)
-          : calculatedBaseCost;
+        editableBaseCost !== null ? Number(editableBaseCost) : calculatedBaseCost;
       const driverAllowance = allowancePerDay * days;
       const toll = Math.max(0, Number(tollCharges || 0));
       const permit = Math.max(0, Number(permitCharges || 0));
@@ -399,21 +359,11 @@ const Create_new_package = ({
 
   const transportTotalPrice = transportBreakdown?.total || 0;
   const grandTotal =
-    hotelTotalPrice +
-    transportTotalPrice +
-    activityTotalPrice +
-    confirmedMarkup;
+    hotelTotalPrice + transportTotalPrice + activityTotalPrice + confirmedMarkup;
 
-  // ── Handlers (all unchanged) ──────────────────────────────────────────────
   const handleSaveHotel = () => {
-    if (!selectedHotelData) {
-      alert("Please select a hotel.");
-      return;
-    }
-    if (!mealPlan) {
-      alert("Please select a meal plan.");
-      return;
-    }
+    if (!selectedHotelData) { alert("Please select a hotel."); return; }
+    if (!mealPlan) { alert("Please select a meal plan."); return; }
     const entry = {
       checkInDate,
       nights,
@@ -447,8 +397,7 @@ const Create_new_package = ({
     setCheckInDate(entry.checkInDate);
     setNights(entry.nights);
     setSelectedHotelId(
-      hotels.find((h) => h.name === entry.hotel && h.city === entry.city)?.id ||
-        null,
+      hotels.find((h) => h.name === entry.hotel && h.city === entry.city)?.id || null
     );
     setEditingIndex(index);
     window.scrollTo({ top: 300, behavior: "smooth" });
@@ -507,29 +456,18 @@ const Create_new_package = ({
       itineraryData,
     });
 
-  // ── SAVE: always addDoc + new ref number (create OR clone) ────────────────
   const handleSavePackage = async () => {
-    if (!packageName.trim()) {
-      alert("Please enter a package name.");
-      return;
-    }
-    if (!customerName.trim()) {
-      alert("Please enter a customer name.");
-      return;
-    }
+    if (!packageName.trim()) { alert("Please enter a package name."); return; }
+    if (!customerName.trim()) { alert("Please enter a customer name."); return; }
     try {
       const agentId = user?.uid;
       if (!agentId) throw new Error("Not logged in");
-
       const c_data = customerId
         ? { customerId, customerName }
         : leadId
-          ? { leadId, leadName: customerName }
-          : { customerName };
-
-      // Always a brand-new ref number — whether creating or cloning
+        ? { leadId, leadName: customerName }
+        : { customerName };
       const refNumber = await generateQuotationRef();
-
       await addDoc(
         collection(doc(db, "saved_packages_by_agents", agentId), "packages"),
         {
@@ -561,16 +499,10 @@ const Create_new_package = ({
               }
             : null,
           itinerarySummary: itineraryData ?? null,
-          // Audit trail: track which quotation this was cloned from
           ...(isEditMode && quotationId ? { clonedFromId: quotationId } : {}),
-        },
+        }
       );
-
-      toast(
-        isEditMode
-          ? "Saved as new quotation! ✅"
-          : "Package saved successfully! ✅",
-      );
+      toast(isEditMode ? "Saved as new quotation! ✅" : "Package saved successfully! ✅");
       router.back();
       setShowSaveModal(false);
       dispatch(setPackageName(""));
@@ -581,72 +513,69 @@ const Create_new_package = ({
   };
 
   const showRightPanel =
-    selectedActivities.length > 0 ||
-    hotelEntries.length > 0 ||
-    selectedTransport;
+    selectedActivities.length > 0 || hotelEntries.length > 0 || selectedTransport;
 
-  // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen pb-12">
       <div className="mx-auto p-0 md:px-4 lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:gap-8 xl:gap-10">
-          {/* ══ LEFT COLUMN ════════════════════════════════════════════════ */}
-          <div className="flex-1 space-y-6 lg:pr-4 pb-8 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-            {/* ── Edit mode banner ─────────────────────────────────────────── */}
+        <div className="flex flex-col lg:flex-row lg:gap-6 xl:gap-8">
+
+          {/* ══ LEFT COLUMN ══════════════════════════════════════════════════ */}
+          <div className="flex-1 space-y-4 lg:pr-2 pb-8 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+
+            {/* Edit mode banner */}
             {isEditMode && (
-              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <Info className="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-500" />
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-amber-500" />
                 <span>
-                  You're editing a copy of an existing quotation. Saving will
-                  create a{" "}
-                  <strong>new quotation with a new reference number</strong>.
-                  The original will remain unchanged.
+                  Editing a copy — saving will create a{" "}
+                  <strong>new quotation with a new reference number</strong>. The original stays unchanged.
                 </span>
               </div>
             )}
 
-            {/* 1. Date + Nights + State */}
+            {/* ── 1. Date + Nights + State — all in one compact row ── */}
             <Card className="border-slate-200 shadow-sm">
-              <CardContent className="p-3 sm:p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm flex items-center gap-1.5 font-medium">
-                      <Calendar className="h-4 w-4 text-theme-primary" />{" "}
-                      Check-in
+              <CardContent className="p-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center gap-1 font-medium">
+                      <Calendar className="h-3 w-3 text-theme-primary" /> Check-in
                     </Label>
                     <Input
                       type="date"
                       value={checkInDate}
                       min={new Date().toISOString().split("T")[0]}
                       onChange={(e) => setCheckInDate(e.target.value)}
+                      className="h-8 text-xs"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <Moon className="h-4 w-4 text-theme-primary" /> Nights
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium flex items-center gap-1">
+                      <Moon className="h-3 w-3 text-theme-primary" /> Nights
                     </Label>
                     <Input
                       type="number"
                       min={1}
                       value={nights}
                       onChange={(e) => setNights(parseInt(e.target.value) || 1)}
+                      className="h-8 text-xs"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <Sun className="h-4 w-4 text-theme-primary" /> Check-out
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium flex items-center gap-1">
+                      <Sun className="h-3 w-3 text-theme-primary" /> Check-out
                     </Label>
                     <Input
                       type="date"
                       value={checkOutDate}
                       readOnly
-                      className="bg-slate-50 cursor-not-allowed"
+                      className="h-8 text-xs bg-slate-50 cursor-not-allowed"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4 text-theme-primary" />{" "}
-                      Destination State
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium flex items-center gap-1">
+                      <MapPin className="h-3 w-3 text-theme-primary" /> State
                     </Label>
                     <Select
                       value={selectedState}
@@ -656,7 +585,7 @@ const Create_new_package = ({
                         setShowCustomHotelForm(false);
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent>
@@ -672,23 +601,23 @@ const Create_new_package = ({
               </CardContent>
             </Card>
 
-            {/* 2. Hotel Selection */}
+            {/* ── 2. Hotel Selection + Room Selector — combined card ── */}
             {selectedState && (
               <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="p-3 sm:p-5 pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Hotel className="h-5 w-5 text-theme-primary" />
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Hotel className="h-4 w-4 text-theme-primary" />
                     Hotels in{" "}
                     <span className="text-theme-primary">{selectedState}</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-5 pt-2 space-y-4">
+                <CardContent className="p-3 pt-0 space-y-3">
                   {filteredHotels.length === 0 ? (
-                    <div className="text-center py-8 space-y-3">
-                      <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
-                        <Hotel className="h-7 w-7 text-slate-400" />
+                    <div className="text-center py-6 space-y-2">
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mx-auto">
+                        <Hotel className="h-5 w-5 text-slate-400" />
                       </div>
-                      <p className="text-slate-500 text-sm">
+                      <p className="text-slate-500 text-xs">
                         No hotels found in {selectedState}.
                       </p>
                       <Button
@@ -696,71 +625,118 @@ const Create_new_package = ({
                         className="bg-theme-primary hover:bg-theme-secondary"
                         size="sm"
                       >
-                        <PenLine className="h-4 w-4 mr-2" /> Add Custom Hotel
+                        <PenLine className="h-3.5 w-3.5 mr-1.5" /> Add Custom Hotel
                       </Button>
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
-                        {Object.keys(groupedHotels).map((city) => (
-                          <div key={city} className="space-y-1.5">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-theme-secondary px-1">
-                              📍 {city}
-                            </p>
-                            {groupedHotels[city].map((h) => (
-                              <label
-                                key={h.id}
-                                className={`flex items-center gap-2.5 p-2.5 rounded-xl border-2 cursor-pointer transition-all ${
-                                  selectedHotelId === h.id
-                                    ? "border-theme-primary bg-theme-primary/5 shadow-sm"
-                                    : "border-slate-100 hover:border-theme-primary/30 hover:bg-slate-50"
-                                }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="hotel"
-                                  value={h.id}
-                                  checked={selectedHotelId === h.id}
-                                  onChange={() => {
-                                    setSelectedHotelId(h.id);
-                                    setShowCustomHotelForm(false);
-                                  }}
-                                  className="accent-theme-primary flex-shrink-0"
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-semibold text-slate-800 truncate">
-                                    {h.name}
-                                  </p>
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
-                                    <span className="text-[10px] text-slate-500">
-                                      {h.GoogleReviewRating || "N/A"}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400">
-                                      · {h.city}
-                                    </span>
-                                  </div>
-                                </div>
-                              </label>
+                      {/* Hotel list + Room Selector side-by-side on larger screens */}
+                      <div className={`${selectedHotelData && !showCustomHotelForm ? "grid grid-cols-1 lg:grid-cols-2 gap-3" : ""}`}>
+                        {/* Hotel list */}
+                        <div className="space-y-1.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
+                            {Object.keys(groupedHotels).map((city) => (
+                              <div key={city} className="space-y-1">
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-theme-secondary px-1">
+                                  📍 {city}
+                                </p>
+                                {groupedHotels[city].map((h) => (
+                                  <label
+                                    key={h.id}
+                                    className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                                      selectedHotelId === h.id
+                                        ? "border-theme-primary bg-theme-primary/5"
+                                        : "border-slate-100 hover:border-theme-primary/30 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="hotel"
+                                      value={h.id}
+                                      checked={selectedHotelId === h.id}
+                                      onChange={() => {
+                                        setSelectedHotelId(h.id);
+                                        setShowCustomHotelForm(false);
+                                      }}
+                                      className="accent-theme-primary flex-shrink-0"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs font-semibold text-slate-800 truncate">
+                                        {h.name}
+                                      </p>
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <Star className="h-2 w-2 fill-yellow-400 text-yellow-400" />
+                                        <span className="text-[9px] text-slate-500">
+                                          {h.GoogleReviewRating || "N/A"} · {h.city}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </label>
+                                ))}
+                              </div>
                             ))}
                           </div>
-                        ))}
-                      </div>
-                      <div className="flex justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowCustomHotelForm((p) => !p)}
-                          className="text-xs border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5"
-                        >
-                          <PenLine className="h-3.5 w-3.5 mr-1" />
-                          {showCustomHotelForm
-                            ? "Hide Custom Form"
-                            : "Add Custom Hotel"}
-                        </Button>
+                          <div className="flex justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowCustomHotelForm((p) => !p)}
+                              className="text-xs h-7 border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5"
+                            >
+                              <PenLine className="h-3 w-3 mr-1" />
+                              {showCustomHotelForm ? "Hide Custom Form" : "Add Custom Hotel"}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Room Selector — shown inline alongside the hotel list */}
+                        {selectedHotelData && !showCustomHotelForm && (
+                          <div className="border-t lg:border-t-0 lg:border-l border-slate-100 pt-3 lg:pt-0 lg:pl-3">
+                            <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                              <Hotel className="h-3.5 w-3.5 text-theme-primary" />
+                              {selectedHotelData.name}
+                              <span className="text-slate-400 font-normal">
+                                — {selectedHotelData.city}
+                              </span>
+                            </p>
+                            <HotelRoomSelector
+                              hotel={selectedHotelData}
+                              checkInDate={checkInDate}
+                              nights={nights}
+                              onTotalChange={setCurrentHotelTotal}
+                              onRoomCategoryChange={setRoomCategory}
+                              onMealPlanChange={setMealPlan}
+                              onGuestsChange={setGuests}
+                              initial={
+                                editingIndex !== null ? hotelEntries[editingIndex] : {}
+                              }
+                            />
+                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
+                              <Button
+                                onClick={handleSaveHotel}
+                                className="bg-theme-primary hover:bg-theme-secondary text-xs h-8"
+                                size="sm"
+                              >
+                                {editingIndex !== null ? "✏️ Update Hotel" : "💾 Save Hotel"}
+                              </Button>
+                              {isReadyToAddAnother && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleAddAnotherHotel}
+                                  className="text-xs h-8 border-theme-primary text-theme-primary hover:bg-theme-primary/5"
+                                >
+                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Another Hotel
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
+
+                  {/* Custom hotel form */}
                   {showCustomHotelForm && (
                     <CustomHotelForm
                       defaultState={selectedState}
@@ -772,222 +748,159 @@ const Create_new_package = ({
               </Card>
             )}
 
-            {/* 3. Room Selector (DB hotel) */}
-            {selectedHotelData && !showCustomHotelForm && (
-              <Card className="border-2 border-theme-primary/20 shadow-sm">
-                <CardHeader className="p-3 sm:p-5 pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Hotel className="h-5 w-5 text-theme-primary" />
-                    <div>
-                      <span className="text-theme-dark">
-                        {selectedHotelData.name}
-                      </span>
-                      <span className="text-sm font-normal text-slate-500 ml-2">
-                        — {selectedHotelData.city}
-                      </span>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-5 pt-0">
-                  <HotelRoomSelector
-                    hotel={selectedHotelData}
-                    checkInDate={checkInDate}
-                    nights={nights}
-                    onTotalChange={setCurrentHotelTotal}
-                    onRoomCategoryChange={setRoomCategory}
-                    onMealPlanChange={setMealPlan}
-                    onGuestsChange={setGuests}
-                    initial={
-                      editingIndex !== null ? hotelEntries[editingIndex] : {}
-                    }
-                  />
-                  <div className="flex flex-wrap gap-3 mt-6 pt-5 border-t">
-                    <Button
-                      onClick={handleSaveHotel}
-                      className="bg-theme-primary hover:bg-theme-secondary shadow-sm"
-                    >
-                      {editingIndex !== null
-                        ? "✏️ Update Hotel"
-                        : "💾 Save Hotel"}
-                    </Button>
-                    {isReadyToAddAnother && (
-                      <Button
-                        variant="outline"
-                        onClick={handleAddAnotherHotel}
-                        className="border-theme-primary text-theme-primary hover:bg-theme-primary/5"
-                      >
-                        <Plus className="h-4 w-4 mr-1" /> Add Another Hotel
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 4. Saved Hotel Itinerary */}
+            {/* ── 3. Hotel Itinerary ── */}
             {hotelEntries.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <h3 className="text-base font-bold text-slate-800">
-                    Hotel Itinerary
-                    <span className="ml-2 text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {hotelEntries.length} hotel
-                      {hotelEntries.length > 1 ? "s" : ""}
-                    </span>
-                  </h3>
-                </div>
-                <div className="space-y-3 relative">
-                  {hotelEntries.length > 1 && (
-                    <div className="absolute left-7 top-14 bottom-14 w-0.5 bg-gradient-to-b from-theme-primary/30 via-theme-primary/20 to-transparent z-0 hidden sm:block" />
-                  )}
-                  {hotelEntries.map((entry, idx) => (
-                    <div key={idx} className="relative z-10">
-                      <HotelItineraryCard
-                        entry={entry}
-                        index={idx}
-                        onEdit={handleEditHotel}
-                        onDelete={(i) => dispatch(deleteHotelEntry(i))}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between bg-theme-primary/5 border border-theme-primary/20 rounded-xl px-4 py-3">
-                  <span className="text-sm font-semibold text-slate-700">
-                    Hotels Subtotal
-                  </span>
-                  <span className="text-lg font-black text-theme-primary">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <h3 className="text-sm font-bold text-slate-800">
+                      Hotel Itinerary
+                      <span className="ml-1.5 text-[11px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {hotelEntries.length} hotel{hotelEntries.length > 1 ? "s" : ""}
+                      </span>
+                    </h3>
+                  </div>
+                  <span className="text-sm font-black text-theme-primary">
                     ₹{hotelTotalPrice.toLocaleString("en-IN")}
                   </span>
+                </div>
+                <div className="space-y-2">
+                  {hotelEntries.map((entry, idx) => (
+                    <HotelItineraryCard
+                      key={idx}
+                      entry={entry}
+                      index={idx}
+                      onEdit={handleEditHotel}
+                      onDelete={(i) => dispatch(deleteHotelEntry(i))}
+                    />
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* 5. Transport */}
-            <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="p-3 sm:p-5 pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Car className="h-5 w-5 text-theme-primary" /> Transport
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
-                {selectedTransport?.selectedVehicle && (
-                  <TransportSummaryCard
-                    transport={selectedTransport}
-                    totalPrice={transportTotalPrice}
-                    transportBreakdown={transportBreakdown}
-                    minKm={minKm}
-                    setMinKm={setMinKm}
-                    tollCharges={tollCharges}
-                    setTollCharges={setTollCharges}
-                    permitCharges={permitCharges}
-                    setPermitCharges={setPermitCharges}
-                    otherCharges={otherCharges}
-                    setOtherCharges={setOtherCharges}
-                    editableBaseCost={editableBaseCost}
-                    setEditableBaseCost={setEditableBaseCost}
-                    onEdit={() => setShowTransportSection(true)}
-                  />
-                )}
-                {!showTransportSection &&
-                !selectedTransport?.selectedVehicle ? (
-                  <Button
-                    onClick={() => setShowTransportSection(true)}
-                    className="w-full bg-theme-primary hover:bg-theme-secondary"
-                  >
-                    <Plus className="h-4 w-4 mr-2" /> Add Transport
-                  </Button>
-                ) : showTransportSection ? (
-                  <div className="mt-2">
-                    <TransportSelector
-                      onTransportSelect={(t) => {
-                        dispatch(setSelectedTransport(t));
-                        setShowTransportSection(false);
-                      }}
+            {/* ── 4. Transport + Activities — side by side ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Transport */}
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Car className="h-4 w-4 text-theme-primary" /> Transport
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-3">
+                  {selectedTransport?.selectedVehicle && (
+                    <TransportSummaryCard
+                      transport={selectedTransport}
+                      totalPrice={transportTotalPrice}
+                      transportBreakdown={transportBreakdown}
+                      minKm={minKm}
+                      setMinKm={setMinKm}
+                      tollCharges={tollCharges}
+                      setTollCharges={setTollCharges}
+                      permitCharges={permitCharges}
+                      setPermitCharges={setPermitCharges}
+                      otherCharges={otherCharges}
+                      setOtherCharges={setOtherCharges}
+                      editableBaseCost={editableBaseCost}
+                      setEditableBaseCost={setEditableBaseCost}
+                      onEdit={() => setShowTransportSection(true)}
                     />
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-
-            {/* 6. Activities */}
-            <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="p-3 sm:p-5 pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Palmtree className="h-5 w-5 text-theme-primary" /> Activities
-                  & Sightseeing
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-5 pt-0 space-y-4">
-                {selectedActivities.length > 0 && (
-                  <ActivitySummaryCard
-                    activities={selectedActivities}
-                    totalPrice={activityTotalPrice}
-                    onEdit={() => setShowActivitiesSection(true)}
-                  />
-                )}
-                {!showActivitiesSection && selectedActivities.length === 0 ? (
-                  <Button
-                    onClick={() => setShowActivitiesSection(true)}
-                    className="w-full bg-theme-primary hover:bg-theme-secondary"
-                  >
-                    <Plus className="h-4 w-4 mr-2" /> Add Activities
-                  </Button>
-                ) : showActivitiesSection ? (
-                  <div className="space-y-3 mt-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-medium">
-                        State for Activities
-                      </Label>
-                      <Select
-                        value={selectedState}
-                        onValueChange={setSelectedState}
-                      >
-                        <SelectTrigger className="text-sm">
-                          <SelectValue placeholder="Select state" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {states.map((s) => (
-                            <SelectItem key={s.id} value={s.name}>
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {selectedState && (
-                      <ActivitySelector
-                        selectedState={selectedState}
-                        initialActivities={selectedActivities}
-                        onDone={handleActivitiesDone}
+                  )}
+                  {!showTransportSection && !selectedTransport?.selectedVehicle ? (
+                    <Button
+                      onClick={() => setShowTransportSection(true)}
+                      className="w-full bg-theme-primary hover:bg-theme-secondary text-xs h-8"
+                      size="sm"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Transport
+                    </Button>
+                  ) : showTransportSection ? (
+                    <div className="mt-1">
+                      <TransportSelector
+                        onTransportSelect={(t) => {
+                          dispatch(setSelectedTransport(t));
+                          setShowTransportSection(false);
+                        }}
                       />
-                    )}
-                    {selectedActivities.length > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowActivitiesSection(false)}
-                        className="text-xs border-green-300 text-green-700 hover:bg-green-50"
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" /> Done —
-                        Collapse Activities
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowActivitiesSection(true)}
-                    className="text-xs border-theme-primary/40 text-theme-primary"
-                  >
-                    <PenLine className="h-3.5 w-3.5 mr-1" /> Edit Activities
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
 
-            {/* 7. Itinerary */}
+              {/* Activities */}
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="p-3 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Palmtree className="h-4 w-4 text-theme-primary" /> Activities
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-3">
+                  {selectedActivities.length > 0 && (
+                    <ActivitySummaryCard
+                      activities={selectedActivities}
+                      totalPrice={activityTotalPrice}
+                      onEdit={() => setShowActivitiesSection(true)}
+                    />
+                  )}
+                  {!showActivitiesSection && selectedActivities.length === 0 ? (
+                    <Button
+                      onClick={() => setShowActivitiesSection(true)}
+                      className="w-full bg-theme-primary hover:bg-theme-secondary text-xs h-8"
+                      size="sm"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Activities
+                    </Button>
+                  ) : showActivitiesSection ? (
+                    <div className="space-y-2 mt-1">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium">State for Activities</Label>
+                        <Select value={selectedState} onValueChange={setSelectedState}>
+                          <SelectTrigger className="text-xs h-8">
+                            <SelectValue placeholder="Select state" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {states.map((s) => (
+                              <SelectItem key={s.id} value={s.name}>
+                                {s.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {selectedState && (
+                        <ActivitySelector
+                          selectedState={selectedState}
+                          initialActivities={selectedActivities}
+                          onDone={handleActivitiesDone}
+                        />
+                      )}
+                      {selectedActivities.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowActivitiesSection(false)}
+                          className="text-xs h-7 border-green-300 text-green-700 hover:bg-green-50"
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Done — Collapse
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowActivitiesSection(true)}
+                      className="text-xs h-7 border-theme-primary/40 text-theme-primary"
+                    >
+                      <PenLine className="h-3 w-3 mr-1" /> Edit Activities
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ── 5. Itinerary ── */}
             {hotelEntries.length > 0 && (
               <ItinerarySection
                 hotelEntries={hotelEntries}
@@ -998,93 +911,49 @@ const Create_new_package = ({
               />
             )}
 
-            {/* Export buttons */}
-            <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200">
-              <button
-                onClick={handleCopyToClipboard}
-                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-black text-sm shadow-sm font-medium transition-all"
-              >
-                <Copy className="h-4 w-4" /> Copy WhatsApp Summary
-              </button>
-              <button
-                onClick={handleExportToPDF}
-                className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm shadow-sm font-medium transition-all"
-              >
-                <FileText className="h-4 w-4" /> Export PDF
-              </button>
-            </div>
+
           </div>
 
-          {/* ══ RIGHT COLUMN — Sticky Pricing Panel ═══════════════════════ */}
+          {/* ══ RIGHT COLUMN — Sticky Pricing Panel ══════════════════════ */}
           {showRightPanel && (
-            <div className="lg:w-96 xl:w-[420px] lg:min-w-[360px] lg:sticky lg:top-6 lg:self-start space-y-5 pt-6 lg:pt-0">
-              {/* Package breakdown */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm">
-                    Package Breakdown
-                  </h3>
-                  <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
-                    {hotelEntries.length}H · {selectedTransport ? "1T" : "0T"} ·{" "}
-                    {selectedActivities.length}A
+            <div className="lg:w-80 xl:w-96 lg:min-w-[300px] lg:sticky lg:top-6 lg:self-start space-y-3 pt-4 lg:pt-0">
+
+              {/* Package Breakdown */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 text-xs">Package Breakdown</h3>
+                  <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {hotelEntries.length}H · {selectedTransport ? "1T" : "0T"} · {selectedActivities.length}A
                   </span>
                 </div>
-                <div className="p-4 space-y-2.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <Hotel className="h-3.5 w-3.5 text-blue-600" />
+                <div className="p-3 space-y-2">
+                  {[
+                    { icon: <Hotel className="h-3 w-3 text-blue-600" />, bg: "bg-blue-100", label: `Hotels (${hotelEntries.length})`, val: hotelTotalPrice },
+                    { icon: <Car className="h-3 w-3 text-indigo-600" />, bg: "bg-indigo-100", label: "Transport", val: transportTotalPrice },
+                    { icon: <Palmtree className="h-3 w-3 text-emerald-600" />, bg: "bg-emerald-100", label: `Activities (${selectedActivities.length})`, val: activityTotalPrice },
+                  ].map(({ icon, bg, label, val }) => (
+                    <div key={label} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-slate-600">
+                        <div className={`w-5 h-5 rounded-md ${bg} flex items-center justify-center`}>
+                          {icon}
+                        </div>
+                        {label}
                       </div>
-                      Hotels ({hotelEntries.length})
+                      <span className="font-semibold">
+                        ₹{val.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      </span>
                     </div>
-                    <span className="font-semibold">
-                      ₹
-                      {hotelTotalPrice.toLocaleString("en-IN", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center">
-                        <Car className="h-3.5 w-3.5 text-indigo-600" />
-                      </div>
-                      Transport
-                    </div>
-                    <span className="font-semibold">
-                      ₹
-                      {transportTotalPrice.toLocaleString("en-IN", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <Palmtree className="h-3.5 w-3.5 text-emerald-600" />
-                      </div>
-                      Activities ({selectedActivities.length})
-                    </div>
-                    <span className="font-semibold">
-                      ₹
-                      {activityTotalPrice.toLocaleString("en-IN", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
-                  </div>
+                  ))}
                   {confirmedMarkup > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
-                          <Wallet className="h-3.5 w-3.5 text-amber-600" />
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-slate-600">
+                        <div className="w-5 h-5 rounded-md bg-amber-100 flex items-center justify-center">
+                          <Wallet className="h-3 w-3 text-amber-600" />
                         </div>
                         Markup
                       </div>
                       <span className="font-semibold text-amber-600">
-                        +₹
-                        {confirmedMarkup.toLocaleString("en-IN", {
-                          maximumFractionDigits: 0,
-                        })}
+                        +₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                       </span>
                     </div>
                   )}
@@ -1093,22 +962,20 @@ const Create_new_package = ({
 
               {/* Markup */}
               <Card className="shadow-sm border-slate-200">
-                <CardHeader className="p-4 sm:p-5 pb-3">
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-theme-primary" /> Add Markup
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-5 pt-0">
-                  <div className="flex gap-2">
+                <CardContent className="p-3">
+                  <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
+                    <Wallet className="h-3.5 w-3.5 text-theme-primary" /> Add Markup
+                  </p>
+                  <div className="flex gap-1.5">
                     <Input
                       type="number"
                       value={markupAmount}
                       onChange={(e) => setMarkupAmount(Number(e.target.value))}
-                      className="flex-1 text-sm"
+                      className="flex-1 text-xs h-8"
                       placeholder="0"
                     />
                     <Select value={markupType} onValueChange={setMarkupType}>
-                      <SelectTrigger className="w-32 text-xs">
+                      <SelectTrigger className="w-28 text-xs h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1119,19 +986,16 @@ const Create_new_package = ({
                     <Button
                       onClick={handleApplyMarkup}
                       size="sm"
-                      className="bg-theme-secondary hover:bg-theme-secondary/90 px-4"
+                      className="bg-theme-secondary hover:bg-theme-secondary/90 h-8 px-3 text-xs"
                     >
                       Apply
                     </Button>
                   </div>
                   {confirmedMarkup > 0 && (
-                    <p className="mt-2.5 text-xs text-slate-500">
-                      Markup applied:{" "}
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      Applied:{" "}
                       <span className="font-bold text-theme-dark">
-                        ₹
-                        {confirmedMarkup.toLocaleString("en-IN", {
-                          maximumFractionDigits: 0,
-                        })}
+                        ₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                       </span>
                     </p>
                   )}
@@ -1139,44 +1003,44 @@ const Create_new_package = ({
               </Card>
 
               {/* Grand Total */}
-              <div className="relative overflow-hidden rounded-2xl bg-theme-dark text-white shadow-2xl">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-                <div className="relative p-5 sm:p-6">
-                  <div className="flex items-center gap-2 mb-5">
-                    <IndianRupee className="h-5 w-5 opacity-70" />
-                    <h3 className="text-lg font-bold">Grand Total</h3>
-                  </div>
-                  <div className="text-center mb-6">
-                    <p className="text-xs text-white/60 uppercase tracking-widest font-medium mb-1">
-                      Total Package Cost
-                    </p>
-                    <p className="text-5xl font-black tracking-tight">
-                      ₹
-                      {grandTotal.toLocaleString("en-IN", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </p>
+              <div className="relative overflow-hidden rounded-xl bg-theme-dark text-white shadow-xl">
+                <div className="relative p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <IndianRupee className="h-4 w-4 opacity-70" />
+                      <h3 className="text-sm font-bold">Grand Total</h3>
+                    </div>
                     {hotelEntries.length > 0 && (
-                      <p className="text-xs text-white/50 mt-1">
-                        for{" "}
-                        {hotelEntries.reduce(
-                          (sum, e) => sum + (parseInt(e.nights) || 0),
-                          0,
-                        )}{" "}
-                        nights · {hotelEntries[0]?.numDouble || 0} room
-                        {(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
+                      <p className="text-[10px] text-white/50">
+                        {hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0)}N ·{" "}
+                        {hotelEntries[0]?.numDouble || 0} room{(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
+                  <p className="text-4xl font-black tracking-tight mb-4">
+                    ₹{grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </p>
                   <Button
                     onClick={() => setShowSaveModal(true)}
-                    className="w-full py-6 bg-theme-primary hover:bg-theme-secondary font-bold text-base shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full py-5 bg-theme-primary hover:bg-theme-secondary font-bold text-sm shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <Save className="h-5 w-5 mr-2" />
-                    {/* Label changes in edit mode */}
+                    <Save className="h-4 w-4 mr-2" />
                     {isEditMode ? "Save As New Quotation" : "Save Package"}
                   </Button>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <button
+                      onClick={handleCopyToClipboard}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium transition-all"
+                    >
+                      <Copy className="h-3 w-3" /> WhatsApp
+                    </button>
+                    <button
+                      onClick={handleExportToPDF}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-xs font-medium transition-all"
+                    >
+                      <FileText className="h-3 w-3" /> Export PDF
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1188,97 +1052,82 @@ const Create_new_package = ({
       {showSaveModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="bg-theme-dark text-white px-6 py-5">
+            <div className="bg-theme-dark text-white px-5 py-4">
               <div className="flex items-center justify-between">
-                {/* Title changes in edit mode */}
-                <h2 className="text-lg font-bold">
+                <h2 className="text-base font-bold">
                   {isEditMode ? "Save As New Quotation" : "Finalize Package"}
                 </h2>
                 <button
                   onClick={() => setShowSaveModal(false)}
-                  className="text-white/70 hover:text-white transition-colors"
+                  className="text-white/70 hover:text-white"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-              <p className="text-white/60 text-sm mt-1">
+              <p className="text-white/60 text-xs mt-0.5">
                 {isEditMode
                   ? "A new quotation with a new reference number will be created"
                   : "Fill in details to save this package"}
               </p>
             </div>
-            <div className="p-6 space-y-4">
-              {/* Edit mode info badge */}
+            <div className="p-5 space-y-3">
               {isEditMode && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                  <Info className="h-3.5 w-3.5 flex-shrink-0" />
+                  <Info className="h-3 w-3 flex-shrink-0" />
                   Original quotation will not be modified
                 </div>
               )}
-
               <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs text-slate-600">
-                <div className="flex justify-between">
-                  <span>Hotels</span>
-                  <span className="font-semibold">
-                    ₹{hotelTotalPrice.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Transport</span>
-                  <span className="font-semibold">
-                    ₹{transportTotalPrice.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Activities</span>
-                  <span className="font-semibold">
-                    ₹{activityTotalPrice.toLocaleString("en-IN")}
-                  </span>
-                </div>
+                {[
+                  { label: "Hotels", val: hotelTotalPrice },
+                  { label: "Transport", val: transportTotalPrice },
+                  { label: "Activities", val: activityTotalPrice },
+                ].map(({ label, val }) => (
+                  <div key={label} className="flex justify-between">
+                    <span>{label}</span>
+                    <span className="font-semibold">₹{val.toLocaleString("en-IN")}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between border-t pt-1.5 font-bold text-sm text-slate-800">
                   <span>Grand Total</span>
-                  <span className="text-theme-primary">
-                    ₹{grandTotal.toLocaleString("en-IN")}
-                  </span>
+                  <span className="text-theme-primary">₹{grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Package Name *</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Package Name *</Label>
                 <Input
                   value={packageName}
                   onChange={(e) => dispatch(setPackageName(e.target.value))}
                   placeholder="e.g. Goa Delight 4N/5D"
+                  className="h-8 text-xs"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Customer Name *</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Customer Name *</Label>
                 <Input
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Customer name"
                   disabled={!!customerId}
-                  className={
-                    customerId ? "bg-slate-100 cursor-not-allowed" : ""
-                  }
+                  className={`h-8 text-xs ${customerId ? "bg-slate-100 cursor-not-allowed" : ""}`}
                 />
                 {(customerId || leadId) && (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-[10px] text-slate-400">
                     ✓ Auto-filled from {customerId ? "customer" : "lead"} record
                   </p>
                 )}
               </div>
             </div>
-            <div className="px-6 pb-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowSaveModal(false)}>
+            <div className="px-5 pb-5 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowSaveModal(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={handleSavePackage}
-                className="bg-green-600 hover:bg-green-700 text-white px-6"
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white px-5"
               >
-                <Save className="h-4 w-4 mr-2" />
-                {/* Button label changes in edit mode */}
+                <Save className="h-3.5 w-3.5 mr-1.5" />
                 {isEditMode ? "Save As New" : "Save Package"}
               </Button>
             </div>
