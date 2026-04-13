@@ -104,6 +104,7 @@ export default function AgentDashboard() {
       );
     } catch (error) {
       toast.error("Failed to load trips");
+      console.log(error)
     } finally {
       setLoading(false);
     }
