@@ -2,139 +2,118 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
-// Column indices (0-based) — matches the 14-column spec exactly
+/**
+ * COLUMN INDEX MAP (0-based) — 26-column template
+ *
+ * A(0)  State          G(6)  Season Name     K(10) EP–Double      O(14) CP–Double      S(18) MAP–Double     W(22) AP–Double
+ * B(1)  City           H(7)  Season Start    L(11) EP–ExtraAdult  P(15) CP–ExtraAdult  T(19) MAP–ExtraAdult X(23) AP–ExtraAdult
+ * C(2)  Hotel Name     I(8)  Season End      M(12) EP–ExtraChild  Q(16) CP–ExtraChild  U(20) MAP–ExtraChild Y(24) AP–ExtraChild
+ * D(3)  Google Rating  J(9)  Room Category   N(13) EP–CNB         R(17) CP–CNB         V(21) MAP–CNB        Z(25) AP–CNB
+ * E(4)  Hotel Link
+ * F(5)  Star Rating
+ */
 const IDX = {
-  STATE: 0,
-  CITY: 1,
-  HOTEL_NAME: 2,
-  GOOGLE_RATING: 3,
-  HOTEL_LINK: 4,
-  STAR_RATING: 5,
-  SEASON_NAME: 6,
-  SEASON_START: 7,
-  SEASON_END: 8,
-  ROOM_CATEGORY: 9,
-  EP: 10,
-  CP: 11,
-  MAP: 12,
-  AP: 13,
+  STATE: 0, CITY: 1, HOTEL_NAME: 2, GOOGLE_RATING: 3, HOTEL_LINK: 4, STAR_RATING: 5,
+  SEASON_NAME: 6, SEASON_START: 7, SEASON_END: 8, ROOM_CATEGORY: 9,
+  EP_DBL: 10,  EP_EA: 11,  EP_EC: 12,  EP_CNB: 13,
+  CP_DBL: 14,  CP_EA: 15,  CP_EC: 16,  CP_CNB: 17,
+  MAP_DBL: 18, MAP_EA: 19, MAP_EC: 20, MAP_CNB: 21,
+  AP_DBL: 22,  AP_EA: 23,  AP_EC: 24,  AP_CNB: 25,
 };
 
-function str(val) {
-  if (val == null) return "";
-  return String(val).trim();
+// ─── helpers ──────────────────────────────────────────────────────────────────
+const pad = (n) => String(n).padStart(2, "0");
+
+function s(val) {
+  return val == null ? "" : String(val).trim();
+}
+
+function toNum(val) {
+  if (val == null || val === "") return 0;
+  const n = Number(String(val).replace(/[₹,\s]/g, "").trim());
+  return isNaN(n) || n < 0 ? 0 : n;
 }
 
 function normalizeDate(val) {
   if (val == null) return "";
-  const s = String(val).trim();
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    const d = new Date(s);
-    if (!isNaN(d.getTime()))
-      return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  const str = String(val).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
   }
-  // Handle Excel serial date numbers
-  if (typeof val === "number" && val > 1000) {
-    const d = XLSX.SSF.parse_date_code(val);
-    if (d) {
-      return `${String(d.d).padStart(2, "0")}/${String(d.m).padStart(2, "0")}/${d.y}`;
-    }
+  if (typeof val === "number" && val > 0) {
+    try {
+      const p = XLSX.SSF.parse_date_code(val);
+      if (p) return `${pad(p.d)}/${pad(p.m)}/${p.y}`;
+    } catch (_) {}
   }
-  const d = new Date(s);
-  if (!isNaN(d.getTime()))
-    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-  return s;
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  return str;
 }
 
-function toNum(val) {
-  if (val == null || val === "" || val === "-" || val === "N/A") return 0;
-  // Strip currency symbols, commas, spaces
-  const cleaned = String(val).replace(/[₹,\s]/g, "").trim();
-  if (cleaned === "" || cleaned === "-") return 0;
-  const n = Number(cleaned);
-  return isNaN(n) ? 0 : n;
-}
-
-function parseRows(rawRows) {
+// ─── parser ───────────────────────────────────────────────────────────────────
+function parseRows(rows) {
   const hotels = [];
-  let ctxState = "", ctxCity = "", ctxHotelName = "";
-  let ctxGoogleRating = "", ctxHotelLink = "", ctxStarRating = "";
+  let ctx = { state: "", city: "", hotelName: "", googleRating: "", hotelLink: "", starRating: "" };
 
-  for (const row of rawRows) {
-    // row is an array because we use sheet_to_json with header:1
-    const allVals = row.filter((v) => str(v) !== "");
-    if (allVals.length === 0) continue;
+  for (const row of rows) {
+    if (!row || row.every((v) => v == null || s(v) === "")) continue;
 
-    const hotelName = str(row[IDX.HOTEL_NAME]);
-    const roomCategory = str(row[IDX.ROOM_CATEGORY]);
+    const hotelName    = s(row[IDX.HOTEL_NAME]);
+    const roomCategory = s(row[IDX.ROOM_CATEGORY]);
 
-    // Update context whenever hotel name is present
     if (hotelName) {
-      ctxState = str(row[IDX.STATE]);
-      ctxCity = str(row[IDX.CITY]);
-      ctxHotelName = hotelName;
-      ctxGoogleRating = str(row[IDX.GOOGLE_RATING]);
-      ctxHotelLink = str(row[IDX.HOTEL_LINK]);
-      ctxStarRating = str(row[IDX.STAR_RATING]);
+      ctx = {
+        state: s(row[IDX.STATE]), city: s(row[IDX.CITY]), hotelName,
+        googleRating: s(row[IDX.GOOGLE_RATING]), hotelLink: s(row[IDX.HOTEL_LINK]),
+        starRating: s(row[IDX.STAR_RATING]),
+      };
     }
 
-    // Skip rows without a room category (blank separators, header, etc.)
-    if (!ctxHotelName || !roomCategory) continue;
+    if (!ctx.hotelName || !roomCategory) continue;
 
-    const seasonName = str(row[IDX.SEASON_NAME]) || "Season 1";
+    const seasonName  = s(row[IDX.SEASON_NAME]) || "Season 1";
     const seasonStart = normalizeDate(row[IDX.SEASON_START]);
-    const seasonEnd = normalizeDate(row[IDX.SEASON_END]);
+    const seasonEnd   = normalizeDate(row[IDX.SEASON_END]);
 
+    // ── Pricing: per plan → { double, extraAdult, extraChild, cnb } ──────
     const pricing = {
-      ep: toNum(row[IDX.EP]),
-      cp: toNum(row[IDX.CP]),
-      map: toNum(row[IDX.MAP]),
-      ap: toNum(row[IDX.AP]),
+      ep:  { double: toNum(row[IDX.EP_DBL]),  extraAdult: toNum(row[IDX.EP_EA]),  extraChild: toNum(row[IDX.EP_EC]),  cnb: toNum(row[IDX.EP_CNB])  },
+      cp:  { double: toNum(row[IDX.CP_DBL]),  extraAdult: toNum(row[IDX.CP_EA]),  extraChild: toNum(row[IDX.CP_EC]),  cnb: toNum(row[IDX.CP_CNB])  },
+      map: { double: toNum(row[IDX.MAP_DBL]), extraAdult: toNum(row[IDX.MAP_EA]), extraChild: toNum(row[IDX.MAP_EC]), cnb: toNum(row[IDX.MAP_CNB]) },
+      ap:  { double: toNum(row[IDX.AP_DBL]),  extraAdult: toNum(row[IDX.AP_EA]),  extraChild: toNum(row[IDX.AP_EC]),  cnb: toNum(row[IDX.AP_CNB])  },
     };
 
-    // Find or create hotel
+    // Find / create hotel
     let hotel = hotels.find(
-      (h) =>
-        h.name.toLowerCase() === ctxHotelName.toLowerCase() &&
-        h.state.toLowerCase() === ctxState.toLowerCase() &&
-        h.city.toLowerCase() === ctxCity.toLowerCase()
+      (h) => h.name.toLowerCase() === ctx.hotelName.toLowerCase() &&
+             h.city.toLowerCase() === ctx.city.toLowerCase() &&
+             h.state.toLowerCase() === ctx.state.toLowerCase()
     );
     if (!hotel) {
-      hotel = {
-        name: ctxHotelName,
-        state: ctxState,
-        city: ctxCity,
-        googleRating: ctxGoogleRating,
-        hotelLink: ctxHotelLink,
-        starRating: ctxStarRating,
-        rooms: [],
-      };
+      hotel = { name: ctx.hotelName, state: ctx.state, city: ctx.city,
+                googleRating: ctx.googleRating, hotelLink: ctx.hotelLink,
+                starRating: ctx.starRating, rooms: [] };
       hotels.push(hotel);
     }
 
-    // Find or create room
-    let room = hotel.rooms.find(
-      (r) => r.categoryName.toLowerCase() === roomCategory.toLowerCase()
-    );
+    // Find / create room category
+    let room = hotel.rooms.find((r) => r.categoryName.toLowerCase() === roomCategory.toLowerCase());
     if (!room) {
       room = { categoryName: roomCategory, seasons: [] };
       hotel.rooms.push(room);
     }
 
-    // Find or create season — use seasonName+start+end as composite key
-    // (same season name can repeat across room categories for the same hotel)
+    // Find / create season (keyed by name + start + end)
     let season = room.seasons.find(
-      (s) =>
-        s.name.toLowerCase() === seasonName.toLowerCase() &&
-        s.start === seasonStart &&
-        s.end === seasonEnd
+      (ss) => ss.name.toLowerCase() === seasonName.toLowerCase() &&
+              ss.start === seasonStart && ss.end === seasonEnd
     );
     if (!season) {
-      season = { name: seasonName, start: seasonStart, end: seasonEnd, priority: null, pricing };
-      room.seasons.push(season);
+      room.seasons.push({ name: seasonName, start: seasonStart, end: seasonEnd, priority: null, pricing });
     } else {
-      // Update pricing if the season already exists (shouldn't normally happen)
       season.pricing = pricing;
     }
   }
@@ -142,64 +121,53 @@ function parseRows(rawRows) {
   return hotels;
 }
 
+// ─── route handler ────────────────────────────────────────────────────────────
 export async function POST(request) {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
+
     if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
 
-    const isValid =
-      file.type.includes("spreadsheet") ||
-      file.type.includes("excel") ||
-      file.name.match(/\.(xlsx|xls)$/i);
-    if (!isValid)
-      return NextResponse.json({ error: "Invalid file type. Upload .xlsx or .xls" }, { status: 400 });
+    const isValid = file.type.includes("spreadsheet") || file.type.includes("excel") || /\.(xlsx|xls)$/i.test(file.name);
+    if (!isValid) return NextResponse.json({ error: "Invalid file type. Upload .xlsx or .xls" }, { status: 400 });
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    // raw: true preserves numbers as numbers (not strings), cellDates: true converts date serials
+    const buffer   = Buffer.from(await file.arrayBuffer());
     const workbook = XLSX.read(buffer, { type: "buffer", raw: true, cellDates: false });
 
     const skipSheets = ["instructions", "plan_reference", "plan reference"];
-    const dataSheetName = workbook.SheetNames.find(
-      (n) => !skipSheets.includes(n.toLowerCase().trim())
-    );
-    if (!dataSheetName)
-      return NextResponse.json({ error: "No valid data sheet found." }, { status: 400 });
+    const sheetName  = workbook.SheetNames.find((n) => !skipSheets.includes(n.toLowerCase().trim()));
+    if (!sheetName) return NextResponse.json({ error: "No valid data sheet found." }, { status: 400 });
 
-    const sheet = workbook.Sheets[dataSheetName];
+    const sheet = workbook.Sheets[sheetName];
 
-    // Use header:1 to get arrays indexed by column position — avoids header name matching issues
-    const allRows = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      defval: null,
-      raw: true,
-      blankrows: false,
-    });
+    // header:1 → column-index arrays; immune to header-name encoding issues (₹ symbol etc.)
+    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true, blankrows: false });
+    if (!allRows.length) return NextResponse.json({ error: "Data sheet is empty." }, { status: 400 });
 
-    if (!allRows.length)
-      return NextResponse.json({ error: "Data sheet is empty." }, { status: 400 });
+    // Auto-detect how many header rows to skip (looks for "state" in column 0)
+    let dataStartIndex = 0;
+    for (let i = 0; i < Math.min(5, allRows.length); i++) {
+      if (s(allRows[i][0]).toLowerCase() === "state") {
+        // Check if the row after is still a label row (no numbers in pricing cols)
+        const nextRow = allRows[i + 1] || [];
+        const nextHasNumbers = nextRow.slice(10).some((v) => typeof v === "number");
+        dataStartIndex = nextHasNumbers ? i + 1 : i + 2;
+        break;
+      }
+    }
 
-    // Skip the header row (row 0) which contains column labels
-    const dataRows = allRows.slice(1);
-
-    const hotels = parseRows(dataRows);
-    if (!hotels.length)
-      return NextResponse.json(
-        { error: "No hotel data extracted. Check the file format." },
-        { status: 400 }
-      );
+    const hotels = parseRows(allRows.slice(dataStartIndex));
+    if (!hotels.length) return NextResponse.json({ error: "No hotel data found. Check column layout." }, { status: 400 });
 
     const summary = {
-      totalHotels: hotels.length,
-      totalRooms: hotels.reduce((a, h) => a + h.rooms.length, 0),
-      totalSeasons: hotels.reduce(
-        (a, h) => a + h.rooms.reduce((ra, r) => ra + r.seasons.length, 0),
-        0
-      ),
-      states: [...new Set(hotels.map((h) => h.state).filter(Boolean))],
+      totalHotels:  hotels.length,
+      totalRooms:   hotels.reduce((a, h) => a + h.rooms.length, 0),
+      totalSeasons: hotels.reduce((a, h) => a + h.rooms.reduce((b, r) => b + r.seasons.length, 0), 0),
+      states:       [...new Set(hotels.map((h) => h.state).filter(Boolean))],
     };
 
-    return NextResponse.json({ hotels, summary, sheetName: dataSheetName });
+    return NextResponse.json({ hotels, summary, sheetName });
   } catch (err) {
     console.error("[hotel-upload] Error:", err);
     return NextResponse.json({ error: `Failed to process file: ${err.message}` }, { status: 500 });
