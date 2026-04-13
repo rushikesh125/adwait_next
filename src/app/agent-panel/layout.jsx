@@ -19,6 +19,7 @@ import {
   Component,
   Tickets,
   BookAIcon,
+  CalendarCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -68,7 +69,8 @@ const AgentPanelLayout = ({ children }) => {
     { name: "Customers", href: "/agent-panel/customers", icon: Users },
     { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
     { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon},
-    { name: "Booking Form", href: "/agent-panel/bookingform", icon: Component },
+    { name: "Bookings", href: "/agent-panel/bookings", icon: CalendarCheck },
+    { name: "Railway Booking", href: "/agent-panel/bookingform", icon: Component },
   ];
 
   const SidebarContent = ({ mobile = false }) => (

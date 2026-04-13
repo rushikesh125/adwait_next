@@ -26,9 +26,9 @@ import {
   FileText,
   Loader2,
   Eye,
-  ChevronDown,
-  ChevronLeft, // Added for pagination
-  ChevronRight, // Added for pagination
+  Pencil,
+  ChevronLeft,
+  ChevronRight,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -86,6 +86,7 @@ export default function AgentDashboard() {
     key: "createdAt",
     direction: "desc",
   });
+  const [editingStatusId, setEditingStatusId] = useState(null);
 
   const fetchTrips = async () => {
     if (!auth.currentUser) {
@@ -104,7 +105,6 @@ export default function AgentDashboard() {
       );
     } catch (error) {
       toast.error("Failed to load trips");
-      console.log(error)
     } finally {
       setLoading(false);
     }
@@ -249,37 +249,38 @@ export default function AgentDashboard() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-6 w-[34%]">
+                <TableHead className="py-4 pl-6">
                   <SortHeader
-                    label="Trip Details"
+                    label="Trip Name"
                     column="tripName"
                     sortConfig={sortConfig}
                     onSort={handleSort}
                   />
                 </TableHead>
-                <TableHead className="w-[18%]">
+                <TableHead className="text-center w-[140px]">
                   <SortHeader
                     label="Created"
                     column="createdAt"
                     sortConfig={sortConfig}
                     onSort={handleSort}
+                    align="center"
                   />
                 </TableHead>
-
-                <TableHead className="w-[18%]">
+                <TableHead className="text-center w-[140px]">
                   <SortHeader
                     label="Status"
                     column="status"
                     sortConfig={sortConfig}
                     onSort={handleSort}
+                    align="center"
                   />
                 </TableHead>
-                <TableHead className="w-[30%] text-right pr-6">
+                <TableHead className="text-center w-[240px] pr-6 font-bold text-slate-600 uppercase text-[11px]">
                   Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="text-center">
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-20">
@@ -290,24 +291,67 @@ export default function AgentDashboard() {
                 pagedData.map((trip) => (
                   <TableRow
                     key={trip.id}
-                    className="hover:bg-slate-50/30 transition-colors"
+                    className="group hover:bg-slate-50/30 transition-colors"
                   >
-                    <TableCell className="py-4 pl-6 w-1/3">
-                      <span className="font-bold text-slate-900 text-sm block truncate">
+                    <TableCell className="py-4 pl-6 text-left font-semibold text-slate-900">
+                      <span className="text-sm block truncate">
                         {trip.tripName}
                       </span>
                     </TableCell>
 
-                    <TableCell className="py-4 text-slate-500 text-xs tabular-nums">
+                    <TableCell className="py-4 text-center text-sm text-slate-600 tabular-nums">
                       {trip.createdAt?.toDate().toLocaleDateString("en-GB")}
                     </TableCell>
 
-                    <TableCell className="py-8">
-                      <StatusBadge status={trip.status} />
+                    <TableCell className="py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {editingStatusId !== trip.id ? (
+                          <>
+                            <StatusBadge status={trip.status} />
+                            <button
+                              onClick={() => setEditingStatusId(trip.id)}
+                              className="text-slate-400 hover:text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <DropdownMenu
+                            open={true}
+                            onOpenChange={(open) => !open && setEditingStatusId(null)}
+                          >
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center gap-1 h-7 px-3 text-[11px] font-bold rounded-full border bg-white text-slate-800 focus:ring-2 focus:ring-blue-300">
+                                {trip.status}
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-32 font-bold text-[11px]">
+                              <DropdownMenuItem
+                                onClick={() => { updateStatus(trip.id, "public"); setEditingStatusId(null); }}
+                                className="text-green-600"
+                              >
+                                <Globe className="w-3.5 h-3.5 mr-2" /> PUBLIC
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => { updateStatus(trip.id, "draft"); setEditingStatusId(null); }}
+                                className="text-slate-500"
+                              >
+                                <FileText className="w-3.5 h-3.5 mr-2" /> DRAFT
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => { updateStatus(trip.id, "closed"); setEditingStatusId(null); }}
+                                className="text-amber-600"
+                              >
+                                <Lock className="w-3.5 h-3.5 mr-2" /> CLOSED
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </TableCell>
 
-                    <TableCell className="py-4 text-right pr-6">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <TableCell className="py-4 text-center pr-6">
+                      <div className="flex items-center justify-center gap-1.5">
                         {/* COPY LINK WITH FEEDBACK */}
                         <Button
                           onClick={() => copyLink(trip.id)}
@@ -322,42 +366,6 @@ export default function AgentDashboard() {
                           )}
                           {copiedId === trip.id ? "COPIED" : "COPY LINK"}
                         </Button>
-
-                        {/* STATUS DROPDOWN */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-9 text-[10px] font-black border-slate-200 text-slate-600"
-                            >
-                              STATUS <ChevronDown className="ml-1 w-3 h-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-32 font-bold text-[11px]"
-                          >
-                            <DropdownMenuItem
-                              onClick={() => updateStatus(trip.id, "public")}
-                              className="text-green-600"
-                            >
-                              <Globe className="w-3.5 h-3.5 mr-2" /> PUBLIC
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => updateStatus(trip.id, "draft")}
-                              className="text-slate-500"
-                            >
-                              <FileText className="w-3.5 h-3.5 mr-2" /> DRAFT
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => updateStatus(trip.id, "closed")}
-                              className="text-amber-600"
-                            >
-                              <Lock className="w-3.5 h-3.5 mr-2" /> CLOSED
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
 
                         <div className="h-4 w-[1px] bg-slate-200 mx-1" />
 

@@ -57,6 +57,7 @@ import {
   PackagePlus,
   ClipboardCopy,
   MessageCircle,
+  BellRing,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
@@ -99,6 +100,8 @@ const QuotationsTable = ({
   setStartDate,
   endDate,
   setEndDate,
+  filterStatus,
+  setFilterStatus,
   getDestinationOfpkg,
   handleViewClick,
   handleEditRedirect,
@@ -106,6 +109,7 @@ const QuotationsTable = ({
   handleDeleteQuotation,
   handleCopyToClipboard,
   handleShareOnWhatsApp,
+  handleSendReminder,
   currentPage = 1,
   onNextPage,
   onPrevPage,
@@ -173,10 +177,11 @@ const QuotationsTable = ({
     setFilterDestination?.("");
     setStartDate("");
     setEndDate("");
+    setFilterStatus?.("");
   };
 
   const hasActiveFilters =
-    searchTerm || filterDestination || startDate || endDate;
+    searchTerm || filterDestination || startDate || endDate || filterStatus;
 
   return (
     <TooltipProvider>
@@ -464,6 +469,21 @@ const QuotationsTable = ({
                             >
                               <MessageCircle className="h-4 w-4" />
                             </Button>
+                            {q.status === "Sent" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleSendReminder?.(q)}
+                                    className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                                  >
+                                    <BellRing className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Send Reminder</TooltipContent>
+                              </Tooltip>
+                            )}
 
                             {isAccepted ? (
                               <DropdownMenu>

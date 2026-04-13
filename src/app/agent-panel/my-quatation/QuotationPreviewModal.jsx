@@ -6,12 +6,13 @@
  * Props
  *   quotation   – the saved package object from Firestore
  *   onClose     – () => void
- *   onEdit      – (quotation) => void   optional
- *   onCopy      – (quotation) => void   optional  (WhatsApp summary)
- *   onPDF       – (quotation) => void   optional
+ *   onEdit              – (quotation) => void   optional
+ *   onCopy              – (quotation) => void   optional  (WhatsApp summary)
+ *   onPDF               – (quotation) => void   optional
+ *   onConvertToBooking  – (quotation) => void   optional  (shown only when status === "Accepted")
  */
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Hotel,
@@ -26,9 +27,12 @@ import {
   BedDouble,
   Utensils,
   Users,
+  CalendarCheck,
+  BellRing,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getBookingById } from "@/firebase/bookingsService";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -364,7 +368,26 @@ export default function QuotationPreviewModal({
   onEdit,
   onCopy,
   onPDF,
+  onConvertToBooking,
+  onSendReminder,
 }) {
+  // When the quotation is marked as converted, verify the linked booking
+  // still exists — if it was deleted, show the Convert button again
+  const [linkedBookingExists, setLinkedBookingExists] = useState(true);
+
+  useEffect(() => {
+    if (!quotation?.convertedToBooking || !quotation?.bookingId) {
+      setLinkedBookingExists(false);
+      return;
+    }
+    setLinkedBookingExists(true); // optimistic while fetching
+    getBookingById(quotation.bookingId).then((b) => {
+      setLinkedBookingExists(!!b);
+    }).catch(() => {
+      setLinkedBookingExists(false);
+    });
+  }, [quotation?.bookingId, quotation?.convertedToBooking]);
+
   if (!quotation) return null;
 
   const hotels      = quotation.hotelSummary     || [];
@@ -559,7 +582,7 @@ export default function QuotationPreviewModal({
         </div>
 
         {/* ── Footer Actions ── */}
-        <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-3 bg-white">
+        <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-3 bg-white flex-wrap">
           {onCopy && (
             <Button variant="ghost" size="sm" onClick={() => onCopy(quotation)} className="text-xs font-semibold text-slate-600 hover:bg-slate-50 gap-2 h-9">
               <Copy className="h-3.5 w-3.5" /> Copy
@@ -569,6 +592,31 @@ export default function QuotationPreviewModal({
             <Button variant="outline" size="sm" onClick={() => onPDF(quotation)} className="text-xs font-bold border-slate-200 text-slate-700 hover:bg-slate-50 gap-2 h-9 px-4">
               <FileText className="h-3.5 w-3.5 text-theme-secondary" /> PDF
             </Button>
+          )}
+          {onSendReminder && quotation.status === "Sent" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onSendReminder(quotation)}
+              className="text-xs font-bold border-amber-200 text-amber-600 hover:bg-amber-50 gap-2 h-9 px-4"
+            >
+              <BellRing className="h-3.5 w-3.5" /> Send Reminder
+            </Button>
+          )}
+          {onConvertToBooking && quotation.status === "Accepted" && (
+            linkedBookingExists ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 h-9">
+                <CalendarCheck className="h-3.5 w-3.5" /> Booking Created
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => onConvertToBooking(quotation)}
+                className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-9 px-5 shadow-sm rounded-lg"
+              >
+                <CalendarCheck className="h-3.5 w-3.5" /> Convert to Booking
+              </Button>
+            )
           )}
           {onEdit && (
             <Button size="sm" onClick={() => onEdit(quotation)} className="text-xs font-bold bg-theme-dark hover:bg-theme-secondary text-white gap-2 h-9 px-5 shadow-sm rounded-lg">
