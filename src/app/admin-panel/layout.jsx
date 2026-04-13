@@ -63,7 +63,7 @@ const AdminPanelLayout = ({ children }) => {
     { name: "Accommodations", href: "/admin-panel/accommodations", icon: ShieldCheck },
     { name: "Transports", href: "/admin-panel/transports", icon: TruckElectric },
     { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
-    { name: "Bulk Hotels Upload", href: "/admin-panel/hotels-builk-upload", icon: HardDriveUpload },
+    { name: "Hotels Upload", href: "/admin-panel/hotel-upload", icon: HardDriveUpload },
     { name: "Itinerary", href: "/admin-panel/itinerary", icon: BookPlus },
     // { name: "Settings", href: "/admin-panel/settings", icon: Settings },
   ];

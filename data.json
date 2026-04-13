@@ -1,0 +1,1045 @@
+{
+  "hotels": [
+    {
+      "name": "Hotel Taj Mumbai",
+      "state": "Maharashtra",
+      "city": "Mumbai",
+      "rating": "5",
+      "googleRating": "4.9",
+      "hotelLink": "https://www.tajhotels.com",
+      "rooms": [
+        {
+          "categoryName": "Luxury Sea View",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Premium Suite Room",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Deluxe Room",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Extra Bed (Adult)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Extra Bed (Child 5-12)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Child No Bed (0-4 yrs)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {}
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Fariyas Resort",
+      "state": "Goa",
+      "city": "Panaji",
+      "rating": "4",
+      "googleRating": "4.2",
+      "hotelLink": "https://www.fariyas.com",
+      "rooms": [
+        {
+          "categoryName": "Deluxe Room",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/10/2025",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Executive Suite",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/10/2025",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Extra Bed (Adult)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/10/2025",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Extra Bed (Child 5-12)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/10/2025",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Child No Bed (0-4 yrs)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/10/2025",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {}
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Grand Hyatt Kochi Bolgatty",
+      "state": "Kerala",
+      "city": "Kochi",
+      "rating": "3",
+      "googleRating": "4.9",
+      "hotelLink": "https://www.hyatt.com",
+      "rooms": [
+        {
+          "categoryName": "Luxury Sea View",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Premium Suite Room",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Extra Bed (Adult)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Extra Bed (Child 5-12)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "categoryName": "Child No Bed (0-4 yrs)",
+          "seasons": [
+            {
+              "name": "Season 1 (Peak)",
+              "start": "01/01/2026",
+              "end": "31/03/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            },
+            {
+              "name": "Season 2 (Off-Peak)",
+              "start": "01/04/2026",
+              "end": "30/09/2026",
+              "priority": null,
+              "pricing": {
+                "ep": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "cp": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "map": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                },
+                "ap": {
+                  "double": 0,
+                  "extraAdult": 0,
+                  "extraChild": 0,
+                  "cnb": 0
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalHotels": 3,
+    "totalRooms": 16,
+    "totalSeasons": 32,
+    "states": ["Maharashtra", "Goa", "Kerala"]
+  },
+  "sheetName": "Hotel_Inventory"
+}
