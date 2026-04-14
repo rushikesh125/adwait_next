@@ -12,7 +12,7 @@ vcp_3rnAydypHYpcqKr9qcz0G5ie2d1Hd1e6ZyHaXbxbL2AH3qOx734NyNDt
 
 
 
-so here we have some changes 
+so here we have some changes done.
 
 now as u context knowledge about whole section of creating_quoation/package , i want to update the export pdf features while making sure that u preserve everything as it is , just update the things that i have suggested 
 
