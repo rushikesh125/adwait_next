@@ -358,19 +358,27 @@ export default function LeadsPage() {
                       <User className="h-4 w-4 text-theme-primary" />
                       <span className="font-medium">{primaryInsight}</span>
                     </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter(statusFilter === "Active" ? "All" : "Active")}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700 transition hover:border-slate-400 hover:shadow-sm cursor-pointer"
+                    >
                       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
                         Active
                       </span>
                       <span className="font-black text-slate-900">{overviewMetrics.activePipeline}</span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-800">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter(statusFilter === "Attention" ? "All" : "Attention")}
+                      className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-800 transition hover:border-blue-400 hover:shadow-sm cursor-pointer"
+                    >
                       <Clock3 className="h-4 w-4" />
                       <span className="text-xs font-bold uppercase tracking-[0.14em]">
                         Attention
                       </span>
                       <span className="font-black">{overviewMetrics.needsAttention}</span>
-                    </div>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setStatusFilter("Quotation Sent")}
