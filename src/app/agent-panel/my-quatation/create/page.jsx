@@ -43,8 +43,8 @@ const AgentDashboard = () => {
 
   // Form State persistence (as per original logic)
   const [saveChanges, setSaveChanges] = useState(false);
-  const [checkInDate, setCheckInDate] = useState([]);
-  const [checkOutDate, setCheckOutDate] = useState([]);
+const [checkInDate, setCheckInDate] = useState("");
+const [checkOutDate, setCheckOutDate] = useState("");
 
   // Fetch User Data
   useEffect(() => {
