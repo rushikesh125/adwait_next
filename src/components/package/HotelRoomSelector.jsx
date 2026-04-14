@@ -89,8 +89,8 @@ const HotelRoomSelector = ({
   useEffect(() => { onMealPlanChange?.(selectedMealPlan); }, [selectedMealPlan]);
   useEffect(() => { onGuestsChange?.({ numDouble, numExtraAdult, numExtraChild, numCNB }); }, [numDouble, numExtraAdult, numExtraChild, numCNB]);
 
+  // console.log(JSON.stringify(hotel))
   if (!hotel) return null;
-
   return (
     <div className="space-y-4">
       {/* Room categories + Meal plan side by side */}

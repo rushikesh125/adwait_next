@@ -35,24 +35,35 @@ function toNum(val) {
 }
 
 function normalizeDate(val) {
-  if (val == null) return "";
+  if (!val) return "";
+
   const str = String(val).trim();
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-    const d = new Date(str);
-    if (!isNaN(d.getTime())) return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+
+  // If already correct → keep
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  // If DD/MM/YYYY → convert to YYYY-MM-DD
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    const [day, month, year] = str.split("/");
+    return `${year}-${month}-${day}`;
   }
+
+  // Excel numeric date
   if (typeof val === "number" && val > 0) {
     try {
       const p = XLSX.SSF.parse_date_code(val);
-      if (p) return `${pad(p.d)}/${pad(p.m)}/${p.y}`;
+      if (p) return `${p.y}-${pad(p.m)}-${pad(p.d)}`;
     } catch (_) {}
   }
+
+  // fallback
   const d = new Date(str);
-  if (!isNaN(d.getTime())) return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  if (!isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
   return str;
 }
-
 // ─── parser ───────────────────────────────────────────────────────────────────
 function parseRows(rows) {
   const hotels = [];
