@@ -147,7 +147,7 @@ const AdminPanelLayout = ({ children }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-2 md:p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto ">
           <div className="mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
             {children}
           </div>
