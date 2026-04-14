@@ -1386,53 +1386,7 @@ export default function HotelUploadPage() {
         )}
       </div>
 
-      {/* Sticky footer
-      {hotels && (
-        <div className="fixed bottom-0 right-0 left-0 z-20 bg-white/95 backdrop-blur border-t border-slate-100 shadow-2xl">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
-            <div className="text-sm text-slate-600">
-              <span className="font-semibold text-slate-900">
-                {hotels.length}
-              </span>{" "}
-              hotel{hotels.length !== 1 ? "s" : ""} ·{" "}
-              <span className="font-semibold text-slate-900">
-                {hotels.reduce((a, h) => a + (h.rooms?.length || 0), 0)}
-              </span>{" "}
-              rooms ·{" "}
-              {totalConflicts > 0 ? (
-                <span className="text-red-600 font-semibold">
-                  {totalConflicts} unresolved conflict
-                  {totalConflicts !== 1 ? "s" : ""}
-                </span>
-              ) : (
-                <span className="text-emerald-600 font-semibold">
-                  Ready to save
-                </span>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                className="gap-1.5"
-              >
-                <RefreshCw className="h-4 w-4" /> Start Over
-              </Button>
-              <Button
-                disabled={totalConflicts > 0}
-                className="gap-1.5 bg-theme-primary hover:bg-theme-secondary text-white shadow-md"
-                onClick={() =>
-                  toast("DB saving coming soon! Data is ready.", { icon: "🚀" })
-                }
-              >
-                <Save className="h-4 w-4" />
-                Save All to Database
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )} */}
+     
     </div>
   );
 }
