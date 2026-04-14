@@ -40,21 +40,34 @@ const ActivitySummaryCard = ({ activities, totalPrice, onEdit }) => {
             className="flex items-center gap-2 bg-white rounded-lg px-2.5 py-1.5 border border-slate-100"
           >
             <Activity className="h-3 w-3 text-emerald-500 flex-shrink-0" />
-            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
               <p className="text-xs font-medium text-slate-800 truncate">
                 {act.name}
               </p>
-              {act.isCustom && (
-                <span className="text-[9px] bg-theme-primary/10 text-theme-primary px-1 rounded-full font-medium flex-shrink-0">
-                  Custom
+              <div className="flex items-center gap-1 flex-wrap">
+                {act.isCustom && (
+                  <span className="text-[9px] bg-theme-primary/10 text-theme-primary px-1 rounded-full font-medium flex-shrink-0">
+                    Custom
+                  </span>
+                )}
+                <span className="text-[10px] text-slate-400 flex-shrink-0">
+                  📍 {act.city}
                 </span>
-              )}
-              <span className="text-[10px] text-slate-400 flex-shrink-0">
-                📍 {act.city}
-              </span>
-              <span className="text-[10px] text-slate-400 flex-shrink-0">
-                · {act.participants}p
-              </span>
+                <span className="text-[10px] text-slate-400 flex-shrink-0">
+                  · {act.participants}p
+                </span>
+                {act.applicableTier && (
+                  <span className={`text-[9px] px-1.5 rounded font-semibold flex-shrink-0 ${
+                    act.isFlat 
+                      ? "bg-orange-50 text-orange-600" 
+                      : "bg-blue-50 text-blue-600"
+                  }`}>
+                    {act.isFlat ? "Flat: " : "Tier: "} 
+                    {act.applicableTier.minPax}-{act.applicableTier.maxPax || '∞'} @ ₹{act.applicableTier.pricePerPerson}
+                    {act.isFlat && " (no qty multiplier)"}
+                  </span>
+                )}
+              </div>
             </div>
             <span className="text-xs font-bold text-emerald-600 flex-shrink-0">
               ₹{Number(act.totalPrice || 0).toLocaleString("en-IN")}

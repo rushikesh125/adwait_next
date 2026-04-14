@@ -258,10 +258,7 @@ const Activities = () => {
                 <SortHeader label="City" column="city" sortConfig={sortConfig} onSort={handleSort} />
               </TableHead>
               <TableHead className="text-center">
-                <SortHeader label="FIT Rate" column="fitRatePerPerson" sortConfig={sortConfig} onSort={handleSort} align="center" />
-              </TableHead>
-              <TableHead className="text-center">
-                <SortHeader label="Group Rate" column="groupRatePerPerson" sortConfig={sortConfig} onSort={handleSort} align="center" />
+                <div className="text-[11px] font-bold text-slate-400 uppercase">Pricing Tiers</div>
               </TableHead>
               <TableHead className="text-center pr-6 font-bold text-slate-600 uppercase text-[11px]">
                 Actions
@@ -272,66 +269,84 @@ const Activities = () => {
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center text-slate-500 italic">
+                <TableCell colSpan={6} className="h-32 text-center text-slate-500 italic">
                   No activities found matching your criteria.
                 </TableCell>
               </TableRow>
             ) : (
-              paginated.map((activity, index) => (
-                <TableRow key={activity.id} className="group hover:bg-theme-muted/10 transition-colors">
-                  <TableCell className="text-center font-medium text-slate-400 text-sm">
-                    {startIndex + index + 1}
-                  </TableCell>
-                  <TableCell className="font-semibold text-slate-900">{activity.name}</TableCell>
-                  <TableCell>
-                    <span className="bg-slate-100 text-slate-600 text-[11px] px-2 py-0.5 rounded-full font-bold uppercase">
-                      {activity.state}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 text-sm text-slate-600">
-                      <MapPin className="h-3.5 w-3.5 text-theme-primary shrink-0" />
-                      {activity.city}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-sm">
-                      <User className="h-3.5 w-3.5 text-slate-400" />
-                      <span className="font-semibold text-slate-700">
-                        ₹{Number(activity.fitRatePerPerson || 0).toLocaleString("en-IN")}
+              paginated.map((activity, index) => {
+                // Handle both old and new pricing formats
+                const pricingTiers = activity.pricingTiers || [
+                  { minPax: 1, maxPax: 10, pricePerPerson: activity.fitRatePerPerson || 0, pricingType: "per_person" },
+                  { minPax: 11, maxPax: null, pricePerPerson: activity.groupRatePerPerson || 0, pricingType: "per_person" }
+                ].filter(tier => tier.pricePerPerson > 0);
+
+                return (
+                  <TableRow key={activity.id} className="group hover:bg-theme-muted/10 transition-colors">
+                    <TableCell className="text-center font-medium text-slate-400 text-sm">
+                      {startIndex + index + 1}
+                    </TableCell>
+                    <TableCell className="font-semibold text-slate-900">{activity.name}</TableCell>
+                    <TableCell>
+                      <span className="bg-slate-100 text-slate-600 text-[11px] px-2 py-0.5 rounded-full font-bold uppercase">
+                        {activity.state}
                       </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-sm">
-                      <Users className="h-3.5 w-3.5 text-slate-400" />
-                      <span className="font-bold text-theme-primary">
-                        ₹{Number(activity.groupRatePerPerson || 0).toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center pr-6">
-                    <div className="flex justify-center gap-1.5">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-slate-400 hover:text-theme-primary"
-                        onClick={() => setEditingActivityId(activity.id)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                        onClick={() => handleDeleteActivity(activity.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm text-slate-600">
+                        <MapPin className="h-3.5 w-3.5 text-theme-primary shrink-0" />
+                        {activity.city}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="space-y-1 max-w-[200px]">
+                        {pricingTiers.slice(0, 2).map((tier, idx) => (
+                          <div key={idx} className="flex items-center justify-center gap-1 text-xs bg-slate-50 rounded px-2 py-1">
+                            <span className="font-medium text-slate-600">
+                              {tier.minPax}-{tier.maxPax || '∞'}p
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              tier.pricingType === 'flat_fee' 
+                                ? 'bg-orange-100 text-orange-700' 
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {tier.pricingType === 'flat_fee' ? 'FLAT' : 'PER'}
+                            </span>
+                            <span className="font-bold text-slate-800">
+                              ₹{Number(tier.pricePerPerson).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        ))}
+                        {pricingTiers.length > 2 && (
+                          <div className="text-[10px] text-slate-400 font-medium">
+                            +{pricingTiers.length - 2} more tiers
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center pr-6">
+                      <div className="flex justify-center gap-1.5">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-slate-400 hover:text-theme-primary"
+                          onClick={() => setEditingActivityId(activity.id)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          onClick={() => handleDeleteActivity(activity.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

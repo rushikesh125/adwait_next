@@ -126,8 +126,10 @@ export function processFetchedDataForState(rawData) {
       name: a.name || "",
       city: a.city || "",
       participants: a.participants || 1,
-      fitRatePerPerson: a.fitRatePerPerson || 0,
-      groupRatePerPerson: a.groupRatePerPerson || 0,
+      pricingTiers: a.pricingTiers || [
+        { minPax: 1, maxPax: 10, pricePerPerson: a.fitRatePerPerson || 0, pricingType: "per_person" },
+        { minPax: 11, maxPax: null, pricePerPerson: a.groupRatePerPerson || 0, pricingType: "per_person" }
+      ],
       ratePerPerson: a.ratePerPerson || 0,
       totalPrice: a.totalPrice || 0,
       // Add other activity fields if present in rawData.activitySummary

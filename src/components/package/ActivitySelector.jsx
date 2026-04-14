@@ -44,27 +44,97 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
       name: act.name,
       city: act.city,
       state: act.state,
+      // Support both new tier format and old fitRate/groupRate format
+      pricingTiers: act.pricingTiers || [
+        { minPax: 1, maxPax: 10, pricePerPerson: act.fitRatePerPerson || 0, pricingType: "per_person" },
+        { minPax: 11, maxPax: null, pricePerPerson: act.groupRatePerPerson || 0, pricingType: "per_person" }
+      ],
       fitRatePerPerson: act.fitRatePerPerson || 0,
       groupRatePerPerson: act.groupRatePerPerson || 0,
       participants: 1,
-      totalPrice: parseFloat(act.fitRatePerPerson || act.groupRatePerPerson || 0),
+      totalPrice: 0,
+      applicableTier: null,
       isCustom: false,
     };
+    // Calculate initial price
+    const priceInfo = getPriceForParticipants(entry.pricingTiers, 1);
+    entry.totalPrice = priceInfo.isFlat ? priceInfo.totalPrice : priceInfo.pricePerPerson;
+    entry.applicableTier = priceInfo.tier;
+    entry.isFlat = priceInfo.isFlat || false;
+    
     const updated = [...selected, entry];
     setSelected(updated);
     onDone?.(updated, updated.reduce((s, a) => s + (a.totalPrice || 0), 0));
+  };
+
+  const getPriceForParticipants = (pricingTiers, pax) => {
+    if (!pricingTiers || pricingTiers.length === 0) return { pricePerPerson: 0, tier: null };
+    
+    const applicableTier = pricingTiers.find(tier => 
+      pax >= tier.minPax && (tier.maxPax === null || pax <= tier.maxPax)
+    );
+    
+    if (!applicableTier) return { pricePerPerson: 0, tier: null };
+    
+    // Calculate price based on pricing type
+    const pricingType = applicableTier.pricingType || "per_person";
+    let pricePerPerson = applicableTier.pricePerPerson || 0;
+    
+    if (pricingType === "flat_fee") {
+      // For flat fee, divide the total by pax to get per-person equivalent for display
+      // But store the actual total separately
+      return {
+        pricePerPerson: applicableTier.pricePerPerson,
+        tier: applicableTier,
+        totalPrice: applicableTier.pricePerPerson, // Flat fee doesn't multiply by pax
+        isFlat: true
+      };
+    } else {
+      // For per_person, multiply normally
+      return {
+        pricePerPerson,
+        tier: applicableTier,
+        isFlat: false
+      };
+    }
   };
 
   const updateParticipants = (idx, val) => {
     const n = parseInt(val) || 1;
     const updated = selected.map((a, i) => {
       if (i !== idx) return a;
-      const rate = a.isCustom
-        ? a.pricePerPerson || 0
-        : n > 10
-        ? a.groupRatePerPerson
-        : a.fitRatePerPerson;
-      return { ...a, participants: n, totalPrice: rate * n };
+      
+      let rate = 0;
+      let totalPrice = 0;
+      let applicableTier = null;
+      let isFlat = false;
+      
+      if (a.isCustom) {
+        rate = a.pricePerPerson || 0;
+        totalPrice = rate * n;
+      } else {
+        const priceInfo = getPriceForParticipants(a.pricingTiers, n);
+        applicableTier = priceInfo.tier;
+        isFlat = priceInfo.isFlat || false;
+        
+        if (isFlat) {
+          // Flat fee: total stays same regardless of participants
+          totalPrice = priceInfo.totalPrice;
+          rate = priceInfo.totalPrice;
+        } else {
+          // Per person: multiply by participants
+          rate = priceInfo.pricePerPerson;
+          totalPrice = rate * n;
+        }
+      }
+      
+      return { 
+        ...a, 
+        participants: n, 
+        totalPrice,
+        applicableTier,
+        isFlat
+      };
     });
     setSelected(updated);
     onDone?.(updated, updated.reduce((s, a) => s + (a.totalPrice || 0), 0));
@@ -86,8 +156,13 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
       ...customForm,
       isCustom: true,
       totalPrice,
+      pricingTiers: [
+        { minPax: 1, maxPax: null, pricePerPerson: customForm.pricePerPerson, pricingType: "per_person" }
+      ],
       fitRatePerPerson: customForm.pricePerPerson,
       groupRatePerPerson: customForm.pricePerPerson,
+      applicableTier: null,
+      isFlat: false,
     };
     const updated = [...selected, entry];
     setSelected(updated);

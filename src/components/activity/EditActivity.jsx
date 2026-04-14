@@ -6,8 +6,7 @@ import {
   X, 
   MapPin, 
   Tag, 
-  Users, 
-  User, 
+  Plus,
   Trash2, 
   Save, 
   Loader2, 
@@ -25,8 +24,7 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
     const [selectedState, setSelectedState] = useState("");
     const [selectedCity, setSelectedCity] = useState("");
     const [activityName, setActivityName] = useState("");
-    const [fitRate, setFitRate] = useState("");
-    const [groupRate, setGroupRate] = useState("");
+    const [pricingTiers, setPricingTiers] = useState([]);
 
     // Fetch States
     useEffect(() => {
@@ -49,10 +47,23 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
                     const data = docSnap.data();
                     setActivityData(data);
                     setActivityName(data.name);
-                    setFitRate(data.fitRatePerPerson);
-                    setGroupRate(data.groupRatePerPerson);
                     setSelectedState(data.state);
                     setSelectedCity(data.city);
+                    
+                    // Handle both old (fitRate/groupRate) and new (pricingTiers) formats
+                    if (data.pricingTiers && Array.isArray(data.pricingTiers)) {
+                        setPricingTiers(data.pricingTiers);
+                    } else {
+                        // Backward compatibility: convert old format to new
+                        const tiers = [];
+                        if (data.fitRatePerPerson) {
+                            tiers.push({ minPax: 1, maxPax: 10, pricePerPerson: data.fitRatePerPerson, pricingType: "per_person" });
+                        }
+                        if (data.groupRatePerPerson) {
+                            tiers.push({ minPax: 11, maxPax: null, pricePerPerson: data.groupRatePerPerson, pricingType: "per_person" });
+                        }
+                        setPricingTiers(tiers.length > 0 ? tiers : [{ minPax: 1, maxPax: null, pricePerPerson: 0, pricingType: "per_person" }]);
+                    }
                 }
                 setLoading(false);
             }
@@ -74,16 +85,51 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
         if (selectedState) fetchCities();
     }, [selectedState, states]);
 
-    // Negative Value Prevention Logic
-    const handleNumberChange = (setter) => (e) => {
-        const value = e.target.value;
-        const num = value === "" ? 0 : parseInt(value);
-        setter(Math.max(0, num));
+    const updateTier = (index, field, value) => {
+        const updated = [...pricingTiers];
+        if (field === "pricePerPerson") {
+            updated[index].pricePerPerson = value === "" ? "" : Math.max(0, parseInt(value) || 0);
+        } else if (field === "minPax") {
+            updated[index].minPax = parseInt(value) || 1;
+        } else if (field === "maxPax") {
+            updated[index].maxPax = value === "" ? null : parseInt(value) || null;
+        } else if (field === "pricingType") {
+            updated[index].pricingType = value;
+        }
+        setPricingTiers(updated);
+    };
+
+    const addTier = () => {
+        const lastTier = pricingTiers[pricingTiers.length - 1];
+        const newMinPax = lastTier.maxPax ? lastTier.maxPax + 1 : 21;
+        setPricingTiers([
+            ...pricingTiers,
+            { minPax: newMinPax, maxPax: null, pricePerPerson: "" }
+        ]);
+    };
+
+    const removeTier = (index) => {
+        if (pricingTiers.length <= 1) {
+            toast.error("Must have at least one tier");
+            return;
+        }
+        setPricingTiers(pricingTiers.filter((_, i) => i !== index));
     };
 
     const handleUpdate = async () => {
         if (!activityName || !selectedState || !selectedCity) {
             toast.error("Please fill in all required fields");
+            return;
+        }
+
+        if (pricingTiers.length === 0) {
+            toast.error("Add at least one pricing tier");
+            return;
+        }
+
+        const invalidTier = pricingTiers.some(tier => !tier.pricePerPerson && tier.pricePerPerson !== 0);
+        if (invalidTier) {
+            toast.error("All tiers must have a price per person");
             return;
         }
 
@@ -94,8 +140,12 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
                 name: activityName,
                 state: selectedState,
                 city: selectedCity,
-                fitRatePerPerson: Number(fitRate),
-                groupRatePerPerson: Number(groupRate),
+                pricingTiers: pricingTiers.map(tier => ({
+                    minPax: tier.minPax,
+                    maxPax: tier.maxPax,
+                    pricePerPerson: Number(tier.pricePerPerson),
+                    pricingType: tier.pricingType || "per_person"
+                }))
             });
             toast.success("Experience updated successfully!");
             onSave(); // Trigger refresh in parent
@@ -187,31 +237,73 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
                             />
                         </div>
 
-                        {/* Rates */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                                    <User className="w-3 h-3" /> FIT Rate (₹)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={fitRate}
-                                    onChange={handleNumberChange(setFitRate)}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all"
-                                />
+                        {/* Pricing Tiers */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">Pricing Tiers</label>
+                                <button
+                                    onClick={addTier}
+                                    className="text-[10px] text-theme-primary hover:text-theme-secondary font-bold flex items-center gap-1"
+                                >
+                                    <Plus className="w-3 h-3" /> Add Tier
+                                </button>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                                    <Users className="w-3 h-3" /> Group Rate (₹)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={groupRate}
-                                    onChange={handleNumberChange(setGroupRate)}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all"
-                                />
+
+                            <div className="space-y-2 bg-slate-50/50 rounded-xl p-3 border border-slate-100 max-h-80 overflow-y-auto">
+                                {pricingTiers.map((tier, idx) => (
+                                    <div key={idx} className="flex items-end gap-2 p-3 bg-white rounded-lg border border-slate-200">
+                                        <div className="flex-1 space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-500">Min Pax</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={tier.minPax}
+                                                onChange={(e) => updateTier(idx, "minPax", e.target.value)}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex-1 space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-500">Max Pax</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={tier.maxPax || ""}
+                                                onChange={(e) => updateTier(idx, "maxPax", e.target.value)}
+                                                placeholder="Unlimited"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex-1 space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-500">Price (₹)</label>
+                                            <input
+                                                type="number"
+                                                value={tier.pricePerPerson}
+                                                onChange={(e) => updateTier(idx, "pricePerPerson", e.target.value)}
+                                                placeholder="0"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex-1 space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-500">Type</label>
+                                            <select
+                                                value={tier.pricingType || "per_person"}
+                                                onChange={(e) => updateTier(idx, "pricingType", e.target.value)}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-theme-primary/20 outline-none transition-all"
+                                            >
+                                                <option value="per_person">Per Person</option>
+                                                <option value="flat_fee">Flat Fee</option>
+                                            </select>
+                                        </div>
+                                        {pricingTiers.length > 1 && (
+                                            <button
+                                                onClick={() => removeTier(idx)}
+                                                className="p-2 hover:bg-red-100 text-red-500 rounded-lg transition-colors"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
