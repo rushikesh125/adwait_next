@@ -1,5 +1,5 @@
 
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "./config";
 
 /**
@@ -11,13 +11,11 @@ export const fetchAllStates = async () => {
 };
 
 /**
- * Fetches activities and filters them by state
+ * Fetches activities filtered by state using a Firestore where clause
  */
 export const fetchActivitiesByState = async (selectedState) => {
-  const snapshot = await getDocs(collection(db, "activities"));
-  const allActivities = snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
-  return allActivities.filter((activity) => activity.state === selectedState);
+  const snapshot = await getDocs(
+    query(collection(db, "activities"), where("state", "==", selectedState))
+  );
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 };

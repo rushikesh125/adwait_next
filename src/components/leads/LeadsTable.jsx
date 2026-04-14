@@ -101,7 +101,11 @@ export default function LeadsTable({
       const status = lead.status || "New";
 
       const matchesSearch = name.includes(term) || dest.includes(term);
-      const matchesStatus = statusFilter === "All" || status === statusFilter;
+      const matchesStatus =
+        statusFilter === "All" ||
+        (statusFilter === "Active" && ["New", "Contacted", "Quotation Sent"].includes(status)) ||
+        (statusFilter === "Attention" && ["New", "Contacted"].includes(status)) ||
+        status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });

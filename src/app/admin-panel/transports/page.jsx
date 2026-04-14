@@ -1,49 +1,96 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import toast from "react-hot-toast";
 
-// shadcn/ui components
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { 
-  Search, 
-  Plus, 
-  Pencil, 
-  MapPin, 
-  Car, 
-  Users, 
-  Snowflake, 
-  FlameKindling, 
-  Loader2 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+
+import {
+  Search,
+  Plus,
+  Pencil,
+  MapPin,
+  Car,
+  Truck,
+  Users,
+  Filter,
+  FilterX,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Loader2,
 } from "lucide-react";
 
 import Createpackage from "@/components/transports/CreatePackage";
 import EditPackage from "@/components/transports/EditPackage";
 
+// --- Sortable Header ---
+const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
+  const isActive = sortConfig.key === column;
+  const Icon = !isActive ? ArrowUpDown : sortConfig.direction === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <button
+      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors uppercase text-[11px] tracking-wider font-bold ${
+        isActive ? "text-theme-primary" : "text-slate-600"
+      } ${align === "center" ? "mx-auto" : ""}`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      <Icon className={`h-3 w-3 ${isActive ? "opacity-100" : "opacity-40"}`} />
+    </button>
+  );
+};
+
+const ITEMS_PER_PAGE_OPTIONS = [25, 50, 100];
+
+const pricingBadgeClass = (type) =>
+  type === "perKm"
+    ? "bg-blue-50 text-blue-700 border-blue-200"
+    : "bg-emerald-50 text-emerald-700 border-emerald-200";
+
 const Transport = () => {
   const [showModal, setShowModal] = useState(false);
   const [packagesByState, setPackagesByState] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [stateFilter, setStateFilter] = useState("All");
   const [editingData, setEditingData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sortConfig, setSortConfig] = useState({ key: "stateName", direction: "asc" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const fetchTransportData = async () => {
     setLoading(true);
     try {
-      const transportSnapshot = await getDocs(collection(db, "transport"));
-      const stateData = transportSnapshot.docs
+      const snapshot = await getDocs(collection(db, "transport"));
+      const stateData = snapshot.docs
         .map((doc) => ({
           id: doc.id,
           stateName: doc.data().stateName,
           packages: doc.data().packages || [],
         }))
         .filter((s) => s.packages.length > 0);
-
       setPackagesByState(stateData);
     } catch (err) {
       console.error("Error fetching:", err);
@@ -53,167 +100,291 @@ const Transport = () => {
     }
   };
 
-  useEffect(() => {
-    fetchTransportData();
-  }, [showModal]);
+  useEffect(() => { fetchTransportData(); }, [showModal]);
 
-  const filteredData = packagesByState.map(state => {
-    const isStateMatch = state.stateName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchedPackages = state.packages.filter(pkg => 
-      pkg.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pkg.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  // Flatten to one row per package
+  const flatRows = useMemo(() =>
+    packagesByState.flatMap((state) =>
+      state.packages.map((pkg) => ({
+        stateId: state.id,
+        stateName: state.stateName,
+        pkg,
+      }))
+    ), [packagesByState]
+  );
 
-    if (isStateMatch) return state; 
-    if (matchedPackages.length > 0) return { ...state, packages: matchedPackages };
-    return null;
-  }).filter(Boolean);
+  const uniqueStates = useMemo(
+    () => ["All", ...new Set(packagesByState.map((s) => s.stateName))].sort(),
+    [packagesByState]
+  );
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const processed = useMemo(() => {
+    let result = flatRows.filter((row) => {
+      const q = searchTerm.toLowerCase();
+      const matchesSearch =
+        row.stateName?.toLowerCase().includes(q) ||
+        row.pkg.name?.toLowerCase().includes(q) ||
+        row.pkg.description?.toLowerCase().includes(q) ||
+        row.pkg.pricingType?.toLowerCase().includes(q);
+      const matchesState = stateFilter === "All" || row.stateName === stateFilter;
+      return matchesSearch && matchesState;
+    });
+
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        let aVal = sortConfig.key === "stateName" ? a.stateName : a.pkg[sortConfig.key] ?? "";
+        let bVal = sortConfig.key === "stateName" ? b.stateName : b.pkg[sortConfig.key] ?? "";
+        if (typeof aVal === "string") aVal = aVal.toLowerCase();
+        if (typeof bVal === "string") bVal = bVal.toLowerCase();
+        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [flatRows, searchTerm, stateFilter, sortConfig]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, stateFilter, itemsPerPage]);
+
+  const totalPages = Math.ceil(processed.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginated = processed.slice(startIndex, startIndex + itemsPerPage);
+
+  const hasFilters = searchTerm || stateFilter !== "All";
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20">
-      {/* --- STICKY HEADER --- */}
-      <div className=" z-10 bg-white/80 backdrop-blur-md border-b border-theme-muted mb-8">
-        <div className="max-w-7xl mx-auto px-4 md:px-10 py-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-theme-dark tracking-tight">
-                Transport Management
-              </h1>
-              <p className="text-slate-500 text-sm flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Live Fleet & Package Overview
-              </p>
+    <div className="min-h-screen bg-[#F8FAFC] px-4 md:px-10 py-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+        <div className="text-center md:text-left">
+          <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+            <div className="p-2 bg-theme-primary/10 rounded-lg">
+              <Truck className="w-6 h-6 text-theme-primary" />
             </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  className="pl-9 bg-white border-slate-200 focus-visible:ring-theme-primary"
-                  placeholder="Search regions or cars..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Button
-                className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 transition-all active:scale-95"
-                onClick={() => setShowModal(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" /> Create
-              </Button>
-            </div>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+              Transport Management
+            </h1>
+          </div>
+          <p className="text-slate-500 text-sm">
+            Fleet packages and pricing across all destinations.
+          </p>
+        </div>
+
+        <Button
+          className="bg-theme-primary hover:bg-theme-secondary text-white px-6 py-3 rounded-xl shadow-lg shadow-theme-primary/20 transition-all active:scale-95 font-semibold text-sm h-auto"
+          onClick={() => setShowModal(true)}
+        >
+          <Plus className="w-4 h-4 mr-2" /> Create Package
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+          <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+            <Car className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Total Packages</p>
+            <p className="text-2xl font-bold text-slate-800">{flatRows.length}</p>
+          </div>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+          <div className="h-12 w-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
+            <MapPin className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Active States</p>
+            <p className="text-2xl font-bold text-slate-800">{packagesByState.length}</p>
           </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-10">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 text-theme-dark/50">
-            <Loader2 className="w-10 h-10 animate-spin text-theme-primary mb-4" />
-            <p className="font-medium">Syncing database...</p>
+      {/* Toolbar */}
+      <div className="table-toolbar mb-4">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search packages, state..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 rounded-lg h-10 border-slate-200 focus-visible:ring-theme-primary"
+            />
           </div>
-        ) : filteredData.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
-            <div className="bg-theme-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="text-theme-primary w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-semibold text-theme-dark">No packages found</h3>
-            <p className="text-slate-500">Try adjusting your search or filters.</p>
-          </div>
-        ) : (
-          filteredData.map((state) => (
-            <section key={state.id} className="mb-12">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-lg bg-theme-primary text-white">
-                  <MapPin className="w-5 h-5" />
-                </div>
-                <h2 className="text-xl font-bold text-theme-dark uppercase tracking-wide">
-                  {state.stateName}
-                </h2>
-                <Badge variant="secondary" className="bg-theme-muted text-theme-dark border-none">
-                  {state.packages.length} Packages
-                </Badge>
-                <Separator className="flex-1" />
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {state.packages.map((pkg, idx) => (
-                  <Card key={idx} className="group overflow-hidden border-none shadow-sm hover:shadow-xl transition-all duration-300 ring-1 ring-slate-200">
-                    <div className="h-2 bg-gradient-to-r from-theme-gradient-from to-theme-gradient-to" />
-                    <CardHeader className="space-y-1">
-                      <div className="flex justify-between items-start">
-                        <Badge variant="outline" className="capitalize text-[10px] font-bold border-theme-primary/30 text-theme-primary">
-                          {pkg.pricingType}
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-theme-dark group-hover:text-theme-primary transition-colors">
-                        {pkg.pricingType === "perKm" ? "Standard Fleet Rates" : pkg.name}
-                      </CardTitle>
-                      <CardDescription className="line-clamp-2">
-                        {pkg.description || "Comprehensive travel solution with premium vehicle options."}
-                      </CardDescription>
-                    </CardHeader>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-10 rounded-lg border-slate-200">
+                <Filter className="h-4 w-4 mr-2 text-slate-500" />
+                {stateFilter === "All" ? "State" : stateFilter}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuLabel>Filter by State</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {uniqueStates.map((s) => (
+                <DropdownMenuItem key={s} onClick={() => setStateFilter(s)}>
+                  {s === "All" ? "All States" : s}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        {pkg.vehicles.map((v, vIdx) => (
-                          <div key={vIdx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 hover:bg-theme-muted/50 transition-colors border border-transparent hover:border-theme-muted">
-                            <div className="flex items-center gap-3">
-                              <div className="p-1.5 bg-white rounded border border-slate-100 shadow-sm">
-                                <Car className="w-3.5 h-3.5 text-theme-dark" />
-                              </div>
-                              <div>
-                                <p className="text-xs font-bold text-slate-700">{v.type}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] flex items-center text-slate-500">
-                                    <Users className="w-3 h-3 mr-1" /> {v.seating}
-                                  </span>
-                                  <span className="text-[10px] flex items-center text-slate-500">
-                                    {v.ac ? (
-                                      <Snowflake className="w-3 h-3 mr-1 text-blue-400" />
-                                    ) : (
-                                      <FlameKindling className="w-3 h-3 mr-1 text-orange-400" />
-                                    )}
-                                    {v.ac ? "AC" : "Non-AC"}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-theme-primary">
-                                ₹{pkg.pricingType === "lumpsum" ? v.price : v.perKmprice}
-                                {pkg.pricingType === "perKm" && <span className="text-[10px] font-normal text-slate-400">/km</span>}
-                              </p>
-                          {pkg.pricingType === "perKm" && v.driverAllowance > 0 && (
-                              <p className="text-[11px] text-slate-500 mt-0.5">
-                                Driver: ₹{v.driverAllowance}
-                              </p>
-                            )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <Button
-                        variant="ghost"
-                        className="w-full bg-slate-50 text-theme-dark hover:bg-theme-primary hover:text-white group"
-                        onClick={() => setEditingData({ pkg, stateId: state.id })}
-                      >
-                        <Pencil className="w-3.5 h-3.5 mr-2 opacity-50 group-hover:opacity-100" />
-                        Modify Package
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          ))
+        {hasFilters && (
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => { setSearchTerm(""); setStateFilter("All"); }}
+            className="text-slate-500 hover:text-rose-600"
+          >
+            <FilterX className="h-4 w-4 mr-2" /> Clear
+          </Button>
         )}
-      </main>
+      </div>
 
-      {/* --- MODALS --- */}
+      {/* Table */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+          <Loader2 className="w-10 h-10 animate-spin text-theme-primary mb-4" />
+          <p className="font-medium">Loading transport data...</p>
+        </div>
+      ) : (
+        <div className="table-shell">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[50px] text-center text-[11px] font-bold text-slate-400">#</TableHead>
+                <TableHead className="py-4">
+                  <SortHeader label="State" column="stateName" sortConfig={sortConfig} onSort={handleSort} />
+                </TableHead>
+                <TableHead>
+                  <SortHeader label="Package Name" column="name" sortConfig={sortConfig} onSort={handleSort} />
+                </TableHead>
+                <TableHead className="text-center">
+                  <SortHeader label="Pricing Type" column="pricingType" sortConfig={sortConfig} onSort={handleSort} align="center" />
+                </TableHead>
+                <TableHead className="text-center font-bold text-slate-600 uppercase text-[11px]">
+                  Vehicles
+                </TableHead>
+                <TableHead className="text-center pr-6 font-bold text-slate-600 uppercase text-[11px]">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {paginated.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-slate-500 italic">
+                    No transport packages found matching your criteria.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginated.map((row, index) => (
+                  <TableRow key={`${row.stateId}-${index}`} className="group hover:bg-theme-muted/10 transition-colors">
+                    <TableCell className="text-center font-medium text-slate-400 text-sm">
+                      {startIndex + index + 1}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-theme-primary shrink-0" />
+                        <span className="font-semibold text-slate-700">{row.stateName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-semibold text-slate-900">
+                      {row.pkg.pricingType === "perKm" ? "Standard Fleet Rates" : (row.pkg.name || "—")}
+                      {row.pkg.description && (
+                        <p className="text-[11px] text-slate-400 font-normal truncate max-w-[220px]">
+                          {row.pkg.description}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant="outline"
+                        className={`text-[11px] font-bold capitalize ${pricingBadgeClass(row.pkg.pricingType)}`}
+                      >
+                        {row.pkg.pricingType === "perKm" ? "Per KM" : "Lump Sum"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Users className="h-3.5 w-3.5 text-slate-400" />
+                        <span className="text-sm font-bold text-slate-700">
+                          {row.pkg.vehicles?.length ?? 0}
+                        </span>
+                        <span className="text-[11px] text-slate-400">vehicles</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center pr-6">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-slate-400 hover:text-theme-primary"
+                        onClick={() => setEditingData({ pkg: row.pkg, stateId: row.stateId })}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && processed.length > 0 && (
+        <div className="table-footer-bar flex-wrap px-3 py-3 mt-0">
+          <p className="text-xs text-slate-500 font-medium">
+            Showing <span className="text-slate-900">{startIndex + 1}</span> to{" "}
+            <span className="text-slate-900">{Math.min(startIndex + itemsPerPage, processed.length)}</span> of{" "}
+            <span className="text-slate-900">{processed.length}</span> entries
+          </p>
+          <div className="flex items-center gap-2">
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="h-8 border rounded-lg px-2 text-xs text-slate-600"
+            >
+              {ITEMS_PER_PAGE_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n} / page</option>
+              ))}
+            </select>
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="h-8 rounded-lg"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+            </Button>
+            <div className="text-xs font-bold text-slate-600 px-3">
+              {currentPage} / {totalPages}
+            </div>
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="h-8 rounded-lg"
+            >
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
       {showModal && <Createpackage onClose={() => setShowModal(false)} />}
-
       {editingData && (
         <EditPackage
           stateId={editingData.stateId}
