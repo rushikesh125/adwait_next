@@ -708,6 +708,37 @@ const handleTransportSummaryChange = (field, value) => {
   };
 
   // Activities
+  const getPriceForParticipants = (pricingTiers, pax) => {
+    if (!pricingTiers || pricingTiers.length === 0) return { pricePerPerson: 0, tier: null };
+
+    const applicableTier = pricingTiers.find(tier =>
+      pax >= tier.minPax && (tier.maxPax === null || pax <= tier.maxPax)
+    );
+
+    if (!applicableTier) return { pricePerPerson: 0, tier: null };
+
+    // Calculate price based on pricing type
+    const pricingType = applicableTier.pricingType || "per_person";
+    let pricePerPerson = applicableTier.pricePerPerson || 0;
+
+    if (pricingType === "flat_fee") {
+      // For flat fee, the pricePerPerson field contains the flat fee amount
+      return {
+        pricePerPerson: applicableTier.pricePerPerson,
+        tier: applicableTier,
+        totalPrice: applicableTier.pricePerPerson, // Flat fee doesn't multiply by pax
+        isFlat: true
+      };
+    } else {
+      // For per_person, multiply normally
+      return {
+        pricePerPerson,
+        tier: applicableTier,
+        isFlat: false
+      };
+    }
+  };
+
   const handleAddActivity = () => {
     if (!selectedActivityToAdd) { alert("Please select an activity to add."); return; }
     let isAlreadyAdded = false;
@@ -721,14 +752,22 @@ const handleTransportSummaryChange = (field, value) => {
     const activityData = availableActivities.find((a) => a.name === selectedActivityToAdd);
     if (!activityData) return;
 
+    // Use tier-based pricing
+    const pricingTiers = activityData.pricingTiers || [
+      { minPax: 1, maxPax: 10, pricePerPerson: activityData.fitRatePerPerson || 0, pricingType: "per_person" },
+      { minPax: 11, maxPax: null, pricePerPerson: activityData.groupRatePerPerson || 0, pricingType: "per_person" }
+    ];
+
+    const priceInfo = getPriceForParticipants(pricingTiers, 1);
+    const totalPrice = priceInfo.isFlat ? priceInfo.totalPrice : priceInfo.pricePerPerson * 1;
+
     const newActivity = {
       name: activityData.name,
       city: activityData.city,
       state: activityData.state,
-      fitRatePerPerson: activityData.fitRatePerPerson || 0,
-      groupRatePerPerson: activityData.groupRatePerPerson || 0,
+      pricingTiers: pricingTiers,
       participants: 1,
-      totalPrice: parseFloat(activityData.fitRatePerPerson || activityData.groupRatePerPerson || 0),
+      totalPrice: totalPrice,
       isCustom: false,
     };
     setEditingQuotation((prev) => {
@@ -781,13 +820,20 @@ const handleTransportSummaryChange = (field, value) => {
       if (name === "participants") {
         const participants = parseInt(value, 10) || 0;
         act.participants = participants;
-        const rate = act.isCustom
-          ? act.pricePerPerson || 0
-          : participants > 10
-          ? act.groupRatePerPerson
-          : act.fitRatePerPerson;
-        act.totalPrice = rate * participants;
-        if (act.isCustom) act.pricePerPerson = act.pricePerPerson || 0;
+
+        if (act.isCustom) {
+          // For custom activities, use the stored pricePerPerson
+          act.totalPrice = (act.pricePerPerson || 0) * participants;
+        } else {
+          // For database activities, use tier-based pricing
+          const pricingTiers = act.pricingTiers || [
+            { minPax: 1, maxPax: 10, pricePerPerson: act.fitRatePerPerson || 0, pricingType: "per_person" },
+            { minPax: 11, maxPax: null, pricePerPerson: act.groupRatePerPerson || 0, pricingType: "per_person" }
+          ];
+          const priceInfo = getPriceForParticipants(pricingTiers, participants);
+          act.totalPrice = priceInfo.isFlat ? priceInfo.totalPrice : priceInfo.pricePerPerson * participants;
+          act.pricingTiers = pricingTiers; // Ensure pricingTiers is stored
+        }
       } else if (name === "pricePerPerson") {
         act.pricePerPerson = parseFloat(value) || 0;
         act.totalPrice = act.pricePerPerson * (act.participants || 1);
