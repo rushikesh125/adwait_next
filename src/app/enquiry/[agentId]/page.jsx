@@ -171,7 +171,7 @@ export default function PublicEnquiryPage() {
               budget: form.budget || "Not specified",
               notes: form.notes || "None",
             },
-            "GjevhIIhLITokCOAK"
+            "yTtNjop0pU1m6XnE0"
           );
         } catch (emailError) {
           // Don't block submission if email fails
