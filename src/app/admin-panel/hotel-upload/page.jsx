@@ -27,6 +27,7 @@ import {
   Calendar,
   Save,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1030,6 +1031,24 @@ export default function HotelUploadPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="flex items-center gap-3 bg-theme-muted/40 border border-theme-primary/20 rounded-xl p-4 mb-4">
+                <div className="p-2 bg-theme-primary/10 rounded-lg shrink-0">
+                  <Download className="h-4 w-4 text-theme-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-800">Download Template</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Get the Excel template with all required columns and sample data to fill in your hotel information.</p>
+                </div>
+                <a
+                  href="/hotel-upload-template.xlsx"
+                  download="hotel-upload-template.xlsx"
+                  className="flex items-center gap-2 px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary/90 transition-colors shrink-0 font-medium text-sm"
+                >
+                  <Download className="h-4 w-4" />
+                  Download
+                </a>
               </div>
 
               <UploadZone onFile={processFile} processing={isProcessing} />
