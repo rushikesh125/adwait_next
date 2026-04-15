@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import emailjs from "@emailjs/browser";
 import LeadForm from "@/components/leads/LeadForm";
 import { db } from "@/firebase/config";
 import { addCustomer, findExistingCustomerByEmailOrMobile } from "@/firebase/customersService";
@@ -144,6 +145,38 @@ export default function PublicEnquiryPage() {
         agentName: agent.name || "",
         source: "Public Enquiry Form",
       });
+
+      // Notify agent about the new lead via email
+      if (agent.email) {
+        try {
+          await emailjs.send(
+            "service_gmfmqbu",
+            "template_lead_notify",
+            {
+              agent_name: agent.name || "Agent",
+              to_email: agent.email,
+              customer_name: form.name.trim(),
+              customer_email: cleanEmail,
+              customer_mobile: cleanMobile,
+              destination: form.destination,
+              departure_city: form.departureCity,
+              travel_date: form.travelDate,
+              days: form.days,
+              trip_type: form.tripType,
+              adults: form.adults,
+              children: form.children || "0",
+              rooms: form.rooms,
+              meal_plan: form.mealPlan,
+              budget: form.budget || "Not specified",
+              notes: form.notes || "None",
+            },
+            "GjevhIIhLITokCOAK"
+          );
+        } catch (emailError) {
+          // Don't block submission if email fails
+          console.error("Lead notification email failed:", emailError);
+        }
+      }
 
       setSubmitted(true);
       setForm(enquiryInitialValues);
