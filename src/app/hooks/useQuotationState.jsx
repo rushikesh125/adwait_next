@@ -30,6 +30,7 @@ export function useQuotationState() {
   // ─── Filter state ─────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDestination, setFilterDestination] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -373,9 +374,10 @@ export function useQuotationState() {
         packageDestination.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStartDate = !startDate || (quotationDate && quotationDate >= new Date(startDate));
       const matchesEndDate = !endDate || (quotationDate && quotationDate <= new Date(endDate));
-      return matchesSearch && matchesStartDate && matchesEndDate;
+      const matchesStatus = !filterStatus || q.status === filterStatus;
+      return matchesSearch && matchesStartDate && matchesEndDate && matchesStatus;
     });
-  }, [quotations, searchTerm, startDate, endDate, getDestinationOfpkg]);
+  }, [quotations, searchTerm, startDate, endDate, filterStatus, getDestinationOfpkg]);
 
   // ─── Event handlers ───────────────────────────────────────────────────────
   const handleViewClick = (quotation) => {
@@ -1047,6 +1049,7 @@ const handleTransportSummaryChange = (field, value) => {
     loading, isFetchingQuotations,
     // Filter state
     searchTerm, setSearchTerm, filterDestination, setFilterDestination,
+    filterStatus, setFilterStatus,
     startDate, setStartDate, endDate, setEndDate,
     // View modal
     isViewModalOpen, setIsViewModalOpen, viewingQuotation,
