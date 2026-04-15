@@ -147,6 +147,7 @@ export default function PublicEnquiryPage() {
       });
 
       // Notify agent about the new lead via email
+      console.log("[Lead Email] agent.email:", agent.email);
       if (agent.email) {
         try {
           await emailjs.send(
