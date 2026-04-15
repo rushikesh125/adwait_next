@@ -48,7 +48,7 @@ export default function LeadsPage() {
   const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All");
   const [showDashboard, setShowDashboard] = useState(false);
-
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const nameInputRef = useRef(null);
@@ -206,7 +206,8 @@ export default function LeadsPage() {
   // Handle Name Search
   const handleNameChange = (e) => {
     const value = e.target.value;
-    setForm({ ...form, name: value });
+    setForm((prev) => ({ ...prev, name: value }));
+    setSelectedCustomer(null); // ❗ user is typing → unlink customer
     if (value.length > 1) {
       const filtered = customers.filter(
         (cust) =>
@@ -221,7 +222,14 @@ export default function LeadsPage() {
   };
 
   const selectCustomer = (customer) => {
-    setForm({ ...form, name: customer.name });
+    setForm((prev) => ({
+      ...prev,
+      name: customer.name,
+      mobile: customer.mobile || "",
+      email: customer.email || "",
+    }));
+
+    setSelectedCustomer(customer); // 🔥 store full object
     setShowSuggestions(false);
   };
 
@@ -252,6 +260,10 @@ export default function LeadsPage() {
         ...form,
         email: form.email || "",
         mobile: form.mobile ? normalizeMobile(form.mobile) : "",
+
+        customerId: selectedCustomer?.id || null, // 🔥 LINK
+        customerName: selectedCustomer?.name || form.name, // optional but useful
+
         agentId: user?.uid || null,
         assignedAgentId: user?.uid || null,
         assignedAgentName: user?.name || "",
@@ -271,6 +283,8 @@ export default function LeadsPage() {
       loadLeads();
     } catch (error) {
       toast.error("Error creating lead", { id: toastId });
+    }finally{
+      setSelectedCustomer(null);
     }
   };
 
@@ -326,10 +340,8 @@ export default function LeadsPage() {
                     Travel Leads
                   </h1>
                   <p className="text-xs text-slate-500 sm:text-sm">
-                    {showDashboard
-                      ? "Hide dashboard"
-                      : "Show dashboard"}{" "}
-                    to view lead metrics and quick filters.
+                    {showDashboard ? "Hide dashboard" : "Show dashboard"} to
+                    view lead metrics and quick filters.
                   </p>
                 </div>
               </div>
@@ -360,24 +372,36 @@ export default function LeadsPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setStatusFilter(statusFilter === "Active" ? "All" : "Active")}
+                      onClick={() =>
+                        setStatusFilter(
+                          statusFilter === "Active" ? "All" : "Active",
+                        )
+                      }
                       className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700 transition hover:border-slate-400 hover:shadow-sm cursor-pointer"
                     >
                       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
                         Active
                       </span>
-                      <span className="font-black text-slate-900">{overviewMetrics.activePipeline}</span>
+                      <span className="font-black text-slate-900">
+                        {overviewMetrics.activePipeline}
+                      </span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setStatusFilter(statusFilter === "Attention" ? "All" : "Attention")}
+                      onClick={() =>
+                        setStatusFilter(
+                          statusFilter === "Attention" ? "All" : "Attention",
+                        )
+                      }
                       className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-800 transition hover:border-blue-400 hover:shadow-sm cursor-pointer"
                     >
                       <Clock3 className="h-4 w-4" />
                       <span className="text-xs font-bold uppercase tracking-[0.14em]">
                         Attention
                       </span>
-                      <span className="font-black">{overviewMetrics.needsAttention}</span>
+                      <span className="font-black">
+                        {overviewMetrics.needsAttention}
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -435,8 +459,12 @@ export default function LeadsPage() {
                           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
                             {card.label}
                           </p>
-                          <p className="mt-1.5 text-xl font-black">{card.value}</p>
-                          <p className="mt-0.5 text-[11px] text-slate-500">{card.helper}</p>
+                          <p className="mt-1.5 text-xl font-black">
+                            {card.value}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            {card.helper}
+                          </p>
                         </div>
                         <div className={`rounded-xl p-2 ${card.iconTone}`}>
                           <Icon className="h-4 w-4" />
@@ -539,6 +567,7 @@ export default function LeadsPage() {
                       }));
                   }}
                   onSubmit={handleSubmit}
+                  selectedCustomer={selectedCustomer}
                 />
 
                 {/* DYNAMIC CUSTOMER SUGGESTIONS */}
@@ -605,7 +634,6 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
