@@ -152,7 +152,7 @@ export default function PublicEnquiryPage() {
         try {
           await emailjs.send(
             "service_gmfmqbu",
-            "template_lead_notify",
+            process.env.NEXT_PUBLIC_EMAILJS_LEAD_TEMPLATE_ID,
             {
               agent_name: agent.name || "Agent",
               to_email: agent.email,

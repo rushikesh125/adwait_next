@@ -328,7 +328,7 @@ export default function Dashboard() {
 
       await emailjs.send(
         "service_gmfmqbu",
-        "template_1tiwdgl",
+        process.env.NEXT_PUBLIC_EMAILJS_APPROVAL_TEMPLATE_ID,
         emailParams,
         "GjevhIIhLITokCOAK"
       );
@@ -373,7 +373,7 @@ export default function Dashboard() {
 
       await emailjs.send(
         "service_gmfmqbu",
-        "template_1tiwdgl",
+        process.env.NEXT_PUBLIC_EMAILJS_APPROVAL_TEMPLATE_ID,
         emailParams,
         "GjevhIIhLITokCOAK"
       );

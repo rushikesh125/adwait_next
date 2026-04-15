@@ -67,7 +67,7 @@ export default function SignupPage() {
     try {
       await emailjs.send(
         "service_gmfmqbu",
-        "template_msuvmij",
+        process.env.NEXT_PUBLIC_EMAILJS_SIGNUP_TEMPLATE_ID,
         {
           user_name: userDisplayName,
           user_email: userEmail,
