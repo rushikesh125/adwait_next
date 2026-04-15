@@ -63,6 +63,8 @@ import { useRouter } from "next/navigation";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
 import StatusBadge from "@/components/StatusBadge";
 import { getStatusLabel } from "@/lib/status";
+import { useSelector } from "react-redux";
+import ShareButton from "@/components/ShareButton";
 
 const STATUS_ORDER = { Draft: 1, Sent: 2, Accepted: 3, Rejected: 4 };
 const QUOTATION_STATUS_OPTIONS = ["Draft", "Sent", "Accepted", "Rejected"];
@@ -123,7 +125,7 @@ const QuotationsTable = ({
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [editingStatusId, setEditingStatusId] = useState(null);
-
+  const { user } = useSelector((state) => state.auth);
   const handleSort = (key) => {
     setSortConfig((prev) =>
       prev.key === key
@@ -393,7 +395,10 @@ const QuotationsTable = ({
                                     className="flex items-center justify-between h-7 px-3 text-[11px] font-bold rounded-full border bg-white text-slate-800 focus:ring-2 focus:ring-theme-primary/30"
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    {getStatusLabel(q.status || "Draft", "Draft")}
+                                    {getStatusLabel(
+                                      q.status || "Draft",
+                                      "Draft",
+                                    )}
                                     <Search className="h-3 w-3 rotate-90" />
                                   </button>
                                 </DropdownMenuTrigger>
@@ -407,7 +412,10 @@ const QuotationsTable = ({
                                       key={status}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleQuotationStatusChange?.(q.id, status);
+                                        handleQuotationStatusChange?.(
+                                          q.id,
+                                          status,
+                                        );
                                         setEditingStatusId(null);
                                       }}
                                     >
@@ -423,7 +431,8 @@ const QuotationsTable = ({
                           className="text-right"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1 flex-wrap">
+                            {/* View */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -433,6 +442,8 @@ const QuotationsTable = ({
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
+
+                            {/* Edit */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -442,6 +453,8 @@ const QuotationsTable = ({
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
+
+                            {/* Download PDF */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -451,6 +464,8 @@ const QuotationsTable = ({
                             >
                               <Download className="h-4 w-4" />
                             </Button>
+
+                            {/* Copy Summary */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -460,6 +475,20 @@ const QuotationsTable = ({
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
+
+                            {/* Share Itinerary - NEW SHARE BUTTON */}
+                            <ShareButton
+                              quotation={q}
+                              agentId={user?.uid}
+                              onTokenSaved={(quotationId, fields) => {
+                                // Optional: Refresh the specific row in parent component
+                                // You can call a refresh function or update local state
+                              }}
+                              size="sm"
+                              variant="icon"
+                            />
+
+                            {/* WhatsApp Share */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -469,6 +498,8 @@ const QuotationsTable = ({
                             >
                               <MessageCircle className="h-4 w-4" />
                             </Button>
+
+                            {/* Reminder (only for Sent) */}
                             {q.status === "Sent" && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -485,7 +516,8 @@ const QuotationsTable = ({
                               </Tooltip>
                             )}
 
-                            {isAccepted ? (
+                            {/* More Actions for Accepted */}
+                            {q.status === "Accepted" ? (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
@@ -549,6 +581,7 @@ const QuotationsTable = ({
                               </Tooltip>
                             )}
 
+                            {/* Delete */}
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button
