@@ -28,6 +28,7 @@ import {
   getLeadsByAgent,
   updateLeadStatus,
   deleteLead,
+  rejectAllQuotationsForLead,
 } from "@/firebase/leadsService";
 import { addCustomer } from "@/firebase/customersService";
 import { db } from "@/firebase/config";
@@ -302,15 +303,23 @@ export default function LeadsPage() {
     }
   };
 
-  const handleStatusChange = async (id, status) => {
-    try {
-      await updateLeadStatus(id, status);
-      toast.success(`Status updated to ${status}`);
-      loadLeads();
-    } catch (error) {
-      toast.error("Status update failed");
+const handleStatusChange = async (id, status) => {
+  const tid = toast.loading("Updating status...");
+
+  try {
+    await updateLeadStatus(id, status);
+
+    if (status === "Closed Lost") {
+      await rejectAllQuotationsForLead(id);
     }
-  };
+
+    toast.success(`Status updated to ${status}`, { id: tid });
+    loadLeads();
+  } catch (error) {
+    console.error(error);
+    toast.error("Status update failed", { id: tid });
+  }
+};
 
   const handleCreateQuotation = (lead) => {
     router.push(

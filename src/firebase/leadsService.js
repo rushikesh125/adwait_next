@@ -11,6 +11,7 @@ import {
   query,
   where,
   serverTimestamp,
+  collectionGroup,
 } from "firebase/firestore";
 
 const leadsRef = collection(db, "leads");
@@ -183,4 +184,35 @@ export const deleteQuotation = async (quotationId) => {
   if (!quotationId) throw new Error("Quotation ID is required");
 
   await deleteDoc(doc(db, "quotations", quotationId));
+};
+export const rejectAllQuotationsForLead = async (leadId) => {
+  try {
+    const q = query(
+      collectionGroup(db, "packages"),
+      where("leadId", "==", leadId)
+    );
+
+    const snapshot = await getDocs(q);
+
+    const updates = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+
+      // 🛑 Skip important statuses
+      if (["Booked", "Confirmed"].includes(data.status)) {
+        return Promise.resolve();
+      }
+
+      return updateDoc(docSnap.ref, {
+        status: "Rejected",
+        rejectionReason: "Lead Closed Lost",
+        updatedAt: new Date().toISOString(),
+      });
+    });
+
+    await Promise.allSettled(updates); // ✅ safer than Promise.all
+
+  } catch (error) {
+    console.error("Error rejecting quotations:", error);
+    throw error;
+  }
 };
