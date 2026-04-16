@@ -11,9 +11,6 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-/**
- * Generate next voucher number (atomic counter)
- */
 export async function getNextVoucherNumber(type) {
   const ref = doc(db, "config", "voucher_counters");
   return await runTransaction(db, async (tx) => {
@@ -28,11 +25,7 @@ export async function getNextVoucherNumber(type) {
   });
 }
 
-/**
- * Save voucher to Firestore.
- * - quotationId provided  → saves under packages/{quotationId}/vouchers
- * - no quotationId        → saves under standalone_vouchers
- */
+
 export async function saveVoucherToFirestore(agentId, quotationId, voucherData) {
   if (!agentId) throw new Error("Missing agentId");
 
