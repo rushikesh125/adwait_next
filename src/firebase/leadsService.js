@@ -97,39 +97,31 @@ export const getQuotationsForLead = async (leadId) => {
  * Update lead status with business logic:
  * - If status is "Closed Lost", reject all associated quotations
  */
-export const updateLeadStatus = async (id, status) => {
-  const ref = doc(db, "leads", id);
-  
-  // When lead status changes to "Closed Lost", reject all associated quotations
-  if (status === "Closed Lost") {
-    // First get the lead to find its agentId
-    const leadSnap = await getDoc(ref);
-    if (!leadSnap.exists()) {
-      console.error("Lead not found:", id);
-      return;
-    }
-    
-    const leadData = leadSnap.data();
-    const leadAgentId = leadData.agentId;
-    
-    if (leadAgentId) {
-      // Query quotations only from this specific agent
-      const packagesRef = collection(db, "saved_packages_by_agents", leadAgentId, "packages");
-      const q = query(packagesRef, where("leadId", "==", id));
-      const packageSnap = await getDocs(q);
-      
-      for (const docSnap of packageSnap.docs) {
-        try {
-          const quotRef = doc(db, "saved_packages_by_agents", leadAgentId, "packages", docSnap.id);
-          await updateDoc(quotRef, { status: "Rejected" });
-        } catch (error) {
-          console.error(`Error updating quotation ${docSnap.id}:`, error);
-        }
-      }
-    }
+export const updateLeadStatus = async (leadId, newStatus) => {
+  if (!leadId) return;
+
+  try {
+    const leadRef = doc(db, "leads", leadId);
+    const leadSnap = await getDoc(leadRef);
+
+    if (!leadSnap.exists()) return;
+
+    const currentStatus = leadSnap.data().status;
+
+    // // 🛑 Prevent overwriting final states incorrectly
+    // if (["Closed Won", "Closed Lost"].includes(currentStatus)) return;
+
+    // 🛑 Avoid unnecessary updates
+    if (currentStatus === newStatus) return;
+
+    await updateDoc(leadRef, {
+      status: newStatus,
+      updatedAt: new Date().toISOString(),
+    });
+
+  } catch (error) {
+    console.error("Error updating lead status:", error);
   }
-  
-  await updateDoc(ref, { status });
 };
 
 export const updateLeadDetails = async (id, data) => {
@@ -214,5 +206,32 @@ export const rejectAllQuotationsForLead = async (leadId) => {
   } catch (error) {
     console.error("Error rejecting quotations:", error);
     throw error;
+  }
+};
+
+export const updateLeadStatusFromQuotation = async (leadId) => {
+  if (!leadId) return;
+
+  try {
+    const leadRef = doc(db, "leads", leadId);
+    const leadSnap = await getDoc(leadRef);
+
+    if (!leadSnap.exists()) return;
+
+    const currentStatus = leadSnap.data().status;
+
+    // // 🛑 Don't override final states
+    // if (["Closed Won", "Closed Lost"].includes(currentStatus)) return;
+
+    // 🛑 Avoid unnecessary update
+    if (currentStatus === "Quotation Sent") return;
+
+    await updateDoc(leadRef, {
+      status: "Quotation Sent",
+      updatedAt: new Date().toISOString(),
+    });
+
+  } catch (error) {
+    console.error("Error updating lead from quotation:", error);
   }
 };
