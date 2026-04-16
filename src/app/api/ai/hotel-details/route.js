@@ -8,7 +8,7 @@ export async function POST(req) {
 
     const API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
-    // 🔹 STEP 1: Find place (STRICT search)
+    // STEP 1: Find place (STRICT search)
     const searchRes = await fetch(
       `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(
         hotelName
@@ -27,7 +27,7 @@ export async function POST(req) {
       });
     }
 
-    // 🔹 STEP 2: Get FULL details (VERY IMPORTANT)
+    //  STEP 2: Get FULL details (VERY IMPORTANT)
     const detailsRes = await fetch(
       `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,url&key=${API_KEY}`
     );
