@@ -88,7 +88,11 @@ function Card({ children, className = "" }) {
 }
 
 /** Section heading */
-function SectionHeading({ icon: Icon, label, iconColor = "text-theme-primary" }) {
+function SectionHeading({
+  icon: Icon,
+  label,
+  iconColor = "text-theme-primary",
+}) {
   return (
     <div className="flex items-center gap-2.5 mb-4">
       <div className="w-8 h-8 rounded-xl bg-theme-muted flex items-center justify-center">
@@ -379,7 +383,6 @@ export default function PreviewPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-
       {/* ── HERO ── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-theme-gradient-from to-theme-gradient-to text-white">
         {/* Poster image */}
@@ -404,24 +407,34 @@ export default function PreviewPage() {
         <div className="relative px-5 pt-8 pb-10 max-w-2xl mx-auto">
           {/* Brand bar */}
           <div className="flex items-center justify-between mb-8">
+            {/* Logo + Name */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Plane className="h-4 w-4 text-white" />
+              <div className="w-20 h-20 rounded-md bg-white overflow-hidden flex items-center justify-center">
+                <img
+                  src="/adwait-logo.jpg"
+                  alt="Adwait Tours Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
-              <span className="text-sm font-bold tracking-wide opacity-95">
+
+              <span className="text-3xl font-bold tracking-wide opacity-95">
                 Adwait Tours
               </span>
             </div>
-            {(quotation.status) && (
+
+            {/* Status */}
+            {/* {quotation?.status && (
               <span className="text-[10px] font-bold bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full uppercase tracking-widest">
                 {quotation.status}
               </span>
-            )}
+            )} */}
           </div>
-
+              <hr className="my-5"/>
           {/* Title */}
           <h1 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight mb-2">
-            {itinerary?.title || quotation.packageName || "Your Travel Itinerary"}
+            {itinerary?.title ||
+              quotation.packageName ||
+              "Your Travel Itinerary"}
           </h1>
 
           {/* Customer name */}
@@ -466,7 +479,6 @@ export default function PreviewPage() {
 
       {/* ── MAIN CONTENT ── */}
       <div className="max-w-2xl mx-auto px-4 pb-20 space-y-8 pt-7">
-
         {/* ── Day-wise plan ── */}
         {itinerary?.days?.length > 0 && (
           <section>
@@ -531,9 +543,14 @@ export default function PreviewPage() {
               </div>
               {showPricing && transport.totalTransportCost > 0 && (
                 <div className="text-right flex-shrink-0">
-                  <p className="text-[10px] text-slate-400 font-medium">Transport</p>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Transport
+                  </p>
                   <p className="font-black text-theme-primary text-sm">
-                    ₹{Number(transport.totalTransportCost).toLocaleString("en-IN")}
+                    ₹
+                    {Number(transport.totalTransportCost).toLocaleString(
+                      "en-IN",
+                    )}
                   </p>
                 </div>
               )}
@@ -592,7 +609,8 @@ export default function PreviewPage() {
                     })}
                   </p>
                   <p className="text-xs opacity-50 mt-2 leading-relaxed">
-                    Inclusive of hotel, transport &amp; activities as listed above.
+                    Inclusive of hotel, transport &amp; activities as listed
+                    above.
                   </p>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
@@ -617,7 +635,10 @@ export default function PreviewPage() {
               </div>
               <ul className="space-y-2">
                 {inclusions.map((item, i) => (
-                  <li key={item.id || i} className="flex items-start gap-2.5 text-sm">
+                  <li
+                    key={item.id || i}
+                    className="flex items-start gap-2.5 text-sm"
+                  >
                     <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
                     <span className="text-green-800 leading-relaxed">
                       {item.text}
@@ -641,9 +662,14 @@ export default function PreviewPage() {
               </div>
               <ul className="space-y-2">
                 {exclusions.map((item, i) => (
-                  <li key={item.id || i} className="flex items-start gap-2.5 text-sm">
+                  <li
+                    key={item.id || i}
+                    className="flex items-start gap-2.5 text-sm"
+                  >
                     <XCircle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
-                    <span className="text-red-700 leading-relaxed">{item.text}</span>
+                    <span className="text-red-700 leading-relaxed">
+                      {item.text}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -728,7 +754,9 @@ export default function PreviewPage() {
             <div className="w-7 h-7 rounded-lg bg-theme-muted flex items-center justify-center">
               <Plane className="h-3.5 w-3.5 text-theme-primary" />
             </div>
-            <span className="text-sm font-bold text-slate-700">Adwait Tours</span>
+            <span className="text-sm font-bold text-slate-700">
+              Adwait Tours
+            </span>
           </div>
           <p className="text-xs text-slate-500">
             📞 +91 9884798483 · www.adwaittours.com
