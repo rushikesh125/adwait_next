@@ -238,7 +238,7 @@ const Accommodation = () => {
           onClick={() => router.push("./accommodations/hotel-upload")}
           className="bg-green-600 cursor-pointer hover:bg-green-700  text-white shadow-lg shadow-theme-primary/20 h-11 px-6"
         >
-          <UploadCloud className="mr-2 h-5 w-5" /> Excel Hotel Upload
+          <UploadCloud className="mr-2 h-5 w-5" /> Import Hotels
         </Button>
         </div>
       </div>
