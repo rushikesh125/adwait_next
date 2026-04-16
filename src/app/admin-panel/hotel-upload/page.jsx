@@ -81,16 +81,69 @@ const rangesOverlap = (sA, eA, sB, eB) => {
   return a1 <= b2 && b1 <= a2;
 };
 
+// ─── Priority helpers (ported from HotelFormPage) ─────────────────────────────
+/**
+ * Returns a Set of priority numbers already used by OTHER seasons in the same room.
+ * Used to disable already-taken priority values in the dropdown.
+ */
+const getUsedPriorities = (seasons, currentIndex) => {
+  const used = new Set();
+  seasons.forEach((s, i) => {
+    if (i !== currentIndex && s.priority != null) used.add(Number(s.priority));
+  });
+  return used;
+};
+
+/**
+ * A room has an UNRESOLVED conflict when any two seasons overlap AND either:
+ *   - at least one of them has no priority assigned (null), OR
+ *   - both share the same priority number (tie — still ambiguous)
+ *
+ * If both overlapping seasons have DISTINCT non-null priorities, the conflict
+ * is considered resolved (lower number wins / higher priority takes precedence).
+ */
 const roomHasConflict = (seasons = []) => {
-  for (let i = 0; i < seasons.length; i++)
+  for (let i = 0; i < seasons.length; i++) {
     for (let j = i + 1; j < seasons.length; j++) {
       const a = seasons[i], b = seasons[j];
-      if (rangesOverlap(a.start, a.end, b.start, b.end))
-        if (a.priority == null || b.priority == null || Number(a.priority) === Number(b.priority))
+      if (rangesOverlap(a.start, a.end, b.start, b.end)) {
+        if (
+          a.priority == null ||
+          b.priority == null ||
+          Number(a.priority) === Number(b.priority)
+        ) {
           return true;
+        }
+      }
     }
+  }
   return false;
 };
+
+/**
+ * Returns the names of all seasons (excluding self) that overlap with `season`
+ * AND whose conflict with `season` is still unresolved.
+ */
+const getConflictingSeasonNames = (season, allSeasons, selfIndex) => {
+  return allSeasons
+    .filter((s, i) => {
+      if (i === selfIndex) return false;
+      if (!rangesOverlap(season.start, season.end, s.start, s.end)) return false;
+      // Conflict is unresolved when priorities are missing or identical
+      return (
+        season.priority == null ||
+        s.priority == null ||
+        Number(season.priority) === Number(s.priority)
+      );
+    })
+    .map((s) => s.name || "Unnamed Season");
+};
+
+/**
+ * True when THIS season has at least one unresolved overlap with a sibling.
+ */
+const seasonHasUnresolvedConflict = (season, allSeasons, selfIndex) =>
+  getConflictingSeasonNames(season, allSeasons, selfIndex).length > 0;
 
 const fmt = (n) => (n == null || n === 0 ? "—" : `₹${Number(n).toLocaleString("en-IN")}`);
 
@@ -117,7 +170,6 @@ function UploadZone({ onFile, processing }) {
     const f = e.target.files[0];
     if (!f) return;
     onFile(f);
-    // reset input so same file can be re-selected
     e.target.value = "";
   };
 
@@ -157,15 +209,14 @@ function UploadZone({ onFile, processing }) {
 
 // ─── Summary Bar ───────────────────────────────────────────────────────────────
 function SummaryBar({ hotels, summary }) {
-  // Recompute live totals from current hotels array (user may have removed some)
   const liveRooms   = hotels.reduce((a, h) => a + (h.rooms?.length || 0), 0);
   const liveSeasons = hotels.reduce((a, h) => a + h.rooms.reduce((b, r) => b + (r.seasons?.length || 0), 0), 0);
   const liveStates  = [...new Set(hotels.map((h) => h.state).filter(Boolean))];
 
   const stats = [
-    { icon: Hotel,    label: "Hotels",          value: hotels.length,   col: "text-theme-primary", bg: "bg-theme-muted/60" },
-    { icon: BedDouble,label: "Room Categories", value: liveRooms,       col: "text-violet-600",    bg: "bg-violet-50"      },
-    { icon: Calendar, label: "Season Blocks",   value: liveSeasons,     col: "text-emerald-600",   bg: "bg-emerald-50"     },
+    { icon: Hotel,    label: "Hotels",          value: hotels.length,    col: "text-theme-primary", bg: "bg-theme-muted/60" },
+    { icon: BedDouble,label: "Room Categories", value: liveRooms,        col: "text-violet-600",    bg: "bg-violet-50"      },
+    { icon: Calendar, label: "Season Blocks",   value: liveSeasons,      col: "text-emerald-600",   bg: "bg-emerald-50"     },
     { icon: MapPin,   label: "States",          value: liveStates.length, col: "text-amber-600",   bg: "bg-amber-50"       },
   ];
 
@@ -232,7 +283,6 @@ function SaveResultsModal({ results, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BadgeCheck className="h-5 w-5 text-emerald-500" />
@@ -243,7 +293,6 @@ function SaveResultsModal({ results, onClose }) {
           </button>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
           {[
             { label: "Created", value: created.length, col: "text-emerald-600", bg: "bg-emerald-50" },
@@ -257,7 +306,6 @@ function SaveResultsModal({ results, onClose }) {
           ))}
         </div>
 
-        {/* List */}
         <div className="max-h-64 overflow-y-auto divide-y divide-slate-50">
           {results.map((r, i) => (
             <div key={i} className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 transition-colors">
@@ -396,75 +444,222 @@ function PricingTable({ pricing, seasonIndex, roomIndex, hotelIndex, onUpdate, i
 }
 
 // ─── Season Card ───────────────────────────────────────────────────────────────
+// UPDATED: full priority system ported from HotelFormPage
 function SeasonCard({ season, seasonIndex, roomIndex, hotelIndex, allSeasons, onUpdate, onRemove, isEditing }) {
   const [open, setOpen] = useState(true);
 
-  const conflicts = allSeasons.filter((s, i) => {
-    if (i === seasonIndex) return false;
-    return rangesOverlap(season.start, season.end, s.start, s.end) &&
-      (season.priority == null || s.priority == null || Number(season.priority) === Number(s.priority));
-  });
-  const hasConflict = conflicts.length > 0;
+  // ── Conflict detection ──────────────────────────────────────────────────────
+  const hasUnresolvedConflict = seasonHasUnresolvedConflict(season, allSeasons, seasonIndex);
+  const conflictingNames      = getConflictingSeasonNames(season, allSeasons, seasonIndex);
 
-  const upd = (key, val) => onUpdate(hotelIndex, roomIndex, seasonIndex, key, val);
+  // ── Priority helpers ────────────────────────────────────────────────────────
+  const usedPriorities  = getUsedPriorities(allSeasons, seasonIndex);
+  // Show priority field when: this season is in any overlap (resolved or not),
+  // OR a priority has already been assigned to it.
+  const isInAnyOverlap  = allSeasons.some((s, i) => {
+    if (i === seasonIndex) return false;
+    return rangesOverlap(season.start, season.end, s.start, s.end);
+  });
+  const showPriorityField = isInAnyOverlap || season.priority != null;
+
+  // ── Field updater ───────────────────────────────────────────────────────────
+  const upd = (key, val) => {
+    log.info(`[SeasonCard] hotel=${hotelIndex} room=${roomIndex} season=${seasonIndex} key=${key}`, val);
+    onUpdate(hotelIndex, roomIndex, seasonIndex, key, val);
+  };
+
+  const handlePriorityChange = (raw) => {
+    if (raw === "") {
+      upd("priority", null);
+      return;
+    }
+    const num = Number(raw);
+    if (isNaN(num) || num < 1 || num > 10) {
+      log.warn(`[SeasonCard] Invalid priority value: ${raw}`);
+      return;
+    }
+    if (usedPriorities.has(num)) {
+      toast.error(`Priority ${num} is already used by another season in this room.`);
+      log.warn(`[SeasonCard] Duplicate priority blocked: ${num}`);
+      return;
+    }
+    upd("priority", num);
+  };
 
   return (
-    <div className={`rounded-xl border overflow-hidden ${hasConflict ? "border-red-200 ring-1 ring-red-100" : "border-slate-200"}`}>
-      <div onClick={() => setOpen((o) => !o)}
+    <div className={`rounded-xl border overflow-hidden ${hasUnresolvedConflict ? "border-red-200 ring-1 ring-red-100" : "border-slate-200"}`}>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div
+        onClick={() => setOpen((o) => !o)}
         className={`flex items-center justify-between px-4 py-2.5 cursor-pointer select-none transition-colors
-          ${hasConflict ? "bg-red-50 hover:bg-red-100" : open ? "bg-theme-muted/40 hover:bg-theme-muted/60" : "bg-slate-50 hover:bg-slate-100"}`}>
+          ${hasUnresolvedConflict
+            ? "bg-red-50 hover:bg-red-100"
+            : open
+              ? "bg-theme-muted/40 hover:bg-theme-muted/60"
+              : "bg-slate-50 hover:bg-slate-100"
+          }`}
+      >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
-          <span className="font-semibold text-sm text-slate-800 truncate">{season.name || "Unnamed Season"}</span>
+          {open
+            ? <ChevronUp   className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+          }
+          <span className="font-semibold text-sm text-slate-800 truncate">
+            {season.name || "Unnamed Season"}
+          </span>
           {season.start && season.end && (
             <span className="hidden sm:flex items-center gap-1 text-xs text-slate-400 shrink-0">
-              <Calendar className="h-3 w-3" />{season.start} → {season.end}
+              <Calendar className="h-3 w-3" />
+              {season.start} → {season.end}
             </span>
           )}
+          {/* Priority badge — shown when a priority has been set */}
           {season.priority != null && (
-            <Badge className="bg-blue-100 text-blue-700 text-[10px] border-0 shrink-0">P{season.priority}</Badge>
+            <Badge className="bg-blue-100 text-blue-700 text-[10px] border-0 shrink-0">
+              P{season.priority}
+            </Badge>
           )}
-          {hasConflict && (
+          {/* Conflict badge — shown when conflict is UNRESOLVED */}
+          {hasUnresolvedConflict && (
             <Badge variant="destructive" className="text-[10px] shrink-0 flex items-center gap-1">
-              <AlertTriangle className="h-2.5 w-2.5" /> Conflict
+              <AlertTriangle className="h-2.5 w-2.5" />
+              Overlaps: {conflictingNames.join(", ")}
             </Badge>
           )}
         </div>
+
         {isEditing && (
-          <button onClick={(e) => { e.stopPropagation(); onRemove(hotelIndex, roomIndex, seasonIndex); }}
-            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg ml-2 shrink-0 transition-colors">
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(hotelIndex, roomIndex, seasonIndex); }}
+            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg ml-2 shrink-0 transition-colors"
+          >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
 
+      {/* ── Inline conflict explanation (only when unresolved) ──────────────── */}
+      {hasUnresolvedConflict && (
+        <div className="px-4 py-2 bg-red-50 border-t border-red-100 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-red-700">
+            <span className="font-semibold">Date conflict</span> with{" "}
+            <span className="font-semibold">{conflictingNames.join(", ")}</span>.{" "}
+            {isEditing
+              ? "Assign a unique priority to resolve, or adjust the dates."
+              : "Switch to Edit mode to assign priorities or fix dates."}
+          </p>
+        </div>
+      )}
+
+      {/* ── Body ────────────────────────────────────────────────────────────── */}
       {open && (
         <div className="p-4 bg-white space-y-4 border-t border-slate-100">
           {isEditing && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${showPriorityField ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3"}`}>
+              {/* Season Name */}
               <div>
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">Season Name</label>
-                <Input value={season.name} onChange={(e) => upd("name", e.target.value)} className="h-8 text-sm" placeholder="e.g. Peak Season" />
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">
+                  Season Name
+                </label>
+                <Input
+                  value={season.name}
+                  onChange={(e) => upd("name", e.target.value)}
+                  className="h-8 text-sm"
+                  placeholder="e.g. Peak Season"
+                />
               </div>
+
+              {/* Start Date */}
               <div>
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">Start Date</label>
-                <Input value={season.start} onChange={(e) => upd("start", e.target.value)} placeholder="DD/MM/YYYY"
-                  className={`h-8 text-sm ${hasConflict ? "border-red-300" : ""}`} />
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">
+                  Start Date
+                </label>
+                <Input
+                  value={season.start}
+                  onChange={(e) => upd("start", e.target.value)}
+                  placeholder="DD/MM/YYYY"
+                  className={`h-8 text-sm ${hasUnresolvedConflict ? "border-red-300 bg-red-50" : ""}`}
+                />
               </div>
+
+              {/* End Date */}
               <div>
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">End Date</label>
-                <Input value={season.end} onChange={(e) => upd("end", e.target.value)} placeholder="DD/MM/YYYY"
-                  className={`h-8 text-sm ${hasConflict ? "border-red-300" : ""}`} />
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">
+                  End Date
+                </label>
+                <Input
+                  value={season.end}
+                  onChange={(e) => upd("end", e.target.value)}
+                  placeholder="DD/MM/YYYY"
+                  className={`h-8 text-sm ${hasUnresolvedConflict ? "border-red-300 bg-red-50" : ""}`}
+                />
               </div>
+
+              {/* Priority — only rendered when this season overlaps with another */}
+              {showPriorityField && (
+                <div>
+                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1 block">
+                    Priority
+                  </label>
+                  <select
+                    value={season.priority ?? ""}
+                    onChange={(e) => handlePriorityChange(e.target.value)}
+                    className={`h-8 w-full border rounded-lg px-3 text-sm bg-white outline-none transition-all
+                      focus:ring-2 focus:ring-theme-primary/20
+                      ${hasUnresolvedConflict && season.priority == null
+                        ? "border-red-300 focus:border-red-400"
+                        : "border-slate-200 focus:border-theme-primary"
+                      }`}
+                  >
+                    <option value="">Select…</option>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+                      <option
+                        key={num}
+                        value={num}
+                        disabled={usedPriorities.has(num)}
+                        title={usedPriorities.has(num) ? `Priority ${num} already used` : ""}
+                      >
+                        {num}{usedPriorities.has(num) ? " (taken)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {hasUnresolvedConflict && season.priority == null && (
+                    <p className="text-[10px] text-red-500 mt-1">Required to resolve overlap</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
+
+          {/* Read-only summary row when not editing */}
+          {!isEditing && showPriorityField && season.priority != null && (
+            <div className="flex items-center gap-2">
+              <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">
+                Priority {season.priority}
+              </Badge>
+              <span className="text-[11px] text-slate-400">
+                Higher-priority season rates take precedence during overlap
+              </span>
+            </div>
+          )}
+
+          {/* Pricing */}
           <div>
             <div className="flex items-center gap-1.5 mb-3">
               <Utensils className="h-3.5 w-3.5 text-slate-400" />
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Meal Plan Pricing</span>
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                Meal Plan Pricing
+              </span>
             </div>
-            <PricingTable pricing={season.pricing} seasonIndex={seasonIndex} roomIndex={roomIndex}
-              hotelIndex={hotelIndex} onUpdate={onUpdate} isEditing={isEditing} />
+            <PricingTable
+              pricing={season.pricing}
+              seasonIndex={seasonIndex}
+              roomIndex={roomIndex}
+              hotelIndex={hotelIndex}
+              onUpdate={onUpdate}
+              isEditing={isEditing}
+            />
           </div>
         </div>
       )}
@@ -475,24 +670,31 @@ function SeasonCard({ season, seasonIndex, roomIndex, hotelIndex, allSeasons, on
 // ─── Room Card ─────────────────────────────────────────────────────────────────
 function RoomCard({ room, roomIndex, hotelIndex, onUpdate, onRemoveRoom, onAddSeason, onRemoveSeason, isEditing }) {
   const [open, setOpen] = useState(true);
+  // Use updated roomHasConflict — only flags UNRESOLVED conflicts
   const hasConflict = roomHasConflict(room.seasons || []);
 
   return (
     <div className={`rounded-xl border ${hasConflict ? "border-red-200" : "border-slate-200"} overflow-hidden shadow-sm`}>
-      <div onClick={() => setOpen((o) => !o)}
+      <div
+        onClick={() => setOpen((o) => !o)}
         className={`flex items-center justify-between px-4 py-3 cursor-pointer select-none transition-colors
-          ${hasConflict ? "bg-red-50 hover:bg-red-100/70" : "bg-slate-50/80 hover:bg-slate-100/60"}`}>
+          ${hasConflict ? "bg-red-50 hover:bg-red-100/70" : "bg-slate-50/80 hover:bg-slate-100/60"}`}
+      >
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
           {open ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
           <BedDouble className="h-4 w-4 text-theme-primary shrink-0" />
           {isEditing ? (
-            <Input value={room.categoryName}
+            <Input
+              value={room.categoryName}
               onChange={(e) => onUpdate(hotelIndex, roomIndex, null, "__roomName", e.target.value)}
               onClick={(e) => e.stopPropagation()}
               className="max-w-[220px] h-7 text-sm font-semibold bg-white"
-              placeholder="Room category name" />
+              placeholder="Room category name"
+            />
           ) : (
-            <span className="font-semibold text-sm text-slate-800 truncate">{room.categoryName || "Unnamed Room"}</span>
+            <span className="font-semibold text-sm text-slate-800 truncate">
+              {room.categoryName || "Unnamed Room"}
+            </span>
           )}
           <Badge variant="outline" className="text-[10px] shrink-0 text-slate-500 border-slate-200">
             {room.seasons?.length || 0} season{(room.seasons?.length || 0) !== 1 ? "s" : ""}
@@ -503,15 +705,20 @@ function RoomCard({ room, roomIndex, hotelIndex, onUpdate, onRemoveRoom, onAddSe
             </Badge>
           )}
         </div>
+
         <div className="flex items-center gap-1.5 ml-2 shrink-0" onClick={(e) => e.stopPropagation()}>
           {isEditing && (
             <>
-              <button onClick={() => onAddSeason(hotelIndex, roomIndex)}
-                className="flex items-center gap-1 text-xs font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors">
+              <button
+                onClick={() => onAddSeason(hotelIndex, roomIndex)}
+                className="flex items-center gap-1 text-xs font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors"
+              >
                 <Plus className="h-3 w-3" /> Season
               </button>
-              <button onClick={() => onRemoveRoom(hotelIndex, roomIndex)}
-                className="p-1.5 text-red-400 border border-red-100 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+              <button
+                onClick={() => onRemoveRoom(hotelIndex, roomIndex)}
+                className="p-1.5 text-red-400 border border-red-100 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+              >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </>
@@ -527,9 +734,17 @@ function RoomCard({ room, roomIndex, hotelIndex, onUpdate, onRemoveRoom, onAddSe
             </p>
           ) : (
             room.seasons.map((season, sIdx) => (
-              <SeasonCard key={sIdx} season={season} seasonIndex={sIdx} roomIndex={roomIndex}
-                hotelIndex={hotelIndex} allSeasons={room.seasons}
-                onUpdate={onUpdate} onRemove={onRemoveSeason} isEditing={isEditing} />
+              <SeasonCard
+                key={sIdx}
+                season={season}
+                seasonIndex={sIdx}
+                roomIndex={roomIndex}
+                hotelIndex={hotelIndex}
+                allSeasons={room.seasons}
+                onUpdate={onUpdate}
+                onRemove={onRemoveSeason}
+                isEditing={isEditing}
+              />
             ))
           )}
         </div>
@@ -540,14 +755,14 @@ function RoomCard({ room, roomIndex, hotelIndex, onUpdate, onRemoveRoom, onAddSe
 
 // ─── Hotel Section ─────────────────────────────────────────────────────────────
 function HotelSection({ hotel, hotelIndex, onHotelField, onUpdate, onRemoveRoom, onAddRoom, onAddSeason, onRemoveSeason, onRemoveHotel }) {
-  const [editing, setEditing]       = useState(false);
-  const [collapsed, setCollapsed]   = useState(false);
+  const [editing, setEditing]           = useState(false);
+  const [collapsed, setCollapsed]       = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
 
+  // Use updated roomHasConflict — only counts UNRESOLVED conflicts
   const anyConflict = (hotel.rooms || []).some((r) => roomHasConflict(r.seasons || []));
   const fld = (key, val) => onHotelField(hotelIndex, key, val);
 
-  // Preview the generated ID so user can verify slug
   const previewId = generateHotelId(hotel.state, hotel.city, hotel.name);
 
   const starNum = parseInt(hotel.starRating) || 0;
@@ -622,7 +837,6 @@ function HotelSection({ hotel, hotelIndex, onHotelField, onUpdate, onRemoveRoom,
                   </div>
                 )}
 
-                {/* Firestore ID preview */}
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <span className="text-[9px] text-slate-300 font-mono">ID:</span>
                   <span className="text-[9px] text-slate-400 font-mono truncate max-w-[260px]">{previewId}</span>
@@ -639,7 +853,6 @@ function HotelSection({ hotel, hotelIndex, onHotelField, onUpdate, onRemoveRoom,
                 </a>
               )}
 
-              {/* Remove hotel from batch */}
               <button
                 onClick={() => setConfirmRemove(true)}
                 title="Remove from batch"
@@ -648,16 +861,20 @@ function HotelSection({ hotel, hotelIndex, onHotelField, onUpdate, onRemoveRoom,
                 <Trash2 className="h-4 w-4" />
               </button>
 
-              <button onClick={() => setEditing((e) => !e)}
+              <button
+                onClick={() => setEditing((e) => !e)}
                 className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors
                   ${editing
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-theme-muted hover:text-theme-primary hover:border-theme-primary/30"}`}>
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-theme-muted hover:text-theme-primary hover:border-theme-primary/30"}`}
+              >
                 {editing ? <><Check className="h-3.5 w-3.5" /> Done</> : <><Edit3 className="h-3.5 w-3.5" /> Edit</>}
               </button>
 
-              <button onClick={() => setCollapsed((c) => !c)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+              <button
+                onClick={() => setCollapsed((c) => !c)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              >
                 {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
               </button>
             </div>
@@ -671,7 +888,9 @@ function HotelSection({ hotel, hotelIndex, onHotelField, onUpdate, onRemoveRoom,
               <Alert className="border-red-200 bg-red-50 py-2">
                 <AlertTriangle className="h-4 w-4 text-red-500" />
                 <AlertDescription className="text-red-700 text-xs font-medium">
-                  Some room categories have overlapping season dates. Review and resolve before saving.
+                  Some room categories have overlapping season dates without resolved priorities.
+                  Click <strong>Edit</strong> on this hotel, then assign unique priority numbers
+                  to each overlapping season to resolve.
                 </AlertDescription>
               </Alert>
             )}
@@ -690,13 +909,23 @@ function HotelSection({ hotel, hotelIndex, onHotelField, onUpdate, onRemoveRoom,
             ) : (
               <>
                 {hotel.rooms.map((room, rIdx) => (
-                  <RoomCard key={rIdx} room={room} roomIndex={rIdx} hotelIndex={hotelIndex}
-                    onUpdate={onUpdate} onRemoveRoom={onRemoveRoom}
-                    onAddSeason={onAddSeason} onRemoveSeason={onRemoveSeason} isEditing={editing} />
+                  <RoomCard
+                    key={rIdx}
+                    room={room}
+                    roomIndex={rIdx}
+                    hotelIndex={hotelIndex}
+                    onUpdate={onUpdate}
+                    onRemoveRoom={onRemoveRoom}
+                    onAddSeason={onAddSeason}
+                    onRemoveSeason={onRemoveSeason}
+                    isEditing={editing}
+                  />
                 ))}
                 {editing && (
-                  <button onClick={() => onAddRoom(hotelIndex)}
-                    className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-3 text-sm font-semibold text-slate-400 hover:border-theme-primary/40 hover:text-theme-primary hover:bg-theme-muted/30 transition-all">
+                  <button
+                    onClick={() => onAddRoom(hotelIndex)}
+                    className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl py-3 text-sm font-semibold text-slate-400 hover:border-theme-primary/40 hover:text-theme-primary hover:bg-theme-muted/30 transition-all"
+                  >
                     <Plus className="h-4 w-4" /> Add Room Category
                   </button>
                 )}
@@ -706,7 +935,6 @@ function HotelSection({ hotel, hotelIndex, onHotelField, onUpdate, onRemoveRoom,
         )}
       </Card>
 
-      {/* Confirm Remove Modal */}
       {confirmRemove && (
         <RemoveHotelModal
           hotel={hotel}
@@ -764,10 +992,22 @@ export default function HotelUploadPage() {
         return;
       }
 
-      log.info(`Extracted ${data.hotels.length} hotels, sheet: "${data.sheetName}"`);
-      setHotels(data.hotels);
+      // Normalise priority values coming from the parser — coerce to Number or null
+      const normalised = data.hotels.map((hotel) => ({
+        ...hotel,
+        rooms: (hotel.rooms || []).map((room) => ({
+          ...room,
+          seasons: (room.seasons || []).map((s) => ({
+            ...s,
+            priority: s.priority != null ? Number(s.priority) : null,
+          })),
+        })),
+      }));
+
+      log.info(`Extracted ${normalised.length} hotels, sheet: "${data.sheetName}"`);
+      setHotels(normalised);
       setSummary(data.summary);
-      toast.success(`${data.hotels.length} hotel${data.hotels.length !== 1 ? "s" : ""} extracted!`);
+      toast.success(`${normalised.length} hotel${normalised.length !== 1 ? "s" : ""} extracted!`);
     } catch (err) {
       const msg = "Network error. Please try again.";
       log.error("Fetch error:", err);
@@ -791,25 +1031,34 @@ export default function HotelUploadPage() {
           rooms: h.rooms.map((r, ri) => {
             if (ri !== rIdx) return r;
             if (key === "__roomName") return { ...r, categoryName: value };
-            return { ...r, seasons: r.seasons.map((s, si) => si !== sIdx ? s : { ...s, [key]: value }) };
+            return {
+              ...r,
+              seasons: r.seasons.map((s, si) => {
+                if (si !== sIdx) return s;
+                // Normalise priority on every write to keep types consistent
+                if (key === "priority") {
+                  return { ...s, priority: value != null ? Number(value) : null };
+                }
+                return { ...s, [key]: value };
+              }),
+            };
           }),
         };
       })
     );
   };
 
- const handleRemoveHotel = (hIdx) => {
-  let removedName = "";
-  setHotels((prev) => {
-    const removed = prev[hIdx];
-    removedName = removed?.name ?? "";
-    const next = prev.filter((_, i) => i !== hIdx);
-    log.info(`Hotel removed from batch: "${removedName}" (${next.length} remaining)`);
-    return next;
-  });
-  // Toast is called AFTER setHotels, outside the updater, so it never fires during render
-  toast.success(`"${removedName}" removed from batch`);
-};
+  const handleRemoveHotel = (hIdx) => {
+    let removedName = "";
+    setHotels((prev) => {
+      const removed = prev[hIdx];
+      removedName = removed?.name ?? "";
+      const next = prev.filter((_, i) => i !== hIdx);
+      log.info(`Hotel removed from batch: "${removedName}" (${next.length} remaining)`);
+      return next;
+    });
+    toast.success(`"${removedName}" removed from batch`);
+  };
 
   const handleRemoveRoom = (hIdx, rIdx) => {
     setHotels((prev) =>
@@ -828,7 +1077,9 @@ export default function HotelUploadPage() {
 
   const handleAddSeason = (hIdx, rIdx) => {
     const newSeason = {
-      name: "", start: "", end: "", priority: null,
+      name: "", start: "", end: "",
+      // Start without a priority — it will appear once an overlap is detected
+      priority: null,
       pricing: {
         ep:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
         cp:  { double: 0, extraAdult: 0, extraChild: 0, cnb: 0 },
@@ -840,7 +1091,9 @@ export default function HotelUploadPage() {
       prev.map((h, hi) =>
         hi !== hIdx ? h : {
           ...h,
-          rooms: h.rooms.map((r, ri) => ri !== rIdx ? r : { ...r, seasons: [...r.seasons, newSeason] }),
+          rooms: h.rooms.map((r, ri) =>
+            ri !== rIdx ? r : { ...r, seasons: [...r.seasons, newSeason] }
+          ),
         }
       )
     );
@@ -871,7 +1124,10 @@ export default function HotelUploadPage() {
 
   // ── Validation ──────────────────────────────────────────────────────────────
   const totalConflicts = hotels
-    ? hotels.reduce((a, h) => a + (h.rooms || []).filter((r) => roomHasConflict(r.seasons || [])).length, 0)
+    ? hotels.reduce(
+        (a, h) => a + (h.rooms || []).filter((r) => roomHasConflict(r.seasons || [])).length,
+        0
+      )
     : 0;
 
   const validateBatch = () => {
@@ -879,11 +1135,34 @@ export default function HotelUploadPage() {
       toast.error("No hotels to save.");
       return false;
     }
+
+    // Guard: unresolved date conflicts
     if (totalConflicts > 0) {
-      toast.error(`Resolve ${totalConflicts} date conflict${totalConflicts !== 1 ? "s" : ""} before saving.`);
+      toast.error(
+        `Resolve ${totalConflicts} date conflict${totalConflicts !== 1 ? "s" : ""} before saving. ` +
+        "Click Edit on the affected hotel and assign unique priorities to each overlapping season."
+      );
+      log.warn(`Save blocked — ${totalConflicts} unresolved conflicts`);
       return false;
     }
-    // Check each hotel has name + city + state
+
+    // Guard: duplicate priorities within any room
+    for (const hotel of hotels) {
+      for (const room of hotel.rooms || []) {
+        const priorities = (room.seasons || [])
+          .map((s) => s.priority)
+          .filter((p) => p != null);
+        if (new Set(priorities).size !== priorities.length) {
+          toast.error(
+            `"${hotel.name}" → "${room.categoryName || "Unnamed Room"}": duplicate priority numbers found. Each season must have a unique priority.`
+          );
+          log.warn(`Duplicate priorities in hotel="${hotel.name}" room="${room.categoryName}"`);
+          return false;
+        }
+      }
+    }
+
+    // Guard: required hotel fields
     for (const h of hotels) {
       if (!h.name?.trim() || !h.city?.trim() || !h.state?.trim()) {
         toast.error(`Hotel "${h.name || "Unknown"}" is missing name, city, or state.`);
@@ -891,6 +1170,7 @@ export default function HotelUploadPage() {
         return false;
       }
     }
+
     return true;
   };
 
@@ -922,9 +1202,9 @@ export default function HotelUploadPage() {
         toast.success(`Saved! ${created} created, ${updated} updated.`, { duration: 5000 });
       } else {
         toast.error(`${errored} hotel(s) failed to save. See results for details.`, { duration: 6000 });
-        results.filter((r) => r.action === "error").forEach((r) =>
-          log.error(`Failed hotel "${r.name}":`, r.error)
-        );
+        results
+          .filter((r) => r.action === "error")
+          .forEach((r) => log.error(`Failed hotel "${r.name}":`, r.error));
       }
     } catch (err) {
       log.error("Unexpected save error:", err);
@@ -955,18 +1235,16 @@ export default function HotelUploadPage() {
 
           {hotels && (
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              {/* Live stats */}
               <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5">
                 <span><span className="font-semibold text-slate-900">{hotels.length}</span> hotel{hotels.length !== 1 ? "s" : ""}</span>
                 <span>·</span>
                 <span><span className="font-semibold text-slate-900">{hotels.reduce((a, h) => a + (h.rooms?.length || 0), 0)}</span> rooms</span>
               </div>
 
-              {/* Conflict / Ready badge */}
               {totalConflicts > 0 ? (
                 <span className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  {totalConflicts} conflict{totalConflicts !== 1 ? "s" : ""}
+                  {totalConflicts} unresolved conflict{totalConflicts !== 1 ? "s" : ""}
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
@@ -1019,9 +1297,9 @@ export default function HotelUploadPage() {
 
               <div className="grid sm:grid-cols-3 gap-3">
                 {[
-                  { icon: Upload,        n: "1", title: "Upload",       desc: "Drop your .xlsx file"    },
-                  { icon: Eye,           n: "2", title: "Review & Edit", desc: "Verify extracted data"  },
-                  { icon: ClipboardCheck,n: "3", title: "Save to DB",   desc: "Push to Firestore"       },
+                  { icon: Upload,         n: "1", title: "Upload",        desc: "Drop your .xlsx file"   },
+                  { icon: Eye,            n: "2", title: "Review & Edit",  desc: "Verify extracted data" },
+                  { icon: ClipboardCheck, n: "3", title: "Save to DB",    desc: "Push to Firestore"      },
                 ].map(({ icon: Icon, n, title, desc }) => (
                   <div key={n} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
                     <div className="w-7 h-7 rounded-full bg-theme-primary/10 text-theme-primary text-xs font-black flex items-center justify-center shrink-0">{n}</div>
@@ -1039,7 +1317,9 @@ export default function HotelUploadPage() {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-slate-800">Download Template</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Get the Excel template with all required columns and sample data to fill in your hotel information.</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Get the Excel template with all required columns and sample data to fill in your hotel information.
+                  </p>
                 </div>
                 <a
                   href="/hotel-upload-template.xlsx"
@@ -1112,7 +1392,10 @@ export default function HotelUploadPage() {
                   <h2 className="font-bold text-slate-900 text-base">Extracted Data</h2>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Click <span className="font-semibold text-theme-primary">Edit</span> on any hotel to modify inline.
-                    Use the <span className="font-semibold text-red-500">trash icon</span> to remove a hotel from this batch.
+                    Overlapping seasons will show a{" "}
+                    <span className="font-semibold text-blue-600">Priority</span> dropdown — assign
+                    unique numbers to resolve. Use the{" "}
+                    <span className="font-semibold text-red-500">trash icon</span> to remove a hotel.
                   </p>
                 </div>
                 <div>
@@ -1122,7 +1405,8 @@ export default function HotelUploadPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 font-semibold">
-                      <AlertTriangle className="h-3.5 w-3.5" /> {totalConflicts} conflict{totalConflicts !== 1 ? "s" : ""}
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {totalConflicts} unresolved conflict{totalConflicts !== 1 ? "s" : ""}
                     </div>
                   )}
                 </div>
@@ -1133,14 +1417,15 @@ export default function HotelUploadPage() {
 
             <Separator />
 
-            {/* Edge case: all hotels removed */}
             {hotels.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
                 <Hotel className="h-10 w-10 text-slate-200 mx-auto mb-3" />
                 <p className="font-semibold text-slate-500">All hotels removed from batch.</p>
                 <p className="text-sm text-slate-400 mt-1">Upload a new file or refresh to start over.</p>
-                <button onClick={handleReset}
-                  className="mt-4 text-sm font-semibold text-theme-primary border border-theme-primary/30 px-4 py-2 rounded-lg hover:bg-theme-muted/30 transition-colors inline-flex items-center gap-2">
+                <button
+                  onClick={handleReset}
+                  className="mt-4 text-sm font-semibold text-theme-primary border border-theme-primary/30 px-4 py-2 rounded-lg hover:bg-theme-muted/30 transition-colors inline-flex items-center gap-2"
+                >
                   <RefreshCw className="h-4 w-4" /> Upload New File
                 </button>
               </div>
@@ -1166,7 +1451,6 @@ export default function HotelUploadPage() {
         )}
       </div>
 
-      {/* Save Results Modal */}
       {showResults && (
         <SaveResultsModal results={saveResults} onClose={() => setShowResults(false)} />
       )}
