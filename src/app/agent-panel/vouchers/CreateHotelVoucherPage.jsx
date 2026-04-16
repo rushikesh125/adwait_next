@@ -107,6 +107,9 @@ const CreateHotelVoucherPage = () => {
   const [quotationSuggestions, setQuotationSuggestions] = useState([]);
   const [linkedQuotation, setLinkedQuotation] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState(null); // 'success' | 'error' | null
+  const [showAiBanner, setShowAiBanner] = useState(false);
   const suggestRef = useRef(null);
 
   /* ── Multi-hotel selection ────────────────────────────────────────────── */
@@ -136,7 +139,8 @@ const CreateHotelVoucherPage = () => {
     requests: "",
     paymentStatus: "Payment at hotel",
     amount: "",
-    showAmountInVoucher: true, // Default true for better UX
+    showAmountInVoucher: true, 
+    googleMapsLink: "",
     cancellation: "",
   });
 
@@ -155,28 +159,48 @@ const CreateHotelVoucherPage = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
-  useEffect(() => {
-    const handler = setTimeout(async () => {
-      if (!hotelFields.hotelName || hotelFields.hotelName.length < 3) {
-        setHotelSearchResults([]);
-        return;
-      }
 
-      try {
-        const res = await fetch(
-          `/api/tripadvisor/search?query=${encodeURIComponent(hotelFields.hotelName)}`,
-        );
-        const data = await res.json();
+useEffect(() => {
+  const handler = setTimeout(async () => {
+    if (!hotelFields.hotelName || hotelFields.hotelName.length < 2) {
+      setHotelSearchResults([]);
+      setShowHotelSuggestions(false);
+      return;
+    }
 
-        setHotelSearchResults(data?.data || []);
-        setShowHotelSuggestions(true);
-      } catch (err) {
-        console.error("Search error:", err);
-      }
-    }, 400); // debounce
+    try {
+      const { getDocs, collection } = await import("firebase/firestore");
+      const { db } = await import("@/firebase/config");
 
-    return () => clearTimeout(handler);
-  }, [hotelFields.hotelName]);
+      const searchTerm = hotelFields.hotelName.toLowerCase();
+      const snap = await getDocs(collection(db, "hotels"));
+
+      const matches = [];
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        const hotelName = (data.name || "").toLowerCase();
+        if (hotelName.includes(searchTerm)) {
+          matches.push({
+            name: data.name || "",
+            city: data.city || "",
+            state: data.state || "",
+            address: data.address || "",   
+            phone: data.phone || "",  
+            googleMapsLink: data.mapsLink || data.googleMapsLink || ""    
+
+          });
+        }
+      });
+
+      setHotelSearchResults(matches.slice(0, 8));
+      setShowHotelSuggestions(matches.length > 0);
+    } catch (err) {
+      console.error("Hotel DB search error:", err);
+    }
+  }, 300);
+
+  return () => clearTimeout(handler);
+}, [hotelFields.hotelName]);
 
   /* ── Quotation search autocomplete ───────────────────────────────────── */
   useEffect(() => {
@@ -250,34 +274,21 @@ const CreateHotelVoucherPage = () => {
       contact: q.customerMobile || prev.contact,
     }));
   };
-  const handleSelectHotelSuggestion = async (hotel) => {
-    try {
-      setHotelFields((prev) => ({
-        ...prev,
-        hotelName: hotel.name,
-      }));
+const handleSelectHotelSuggestion = (hotel) => {
+  setHotelFields((prev) => ({
+    ...prev,
+    hotelName: hotel.name,
+  }));
 
-      setShowHotelSuggestions(false);
+  setShowHotelSuggestions(false);
 
-      // fetch details
-      const res = await fetch(
-        `/api/tripadvisor/details?locationId=${hotel.location_id}`,
-      );
-      const details = await res.json();
 
-      const d = details;
-
-      setForm((prev) => ({
-        ...prev,
-        address: d.address_obj
-          ? `${d.address_obj.street1 || ""}, ${d.address_obj.city || ""}, ${d.address_obj.country || ""}`
-          : prev.address,
-        phone: d.phone || prev.phone,
-      }));
-    } catch (err) {
-      console.error("Details fetch error:", err);
-    }
-  };
+  setForm((prev) => ({
+    ...prev,
+    address: hotel.address || "", 
+    phone: hotel.phone || prev.phone,
+  }));
+};
 
   const applyHotel = (h) => {
     setHotelFields({
@@ -295,6 +306,48 @@ const CreateHotelVoucherPage = () => {
     setSelectedHotelFromList(h);
     applyHotel(h);
   };
+
+  //ai fetching hotel 
+  const handleAiFetch = async () => {
+  if (!hotelFields.hotelName || hotelFields.hotelName.length < 3) return;
+
+  setAiLoading(true);
+  setAiStatus(null);
+  
+  try {
+    const response = await fetch(`/api/ai/hotel-details`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hotelName: hotelFields.hotelName }),
+    });
+
+if (!response.ok) {
+  setAiStatus("error");   
+  return;                 
+}
+    const data = await response.json();
+
+    if (data.address || data.phone || data.mapsLink) {
+      setForm((prev) => ({
+        ...prev,
+        address: data.address || prev.address,
+        phone: data.phone || prev.phone,
+        googleMapsLink: data.mapsLink || prev.googleMapsLink,
+      }));
+      setAiStatus("success");
+      setShowAiBanner(true);
+      
+      setTimeout(() => setShowAiBanner(false), 5000);
+    } else {
+      setAiStatus("error");
+    }
+  } catch (err) {
+    console.error("AI Fetch Error:", err);
+    setAiStatus("error");
+  } finally {
+    setAiLoading(false);
+  }
+};
 
   const handleClearQuotation = () => {
     setLinkedQuotation(null);
@@ -377,8 +430,9 @@ const CreateHotelVoucherPage = () => {
         requests: form.requests,
         paymentStatus: form.paymentStatus,
         amount: form.amount,
-        showAmountInVoucher: form.showAmountInVoucher, // Only meaningful for "Amount paid to hotel"
+        showAmountInVoucher: form.showAmountInVoucher,
         cancellation: form.cancellation,
+        googleMapsLink: form.googleMapsLink,
 
         issueDate: new Date().toISOString(),
       };
@@ -429,7 +483,13 @@ const CreateHotelVoucherPage = () => {
           {voucherNo || "Generating..."}
         </Badge>
       </div>
-
+          {/* ai banner */}
+            {showAiBanner && (
+        <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-sm flex items-center gap-2 mb-4 animate-in fade-in slide-in-from-top-2">
+          <CheckCircle2 className="h-4 w-4" />
+          Details fetched via AI — please verify before saving.
+        </div>
+      )}
       <div className="max-w-3xl mx-auto py-10 px-4 space-y-6">
         {/* 1. Quotation Link */}
         <Section title="Link to Quotation (Optional)">
@@ -539,34 +599,83 @@ const CreateHotelVoucherPage = () => {
               </Label>
               <Input
                 value={hotelFields.hotelName}
-                onChange={(e) =>
-                  setHotelFields({ ...hotelFields, hotelName: e.target.value })
-                }
+                onChange={(e) =>{
+                  setHotelFields({ ...hotelFields, hotelName: e.target.value });
+                   setAiStatus(null);  
+                   setShowAiBanner(false);
+                  
+                }}
                 placeholder="Search hotel (e.g. Taj Mumbai)"
                 className="text-base"
                 onFocus={() =>
                   hotelSearchResults.length > 0 && setShowHotelSuggestions(true)
                 }
               />
-
-              {showHotelSuggestions && hotelSearchResults.length > 0 && (
-                <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
-                  {hotelSearchResults.map((h) => (
-                    <div
-                      key={h.location_id}
-                      className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0"
-                      onMouseDown={() => handleSelectHotelSuggestion(h)}
-                    >
-                      <p className="text-sm font-medium text-slate-800">
-                        {h.name}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {h.address_obj?.city}, {h.address_obj?.country}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+            
+             <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={aiLoading || hotelFields.hotelName.length < 3}
+                onClick={handleAiFetch}
+                className={`text-xs font-medium transition-all ${
+                  aiStatus === "success" 
+                    ? "border-emerald-500 text-emerald-600 bg-emerald-50" 
+                    : aiStatus === "error"
+                    ? "border-amber-500 text-amber-600 bg-amber-50"
+                    : "text-theme-primary border-theme-primary/30 hover:bg-theme-muted"
+                }`}
+              >
+                {aiLoading ? (
+                  <>
+                    <div className="h-3 w-3 border-2 border-theme-primary border-t-transparent animate-spin rounded-full mr-2" />
+                    Searching AI...
+                  </>
+                ) : aiStatus === "success" ? (
+                  <>
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    Details Fetched
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-1.5">✨</span>
+                    Fetch from AI
+                  </>
+                )}
+              </Button>
+              
+              {aiStatus === "error" && (
+                <span className="text-[10px] text-amber-600 font-medium animate-pulse">
+                  ⚠️ Could not fetch details automatically. Enter manually.
+                </span>
               )}
+            </div>
+            
+            
+            {  showHotelSuggestions && hotelSearchResults.length > 0 && (
+              <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
+                {hotelSearchResults.map((h, idx) => (
+                  <div
+                    key={idx}
+                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0 flex items-start gap-3"
+                    onMouseDown={() => handleSelectHotelSuggestion(h)}
+                  >
+                    <div className="bg-theme-muted rounded-xl p-1.5 mt-0.5">
+                      <Hotel className="h-3.5 w-3.5 text-theme-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{h.name}</p>
+                      {(h.city || h.state) && (
+                        <p className="text-xs text-slate-400">
+                          {[h.city, h.state].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             </div>
             <div className="space-y-1.5">
               <Label>Check-in Date</Label>
@@ -722,13 +831,41 @@ const CreateHotelVoucherPage = () => {
                 rows={3}
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" >
               <Label>Hotel Phone Number</Label>
               <Input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="Optional"
+                className="mb-5"
               />
+
+              <div className="space-y-1.5">
+            <Label className="flex items-center justify-between">
+              Google Maps Link
+              {form.googleMapsLink && (
+                <a
+                  href={form.googleMapsLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-theme-primary flex items-center gap-1 hover:underline"
+                >
+                  <Search className="h-3 w-3" /> Preview Location
+                </a>
+              )}
+            </Label>
+            <div className="relative">
+              <Input
+                value={form.googleMapsLink}
+                onChange={(e) => setForm({ ...form, googleMapsLink: e.target.value })}
+                placeholder="https://goo.gl/maps/..."
+                className="pr-10"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Hotel className="h-4 w-4 text-slate-300" />
+              </div>
+            </div>
+          </div>
             </div>
             <div className="space-y-1.5">
               <Label>Special Requests / Remarks</Label>

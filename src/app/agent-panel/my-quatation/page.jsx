@@ -38,6 +38,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { getQuotationById } from "@/firebase/quotations";
 import { getBookingById } from "@/firebase/bookingsService";
 import toast from "react-hot-toast";
+import { updateLeadStatus, updateLeadStatusFromQuotation } from "@/firebase/leadsService";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -52,7 +53,8 @@ const MyQuotations = () => {
 
   const [hotelSelectionOpen, setHotelSelectionOpen] = React.useState(false);
   const [hotelList, setHotelList] = React.useState([]);
-  const [bookingConfirmQuotation, setBookingConfirmQuotation] = React.useState(null);
+  const [bookingConfirmQuotation, setBookingConfirmQuotation] =
+    React.useState(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(50);
   const [previewQuotation, setPreviewQuotation] = useState(null);
@@ -96,8 +98,13 @@ const MyQuotations = () => {
     // Re-fetch from Firestore so convertedToBooking reflects latest state
     try {
       const fresh = await getQuotationById(state.user?.uid, q.id);
-      if (fresh) setPreviewQuotation((prev) => prev?.id === q.id ? { ...prev, ...fresh } : prev);
-    } catch { /* use cached version on error */ }
+      if (fresh)
+        setPreviewQuotation((prev) =>
+          prev?.id === q.id ? { ...prev, ...fresh } : prev,
+        );
+    } catch {
+      /* use cached version on error */
+    }
   };
   // Update the useEffect that handles pagination reset
   useEffect(() => {
@@ -171,10 +178,14 @@ const MyQuotations = () => {
       try {
         const existing = await getBookingById(quotation.bookingId);
         if (existing) {
-          toast.error("This quotation has already been converted to a booking.");
+          toast.error(
+            "This quotation has already been converted to a booking.",
+          );
           return;
         }
-      } catch { /* proceed if check fails */ }
+      } catch {
+        /* proceed if check fails */
+      }
     }
     const hotels = quotation.hotelSummary || [];
     const transport = quotation.transportSummary;
@@ -182,7 +193,14 @@ const MyQuotations = () => {
     const services = [
       ...hotels.map((h) => ({
         type: "Hotel",
-        description: [h.hotel, h.selectedRoomCategory, h.selectedMealPlan, h.nights ? `${h.nights} nights` : ""].filter(Boolean).join(" · "),
+        description: [
+          h.hotel,
+          h.selectedRoomCategory,
+          h.selectedMealPlan,
+          h.nights ? `${h.nights} nights` : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
         supplier: h.hotel || "",
         confirmationRef: "",
         amount: h.hotelTotal || "",
@@ -190,15 +208,17 @@ const MyQuotations = () => {
         status: "Pending",
       })),
       ...(transport?.vehicleName
-        ? [{
-            type: "Transfer",
-            description: `${transport.vehicleName}${transport.ac ? " (AC)" : ""}`,
-            supplier: "",
-            confirmationRef: "",
-            amount: transport.totalTransportCost || "",
-            advance: "",
-            status: "Pending",
-          }]
+        ? [
+            {
+              type: "Transfer",
+              description: `${transport.vehicleName}${transport.ac ? " (AC)" : ""}`,
+              supplier: "",
+              confirmationRef: "",
+              amount: transport.totalTransportCost || "",
+              advance: "",
+              status: "Pending",
+            },
+          ]
         : []),
       ...activities.map((a) => ({
         type: "Sightseeing",
@@ -219,7 +239,8 @@ const MyQuotations = () => {
       children: 0,
       status: "Confirmed",
       totalAmount: quotation.grandTotal || "",
-      notes: `Converted from quotation ${quotation.quoteNumber || quotation.refNumber || ""}`.trim(),
+      notes:
+        `Converted from quotation ${quotation.quoteNumber || quotation.refNumber || ""}`.trim(),
       services,
       payments: [],
       quotationId: quotation.id,
@@ -229,12 +250,28 @@ const MyQuotations = () => {
   };
 
   // Ask before converting — on confirm, open the pre-filled booking form
-  const handleStatusChangeWithConvertPrompt = async (quotationId, nextStatus) => {
-    // Capture before the await — state.quotations is stale after the async call
+  const handleStatusChangeWithConvertPrompt = async (
+    quotationId,
+    nextStatus,
+  ) => {
     const quotation = state.quotations.find((q) => q.id === quotationId);
+
     await state.handleQuotationStatusChange(quotationId, nextStatus);
 
-    if (nextStatus !== "Accepted" || !quotation || quotation.convertedToBooking) return;
+    // 🔥 NEW LOGIC BLOCK
+    if (quotation?.leadId) {
+      if (nextStatus === "Sent") {
+        await updateLeadStatus(quotation.leadId, "Quotation Sent");
+      }
+
+      if (nextStatus === "Accepted") {
+        await updateLeadStatus(quotation.leadId, "Closed Won");
+      }
+    }
+
+    // Existing logic (booking prompt)
+    if (nextStatus !== "Accepted" || !quotation || quotation.convertedToBooking)
+      return;
 
     setBookingConfirmQuotation(quotation);
   };
@@ -326,19 +363,28 @@ const MyQuotations = () => {
       try {
         const leadSnap = await getDoc(doc(db, "leads", quotation.leadId));
         if (leadSnap.exists()) guestPhone = leadSnap.data()?.mobile || "";
-      } catch { /* continue without phone */ }
+      } catch {
+        /* continue without phone */
+      }
     }
     if (!guestPhone && quotation?.customerId) {
       try {
-        const customerSnap = await getDoc(doc(db, "customers", quotation.customerId));
-        if (customerSnap.exists()) guestPhone = customerSnap.data()?.mobile || "";
-      } catch { /* continue without phone */ }
+        const customerSnap = await getDoc(
+          doc(db, "customers", quotation.customerId),
+        );
+        if (customerSnap.exists())
+          guestPhone = customerSnap.data()?.mobile || "";
+      } catch {
+        /* continue without phone */
+      }
     }
 
     const name = quotation?.customerName || quotation?.leadName || "there";
-    const pkg  = quotation?.packageName  || quotation?.itineraryTitle || "";
-    const dest = quotation?.destination  || pkg || "your upcoming trip";
-    const ref  = quotation?.refNumber    ? `\nQuotation Ref: *${quotation.refNumber}*` : "";
+    const pkg = quotation?.packageName || quotation?.itineraryTitle || "";
+    const dest = quotation?.destination || pkg || "your upcoming trip";
+    const ref = quotation?.refNumber
+      ? `\nQuotation Ref: *${quotation.refNumber}*`
+      : "";
 
     const message = [
       `Hi ${name} 👋`,
@@ -355,8 +401,8 @@ const MyQuotations = () => {
     ].join("\n");
 
     const digits = String(guestPhone).replace(/\D/g, "");
-    const phone  = digits.length === 10 ? `91${digits}` : digits;
-    const url    = phone
+    const phone = digits.length === 10 ? `91${digits}` : digits;
+    const url = phone
       ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
 
@@ -395,7 +441,9 @@ const MyQuotations = () => {
         </div>
 
         <div
-          onClick={() => state.setFilterStatus(state.filterStatus === "Draft" ? "" : "Draft")}
+          onClick={() =>
+            state.setFilterStatus(state.filterStatus === "Draft" ? "" : "Draft")
+          }
           className={`bg-white p-4 rounded-xl shadow-sm border cursor-pointer transition-all hover:shadow-md ${state.filterStatus === "Draft" ? "border-gray-500 ring-2 ring-gray-200" : "border-slate-200"}`}
         >
           <div className="flex items-center">
@@ -412,7 +460,9 @@ const MyQuotations = () => {
         </div>
 
         <div
-          onClick={() => state.setFilterStatus(state.filterStatus === "Sent" ? "" : "Sent")}
+          onClick={() =>
+            state.setFilterStatus(state.filterStatus === "Sent" ? "" : "Sent")
+          }
           className={`bg-white p-4 rounded-xl shadow-sm border cursor-pointer transition-all hover:shadow-md ${state.filterStatus === "Sent" ? "border-amber-500 ring-2 ring-amber-200" : "border-slate-200"}`}
         >
           <div className="flex items-center">
@@ -429,7 +479,11 @@ const MyQuotations = () => {
         </div>
 
         <div
-          onClick={() => state.setFilterStatus(state.filterStatus === "Accepted" ? "" : "Accepted")}
+          onClick={() =>
+            state.setFilterStatus(
+              state.filterStatus === "Accepted" ? "" : "Accepted",
+            )
+          }
           className={`bg-white p-4 rounded-xl shadow-sm border cursor-pointer transition-all hover:shadow-md ${state.filterStatus === "Accepted" ? "border-green-500 ring-2 ring-green-200" : "border-slate-200"}`}
         >
           <div className="flex items-center">
@@ -446,7 +500,11 @@ const MyQuotations = () => {
         </div>
 
         <div
-          onClick={() => state.setFilterStatus(state.filterStatus === "Rejected" ? "" : "Rejected")}
+          onClick={() =>
+            state.setFilterStatus(
+              state.filterStatus === "Rejected" ? "" : "Rejected",
+            )
+          }
           className={`bg-white p-4 rounded-xl shadow-sm border cursor-pointer transition-all hover:shadow-md ${state.filterStatus === "Rejected" ? "border-red-500 ring-2 ring-red-200" : "border-slate-200"}`}
         >
           <div className="flex items-center">
@@ -623,17 +681,29 @@ const MyQuotations = () => {
       )}
 
       {/* ── Convert-to-booking confirmation dialog ───────────────────────── */}
-      <Dialog open={!!bookingConfirmQuotation} onOpenChange={(open) => { if (!open) setBookingConfirmQuotation(null); }}>
+      <Dialog
+        open={!!bookingConfirmQuotation}
+        onOpenChange={(open) => {
+          if (!open) setBookingConfirmQuotation(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Create Booking?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-600">
-            Quotation for <span className="font-semibold">{bookingConfirmQuotation?.customerName}</span> has been accepted.
-            Would you like to open the booking form with pre-filled details?
+            Quotation for{" "}
+            <span className="font-semibold">
+              {bookingConfirmQuotation?.customerName}
+            </span>{" "}
+            has been accepted. Would you like to open the booking form with
+            pre-filled details?
           </p>
           <div className="flex gap-3 justify-end pt-2">
-            <Button variant="outline" onClick={() => setBookingConfirmQuotation(null)}>
+            <Button
+              variant="outline"
+              onClick={() => setBookingConfirmQuotation(null)}
+            >
               Not Now
             </Button>
             <Button
