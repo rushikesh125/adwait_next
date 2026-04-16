@@ -197,3 +197,89 @@ export function isShareActive(quotation) {
   if (!quotation.shareExpiresAt) return false;
   return Date.now() < quotation.shareExpiresAt;
 }
+
+
+
+
+import { createBooking } from "@/firebase/bookingsService";
+import { buildBookingFromQuotation } from "@/utils/bookingFromQuotation";
+
+export async function respondToQuotationByToken(token, action) {
+  if (!token || !["accept", "reject"].includes(action)) {
+    throw new Error("Invalid request");
+  }
+
+  const { collectionGroup } = await import("firebase/firestore");
+
+  const cgRef = collectionGroup(db, "packages");
+  const snap = await getDocs(
+    query(cgRef, where("shareToken", "==", token))
+  );
+
+  if (snap.empty) {
+    throw new Error("Quotation not found");
+  }
+
+  const docSnap = snap.docs[0];
+  const data = docSnap.data();
+  const ref = docSnap.ref;
+
+  // ✅ Extract agentId from path
+  const agentId = ref.parent.parent.id;
+
+  // ⚠️ Expiry check
+  if (data.shareExpiresAt && Date.now() > data.shareExpiresAt) {
+    throw new Error("Link expired");
+  }
+
+  // ⚠️ Already handled
+  if (["Accepted", "Rejected"].includes(data.status)) {
+    return { status: data.status, alreadyHandled: true };
+  }
+
+  const newStatus = action === "accept" ? "Accepted" : "Rejected";
+
+  // =========================
+  // ✅ ACCEPT FLOW (AUTO BOOKING)
+  // =========================
+  if (newStatus === "Accepted") {
+    // 🚫 Prevent duplicate booking
+    if (data.convertedToBooking) {
+      return { status: "Accepted", alreadyHandled: true };
+    }
+
+    // 🧠 Build booking payload
+    const bookingPayload = buildBookingFromQuotation({
+      ...data,
+      id: docSnap.id,
+    });
+
+    // 🚀 Create booking
+    const bookingId = await createBooking({
+      ...bookingPayload,
+      agentId, // ✅ FIXED
+    });
+
+    // ✅ Update quotation
+    await updateDoc(ref, {
+      status: "Accepted",
+      respondedAt: Date.now(),
+      convertedToBooking: true,
+      bookingId,
+    });
+
+    return { status: "Accepted", bookingId };
+  }
+
+  // =========================
+  // ❌ REJECT FLOW
+  // =========================
+  if (newStatus === "Rejected") {
+    await updateDoc(ref, {
+      status: "Rejected",
+      respondedAt: Date.now(),
+    });
+
+    return { status: "Rejected" };
+  }
+}

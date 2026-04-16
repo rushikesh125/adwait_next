@@ -38,7 +38,10 @@ import { doc, getDoc } from "firebase/firestore";
 import { getQuotationById } from "@/firebase/quotations";
 import { getBookingById } from "@/firebase/bookingsService";
 import toast from "react-hot-toast";
-import { updateLeadStatus, updateLeadStatusFromQuotation } from "@/firebase/leadsService";
+import {
+  updateLeadStatus,
+  updateLeadStatusFromQuotation,
+} from "@/firebase/leadsService";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -414,8 +417,8 @@ const MyQuotations = () => {
     return <p className="p-8 text-center">Authenticating...</p>;
   if (state.isFetchingQuotations)
     return <p className="p-8 text-center">Loading quotations...</p>;
-  if (!state.isFetchingQuotations && state.quotations.length === 0)
-    return <p className="p-8 text-center">No quotations found.</p>;
+  // if (!state.isFetchingQuotations && state.quotations.length === 0)
+  //   return <p className="p-8 text-center">No quotations found.</p>;
 
   // ── Determine if the currently-viewed quotation is Accepted ──────────────
   const viewedIsAccepted = state.viewingQuotation?.status === "Accepted";
@@ -520,39 +523,53 @@ const MyQuotations = () => {
           </div>
         </div>
       </div>
-      <QuotationsTable
-        filteredQuotations={paginatedQuotations}
-        searchTerm={state.searchTerm}
-        setSearchTerm={state.setSearchTerm}
-        filterDestination={state.filterDestination}
-        setFilterDestination={state.setFilterDestination}
-        startDate={state.startDate}
-        setStartDate={state.setStartDate}
-        endDate={state.endDate}
-        setEndDate={state.setEndDate}
-        filterStatus={state.filterStatus}
-        setFilterStatus={state.setFilterStatus}
-        getDestinationOfpkg={state.getDestinationOfpkg}
-        handleViewClick={handleViewClick}
-        handleEditClick={state.handleEditClick}
-        handleDownloadPDF={handleDownloadPDF}
-        handleDeleteQuotation={state.handleDeleteQuotation}
-        handleQuotationStatusChange={handleStatusChangeWithConvertPrompt}
-        handleCopyToClipboard={handleCopyToClipboard}
-        handleShareOnWhatsApp={handleShareOnWhatsApp}
-        handleSendReminder={handleSendReminder}
-        handleGenerateVoucher={handleGenerateVoucher}
-        currentPage={currentPage}
-        onNextPage={onNextPage}
-        onPrevPage={onPrevPage}
-        hasNextPage={currentPage < totalPages}
-        hasPrevPage={currentPage > 1}
-        isFetching={state.isFetchingQuotations}
-        pageSize={pageSize}
-        setPageSize={setPageSize} // ✅ NEW
-        totalItems={sortedQuotations.length} // ✅ NEW
-        handleEditRedirect={handleEditRedirect}
-      />
+      {state.quotations.length === 0 ? (
+        <div className="bg-white border rounded-xl p-10 text-center">
+          <p className="text-slate-500 mb-4">No quotations found.</p>
+
+          <Button
+            className="bg-theme-primary text-white"
+            onClick={() => router.push("/agent-panel/my-quatation/create")}
+          >
+            + Create Quotation
+          </Button>
+        </div>
+      ) : (
+        <QuotationsTable
+          filteredQuotations={paginatedQuotations}
+          searchTerm={state.searchTerm}
+          setSearchTerm={state.setSearchTerm}
+          filterDestination={state.filterDestination}
+          setFilterDestination={state.setFilterDestination}
+          startDate={state.startDate}
+          setStartDate={state.setStartDate}
+          endDate={state.endDate}
+          setEndDate={state.setEndDate}
+          filterStatus={state.filterStatus}
+          setFilterStatus={state.setFilterStatus}
+          getDestinationOfpkg={state.getDestinationOfpkg}
+          handleViewClick={handleViewClick}
+          handleEditClick={state.handleEditClick}
+          handleDownloadPDF={handleDownloadPDF}
+          handleDeleteQuotation={state.handleDeleteQuotation}
+          handleQuotationStatusChange={handleStatusChangeWithConvertPrompt}
+          handleCopyToClipboard={handleCopyToClipboard}
+          handleShareOnWhatsApp={handleShareOnWhatsApp}
+          handleSendReminder={handleSendReminder}
+          handleGenerateVoucher={handleGenerateVoucher}
+          currentPage={currentPage}
+          onNextPage={onNextPage}
+          onPrevPage={onPrevPage}
+          hasNextPage={currentPage < totalPages}
+          hasPrevPage={currentPage > 1}
+          isFetching={state.isFetchingQuotations}
+          pageSize={pageSize}
+          setPageSize={setPageSize} // ✅ NEW
+          totalItems={sortedQuotations.length} // ✅ NEW
+          handleEditRedirect={handleEditRedirect}
+        />
+      )}
+
       {/* ── Hotel Voucher Drawer ──────────────────────────────────────────── */}
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}

@@ -7,6 +7,9 @@
  *
  * Redesigned with modern blue theme + shadcn-style components.
  * All functionality preserved from original.
+ * 
+ * UPDATED: Added 2-step confirmation dialog for Accept/Reject actions
+ *          + Success state display after response submission
  */
 
 import React, { useEffect, useState } from "react";
@@ -34,7 +37,11 @@ import {
   Users,
   Sparkles,
   ArrowRight,
+  Check,
+  X,
+  Loader2,
 } from "lucide-react";
+import { respondToQuotationByToken } from "@/firebase/quotationShare";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -128,6 +135,203 @@ function InfoChip({ label, value, sub }) {
       </p>
       <p className="text-xs font-bold text-slate-700 leading-snug">{value}</p>
       {sub && <p className="text-[9px] text-slate-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Confirmation Dialog Component (2-step)
+// ─────────────────────────────────────────────────────────────────────────────
+function ConfirmationDialog({
+  isOpen,
+  onClose,
+  onConfirm,
+  action,
+  isLoading,
+}) {
+  const [step, setStep] = useState(1);
+
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const isAccept = action === "accept";
+  const title = isAccept ? "Confirm Acceptance" : "Confirm Rejection";
+  const description = isAccept
+    ? "Are you sure you want to accept this quotation? This action cannot be undone."
+    : "Are you sure you want to reject this quotation? You can request a new one from your travel agent.";
+  const confirmText = isAccept ? "Yes, Accept" : "Yes, Reject";
+  const btnGradient = isAccept
+    ? "from-theme-gradient-from to-theme-gradient-to"
+    : "from-red-500 to-red-600";
+  const btnHover = isAccept ? "hover:opacity-90" : "hover:bg-red-700";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Dialog */}
+      <div className="relative w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
+        {/* Header */}
+        <div className={`px-5 py-4 bg-gradient-to-r ${btnGradient} text-white`}>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm">{title}</h3>
+            <button
+              onClick={onClose}
+              disabled={isLoading}
+              className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4">
+          {step === 1 ? (
+            <>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                {description}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                <span>This is a two-step confirmation for your safety.</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isAccept ? "bg-green-100" : "bg-red-100"
+                  }`}
+                >
+                  {isAccept ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-600" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    Final Confirmation
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Click below to {isAccept ? "accept" : "reject"} this
+                    quotation
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-2">
+            {step === 1 ? (
+              <>
+                <button
+                  onClick={onClose}
+                  disabled={isLoading}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 text-sm font-semibold text-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setStep(2)}
+                  disabled={isLoading}
+                  className={`flex-1 rounded-xl bg-gradient-to-r ${btnGradient} text-white py-2.5 text-sm font-semibold ${btnHover} transition-opacity flex items-center justify-center gap-2`}
+                >
+                  Continue
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setStep(1)}
+                  disabled={isLoading}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 text-sm font-semibold text-slate-700 transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={onConfirm}
+                  disabled={isLoading}
+                  className={`flex-1 rounded-xl bg-gradient-to-r ${btnGradient} text-white py-2.5 text-sm font-semibold ${btnHover} transition-opacity flex items-center justify-center gap-2 disabled:opacity-70`}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    confirmText
+                  )}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Success Banner Component (post-response)
+// ─────────────────────────────────────────────────────────────────────────────
+function ResponseSuccessBanner({ status }) {
+  const isAccepted = status === "Accepted";
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50">
+      <div
+        className={`max-w-2xl mx-auto mx-4 mb-4 rounded-2xl shadow-lg border p-4 flex items-center gap-3 ${
+          isAccepted
+            ? "bg-green-50 border-green-200"
+            : "bg-red-50 border-red-200"
+        }`}
+      >
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+            isAccepted ? "bg-green-100" : "bg-red-100"
+          }`}
+        >
+          {isAccepted ? (
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+          ) : (
+            <XCircle className="h-5 w-5 text-red-600" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p
+            className={`text-sm font-bold ${
+              isAccepted ? "text-green-800" : "text-red-800"
+            }`}
+          >
+            {isAccepted
+              ? "Quotation Accepted! 🎉"
+              : "Quotation Rejected"}
+          </p>
+          <p
+            className={`text-xs ${
+              isAccepted ? "text-green-600" : "text-red-600"
+            } mt-0.5`}
+          >
+            {isAccepted
+              ? "Thank you! Your travel agent will contact you shortly to proceed with your booking."
+              : "You can request a revised quotation from your travel agent anytime."}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -293,6 +497,14 @@ export default function PreviewPage() {
   const [quotation, setQuotation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [responding, setResponding] = useState(false);
+  const [responseDone, setResponseDone] = useState(null);
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    action: null, // "accept" | "reject"
+  });
 
   useEffect(() => {
     if (!token) {
@@ -335,6 +547,39 @@ export default function PreviewPage() {
 
     fetchQuotation();
   }, [token]);
+
+  // Handle initial click on Accept/Reject - opens confirmation dialog
+  const handleResponseClick = (action) => {
+    if (!token) return;
+    setConfirmDialog({ isOpen: true, action });
+  };
+
+  // Handle final confirmation from dialog
+  const handleConfirmResponse = async () => {
+    const action = confirmDialog.action;
+    if (!action || !token) return;
+
+    setResponding(true);
+    try {
+      const res = await respondToQuotationByToken(token, action);
+      setResponseDone(res.status);
+      // Update local quotation status to reflect the change
+      setQuotation((prev) =>
+        prev ? { ...prev, status: res.status } : prev
+      );
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Failed to process your response. Please try again.");
+    } finally {
+      setResponding(false);
+      setConfirmDialog({ isOpen: false, action: null });
+    }
+  };
+
+  // Close confirmation dialog
+  const handleCloseConfirmDialog = () => {
+    setConfirmDialog({ isOpen: false, action: null });
+  };
 
   if (loading) return <LoadingScreen />;
   if (error === "expired")
@@ -429,7 +674,7 @@ export default function PreviewPage() {
               </span>
             )} */}
           </div>
-              <hr className="my-5"/>
+          <hr className="my-5" />
           {/* Title */}
           <h1 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight mb-2">
             {itinerary?.title ||
@@ -766,6 +1011,49 @@ export default function PreviewPage() {
           </p>
         </footer>
       </div>
+
+      {/* ── Action Bar / Success Banner ── */}
+      {!responseDone &&
+        quotation?.status !== "Accepted" &&
+        quotation?.status !== "Rejected" && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-4 py-3 z-50">
+            <div className="max-w-3xl mx-auto flex gap-3">
+              {/* Reject */}
+              <button
+                disabled={responding}
+                onClick={() => handleResponseClick("reject")}
+                className="flex-1 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 py-3 font-semibold text-red-600 flex items-center justify-center gap-2 transition-colors"
+              >
+                <XCircle className="h-4 w-4" />
+                Reject
+              </button>
+
+              {/* Accept */}
+              <button
+                disabled={responding}
+                onClick={() => handleResponseClick("accept")}
+                className="flex-1 rounded-xl bg-gradient-to-r from-theme-gradient-from to-theme-gradient-to text-white py-3 font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Accept
+              </button>
+            </div>
+          </div>
+        )}
+
+      {/* Show success banner after response */}
+      {responseDone && (
+        <ResponseSuccessBanner status={responseDone} />
+      )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={handleCloseConfirmDialog}
+        onConfirm={handleConfirmResponse}
+        action={confirmDialog.action}
+        isLoading={responding}
+      />
     </div>
   );
 }
