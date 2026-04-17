@@ -28,8 +28,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
@@ -39,8 +37,6 @@ import {
 } from "@/components/ui/tooltip";
 import {
   MoreVertical,
-  Hotel,
-  Plane,
   Search,
   Download,
   Edit,
@@ -55,7 +51,6 @@ import {
   ArrowUp,
   ArrowDown,
   PackagePlus,
-  ClipboardCopy,
   MessageCircle,
   BellRing,
 } from "lucide-react";
@@ -97,8 +92,6 @@ const QuotationsTable = ({
   filterDestination,
   setFilterDestination,
   startDate,
-  handleGenerateVoucher,
-  handleOpenBookingConfirmation,
   setStartDate,
   endDate,
   setEndDate,
@@ -126,6 +119,8 @@ const QuotationsTable = ({
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [editingStatusId, setEditingStatusId] = useState(null);
   const { user } = useSelector((state) => state.auth);
+  const router = useRouter();
+
   const handleSort = (key) => {
     setSortConfig((prev) =>
       prev.key === key
@@ -133,7 +128,7 @@ const QuotationsTable = ({
         : { key, direction: "asc" },
     );
   };
-  const router = useRouter();
+
   const sortedQuotations = React.useMemo(() => {
     if (!sortConfig.key) return filteredQuotations;
 
@@ -329,7 +324,6 @@ const QuotationsTable = ({
                   </TableRow>
                 ) : (
                   sortedQuotations.map((q, ind) => {
-                    const isAccepted = q.status === "Accepted";
                     const orderNumber = (currentPage - 1) * pageSize + ind + 1;
 
                     return (
@@ -339,8 +333,7 @@ const QuotationsTable = ({
                         onClick={() => handleViewClick(q)}
                       >
                         <TableCell className="font-medium text-theme-primary font-mono text-xs">
-                          {q.refNumber || `#${orderNumber}`}{" "}
-                          {/* fallback for old records */}
+                          {q.refNumber || `#${orderNumber}`}
                         </TableCell>
                         <TableCell className="font-medium">
                           {q.customerName || q.leadName || "—"}
@@ -431,7 +424,7 @@ const QuotationsTable = ({
                           className="text-right"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <div className="flex items-center justify-end gap-1 ">
+                          <div className="flex items-center justify-end gap-1">
                             {/* View */}
                             <Button
                               variant="ghost"
@@ -476,14 +469,11 @@ const QuotationsTable = ({
                               <Copy className="h-4 w-4" />
                             </Button>
 
-                            {/* Share Itinerary - NEW SHARE BUTTON */}
+                            {/* Share Itinerary */}
                             <ShareButton
                               quotation={q}
                               agentId={user?.uid}
-                              onTokenSaved={(quotationId, fields) => {
-                                // Optional: Refresh the specific row in parent component
-                                // You can call a refresh function or update local state
-                              }}
+                              onTokenSaved={(quotationId, fields) => {}}
                               size="sm"
                               variant="icon"
                             />
@@ -516,70 +506,14 @@ const QuotationsTable = ({
                               </Tooltip>
                             )}
 
-                            {/* More Actions for Accepted */}
-                            {q.status === "Accepted" ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                  >
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>
-                                    Accepted Actions
-                                  </DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleOpenBookingConfirmation?.(q)
-                                    }
-                                  >
-                                    <ClipboardCopy className="mr-2 h-4 w-4" />
-                                    Send Booking Request
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleGenerateVoucher(q, "hotel")
-                                    }
-                                  >
-                                    <Hotel className="mr-2 h-4 w-4" /> Hotel
-                                    Voucher
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleGenerateVoucher(q, "flight")
-                                    }
-                                  >
-                                    <Plane className="mr-2 h-4 w-4" /> Flight
-                                    Voucher
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-flex">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 opacity-40 cursor-not-allowed"
-                                      disabled
-                                    >
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="left">
-                                  <p className="text-xs">
-                                    Vouchers are created for accepted quotations
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
+                            {/*
+                             * ── Accepted Actions dropdown ──────────────────
+                             * Voucher generation and Send Booking Request have
+                             * been moved to the Booking detail page.
+                             * The MoreVertical button is removed entirely for
+                             * accepted quotations; it was only used for those
+                             * two actions.
+                             */}
 
                             {/* Delete */}
                             <AlertDialog>
@@ -626,9 +560,8 @@ const QuotationsTable = ({
             </Table>
           </div>
 
-          {/* ── Pagination Controls ────────────────────────────────────────── */}
+          {/* ── Pagination Controls ──────────────────────────────────────── */}
           <div className="flex items-center justify-between px-6 py-4 border-t flex-wrap gap-3">
-            {/* LEFT SIDE */}
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <p>
                 Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> to{" "}
@@ -637,9 +570,7 @@ const QuotationsTable = ({
               </p>
             </div>
 
-            {/* RIGHT SIDE */}
             <div className="flex items-center gap-2">
-              {/* 🔽 DROPDOWN */}
               <select
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value))}
