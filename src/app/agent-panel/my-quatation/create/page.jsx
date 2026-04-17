@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarPlus,
@@ -33,7 +32,6 @@ import Create_new_package from "@/components/Create_new_package";
 
 
 const AgentDashboard = () => {
-  const router = useRouter();
   const { user, loading: authLoading } = useSelector((state) => state.auth);
 
   const [userData, setUserData] = useState(null);
@@ -49,11 +47,6 @@ const [checkOutDate, setCheckOutDate] = useState("");
   // Fetch User Data
   useEffect(() => {
     const initDashboard = async () => {
-      if (!authLoading && !user) {
-        router.push("/login");
-        return;
-      }
-
       if (user) {
         try {
           const data = await getUserData(user.uid);
@@ -68,7 +61,7 @@ const [checkOutDate, setCheckOutDate] = useState("");
 
     initDashboard();
 
-  }, [user, authLoading, router]);
+  }, [user, authLoading]);
 
   // Unsaved Changes Guard
   useEffect(() => {
