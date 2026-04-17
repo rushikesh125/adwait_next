@@ -194,6 +194,8 @@ export default function ItinerarySection({
   onChange,
   itineraryData,
   setItineraryData,
+  canUseAI = false,  
+  permissionsLoading = false,
 }) {
   // ── Derive cities from hotel entries ─────────────────────────────────────
   const cities = useMemo(
@@ -481,6 +483,8 @@ export default function ItinerarySection({
               onChange={handleEditorChange}
               onCancel={handleDiscard}
               availableActivities={availableActivities}
+              canUseAI={canUseAI} 
+              permissionsLoading={permissionsLoading}
             />
           </CardContent>
         </Card>

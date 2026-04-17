@@ -1,7 +1,9 @@
 "use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth } from "firebase/auth";
+import { useSelector } from "react-redux";
 import {
   ArrowLeft,
   Hotel,
@@ -13,6 +15,7 @@ import {
   IndianRupee,
   Eye,
   EyeOff,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +38,9 @@ import {
   saveVoucherToFirestore,
 } from "@/firebase/voucher";
 import { updateQuotation } from "@/firebase/quotations";
+
+// ── Permission hook ────────────────────────────────────────────────────────────
+import { useAgentPermissions } from "@/app/hooks/useAgentPermissions";
 
 /* ─── Hotel Selection Card ─────────────────────────────────────────────────── */
 const HotelCard = ({ hotel, selected, onSelect }) => (
@@ -60,7 +66,6 @@ const HotelCard = ({ hotel, selected, onSelect }) => (
         {hotel.city && (
           <p className="text-sm text-slate-500 mt-0.5">{hotel.city}</p>
         )}
-
         <div className="mt-3 flex gap-4 text-xs text-slate-500 flex-wrap">
           {hotel.checkIn && (
             <span>
@@ -98,6 +103,11 @@ const Section = ({ title, icon: Icon, children }) => (
 const CreateHotelVoucherPage = () => {
   const router = useRouter();
   const { quotations } = useQuotationState();
+
+  // ── Get current user & permission ──────────────────────────────────────────
+  const { user } = useSelector((state) => state.auth);
+  const { hasPermission, loading: permLoading } = useAgentPermissions(user?.uid);
+  const canUseHotelAi = hasPermission("hotel_fetch_ai");
 
   const [voucherNo, setVoucherNo] = useState("");
   const [loading, setLoading] = useState(false);
@@ -139,7 +149,7 @@ const CreateHotelVoucherPage = () => {
     requests: "",
     paymentStatus: "Payment at hotel",
     amount: "",
-    showAmountInVoucher: true, 
+    showAmountInVoucher: true,
     googleMapsLink: "",
     cancellation: "",
   });
@@ -160,47 +170,41 @@ const CreateHotelVoucherPage = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-useEffect(() => {
-  const handler = setTimeout(async () => {
-    if (!hotelFields.hotelName || hotelFields.hotelName.length < 2) {
-      setHotelSearchResults([]);
-      setShowHotelSuggestions(false);
-      return;
-    }
-
-    try {
-      const { getDocs, collection } = await import("firebase/firestore");
-      const { db } = await import("@/firebase/config");
-
-      const searchTerm = hotelFields.hotelName.toLowerCase();
-      const snap = await getDocs(collection(db, "hotels"));
-
-      const matches = [];
-      snap.docs.forEach((d) => {
-        const data = d.data();
-        const hotelName = (data.name || "").toLowerCase();
-        if (hotelName.includes(searchTerm)) {
-          matches.push({
-            name: data.name || "",
-            city: data.city || "",
-            state: data.state || "",
-            address: data.address || "",   
-            phone: data.phone || "",  
-            googleMapsLink: data.mapsLink || data.googleMapsLink || ""    
-
-          });
-        }
-      });
-
-      setHotelSearchResults(matches.slice(0, 8));
-      setShowHotelSuggestions(matches.length > 0);
-    } catch (err) {
-      console.error("Hotel DB search error:", err);
-    }
-  }, 300);
-
-  return () => clearTimeout(handler);
-}, [hotelFields.hotelName]);
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      if (!hotelFields.hotelName || hotelFields.hotelName.length < 2) {
+        setHotelSearchResults([]);
+        setShowHotelSuggestions(false);
+        return;
+      }
+      try {
+        const { getDocs, collection } = await import("firebase/firestore");
+        const { db } = await import("@/firebase/config");
+        const searchTerm = hotelFields.hotelName.toLowerCase();
+        const snap = await getDocs(collection(db, "hotels"));
+        const matches = [];
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          const hotelName = (data.name || "").toLowerCase();
+          if (hotelName.includes(searchTerm)) {
+            matches.push({
+              name: data.name || "",
+              city: data.city || "",
+              state: data.state || "",
+              address: data.address || "",
+              phone: data.phone || "",
+              googleMapsLink: data.mapsLink || data.googleMapsLink || "",
+            });
+          }
+        });
+        setHotelSearchResults(matches.slice(0, 8));
+        setShowHotelSuggestions(matches.length > 0);
+      } catch (err) {
+        console.error("Hotel DB search error:", err);
+      }
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [hotelFields.hotelName]);
 
   /* ── Quotation search autocomplete ───────────────────────────────────── */
   useEffect(() => {
@@ -212,11 +216,12 @@ useEffect(() => {
     const matches = (quotations || []).filter(
       (q) =>
         q.id?.toLowerCase().includes(trimmed) ||
-        q.customerName?.toLowerCase().includes(trimmed),
+        q.customerName?.toLowerCase().includes(trimmed)
     );
     setQuotationSuggestions(matches.slice(0, 6));
     setShowSuggestions(true);
   }, [quotationInput, quotations, linkedQuotation]);
+
   useEffect(() => {
     const handler = (e) => {
       if (
@@ -229,11 +234,12 @@ useEffect(() => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
   /* ── When a quotation is selected ────────────────────────────────────── */
   const handleSelectQuotation = (q) => {
     setLinkedQuotation(q);
     setQuotationInput(
-      `${q.customerName}  —  #${q.id.substring(0, 8).toUpperCase()}`,
+      `${q.customerName}  —  #${q.id.substring(0, 8).toUpperCase()}`
     );
     setQuotationSuggestions([]);
     setShowSuggestions(false);
@@ -274,21 +280,16 @@ useEffect(() => {
       contact: q.customerMobile || prev.contact,
     }));
   };
-const handleSelectHotelSuggestion = (hotel) => {
-  setHotelFields((prev) => ({
-    ...prev,
-    hotelName: hotel.name,
-  }));
 
-  setShowHotelSuggestions(false);
-
-
-  setForm((prev) => ({
-    ...prev,
-    address: hotel.address || "", 
-    phone: hotel.phone || prev.phone,
-  }));
-};
+  const handleSelectHotelSuggestion = (hotel) => {
+    setHotelFields((prev) => ({ ...prev, hotelName: hotel.name }));
+    setShowHotelSuggestions(false);
+    setForm((prev) => ({
+      ...prev,
+      address: hotel.address || "",
+      phone: hotel.phone || prev.phone,
+    }));
+  };
 
   const applyHotel = (h) => {
     setHotelFields({
@@ -307,47 +308,54 @@ const handleSelectHotelSuggestion = (hotel) => {
     applyHotel(h);
   };
 
-  //ai fetching hotel 
+  // ── AI fetch — gated by hotel_fetch_ai permission ──────────────────────────
   const handleAiFetch = async () => {
-  if (!hotelFields.hotelName || hotelFields.hotelName.length < 3) return;
-
-  setAiLoading(true);
-  setAiStatus(null);
-  
-  try {
-    const response = await fetch(`/api/ai/hotel-details`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hotelName: hotelFields.hotelName }),
-    });
-
-if (!response.ok) {
-  setAiStatus("error");   
-  return;                 
-}
-    const data = await response.json();
-
-    if (data.address || data.phone || data.mapsLink) {
-      setForm((prev) => ({
-        ...prev,
-        address: data.address || prev.address,
-        phone: data.phone || prev.phone,
-        googleMapsLink: data.mapsLink || prev.googleMapsLink,
-      }));
-      setAiStatus("success");
-      setShowAiBanner(true);
-      
-      setTimeout(() => setShowAiBanner(false), 5000);
-    } else {
-      setAiStatus("error");
+    // ✅ Permission check: block call if agent lacks hotel_fetch_ai
+    if (!canUseHotelAi) {
+      // This case is already handled by disabling the button,
+      // but this is a safety net in case of race conditions.
+      return;
     }
-  } catch (err) {
-    console.error("AI Fetch Error:", err);
-    setAiStatus("error");
-  } finally {
-    setAiLoading(false);
-  }
-};
+
+    if (!hotelFields.hotelName || hotelFields.hotelName.length < 3) return;
+
+    setAiLoading(true);
+    setAiStatus(null);
+
+    try {
+      const response = await fetch(`/api/ai/hotel-details`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hotelName: hotelFields.hotelName }),
+      });
+
+      if (!response.ok) {
+        setAiStatus("error");
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.address || data.phone || data.mapsLink) {
+        setForm((prev) => ({
+          ...prev,
+          address: data.address || prev.address,
+          phone: data.phone || prev.phone,
+          googleMapsLink: data.mapsLink || prev.googleMapsLink,
+        }));
+        setAiStatus("success");
+        setShowAiBanner(true);
+        setTimeout(() => setShowAiBanner(false), 5000);
+      } else {
+        setAiStatus("error");
+      }
+    } catch (err) {
+      console.error("AI Fetch Error:", err);
+      setAiStatus("error");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleClearQuotation = () => {
     setLinkedQuotation(null);
@@ -401,8 +409,8 @@ if (!response.ok) {
     if (!validate()) return;
 
     const auth = getAuth();
-    const user = auth.currentUser;
-    const agentId = user?.uid;
+    const authUser = auth.currentUser;
+    const agentId = authUser?.uid;
     if (!agentId) return alert("Not authenticated");
 
     setLoading(true);
@@ -483,13 +491,15 @@ if (!response.ok) {
           {voucherNo || "Generating..."}
         </Badge>
       </div>
-          {/* ai banner */}
-            {showAiBanner && (
+
+      {/* AI success banner */}
+      {showAiBanner && (
         <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-sm flex items-center gap-2 mb-4 animate-in fade-in slide-in-from-top-2">
           <CheckCircle2 className="h-4 w-4" />
           Details fetched via AI — please verify before saving.
         </div>
       )}
+
       <div className="max-w-3xl mx-auto py-10 px-4 space-y-6">
         {/* 1. Quotation Link */}
         <Section title="Link to Quotation (Optional)">
@@ -556,9 +566,8 @@ if (!response.ok) {
             {linkedQuotation && (
               <p className="mt-3 text-sm text-emerald-600 font-medium flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4" />
-                Linked to #{linkedQuotation.id
-                  .substring(0, 8)
-                  .toUpperCase()} — {linkedQuotation.customerName}
+                Linked to #{linkedQuotation.id.substring(0, 8).toUpperCase()} —{" "}
+                {linkedQuotation.customerName}
               </p>
             )}
           </div>
@@ -599,11 +608,10 @@ if (!response.ok) {
               </Label>
               <Input
                 value={hotelFields.hotelName}
-                onChange={(e) =>{
+                onChange={(e) => {
                   setHotelFields({ ...hotelFields, hotelName: e.target.value });
-                   setAiStatus(null);  
-                   setShowAiBanner(false);
-                  
+                  setAiStatus(null);
+                  setShowAiBanner(false);
                 }}
                 placeholder="Search hotel (e.g. Taj Mumbai)"
                 className="text-base"
@@ -611,72 +619,95 @@ if (!response.ok) {
                   hotelSearchResults.length > 0 && setShowHotelSuggestions(true)
                 }
               />
-            
-             <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={aiLoading || hotelFields.hotelName.length < 3}
-                onClick={handleAiFetch}
-                className={`text-xs font-medium transition-all ${
-                  aiStatus === "success" 
-                    ? "border-emerald-500 text-emerald-600 bg-emerald-50" 
-                    : aiStatus === "error"
-                    ? "border-amber-500 text-amber-600 bg-amber-50"
-                    : "text-theme-primary border-theme-primary/30 hover:bg-theme-muted"
-                }`}
-              >
-                {aiLoading ? (
-                  <>
-                    <div className="h-3 w-3 border-2 border-theme-primary border-t-transparent animate-spin rounded-full mr-2" />
-                    Searching AI...
-                  </>
-                ) : aiStatus === "success" ? (
-                  <>
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                    Details Fetched
-                  </>
+
+              {/* ── AI Fetch Button — gated by hotel_fetch_ai permission ── */}
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+                {canUseHotelAi ? (
+                  // ✅ Agent HAS permission — show active AI fetch button
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={aiLoading || hotelFields.hotelName.length < 3}
+                    onClick={handleAiFetch}
+                    className={`text-xs font-medium transition-all ${
+                      aiStatus === "success"
+                        ? "border-emerald-500 text-emerald-600 bg-emerald-50"
+                        : aiStatus === "error"
+                        ? "border-amber-500 text-amber-600 bg-amber-50"
+                        : "text-theme-primary border-theme-primary/30 hover:bg-theme-muted"
+                    }`}
+                  >
+                    {aiLoading ? (
+                      <>
+                        <div className="h-3 w-3 border-2 border-theme-primary border-t-transparent animate-spin rounded-full mr-2" />
+                        Searching AI...
+                      </>
+                    ) : aiStatus === "success" ? (
+                      <>
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                        Details Fetched
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-1.5">✨</span>
+                        Fetch from AI
+                      </>
+                    )}
+                  </Button>
                 ) : (
-                  <>
-                    <span className="mr-1.5">✨</span>
-                    Fetch from AI
-                  </>
+                  // 🔒 Agent does NOT have permission — show locked state
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled
+                      className="text-xs font-medium text-slate-400 border-slate-200 bg-slate-50 cursor-not-allowed"
+                    >
+                      <Lock className="mr-1.5 h-3.5 w-3.5" />
+                      Fetch from AI
+                    </Button>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      Not enabled for your account
+                    </span>
+                  </div>
                 )}
-              </Button>
-              
-              {aiStatus === "error" && (
-                <span className="text-[10px] text-amber-600 font-medium animate-pulse">
-                  ⚠️ Could not fetch details automatically. Enter manually.
-                </span>
+
+                {aiStatus === "error" && canUseHotelAi && (
+                  <span className="text-[10px] text-amber-600 font-medium animate-pulse">
+                    ⚠️ Could not fetch details automatically. Enter manually.
+                  </span>
+                )}
+              </div>
+
+              {showHotelSuggestions && hotelSearchResults.length > 0 && (
+                <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
+                  {hotelSearchResults.map((h, idx) => (
+                    <div
+                      key={idx}
+                      className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0 flex items-start gap-3"
+                      onMouseDown={() => handleSelectHotelSuggestion(h)}
+                    >
+                      <div className="bg-theme-muted rounded-xl p-1.5 mt-0.5">
+                        <Hotel className="h-3.5 w-3.5 text-theme-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">
+                          {h.name}
+                        </p>
+                        {(h.city || h.state) && (
+                          <p className="text-xs text-slate-400">
+                            {[h.city, h.state].filter(Boolean).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-            
-            
-            {  showHotelSuggestions && hotelSearchResults.length > 0 && (
-              <div className="absolute z-50 mt-1 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
-                {hotelSearchResults.map((h, idx) => (
-                  <div
-                    key={idx}
-                    className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b last:border-0 flex items-start gap-3"
-                    onMouseDown={() => handleSelectHotelSuggestion(h)}
-                  >
-                    <div className="bg-theme-muted rounded-xl p-1.5 mt-0.5">
-                      <Hotel className="h-3.5 w-3.5 text-theme-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{h.name}</p>
-                      {(h.city || h.state) && (
-                        <p className="text-xs text-slate-400">
-                          {[h.city, h.state].filter(Boolean).join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>
+
             <div className="space-y-1.5">
               <Label>Check-in Date</Label>
               <Input
@@ -831,7 +862,7 @@ if (!response.ok) {
                 rows={3}
               />
             </div>
-            <div className="space-y-1.5" >
+            <div className="space-y-1.5">
               <Label>Hotel Phone Number</Label>
               <Input
                 value={form.phone}
@@ -841,31 +872,33 @@ if (!response.ok) {
               />
 
               <div className="space-y-1.5">
-            <Label className="flex items-center justify-between">
-              Google Maps Link
-              {form.googleMapsLink && (
-                <a
-                  href={form.googleMapsLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-theme-primary flex items-center gap-1 hover:underline"
-                >
-                  <Search className="h-3 w-3" /> Preview Location
-                </a>
-              )}
-            </Label>
-            <div className="relative">
-              <Input
-                value={form.googleMapsLink}
-                onChange={(e) => setForm({ ...form, googleMapsLink: e.target.value })}
-                placeholder="https://goo.gl/maps/..."
-                className="pr-10"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <Hotel className="h-4 w-4 text-slate-300" />
+                <Label className="flex items-center justify-between">
+                  Google Maps Link
+                  {form.googleMapsLink && (
+                    <a
+                      href={form.googleMapsLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-theme-primary flex items-center gap-1 hover:underline"
+                    >
+                      <Search className="h-3 w-3" /> Preview Location
+                    </a>
+                  )}
+                </Label>
+                <div className="relative">
+                  <Input
+                    value={form.googleMapsLink}
+                    onChange={(e) =>
+                      setForm({ ...form, googleMapsLink: e.target.value })
+                    }
+                    placeholder="https://goo.gl/maps/..."
+                    className="pr-10"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Hotel className="h-4 w-4 text-slate-300" />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
             </div>
             <div className="space-y-1.5">
               <Label>Special Requests / Remarks</Label>
@@ -879,7 +912,7 @@ if (!response.ok) {
           </div>
         </Section>
 
-        {/* 6. Payment Section - Updated Logic */}
+        {/* 6. Payment Section */}
         <Section title="Payment Details" icon={IndianRupee}>
           <RadioGroup
             value={form.paymentStatus}
@@ -903,7 +936,6 @@ if (!response.ok) {
             ))}
           </RadioGroup>
 
-          {/* Amount Input - Shown for Paid & Pay at Hotel */}
           {(form.paymentStatus === "Amount paid to hotel" ||
             form.paymentStatus === "Payment at hotel") && (
             <div className="mt-6 space-y-5">
@@ -920,7 +952,6 @@ if (!response.ok) {
                 />
               </div>
 
-              {/* Checkbox ONLY for "Amount Paid to Hotel" */}
               {form.paymentStatus === "Amount paid to hotel" && (
                 <div className="flex items-center gap-3 pt-2">
                   <Checkbox
@@ -944,7 +975,6 @@ if (!response.ok) {
                 </div>
               )}
 
-              {/* Info text for Pay at Hotel */}
               {form.paymentStatus === "Payment at hotel" && (
                 <p className="text-xs text-slate-500 flex items-center gap-1.5">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />

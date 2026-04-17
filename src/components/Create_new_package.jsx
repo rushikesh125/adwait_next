@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useAgentPermissions } from "@/app/hooks/useAgentPermissions";
 import {
   collection,
   getDocs,
@@ -153,6 +154,11 @@ const Create_new_package = ({
   const [customerName, setCustomerName] = useState("");
   const [roomCategory, setRoomCategory] = useState("");
   const [mealPlan, setMealPlan] = useState("");
+  //permission from admin for ai ussaege
+  const { hasPermission, loading: permissionsLoading } = useAgentPermissions(user?.uid);
+  const canUseItineraryAI = !permissionsLoading && hasPermission("itinerary_ai");
+
+
   const [guests, setGuests] = useState({
     numDouble: 1,
     numExtraAdult: 0,
@@ -160,6 +166,7 @@ const Create_new_package = ({
     numCNB: 0,
   });
   const [currentHotelTotal, setCurrentHotelTotal] = useState(0);
+  
 
   useEffect(() => {
     if (reduxCustomerName && !customerName) setCustomerName(reduxCustomerName);
@@ -908,6 +915,7 @@ const Create_new_package = ({
                 itineraryData={itineraryData}
                 setItineraryData={setItineraryData}
                 onChange={(data) => setItineraryData(data)}
+                canUseAI={canUseItineraryAI}
               />
             )}
 

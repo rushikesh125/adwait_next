@@ -65,6 +65,7 @@ const AdminPanelLayout = ({ children }) => {
     { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
     { name: "Hotels Upload", href: "/admin-panel/hotel-upload", icon: HardDriveUpload },
     { name: "Itinerary", href: "/admin-panel/itinerary", icon: BookPlus },
+    { name: "Agent Permissions", href: "/admin-panel/agent-permissions", icon: ShieldCheck },
     // { name: "Settings", href: "/admin-panel/settings", icon: Settings },
   ];
 

@@ -28,6 +28,7 @@ import {
   ChevronDown,
   AudioLinesIcon,
   Send,
+  Lock,
   MessageSquare,
   AlertCircle,
   ChevronDown as ChevronDownIcon,
@@ -673,6 +674,8 @@ export default function ItineraryEditor({
   onChange,
   onCancel,
   availableActivities = [],
+  canUseAI = false, 
+   permissionsLoading = false,
 }) {
   const init = useCallback(() => {
     if (initialData) {
@@ -1040,17 +1043,33 @@ export default function ItineraryEditor({
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-0">
-      {/* ── AI Chat Panel ── */}
-      <div className="mb-4">
-        <AIChatPanel
-          chatHistory={chatHistory}
-          isGenerating={isGenerating}
-          aiError={aiError}
-          onGenerate={handleGenerateWithAI}
-          onRefine={handleRefine}
-          hasGenerated={hasGenerated}
-        />
+     {/* ── AI Chat Panel ── */}
+<div className="mb-4">
+  {canUseAI ? (
+    <AIChatPanel
+      chatHistory={chatHistory}
+      isGenerating={isGenerating}
+      aiError={aiError}
+      onGenerate={handleGenerateWithAI}
+      onRefine={handleRefine}
+      hasGenerated={hasGenerated}
+    />
+  ) : (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50">
+      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+        <Lock className="w-4 h-4 text-slate-400" />
       </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-600">
+          AI Itinerary Assistant
+        </p>
+        <p className="text-xs text-slate-400">
+          AI generation is disabled for your account. Contact your admin to enable it.
+        </p>
+      </div>
+    </div>
+  )}
+</div>
 
       {/* ── Tab strip ── */}
       <div className="flex gap-1 flex-wrap pb-4 border-b border-slate-200 mb-4">

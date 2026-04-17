@@ -1,5 +1,24 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
+import { db } from "@/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Permission Guard Helper
+// Checks agentPermissions/{uid}.itinerary_ai === true before proceeding.
+// ─────────────────────────────────────────────────────────────────────────────
+async function checkItineraryPermission(uid) {
+  if (!uid) return false;
+  try {
+    const ref = doc(db, "agentPermissions", uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return false;
+    return snap.data()?.itinerary_ai === true;
+  } catch (err) {
+    console.error("[ai-itinerary] Permission check failed:", err);
+    return false;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod Schemas — validation only, NOT passed to Gemini
@@ -161,22 +180,43 @@ export async function POST(req) {
   } catch {
     return Response.json(
       { error: "Invalid JSON in request body." },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   const {
+    agentUid,                  // ← NEW: must be sent by the client
     packageContext,
     chatHistory = [],
     userPrompt = null,
     currentItinerary = null,
   } = body;
 
-  // ── 2. Validate required fields ───────────────────────────────────────────
+  // ── 2. Permission check — BEFORE any AI call ──────────────────────────────
+  if (!agentUid) {
+    return Response.json(
+      { error: "agentUid is required to verify access." },
+      { status: 400 }
+    );
+  }
+
+  const isAllowed = await checkItineraryPermission(agentUid);
+  if (!isAllowed) {
+    return Response.json(
+      {
+        error:
+          "You don't have access to AI Itinerary Creation. Please contact your admin to enable this feature.",
+        code: "PERMISSION_DENIED",
+      },
+      { status: 403 }
+    );
+  }
+
+  // ── 3. Validate required fields ───────────────────────────────────────────
   if (!packageContext) {
     return Response.json(
       { error: "packageContext is required." },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -186,11 +226,11 @@ export async function POST(req) {
           m &&
           typeof m === "object" &&
           (m.role === "user" || m.role === "assistant") &&
-          typeof m.content === "string",
+          typeof m.content === "string"
       )
     : [];
 
-  // ── 3. Destructure packageContext ─────────────────────────────────────────
+  // ── 4. Destructure packageContext ─────────────────────────────────────────
   const {
     hotelEntries = [],
     selectedTransport = null,
@@ -202,7 +242,7 @@ export async function POST(req) {
     customerName = "",
   } = packageContext;
 
-  // ── 4. Derive cities & destination ────────────────────────────────────────
+  // ── 5. Derive cities & destination ────────────────────────────────────────
   const cities = [...new Set(hotelEntries.map((e) => e.city).filter(Boolean))];
   const destination = cities[0] || selectedState || null;
 
@@ -212,37 +252,37 @@ export async function POST(req) {
         error:
           "Could not determine destination. Please add at least one hotel.",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
-  // ── 5. Derive numDays ─────────────────────────────────────────────────────
+  // ── 6. Derive numDays ─────────────────────────────────────────────────────
   const totalNights = hotelEntries.reduce(
     (sum, e) => sum + (Number(e.nights) || 0),
-    0,
+    0
   );
   const numDays = totalNights > 0 ? totalNights + 1 : 3;
 
-  // ── 6. Derive transport mode ──────────────────────────────────────────────
+  // ── 7. Derive transport mode ──────────────────────────────────────────────
   const vehicleType = selectedTransport?.selectedVehicle?.type || "";
   const vehicleLower = vehicleType.toLowerCase();
   const transport = vehicleLower.includes("train")
     ? "train"
     : vehicleLower.includes("flight")
-      ? "flight"
-      : vehicleLower.includes("bus")
-        ? "bus"
-        : vehicleType || "private car";
+    ? "flight"
+    : vehicleLower.includes("bus")
+    ? "bus"
+    : vehicleType || "private car";
 
-  // ── 7. Origin ─────────────────────────────────────────────────────────────
+  // ── 8. Origin ─────────────────────────────────────────────────────────────
   const origin = selectedState || "Origin City";
 
-  // ── 8. Additional context string ──────────────────────────────────────────
+  // ── 9. Additional context string ──────────────────────────────────────────
   const hotelLines = hotelEntries
     .map((e) =>
       [e.hotel, e.city, e.nights ? `${e.nights}N` : null, e.selectedMealPlan]
         .filter(Boolean)
-        .join(" | "),
+        .join(" | ")
     )
     .join("; ");
 
@@ -264,11 +304,11 @@ export async function POST(req) {
     .filter(Boolean)
     .join(". ");
 
-  // ── 9. Determine refinement vs fresh generation ───────────────────────────
+  // ── 10. Determine refinement vs fresh generation ──────────────────────────
   const isRefinement =
     typeof userPrompt === "string" && userPrompt.trim().length > 0;
 
-  // ── 10. Build prompt ──────────────────────────────────────────────────────
+  // ── 11. Build prompt ──────────────────────────────────────────────────────
   const basePrompt = buildBasePrompt({
     origin,
     destination,
@@ -288,12 +328,12 @@ export async function POST(req) {
       })}`
     : basePrompt;
 
-  // ── 11. Init Gemini ───────────────────────────────────────────────────────
+  // ── 12. Init Gemini ───────────────────────────────────────────────────────
   if (!process.env.GEMINI_API_KEY) {
     console.error("[ai-itinerary] GEMINI_API_KEY is not set.");
     return Response.json(
       { error: "AI service is not configured. Please contact support." },
-      { status: 503 },
+      { status: 503 }
     );
   }
 
@@ -304,11 +344,11 @@ export async function POST(req) {
     console.error("[ai-itinerary] Failed to init GoogleGenAI:", initErr);
     return Response.json(
       { error: "Failed to initialise AI service." },
-      { status: 503 },
+      { status: 503 }
     );
   }
 
-  // ── 12. Call Gemini ───────────────────────────────────────────────────────
+  // ── 13. Call Gemini ───────────────────────────────────────────────────────
   let rawText;
   try {
     const response = await ai.models.generateContent({
@@ -327,7 +367,7 @@ export async function POST(req) {
     if (msg.includes("quota") || msg.includes("429")) {
       return Response.json(
         { error: "AI quota exceeded. Please try again in a moment." },
-        { status: 429 },
+        { status: 429 }
       );
     }
     if (msg.includes("safety") || msg.includes("blocked")) {
@@ -336,13 +376,13 @@ export async function POST(req) {
           error:
             "The AI blocked this request due to content policy. Try rephrasing your request.",
         },
-        { status: 422 },
+        { status: 422 }
       );
     }
     if (msg.includes("deadline") || msg.includes("timeout")) {
       return Response.json(
         { error: "The AI took too long to respond. Please try again." },
-        { status: 504 },
+        { status: 504 }
       );
     }
 
@@ -351,26 +391,26 @@ export async function POST(req) {
         error: "AI generation failed. Please try again.",
         details: msg || "Unknown Gemini error",
       },
-      { status: 502 },
+      { status: 502 }
     );
   }
 
-  // ── 13. Guard empty response ──────────────────────────────────────────────
+  // ── 14. Guard empty response ──────────────────────────────────────────────
   if (!rawText || !rawText.trim()) {
     console.error("[ai-itinerary] Gemini returned empty text.");
     return Response.json(
       { error: "AI returned an empty response. Please try again." },
-      { status: 502 },
+      { status: 502 }
     );
   }
 
-  // ── 14. Strip markdown fences ─────────────────────────────────────────────
+  // ── 15. Strip markdown fences ─────────────────────────────────────────────
   const cleanedText = rawText
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
 
-  // ── 15. Parse JSON ────────────────────────────────────────────────────────
+  // ── 16. Parse JSON ────────────────────────────────────────────────────────
   let parsed;
   try {
     parsed = JSON.parse(cleanedText);
@@ -378,25 +418,25 @@ export async function POST(req) {
     console.error("[ai-itinerary] JSON parse failed:", jsonErr);
     console.error(
       "[ai-itinerary] Raw output (first 500 chars):",
-      rawText.slice(0, 500),
+      rawText.slice(0, 500)
     );
     return Response.json(
       {
         error: "AI returned malformed data. Please try again.",
         details: `JSON parse error: ${jsonErr.message}`,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
-  // ── 16. Validate with Zod ─────────────────────────────────────────────────
+  // ── 17. Validate with Zod ─────────────────────────────────────────────────
   let validated;
   try {
     validated = ItineraryResponseSchema.parse(parsed);
   } catch (zodErr) {
     console.error("[ai-itinerary] Zod validation failed:", zodErr);
     console.warn(
-      "[ai-itinerary] Returning unvalidated parsed data as fallback.",
+      "[ai-itinerary] Returning unvalidated parsed data as fallback."
     );
     return Response.json(parsed, {
       status: 200,
