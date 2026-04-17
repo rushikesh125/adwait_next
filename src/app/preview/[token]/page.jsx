@@ -786,19 +786,7 @@ export default function PreviewPage() {
                   )}
                 </div>
               </div>
-              {showPricing && transport.totalTransportCost > 0 && (
-                <div className="text-right flex-shrink-0">
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Transport
-                  </p>
-                  <p className="font-black text-theme-primary text-sm">
-                    ₹
-                    {Number(transport.totalTransportCost).toLocaleString(
-                      "en-IN",
-                    )}
-                  </p>
-                </div>
-              )}
+            
             </Card>
           </section>
         )}
@@ -827,11 +815,7 @@ export default function PreviewPage() {
                       {act.participants > 1 && ` · ${act.participants} persons`}
                     </p>
                   </div>
-                  {showPricing && act.totalPrice > 0 && (
-                    <p className="text-sm font-bold text-emerald-600 flex-shrink-0">
-                      ₹{Number(act.totalPrice).toLocaleString("en-IN")}
-                    </p>
-                  )}
+                 
                 </div>
               ))}
             </Card>
