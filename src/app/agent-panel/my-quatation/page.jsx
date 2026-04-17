@@ -14,8 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
-  Hotel,
-  Plane,
   PackagePlus,
   FileText,
   Send,
@@ -24,7 +22,6 @@ import {
 } from "lucide-react";
 
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
-import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 import {
   copyPackageSummary,
   sharePackageSummaryOnWhatsApp,
@@ -38,7 +35,9 @@ import { doc, getDoc } from "firebase/firestore";
 import { getQuotationById } from "@/firebase/quotations";
 import { getBookingById } from "@/firebase/bookingsService";
 import toast from "react-hot-toast";
-import { updateLeadStatus, updateLeadStatusFromQuotation } from "@/firebase/leadsService";
+import {
+  updateLeadStatus,
+} from "@/firebase/leadsService";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -46,18 +45,13 @@ const MyQuotations = () => {
   const editId = searchParams.get("editId");
   const router = useRouter();
   const dispatch = useDispatch();
-  const [voucherDrawerOpen, setVoucherDrawerOpen] = React.useState(false);
-  const [selectedHotelForVoucher, setSelectedHotelForVoucher] =
-    React.useState(null);
-  const [activeQuotation, setActiveQuotation] = React.useState(null);
 
-  const [hotelSelectionOpen, setHotelSelectionOpen] = React.useState(false);
-  const [hotelList, setHotelList] = React.useState([]);
   const [bookingConfirmQuotation, setBookingConfirmQuotation] =
     React.useState(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(50);
   const [previewQuotation, setPreviewQuotation] = useState(null);
+
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
       const dateA = a.createdAt?.seconds || 0;
@@ -65,6 +59,7 @@ const MyQuotations = () => {
       return dateB - dateA;
     });
   }, [state.filteredQuotations]);
+
   const overviewMetrics = useMemo(() => {
     const totalQuotations = state.quotations.length;
     const draft = state.quotations.filter(
@@ -78,23 +73,18 @@ const MyQuotations = () => {
       (q) => q.status === "Rejected",
     ).length;
 
-    return {
-      totalQuotations,
-      draft,
-      sent,
-      accepted,
-      rejected,
-    };
+    return { totalQuotations, draft, sent, accepted, rejected };
   }, [state.quotations]);
-  // Use PAGE_SIZE instead of hardcoded 50
+
   const paginatedQuotations = sortedQuotations.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
 
   const totalPages = Math.ceil(sortedQuotations.length / pageSize);
+
   const handleViewClick = async (q) => {
-    setPreviewQuotation(q); // show immediately with cached data
+    setPreviewQuotation(q);
     // Re-fetch from Firestore so convertedToBooking reflects latest state
     try {
       const fresh = await getQuotationById(state.user?.uid, q.id);
@@ -106,7 +96,7 @@ const MyQuotations = () => {
       /* use cached version on error */
     }
   };
-  // Update the useEffect that handles pagination reset
+
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -117,54 +107,15 @@ const MyQuotations = () => {
     state.filterStatus,
     pageSize,
   ]);
-  // Add these functions
+
   const onNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage((prev) => prev + 1);
-    }
+    if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
   };
 
   const onPrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage((prev) => prev - 1);
-    }
+    if (currentPage > 1) setCurrentPage((prev) => prev - 1);
   };
-  // ── Core voucher trigger — works from table row AND from view modal ────────
-  const handleGenerateVoucher = (quotation, type) => {
-    if (type !== "hotel") {
-      // Flight voucher — extend here later
-      alert("Flight voucher coming soon");
-      return;
-    }
 
-    const rawHotels = quotation.hotelSummary || quotation.hotel_summary || [];
-    const hotels = rawHotels.map((h) => ({
-      hotelName: h.hotel || h.hotelName || "Hotel",
-      city: h.city || "",
-      checkIn: h.checkInDate || h.checkIn,
-      checkOut: h.checkOutDate || h.checkOut,
-      nights: h.nights || 0,
-      rooms: h.numDouble || 0,
-      roomCategory: h.selectedRoomCategory || "-",
-      mealPlan: h.selectedMealPlan || "-",
-    }));
-
-    if (hotels.length === 0) {
-      alert("No hotel data found in this quotation.");
-      return;
-    }
-
-    setActiveQuotation(quotation);
-
-    if (hotels.length === 1) {
-      setSelectedHotelForVoucher(hotels[0]);
-      setVoucherDrawerOpen(true);
-    } else {
-      setHotelList(hotels);
-      setHotelSelectionOpen(true);
-    }
-  };
-  // Converts a Firestore Timestamp or date string → "YYYY-MM-DD"
   const toDateStr = (d) => {
     if (!d) return "";
     const obj = d?.seconds ? new Date(d.seconds * 1000) : new Date(d);
@@ -172,7 +123,6 @@ const MyQuotations = () => {
     return obj.toISOString().slice(0, 10);
   };
 
-  // Opens the booking creation form pre-filled with quotation data
   const handleConvertToBooking = async (quotation) => {
     if (quotation.convertedToBooking && quotation.bookingId) {
       try {
@@ -237,19 +187,20 @@ const MyQuotations = () => {
       endDate: toDateStr(hotels[hotels.length - 1]?.checkOutDate),
       adults: 1,
       children: 0,
-      status: "Confirmed",
+      status: "Pending",
       totalAmount: quotation.grandTotal || "",
       notes:
         `Converted from quotation ${quotation.quoteNumber || quotation.refNumber || ""}`.trim(),
       services,
       payments: [],
       quotationId: quotation.id,
+      // Carry over hotelSummary so BookingDetailPage can build vouchers from it
+      hotelSummary: quotation.hotelSummary || [],
     };
     sessionStorage.setItem("bookingPrefill", JSON.stringify(prefill));
     router.push("/agent-panel/bookings/create?fromQuotation=true");
   };
 
-  // Ask before converting — on confirm, open the pre-filled booking form
   const handleStatusChangeWithConvertPrompt = async (
     quotationId,
     nextStatus,
@@ -258,18 +209,16 @@ const MyQuotations = () => {
 
     await state.handleQuotationStatusChange(quotationId, nextStatus);
 
-    // 🔥 NEW LOGIC BLOCK
     if (quotation?.leadId) {
       if (nextStatus === "Sent") {
         await updateLeadStatus(quotation.leadId, "Quotation Sent");
       }
-
       if (nextStatus === "Accepted") {
         await updateLeadStatus(quotation.leadId, "Closed Won");
       }
     }
 
-    // Existing logic (booking prompt)
+    // Prompt to create booking when accepted (existing behaviour, unchanged)
     if (nextStatus !== "Accepted" || !quotation || quotation.convertedToBooking)
       return;
 
@@ -277,10 +226,8 @@ const MyQuotations = () => {
   };
 
   const handleEditRedirect = (quotation) => {
-    // Store full quotation in Redux for instant hydration
     dispatch(setEditingQuotation(quotation));
 
-    // Build URL — preserve customerId/leadId if the quotation has them
     const params = new URLSearchParams();
     params.set("quotationId", quotation.id);
     if (quotation.customerId) params.set("customerId", quotation.customerId);
@@ -289,9 +236,7 @@ const MyQuotations = () => {
     router.push(`/agent-panel/my-quatation/create?${params.toString()}`);
   };
 
-  // ── Sort: newest first ────────────────────────────────────────────────────
-
-  // ── Auto-open edit modal when editId is in URL ────────────────────────────
+  // Auto-open edit modal when editId is in URL
   useEffect(() => {
     if (editId && state.quotations.length > 0) {
       const quoteToEdit = state.quotations.find((q) => q.id === editId);
@@ -299,14 +244,12 @@ const MyQuotations = () => {
     }
   }, [editId, state.quotations, state.handleEditClick]);
 
-  // ── PDF download — uses shared exportPackagePDF via adapter ───────────────
   const handleDownloadPDF = (quotation) => {
     const normalized = normaliseQuotation(quotation);
-    // Add itinerary data from the stored quotation if present
     if (quotation.itinerarySummary) {
       normalized.itineraryData = quotation.itinerarySummary;
     }
-    normalized.refNumber = quotation.refNumber || null; // ✅ ADD THIS
+    normalized.refNumber = quotation.refNumber || null;
     exportPackagePDF(normalized);
   };
 
@@ -414,14 +357,10 @@ const MyQuotations = () => {
     return <p className="p-8 text-center">Authenticating...</p>;
   if (state.isFetchingQuotations)
     return <p className="p-8 text-center">Loading quotations...</p>;
-  if (!state.isFetchingQuotations && state.quotations.length === 0)
-    return <p className="p-8 text-center">No quotations found.</p>;
-
-  // ── Determine if the currently-viewed quotation is Accepted ──────────────
-  const viewedIsAccepted = state.viewingQuotation?.status === "Accepted";
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
+      {/* ── Overview metric cards ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         <div
           onClick={() => state.setFilterStatus("")}
@@ -520,154 +459,53 @@ const MyQuotations = () => {
           </div>
         </div>
       </div>
-      <QuotationsTable
-        filteredQuotations={paginatedQuotations}
-        searchTerm={state.searchTerm}
-        setSearchTerm={state.setSearchTerm}
-        filterDestination={state.filterDestination}
-        setFilterDestination={state.setFilterDestination}
-        startDate={state.startDate}
-        setStartDate={state.setStartDate}
-        endDate={state.endDate}
-        setEndDate={state.setEndDate}
-        filterStatus={state.filterStatus}
-        setFilterStatus={state.setFilterStatus}
-        getDestinationOfpkg={state.getDestinationOfpkg}
-        handleViewClick={handleViewClick}
-        handleEditClick={state.handleEditClick}
-        handleDownloadPDF={handleDownloadPDF}
-        handleDeleteQuotation={state.handleDeleteQuotation}
-        handleQuotationStatusChange={handleStatusChangeWithConvertPrompt}
-        handleCopyToClipboard={handleCopyToClipboard}
-        handleShareOnWhatsApp={handleShareOnWhatsApp}
-        handleSendReminder={handleSendReminder}
-        handleGenerateVoucher={handleGenerateVoucher}
-        currentPage={currentPage}
-        onNextPage={onNextPage}
-        onPrevPage={onPrevPage}
-        hasNextPage={currentPage < totalPages}
-        hasPrevPage={currentPage > 1}
-        isFetching={state.isFetchingQuotations}
-        pageSize={pageSize}
-        setPageSize={setPageSize} // ✅ NEW
-        totalItems={sortedQuotations.length} // ✅ NEW
-        handleEditRedirect={handleEditRedirect}
-      />
-      {/* ── Hotel Voucher Drawer ──────────────────────────────────────────── */}
-      <HotelVoucherDrawer
-        isOpen={voucherDrawerOpen}
-        onClose={() => setVoucherDrawerOpen(false)}
-        hotelData={selectedHotelForVoucher}
-        quotation={activeQuotation}
-        agentId={state.user?.uid || ""}
-      />
 
-      {/* ── Multi-hotel selection dialog ──────────────────────────────────── */}
-      <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Select Hotel for Voucher</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-500 -mt-1">
-            This quotation has multiple hotels. Pick one to generate a voucher.
-          </p>
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            {hotelList.map((h, i) => (
-              <div
-                key={i}
-                className="border rounded-xl p-4 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition"
-                onClick={() => {
-                  setSelectedHotelForVoucher(h);
-                  setHotelSelectionOpen(false);
-                  setVoucherDrawerOpen(true);
-                }}
-              >
-                <p className="font-semibold text-base text-slate-800">
-                  {h.hotelName || "Hotel"}
-                </p>
-                {(h.city || h.destination) && (
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    {h.city || h.destination}
-                  </p>
-                )}
-                <p className="text-sm mt-2 text-slate-600">
-                  {h.checkIn} → {h.checkOut}
-                </p>
-                <p className="text-sm text-slate-500">
-                  {h.roomCategory || "-"} · {h.mealPlan || "-"}
-                </p>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {state.quotations.length === 0 ? (
+        <div className="bg-white border rounded-xl p-10 text-center">
+          <p className="text-slate-500 mb-4">No quotations found.</p>
+          <Button
+            className="bg-theme-primary text-white"
+            onClick={() => router.push("/agent-panel/my-quatation/create")}
+          >
+            + Create Quotation
+          </Button>
+        </div>
+      ) : (
+        <QuotationsTable
+          filteredQuotations={paginatedQuotations}
+          searchTerm={state.searchTerm}
+          setSearchTerm={state.setSearchTerm}
+          filterDestination={state.filterDestination}
+          setFilterDestination={state.setFilterDestination}
+          startDate={state.startDate}
+          setStartDate={state.setStartDate}
+          endDate={state.endDate}
+          setEndDate={state.setEndDate}
+          filterStatus={state.filterStatus}
+          setFilterStatus={state.setFilterStatus}
+          getDestinationOfpkg={state.getDestinationOfpkg}
+          handleViewClick={handleViewClick}
+          handleEditClick={state.handleEditClick}
+          handleDownloadPDF={handleDownloadPDF}
+          handleDeleteQuotation={state.handleDeleteQuotation}
+          handleQuotationStatusChange={handleStatusChangeWithConvertPrompt}
+          handleCopyToClipboard={handleCopyToClipboard}
+          handleShareOnWhatsApp={handleShareOnWhatsApp}
+          handleSendReminder={handleSendReminder}
+          currentPage={currentPage}
+          onNextPage={onNextPage}
+          onPrevPage={onPrevPage}
+          hasNextPage={currentPage < totalPages}
+          hasPrevPage={currentPage > 1}
+          isFetching={state.isFetchingQuotations}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          totalItems={sortedQuotations.length}
+          handleEditRedirect={handleEditRedirect}
+        />
+      )}
 
-      {/* ── Quotation View Modal — with Voucher buttons in footer ─────────── */}
-      {/* <QuotationModals
-        // View modal
-        isViewModalOpen={state.isViewModalOpen}
-        setIsViewModalOpen={state.setIsViewModalOpen}
-        viewingQuotation={state.viewingQuotation}
-        // ↓ Pass the voucher trigger + accepted flag so the view modal can render buttons
-        onGenerateVoucher={handleGenerateVoucher}
-        viewedIsAccepted={viewedIsAccepted}
-        // Edit modal
-        isEditModalOpen={state.isEditModalOpen}
-        setIsEditModalOpen={state.setIsEditModalOpen}
-        editingQuotation={state.editingQuotation}
-        handleEditChange={state.handleEditChange}
-        // Destinations / state selectors
-        AllDestinations={state.AllDestinations}
-        SelectedDestination={state.SelectedDestination}
-        setSelectedDestination={state.setSelectedDestination}
-        // Hotels
-        selectedHotelToAdd={state.selectedHotelToAdd}
-        setSelectedHotelToAdd={state.setSelectedHotelToAdd}
-        allHotels={state.allHotels}
-        handleAddHotel={state.handleAddHotel}
-        handleAddCustomHotel={state.handleAddCustomHotel}
-        handleRemoveHotel={state.handleRemoveHotel}
-        handleHotelChange={state.handleHotelChange}
-        handleHotelSummaryChange={state.handleHotelSummaryChange}
-        getAvailableMealPlans={state.getAvailableMealPlans}
-        // Transport
-        toggleValue={state.toggleValue}
-        handleToggle={state.handleToggle}
-        handleTransportSummaryChange={state.handleTransportSummaryChange}
-        selectedTransportStateId={state.selectedTransportStateId}
-        setSelectedTransportStateId={state.setSelectedTransportStateId}
-        transportStates={state.transportStates}
-        toTitleCase={state.toTitleCase}
-        handlePackageChange={state.handlePackageChange}
-        availableTransportPackagesForSelectedState={
-          state.availableTransportPackagesForSelectedState
-        }
-        handleVehicleChange={state.handleVehicleChange}
-        // Activities
-        isFetchingActivities={state.isFetchingActivities}
-        selectedActivityToAdd={state.selectedActivityToAdd}
-        setSelectedActivityToAdd={state.setSelectedActivityToAdd}
-        availableActivities={state.availableActivities}
-        handleAddActivity={state.handleAddActivity}
-        handleAddCustomActivity={state.handleAddCustomActivity}
-        handleRemoveActivity={state.handleRemoveActivity}
-        handleActivitySummaryChange={state.handleActivitySummaryChange}
-        // Markup
-        markupMode={state.markupMode}
-        setMarkupMode={state.setMarkupMode}
-        handleMarkupInputChange={state.handleMarkupInputChange}
-        recalculateGrandTotal={state.recalculateGrandTotal}
-        // Save actions
-        handleUpdateQuotation={state.handleUpdateQuotation}
-        handleSaveAs={state.handleSaveAs}
-        showSaveAsModal={state.showSaveAsModal}
-        setShowSaveAsModal={state.setShowSaveAsModal}
-        newPackageName={state.newPackageName}
-        setNewPackageName={state.setNewPackageName}
-        newCustomerName={state.newCustomerName}
-        setNewCustomerName={state.setNewCustomerName}
-        handleConfirmSaveAs={state.handleConfirmSaveAs}
-      /> */}
+      {/* ── Quotation Preview Modal ──────────────────────────────────────── */}
       {previewQuotation && (
         <QuotationPreviewModal
           quotation={previewQuotation}

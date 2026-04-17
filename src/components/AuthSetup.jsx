@@ -16,31 +16,21 @@ const AuthSetup = () => {
         let userData = null;
         let role = null;
 
-        // 1. Check Super Admins first (highest priority)
-        const superAdminRef = doc(db, "super_admins", currentUser.uid);
-        const superAdminSnap = await getDoc(superAdminRef);
+        const [superAdminSnap, adminSnap, agentSnap] = await Promise.all([
+          getDoc(doc(db, "super_admins", currentUser.uid)),
+          getDoc(doc(db, "admins", currentUser.uid)),
+          getDoc(doc(db, "agents", currentUser.uid)),
+        ]);
 
         if (superAdminSnap.exists()) {
           userData = superAdminSnap.data();
           role = "superadmin";
-        } else {
-          // 2. Check Admins
-          const adminRef = doc(db, "admins", currentUser.uid);
-          const adminSnap = await getDoc(adminRef);
-
-          if (adminSnap.exists()) {
-            userData = adminSnap.data();
-            role = "admin";
-          } else {
-            // 3. Check Agents
-            const agentRef = doc(db, "agents", currentUser.uid);
-            const agentSnap = await getDoc(agentRef);
-
-            if (agentSnap.exists()) {
-              userData = agentSnap.data();
-              role = "agent";
-            }
-          }
+        } else if (adminSnap.exists()) {
+          userData = adminSnap.data();
+          role = "admin";
+        } else if (agentSnap.exists()) {
+          userData = agentSnap.data();
+          role = "agent";
         }
 
         if (userData) {

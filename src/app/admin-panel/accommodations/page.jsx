@@ -54,6 +54,7 @@ import {
   ChevronRight,
   ArrowUp,
   ArrowDown,
+  UploadCloud,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -226,12 +227,20 @@ const Accommodation = () => {
             Manage property details, ratings, and room inventory.
           </p>
         </div>
-        <Button
+        <div className="flex gap-3">
+          <Button
           onClick={() => router.push("./accommodations/create")}
-          className="bg-theme-primary hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 h-11 px-6"
+          className="bg-theme-primary cursor-pointer hover:bg-theme-secondary text-white shadow-lg shadow-theme-primary/20 h-11 px-6"
         >
           <Plus className="mr-2 h-5 w-5" /> Add Property
         </Button>
+        <Button
+          onClick={() => router.push("./accommodations/hotel-upload")}
+          className="bg-green-600 cursor-pointer hover:bg-green-700  text-white shadow-lg shadow-theme-primary/20 h-11 px-6"
+        >
+          <UploadCloud className="mr-2 h-5 w-5" /> Import Hotels
+        </Button>
+        </div>
       </div>
 
       {/* Filter Toolbar */}
