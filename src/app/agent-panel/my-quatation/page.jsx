@@ -240,7 +240,7 @@ const MyQuotations = () => {
       endDate: toDateStr(hotels[hotels.length - 1]?.checkOutDate),
       adults: 1,
       children: 0,
-      status: "Confirmed",
+      status: "Pending",
       totalAmount: quotation.grandTotal || "",
       notes:
         `Converted from quotation ${quotation.quoteNumber || quotation.refNumber || ""}`.trim(),
