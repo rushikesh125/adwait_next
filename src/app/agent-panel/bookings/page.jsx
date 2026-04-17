@@ -6,6 +6,7 @@ import {
   getBookingsByAgent,
   updateBookingStatus,
   deleteBooking,
+  updateBooking,
 } from "@/firebase/bookingsService";
 import {
   CalendarCheck,
@@ -23,6 +24,11 @@ import {
   ChevronRight,
   Filter,
   XCircle,
+  MoreHorizontal,
+  Hotel,
+  PlaneTakeoff,
+  MessageCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +44,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -47,9 +54,86 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import StatusBadge from "@/components/StatusBadge";
+import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 import { pageLengthsForPagination } from "@/lib/pagination_size";
 import toast from "react-hot-toast";
+
+// ─── Shared helpers (also exported from booking-detail for reuse) ─────────────
+
+const formatDate = (d) =>
+  d
+    ? new Date(d).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+
+function extractHotelsFromBooking(booking) {
+  if (booking.hotelSummary?.length) {
+    return booking.hotelSummary.map((h) => ({
+      hotelName: h.hotel || h.hotelName || "Hotel",
+      city: h.city || "",
+      checkIn: h.checkInDate || h.checkIn || "",
+      checkOut: h.checkOutDate || h.checkOut || "",
+      nights: h.nights || 0,
+      rooms: h.numDouble || 0,
+      roomCategory: h.selectedRoomCategory || "-",
+      mealPlan: h.selectedMealPlan || "-",
+    }));
+  }
+  return (booking.services || [])
+    .filter((s) => s.type === "Hotel")
+    .map((s) => ({
+      hotelName: s.supplier || s.description || "Hotel",
+      city: booking.destination || "",
+      checkIn: booking.startDate || "",
+      checkOut: booking.endDate || "",
+      nights: 0,
+      rooms: 0,
+      roomCategory: "-",
+      mealPlan: "-",
+    }));
+}
+
+function hotelVoucherKey(hotelName, checkIn) {
+  return `${(hotelName || "").trim().toLowerCase()}||${checkIn || ""}`;
+}
+
+function buildBookingRequestMessage(booking) {
+  const name = booking.customerName || "there";
+  const dest = booking.destination || "your destination";
+  const ref = booking.bookingRef ? `\nBooking Ref: *${booking.bookingRef}*` : "";
+  const dates =
+    booking.startDate && booking.endDate
+      ? `\nTravel Dates: *${formatDate(booking.startDate)} → ${formatDate(booking.endDate)}*`
+      : "";
+  const amount = booking.totalAmount
+    ? `\nTotal Amount: *₹${Number(booking.totalAmount).toLocaleString("en-IN")}*`
+    : "";
+  return [
+    `Hi ${name} 👋`,
+    ``,
+    `We're pleased to confirm your booking for *${dest}*!${ref}${dates}${amount}`,
+    ``,
+    `Here are your booking details. Please review and let us know if you have any questions or changes.`,
+    ``,
+    `Looking forward to making your trip unforgettable! 🌍✈️`,
+    ``,
+    `Warm regards,`,
+    `*Adwait Tours*`,
+    `📞 +91 9884798483 | 🌐 www.adwaittours.com`,
+  ].join("\n");
+}
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
 
 const BOOKING_STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled"];
 
@@ -58,7 +142,9 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
   const Icon = !isActive ? ArrowUpDown : sortConfig.direction === "asc" ? ArrowUp : ArrowDown;
   return (
     <button
-      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors uppercase text-[11px] tracking-[0.16em] ${isActive ? "text-theme-primary" : "text-slate-600"} ${align === "center" ? "justify-center w-full" : ""}`}
+      className={`flex items-center gap-1.5 hover:text-slate-900 transition-colors uppercase text-[11px] tracking-[0.16em] ${
+        isActive ? "text-theme-primary" : "text-slate-600"
+      } ${align === "center" ? "justify-center w-full" : ""}`}
       onClick={() => onSort(column)}
     >
       {label}
@@ -66,6 +152,8 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
     </button>
   );
 };
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function BookingsPage() {
   const router = useRouter();
@@ -77,6 +165,16 @@ export default function BookingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState({ key: "createdAt", direction: "desc" });
+
+  // ── Voucher state ────────────────────────────────────────────────────────────
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [voucherDrawerOpen, setVoucherDrawerOpen] = useState(false);
+  const [selectedHotelForVoucher, setSelectedHotelForVoucher] = useState(null);
+  const [activeVoucherBooking, setActiveVoucherBooking] = useState(null);
+  const [hotelSelectionOpen, setHotelSelectionOpen] = useState(false);
+  const [hotelListForSelection, setHotelListForSelection] = useState([]);
+
+  // ── Data fetching ────────────────────────────────────────────────────────────
 
   const fetchBookings = async () => {
     if (!auth.currentUser) { setLoading(false); return; }
@@ -93,33 +191,13 @@ export default function BookingsPage() {
   useEffect(() => { fetchBookings(); }, []);
   useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter, sortConfig, pageSize]);
 
+  // ── Sorting & filtering ──────────────────────────────────────────────────────
+
   const handleSort = (key) => {
     setSortConfig((prev) => ({
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
-  };
-
-  const handleStatusChange = async (id, status) => {
-    try {
-      await updateBookingStatus(id, status);
-      setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
-      setEditingStatusId(null);
-      toast.success(`Status updated to ${status}`);
-    } catch {
-      toast.error("Status update failed");
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm("Permanently delete this booking?")) return;
-    try {
-      await deleteBooking(id);
-      setBookings((prev) => prev.filter((b) => b.id !== id));
-      toast.success("Booking deleted");
-    } catch {
-      toast.error("Delete failed");
-    }
   };
 
   const processed = useMemo(() => {
@@ -130,7 +208,7 @@ export default function BookingsPage() {
         (b) =>
           b.customerName?.toLowerCase().includes(q) ||
           b.destination?.toLowerCase().includes(q) ||
-          b.bookingRef?.toLowerCase().includes(q),
+          b.bookingRef?.toLowerCase().includes(q)
       );
     }
     if (statusFilter !== "all") {
@@ -158,6 +236,140 @@ export default function BookingsPage() {
     return processed.slice(start, start + pageSize);
   }, [processed, currentPage, pageSize]);
 
+  // ── Booking actions ──────────────────────────────────────────────────────────
+
+  const handleStatusChange = async (id, status) => {
+    try {
+      await updateBookingStatus(id, status);
+      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
+      setEditingStatusId(null);
+      toast.success(`Status updated to ${status}`);
+    } catch {
+      toast.error("Status update failed");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Permanently delete this booking?")) return;
+    setOpenMenuId(null);
+    try {
+      await deleteBooking(id);
+      setBookings((prev) => prev.filter((b) => b.id !== id));
+      toast.success("Booking deleted");
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
+
+  // ── WhatsApp ─────────────────────────────────────────────────────────────────
+
+  const handleSendBookingRequest = (booking) => {
+    setOpenMenuId(null);
+    const phone = booking?.customerMobile || booking?.mobile || "";
+    const message = buildBookingRequestMessage(booking);
+    const digits = String(phone).replace(/\D/g, "");
+    const formattedPhone = digits.length === 10 ? `91${digits}` : digits;
+    const url = formattedPhone
+      ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    if (!formattedPhone) {
+      toast("Opening WhatsApp. Please select the guest manually.", { icon: "📱" });
+    }
+  };
+
+  // ── Voucher generation ───────────────────────────────────────────────────────
+
+  const handleGenerateVoucher = (type, booking) => {
+    setOpenMenuId(null);
+    setActiveVoucherBooking(booking);
+
+    if (type !== "hotel") {
+      toast("Flight voucher coming soon", { icon: "✈️" });
+      return;
+    }
+
+    const hotels = extractHotelsFromBooking(booking);
+    if (hotels.length === 0) {
+      toast.error("No hotel data found in this booking.");
+      return;
+    }
+
+    if (hotels.length === 1) {
+      const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
+      const key = hotelVoucherKey(hotels[0].hotelName, hotels[0].checkIn);
+      if (activeVouchers.some((v) => hotelVoucherKey(v.hotelName, v.checkIn) === key)) {
+        toast.error(
+          `A voucher for "${hotels[0].hotelName}" already exists. Delete it first to create a new one.`
+        );
+        return;
+      }
+      setSelectedHotelForVoucher(hotels[0]);
+      setVoucherDrawerOpen(true);
+    } else {
+      setHotelListForSelection(hotels);
+      setHotelSelectionOpen(true);
+    }
+  };
+
+  const handleSelectHotelForVoucher = (hotel) => {
+    const activeVouchers = (activeVoucherBooking?.vouchers || []).filter((v) => !v.deleted);
+    const key = hotelVoucherKey(hotel.hotelName, hotel.checkIn);
+    if (activeVouchers.some((v) => hotelVoucherKey(v.hotelName, v.checkIn) === key)) {
+      toast.error(`A voucher for "${hotel.hotelName}" already exists. Delete it first to create a new one.`);
+      setHotelSelectionOpen(false);
+      return;
+    }
+    setSelectedHotelForVoucher(hotel);
+    setHotelSelectionOpen(false);
+    setVoucherDrawerOpen(true);
+  };
+
+  // After voucher is saved: record a tracking entry on the booking doc + refresh local state
+  const handleVoucherSaved = async () => {
+    if (!activeVoucherBooking) return;
+    const bookingId = activeVoucherBooking.id;
+    const hotel = selectedHotelForVoucher;
+
+    try {
+      const existing = activeVoucherBooking.vouchers || [];
+      const key = hotelVoucherKey(hotel?.hotelName, hotel?.checkIn);
+      const alreadyTracked = existing.some(
+        (v) => !v.deleted && hotelVoucherKey(v.hotelName, v.checkIn) === key
+      );
+
+      if (!alreadyTracked && hotel) {
+        const entry = {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          type: "hotel",
+          hotelName: hotel.hotelName,
+          checkIn: hotel.checkIn,
+          checkOut: hotel.checkOut,
+          city: hotel.city || "",
+          deleted: false,
+          createdAt: new Date().toISOString(),
+        };
+        const updatedVouchers = [...existing, entry];
+        await updateBooking(bookingId, { vouchers: updatedVouchers });
+        // Update local state so the same booking row reflects the new voucher immediately
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === bookingId ? { ...b, vouchers: updatedVouchers } : b
+          )
+        );
+      }
+    } catch (err) {
+      console.error("[BookingsPage] Failed to track voucher on booking:", err);
+      toast("Voucher saved. Could not update booking record.", { icon: "⚠️" });
+    } finally {
+      setVoucherDrawerOpen(false);
+      setSelectedHotelForVoucher(null);
+      setActiveVoucherBooking(null);
+    }
+  };
+
+  // ── Stats ────────────────────────────────────────────────────────────────────
+
   const stats = [
     { label: "Total", value: bookings.length, color: "text-slate-800" },
     { label: "Confirmed", value: bookings.filter((b) => b.status === "Confirmed").length, color: "text-emerald-600" },
@@ -165,7 +377,7 @@ export default function BookingsPage() {
     { label: "Cancelled", value: bookings.filter((b) => b.status === "Cancelled").length, color: "text-rose-600" },
   ];
 
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -208,7 +420,10 @@ export default function BookingsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             {searchTerm && (
-              <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
                 <XCircle className="w-4 h-4" />
               </button>
             )}
@@ -270,14 +485,18 @@ export default function BookingsPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="py-20 text-center text-slate-400 text-sm font-medium">
                     <CalendarCheck className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                    {searchTerm || statusFilter !== "all" ? "No bookings match your search." : "No bookings yet. Create your first one."}
+                    {searchTerm || statusFilter !== "all"
+                      ? "No bookings match your search."
+                      : "No bookings yet. Create your first one."}
                   </TableCell>
                 </TableRow>
               ) : (
                 paged.map((booking) => (
                   <TableRow key={booking.id} className="group hover:bg-slate-50/40 transition-colors">
                     <TableCell className="pl-6 text-left">
-                      <span className="font-bold text-theme-primary text-xs tracking-wide">{booking.bookingRef}</span>
+                      <span className="font-bold text-theme-primary text-xs tracking-wide">
+                        {booking.bookingRef}
+                      </span>
                     </TableCell>
                     <TableCell className="text-left font-semibold text-slate-900 text-sm">
                       {booking.customerName || "—"}
@@ -287,13 +506,19 @@ export default function BookingsPage() {
                     </TableCell>
                     <TableCell className="text-center text-xs text-slate-500">
                       <div>{formatDate(booking.startDate)}</div>
-                      {booking.endDate && <div className="text-slate-400">to {formatDate(booking.endDate)}</div>}
+                      {booking.endDate && (
+                        <div className="text-slate-400">to {formatDate(booking.endDate)}</div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-2">
                         {editingStatusId !== booking.id ? (
                           <>
-                            <StatusBadge status={booking.status || "Pending"} fallback="Pending" className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider" />
+                            <StatusBadge
+                              status={booking.status || "Pending"}
+                              fallback="Pending"
+                              className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
+                            />
                             <button
                               onClick={() => setEditingStatusId(booking.id)}
                               className="text-slate-400 hover:text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -302,7 +527,10 @@ export default function BookingsPage() {
                             </button>
                           </>
                         ) : (
-                          <DropdownMenu open={true} onOpenChange={(open) => !open && setEditingStatusId(null)}>
+                          <DropdownMenu
+                            open={true}
+                            onOpenChange={(open) => !open && setEditingStatusId(null)}
+                          >
                             <DropdownMenuTrigger asChild>
                               <button className="flex items-center h-7 px-3 text-[11px] font-bold rounded-full border bg-white text-slate-800">
                                 {booking.status || "Pending"}
@@ -310,7 +538,10 @@ export default function BookingsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="center" className="w-36">
                               {BOOKING_STATUSES.map((s) => (
-                                <DropdownMenuItem key={s} onClick={() => handleStatusChange(booking.id, s)}>
+                                <DropdownMenuItem
+                                  key={s}
+                                  onClick={() => handleStatusChange(booking.id, s)}
+                                >
                                   {s}
                                 </DropdownMenuItem>
                               ))}
@@ -320,19 +551,89 @@ export default function BookingsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={booking.paymentStatus || "Unpaid"} fallback="Unpaid" className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider" />
+                      <StatusBadge
+                        status={booking.paymentStatus || "Unpaid"}
+                        fallback="Unpaid"
+                        className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
+                      />
                     </TableCell>
                     <TableCell className="pr-6">
                       <div className="flex items-center justify-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push(`/agent-panel/bookings/${booking.id}`)}>
+                        {/* View */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => router.push(`/agent-panel/bookings/${booking.id}`)}
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900" onClick={() => router.push(`/agent-panel/bookings/create?id=${booking.id}`)}>
+                        {/* Edit */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                          onClick={() => router.push(`/agent-panel/bookings/create?id=${booking.id}`)}
+                        >
                           <Edit3 className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(booking.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {/* 3-dot menu */}
+                        <DropdownMenu
+                          open={openMenuId === booking.id}
+                          onOpenChange={(open) =>
+                            setOpenMenuId(open ? booking.id : null)
+                          }
+                        >
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            {/* Vouchers section */}
+                            <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                              Vouchers
+                            </div>
+                            <DropdownMenuItem
+                              onClick={() => handleGenerateVoucher("hotel", booking)}
+                            >
+                              <Hotel className="w-4 h-4 mr-2 text-slate-500" />
+                              Hotel voucher
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleGenerateVoucher("flight", booking)}
+                            >
+                              <PlaneTakeoff className="w-4 h-4 mr-2 text-slate-500" />
+                              Flight voucher
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+
+                            {/* WhatsApp */}
+                            <DropdownMenuItem
+                              onClick={() => handleSendBookingRequest(booking)}
+                              className="text-green-600 focus:text-green-700 focus:bg-green-50"
+                            >
+                              <MessageCircle className="w-4 h-4 mr-2" />
+                              Send WhatsApp request
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+
+                            {/* Delete */}
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(booking.id)}
+                              className="text-red-500 focus:text-red-600 focus:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete booking
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -344,19 +645,46 @@ export default function BookingsPage() {
           {!loading && processed.length > 0 && (
             <div className="table-footer-bar flex-wrap">
               <p>
-                Showing <span className="font-bold text-slate-800">{(currentPage - 1) * pageSize + 1}</span> to{" "}
-                <span className="font-bold text-slate-800">{Math.min(currentPage * pageSize, processed.length)}</span> of{" "}
+                Showing{" "}
+                <span className="font-bold text-slate-800">
+                  {(currentPage - 1) * pageSize + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-bold text-slate-800">
+                  {Math.min(currentPage * pageSize, processed.length)}
+                </span>{" "}
+                of{" "}
                 <span className="font-bold text-slate-800">{processed.length}</span> bookings
               </p>
               <div className="flex items-center gap-2">
-                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="h-8 border rounded-lg px-2 text-xs">
-                  {pageLengthsForPagination.map((n) => <option key={n} value={n}>{n} / page</option>)}
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="h-8 border rounded-lg px-2 text-xs"
+                >
+                  {pageLengthsForPagination.map((n) => (
+                    <option key={n} value={n}>{n} / page</option>
+                  ))}
                 </select>
-                <Button variant="outline" size="sm" className="h-8" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
                   <ChevronLeft className="h-4 w-4 mr-1" /> Prev
                 </Button>
-                <span className="text-xs font-bold text-slate-700 px-2">{currentPage} / {totalPages}</span>
-                <Button variant="outline" size="sm" className="h-8" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                <span className="text-xs font-bold text-slate-700 px-2">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
                   Next <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
@@ -364,6 +692,78 @@ export default function BookingsPage() {
           )}
         </div>
       </main>
+
+      {/* ── Hotel Voucher Drawer ─────────────────────────────────────────────── */}
+      <HotelVoucherDrawer
+        isOpen={voucherDrawerOpen}
+        onClose={() => {
+          setVoucherDrawerOpen(false);
+          setSelectedHotelForVoucher(null);
+          setActiveVoucherBooking(null);
+        }}
+        hotelData={selectedHotelForVoucher}
+        quotation={{
+          id: activeVoucherBooking?.quotationId || activeVoucherBooking?.id,
+          customerName: activeVoucherBooking?.customerName || "",
+          customerMobile:
+            activeVoucherBooking?.customerMobile || activeVoucherBooking?.mobile || "",
+          destination: activeVoucherBooking?.destination || "",
+          leadName: activeVoucherBooking?.customerName || "",
+        }}
+        agentId={activeVoucherBooking?.agentId || ""}
+        onSaved={handleVoucherSaved}
+      />
+
+      {/* ── Multi-hotel selection dialog ─────────────────────────────────────── */}
+      <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Select Hotel for Voucher</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500 -mt-1">
+            This booking has multiple hotels. Pick one to generate a voucher.
+          </p>
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            {hotelListForSelection.map((h, i) => {
+              const activeVouchers = (activeVoucherBooking?.vouchers || []).filter(
+                (v) => !v.deleted
+              );
+              const key = hotelVoucherKey(h.hotelName, h.checkIn);
+              const hasVoucher = activeVouchers.some(
+                (v) => hotelVoucherKey(v.hotelName, v.checkIn) === key
+              );
+              return (
+                <div
+                  key={i}
+                  onClick={() => !hasVoucher && handleSelectHotelForVoucher(h)}
+                  className={`border rounded-xl p-4 transition ${
+                    hasVoucher
+                      ? "opacity-50 cursor-not-allowed bg-slate-50"
+                      : "cursor-pointer hover:bg-blue-50 hover:border-blue-300"
+                  }`}
+                >
+                  <p className="font-semibold text-base text-slate-800">
+                    {h.hotelName || "Hotel"}
+                  </p>
+                  {h.city && <p className="text-sm text-slate-500 mt-0.5">{h.city}</p>}
+                  <p className="text-sm mt-2 text-slate-600">
+                    {h.checkIn} → {h.checkOut}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {h.roomCategory || "-"} · {h.mealPlan || "-"}
+                  </p>
+                  {hasVoucher && (
+                    <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Voucher already created
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

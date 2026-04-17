@@ -21,9 +21,7 @@ import {
   Calendar,
   Hash,
   FileCheck2,
-  PlusCircle,
   XCircle,
-  Send,
   MessageCircle,
   AlertTriangle,
 } from "lucide-react";
@@ -63,10 +61,7 @@ const formatDate = (d) =>
 const formatCurrency = (n) =>
   n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
 
-// ── Extract hotel list from booking ──────────────────────────────────────────
-// Primary: hotelSummary copied from quotation at conversion time
-// Fallback: Hotel-type services
-function extractHotelsFromBooking(booking) {
+export function extractHotelsFromBooking(booking) {
   if (booking.hotelSummary?.length) {
     return booking.hotelSummary.map((h) => ({
       hotelName: h.hotel || h.hotelName || "Hotel",
@@ -94,14 +89,11 @@ function extractHotelsFromBooking(booking) {
     }));
 }
 
-// ── Dedup key for a hotel voucher ─────────────────────────────────────────────
-// Used to check if a voucher already exists for a given hotel+checkIn
-function hotelVoucherKey(hotelName, checkIn) {
+export function hotelVoucherKey(hotelName, checkIn) {
   return `${(hotelName || "").trim().toLowerCase()}||${checkIn || ""}`;
 }
 
-// ── Build WhatsApp booking-request message ────────────────────────────────────
-function buildBookingRequestMessage(booking) {
+export function buildBookingRequestMessage(booking) {
   const name = booking.customerName || "there";
   const dest = booking.destination || "your destination";
   const ref = booking.bookingRef ? `\nBooking Ref: *${booking.bookingRef}*` : "";
@@ -134,12 +126,11 @@ export default function BookingDetailPage() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Voucher drawer state
   const [voucherDrawerOpen, setVoucherDrawerOpen] = useState(false);
   const [selectedHotelForVoucher, setSelectedHotelForVoucher] = useState(null);
   const [hotelSelectionOpen, setHotelSelectionOpen] = useState(false);
   const [hotelListForSelection, setHotelListForSelection] = useState([]);
-  const [deletingVoucherId, setDeletingVoucherId] = useState(null); // tracks in-progress delete
+  const [deletingVoucherId, setDeletingVoucherId] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -159,7 +150,6 @@ export default function BookingDetailPage() {
     if (!confirm("Permanently delete this booking?")) return;
     try {
       await deleteBooking(id);
-      // Un-mark the source quotation so it can be re-converted if needed
       if (booking?.quotationId && booking?.agentId) {
         try {
           await updateQuotation(booking.agentId, booking.quotationId, {
@@ -178,7 +168,6 @@ export default function BookingDetailPage() {
     }
   };
 
-  // ── Voucher generation ──────────────────────────────────────────────────────
   const handleGenerateVoucher = (type) => {
     if (type !== "hotel") {
       toast("Flight voucher coming soon", { icon: "✈️" });
@@ -192,7 +181,6 @@ export default function BookingDetailPage() {
     }
 
     if (hotels.length === 1) {
-      // Single hotel — check if already has an active (non-deleted) voucher
       const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
       const key = hotelVoucherKey(hotels[0].hotelName, hotels[0].checkIn);
       const alreadyExists = activeVouchers.some(
@@ -230,16 +218,12 @@ export default function BookingDetailPage() {
     setVoucherDrawerOpen(true);
   };
 
-  // Called by HotelVoucherDrawer after saving to the vouchers collection.
-  // We also record a lightweight entry on the booking doc so the UI can track it.
-  const handleVoucherSaved = async (/* voucherData is not passed by current drawer */) => {
-    // Re-fetch latest to get any external updates; we also append a tracking entry.
+  const handleVoucherSaved = async () => {
     try {
       const fresh = await getBookingById(id);
       const hotel = selectedHotelForVoucher;
-      const existing = (fresh?.vouchers || []);
+      const existing = fresh?.vouchers || [];
 
-      // Only append if not already tracked (guard against double-saves)
       const key = hotelVoucherKey(hotel?.hotelName, hotel?.checkIn);
       const alreadyTracked = existing.some(
         (v) => !v.deleted && hotelVoucherKey(v.hotelName, v.checkIn) === key
@@ -264,12 +248,10 @@ export default function BookingDetailPage() {
       }
     } catch (err) {
       console.error("[BookingDetail] Failed to track voucher on booking:", err);
-      // Non-critical — voucher was saved in the vouchers collection already
       toast("Voucher saved. Could not update booking record.", { icon: "⚠️" });
     }
   };
 
-  // ── Soft-delete a voucher tracking entry ────────────────────────────────────
   const handleDeleteVoucherEntry = async (voucherId) => {
     if (!confirm("Remove this voucher record? This allows creating a new one for the same hotel.")) return;
     setDeletingVoucherId(voucherId);
@@ -290,7 +272,6 @@ export default function BookingDetailPage() {
     }
   };
 
-  // ── Send Booking Request via WhatsApp ────────────────────────────────────────
   const handleSendBookingRequest = () => {
     const phone = booking?.customerMobile || booking?.mobile || "";
     const message = buildBookingRequestMessage(booking);
@@ -333,8 +314,6 @@ export default function BookingDetailPage() {
   const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
   const deletedVouchers = (booking.vouchers || []).filter((v) => v.deleted);
 
-  // Build a compatible "quotation-like" object from the booking for HotelVoucherDrawer
-  // The drawer expects: customerName, customerMobile, destination, id
   const bookingAsQuotation = {
     id: booking.quotationId || booking.id,
     customerName: booking.customerName || "",
@@ -374,7 +353,6 @@ export default function BookingDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            {/* Send Booking Request via WhatsApp */}
             <Button
               variant="outline"
               onClick={handleSendBookingRequest}
@@ -439,7 +417,7 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* ── Vouchers Card ─────────────────────────────────────────────── */}
+          {/* Vouchers Card */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
@@ -474,7 +452,6 @@ export default function BookingDetailPage() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {/* Active vouchers */}
                   {activeVouchers.map((v) => (
                     <div
                       key={v.id}
@@ -492,9 +469,7 @@ export default function BookingDetailPage() {
                             {v.checkIn && v.checkOut
                               ? `${formatDate(v.checkIn)} → ${formatDate(v.checkOut)}`
                               : v.city || ""}
-                            {v.createdAt
-                              ? ` · Created ${formatDate(v.createdAt)}`
-                              : ""}
+                            {v.createdAt ? ` · Created ${formatDate(v.createdAt)}` : ""}
                           </p>
                         </div>
                       </div>
@@ -515,7 +490,6 @@ export default function BookingDetailPage() {
                     </div>
                   ))}
 
-                  {/* Deleted vouchers — shown as muted history */}
                   {deletedVouchers.length > 0 && (
                     <details className="mt-2">
                       <summary className="text-xs text-slate-400 cursor-pointer select-none hover:text-slate-600">
@@ -790,7 +764,7 @@ export default function BookingDetailPage() {
         </div>
       </div>
 
-      {/* ── Hotel Voucher Drawer ─────────────────────────────────────────────── */}
+      {/* Hotel Voucher Drawer */}
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
         onClose={() => {
@@ -803,7 +777,7 @@ export default function BookingDetailPage() {
         onSaved={handleVoucherSaved}
       />
 
-      {/* ── Multi-hotel selection dialog ─────────────────────────────────────── */}
+      {/* Multi-hotel selection dialog */}
       <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -832,9 +806,7 @@ export default function BookingDetailPage() {
                   <p className="font-semibold text-base text-slate-800">
                     {h.hotelName || "Hotel"}
                   </p>
-                  {h.city && (
-                    <p className="text-sm text-slate-500 mt-0.5">{h.city}</p>
-                  )}
+                  {h.city && <p className="text-sm text-slate-500 mt-0.5">{h.city}</p>}
                   <p className="text-sm mt-2 text-slate-600">
                     {h.checkIn} → {h.checkOut}
                   </p>
