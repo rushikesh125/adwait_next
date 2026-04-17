@@ -431,7 +431,7 @@ const QuotationsTable = ({
                           className="text-right"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <div className="flex items-center justify-end gap-1 flex-wrap">
+                          <div className="flex items-center justify-end gap-1 ">
                             {/* View */}
                             <Button
                               variant="ghost"
