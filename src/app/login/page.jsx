@@ -84,15 +84,7 @@ export default function LoginPage() {
       // 🔑 Firebase login
       await signInWithEmailAndPassword(auth, email, password);
 
-      toast.success("Welcome back!", {
-        style: {
-          border: "1px solid #7C3AED",
-          padding: "16px",
-          color: "#4C1D95",
-          borderRadius: "12px",
-        },
-        iconTheme: { primary: "#7C3AED", secondary: "#fff" },
-      });
+      toast.success("Welcome back!")
 
       router.push("/");
     } catch (error) {
@@ -171,14 +163,7 @@ export default function LoginPage() {
       }
 
       // ✅ If user exists → allow login
-      toast.success("Signed in successfully!", {
-        style: {
-          border: "1px solid #7C3AED",
-          padding: "16px",
-          color: "#4C1D95",
-          borderRadius: "12px",
-        },
-      });
+      toast.success("Signed in successfully!")
 
       router.push("/");
     } catch (error) {
