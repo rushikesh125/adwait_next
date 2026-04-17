@@ -35,14 +35,18 @@ export const getUserData = async (uid) => {
 export const getUserRecordByUid = async (uid) => {
   if (!uid) return null;
 
-  for (const entry of USER_COLLECTIONS) {
-    const snapshot = await getDoc(doc(db, entry.name, uid));
-    if (snapshot.exists()) {
+  const snapshots = await Promise.all(
+    USER_COLLECTIONS.map((entry) => getDoc(doc(db, entry.name, uid)))
+  );
+
+  for (let i = 0; i < USER_COLLECTIONS.length; i++) {
+    if (snapshots[i].exists()) {
+      const entry = USER_COLLECTIONS[i];
       return {
-        id: snapshot.id,
+        id: snapshots[i].id,
         collection: entry.name,
-        role: entry.role || snapshot.data().role || null,
-        ...snapshot.data(),
+        role: entry.role || snapshots[i].data().role || null,
+        ...snapshots[i].data(),
       };
     }
   }
@@ -54,13 +58,16 @@ export const getUserRecordByEmail = async (email) => {
   if (!email) return null;
   const cleanEmail = email.trim().toLowerCase();
 
-  for (const entry of USER_COLLECTIONS) {
-    const snapshot = await getDocs(
-      query(collection(db, entry.name), where("email", "==", cleanEmail), limit(1)),
-    );
+  const snapshots = await Promise.all(
+    USER_COLLECTIONS.map((entry) =>
+      getDocs(query(collection(db, entry.name), where("email", "==", cleanEmail), limit(1)))
+    )
+  );
 
-    if (!snapshot.empty) {
-      const record = snapshot.docs[0];
+  for (let i = 0; i < USER_COLLECTIONS.length; i++) {
+    if (!snapshots[i].empty) {
+      const record = snapshots[i].docs[0];
+      const entry = USER_COLLECTIONS[i];
       return {
         id: record.id,
         collection: entry.name,
