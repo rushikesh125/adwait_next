@@ -86,7 +86,7 @@ export default function LoginPage() {
 
       toast.success("Welcome back!")
 
-      router.push("/");
+      router.replace("/");
     } catch (error) {
       let message = "Login failed. Please try again.";
 
@@ -165,7 +165,7 @@ export default function LoginPage() {
       // ✅ If user exists → allow login
       toast.success("Signed in successfully!")
 
-      router.push("/");
+      router.replace("/");
     } catch (error) {
       let message = "Google sign-in failed";
 

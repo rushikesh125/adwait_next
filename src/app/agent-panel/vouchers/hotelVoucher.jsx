@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useSelector } from "react-redux";
 import { getAuth } from "firebase/auth";
+import { useAgentPermissions } from "@/app/hooks/useAgentPermissions";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Download } from "lucide-react";
+import { Plus, Trash2, Download, CheckCircle2 } from "lucide-react";
 import {
   getNextVoucherNumber,
   saveVoucherToFirestore,
@@ -51,6 +53,13 @@ export default function HotelVoucherDrawer({
 }) {
   const { quotations } = useQuotationState();
   const isEditMode = Boolean(initialVoucher);
+
+  const { user } = useSelector((state) => state.auth);
+  const { hasPermission } = useAgentPermissions(user?.uid);
+  const canUseHotelAi = hasPermission("hotel_fetch_ai");
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState(null); // 'success' | 'error' | null
 
   const [voucherNo, setVoucherNo] = useState("");
   const [loading, setLoading] = useState(false);
@@ -592,10 +601,68 @@ export default function HotelVoucherDrawer({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Hotel Address *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Hotel Address *</Label>
+                {canUseHotelAi && (
+                  <button
+                    type="button"
+                    disabled={aiLoading || !(hotelData?.hotelName || hotelFields.hotelName)}
+                    onClick={async () => {
+                      const name = hotelData?.hotelName || hotelFields.hotelName;
+                      if (!name) return;
+                      setAiLoading(true);
+                      setAiStatus(null);
+                      try {
+                        const res = await fetch("/api/ai/hotel-details", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ hotelName: name }),
+                        });
+                        if (!res.ok) { setAiStatus("error"); return; }
+                        const data = await res.json();
+                        if (data.address || data.phone || data.mapsLink) {
+                          setForm((prev) => ({
+                            ...prev,
+                            address: data.address || prev.address,
+                            phone: data.phone || prev.phone,
+                          }));
+                          setAiStatus("success");
+                        } else {
+                          setAiStatus("error");
+                        }
+                      } catch {
+                        setAiStatus("error");
+                      } finally {
+                        setAiLoading(false);
+                      }
+                    }}
+                    className={`text-xs font-medium px-2 py-1 rounded border transition-all ${
+                      aiStatus === "success"
+                        ? "border-emerald-500 text-emerald-600 bg-emerald-50"
+                        : aiStatus === "error"
+                        ? "border-amber-500 text-amber-600 bg-amber-50"
+                        : "border-theme-primary/30 text-theme-primary hover:bg-theme-muted"
+                    } disabled:opacity-50`}
+                  >
+                    {aiLoading ? (
+                      <span className="flex items-center gap-1">
+                        <span className="h-3 w-3 border-2 border-theme-primary border-t-transparent animate-spin rounded-full inline-block" />
+                        Searching...
+                      </span>
+                    ) : aiStatus === "success" ? (
+                      <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Fetched</span>
+                    ) : (
+                      <span>✨ Fetch from AI</span>
+                    )}
+                  </button>
+                )}
+              </div>
+              {aiStatus === "error" && (
+                <p className="text-[10px] text-amber-600">⚠️ Could not fetch details. Enter manually.</p>
+              )}
               <Textarea
                 value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                onChange={(e) => { setForm({ ...form, address: e.target.value }); setAiStatus(null); }}
                 placeholder="Full hotel address"
               />
             </div>

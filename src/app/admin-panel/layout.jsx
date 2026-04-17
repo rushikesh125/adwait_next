@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
-import Loading from "../loading";
-import Page403 from "@/components/Page403";
+import RequireAuth from "@/components/RequireAuth";
 
 // Icons
 import { 
@@ -21,7 +20,7 @@ import toast from "react-hot-toast";
 import UserDropdown from "@/components/UserDropdown";
 
 const AdminPanelLayout = ({ children }) => {
-  const { user, loading, initialized } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const router = useRouter();
@@ -31,22 +30,6 @@ const AdminPanelLayout = ({ children }) => {
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    if (initialized && !loading && !user) {
-      router.replace("/login");
-    }
-  }, [initialized, loading, router, user]);
-
-  if (loading) return <Loading />;
-  
-  // Guard Logic
-  if (initialized && !user) {
-    return <Loading />;
-  }
-  if (initialized && user.role !== "admin") {
-    return <Page403 />;
-  }
 
   const handleLogout = async () => {
     try {
@@ -64,7 +47,6 @@ const AdminPanelLayout = ({ children }) => {
     { name: "Transports", href: "/admin-panel/transports", icon: TruckElectric },
     { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
     { name: "Itinerary", href: "/admin-panel/itinerary", icon: BookPlus },
-    { name: "Agent Permissions", href: "/admin-panel/agent-permissions", icon: ShieldCheck },
     // { name: "Settings", href: "/admin-panel/settings", icon: Settings },
   ];
 
@@ -115,6 +97,7 @@ const AdminPanelLayout = ({ children }) => {
   );
 
   return (
+    <RequireAuth allowedRoles={["admin"]}>
     <div className="h-screen bg-[#F8FAFC] flex overflow-hidden">
       
       {/* MOBILE DRAWER */}
@@ -154,6 +137,7 @@ const AdminPanelLayout = ({ children }) => {
         </main>
       </div>
     </div>
+    </RequireAuth>
   );
 };
 

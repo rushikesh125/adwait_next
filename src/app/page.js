@@ -13,14 +13,14 @@ export default function Home() {
 
   useEffect(() => {
     if (user && user.role === "admin" && user?.approved == "accepted") {
-      router.push("/admin-panel");
+      router.replace("/admin-panel");
     } else if (user && user.role === "agent" && user?.approved =="accepted" ) {
-      router.push("/agent-panel");
+      router.replace("/agent-panel");
     }else if(user && user.role === "superadmin"){
-      router.push("/superadmin")
+      router.replace("/superadmin")
     }else if(user && user.approved == "pending"){
       toast.error("Wait for Admin Approval")
-      router.push("/login")
+      router.replace("/login")
     }
   }, [user,initialized]);
   if (loading) {
@@ -29,5 +29,5 @@ export default function Home() {
   if (initialized && !user) {
     return <NotLoggedIn/>
   }
-  return <h1>Hi</h1>;
+  return <Loading />;
 }

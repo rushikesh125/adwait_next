@@ -3,8 +3,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
-import Loading from "../loading";
-import Page403 from "@/components/Page403";
+import RequireAuth from "@/components/RequireAuth";
 
 import Vouchers from "@/app/agent-panel/vouchers/page.jsx";
 import {
@@ -28,7 +27,7 @@ import toast from "react-hot-toast";
 import UserDropdown from "@/components/UserDropdown";
 
 const AgentPanelLayout = ({ children }) => {
-  const { user, loading, initialized } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const router = useRouter();
@@ -37,20 +36,6 @@ const AgentPanelLayout = ({ children }) => {
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    if (initialized && !loading && !user) {
-      router.replace("/login");
-    }
-  }, [initialized, loading, router, user]);
-
-  if (loading) return <Loading />;
-  if (initialized && !user) {
-    return <Loading />;
-  }
-  if (initialized && user.role !== "agent") {
-    return <Page403 />;
-  }
 
   const handleLogout = async () => {
     try {
@@ -137,8 +122,8 @@ const AgentPanelLayout = ({ children }) => {
   );
 
   return (
-    /* 1. Added h-screen and overflow-hidden to the outer wrapper */
-    <div className="h-screen bg-[#FDFCFE] flex overflow-hidden">
+    <RequireAuth allowedRoles={["agent"]}>
+      <div className="h-screen bg-[#FDFCFE] flex overflow-hidden">
       {/* MOBILE SIDEBAR */}
       <div
         className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
@@ -154,16 +139,13 @@ const AgentPanelLayout = ({ children }) => {
         </div>
       </div>
 
-      {/* 2. Added h-screen and flex-shrink-0 to DESKTOP SIDEBAR */}
       <aside
         className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}
       >
         <SidebarContent />
       </aside>
 
-      {/* 3. MAIN SECTION - Added h-screen and overflow-hidden */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* HEADER - flex-shrink-0 keeps it from squishing */}
         <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
           <div className="flex items-center gap-2">
             <Button
@@ -189,14 +171,14 @@ const AgentPanelLayout = ({ children }) => {
           </div>
         </header>
 
-        {/* 4. CONTENT AREA - flex-1 and overflow-y-auto enables internal scrolling */}
         <main className="flex-1 overflow-y-auto bg-slate-100">
           <div className="mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
             {children}
           </div>
         </main>
       </div>
-    </div>
+      </div>
+    </RequireAuth>
   );
 };
 
