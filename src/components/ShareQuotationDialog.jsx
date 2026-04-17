@@ -194,7 +194,7 @@ export default function ShareQuotationDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Share2 className="h-4 w-4 text-theme-primary" />
@@ -288,10 +288,10 @@ export default function ShareQuotationDialog({
               </div>
 
               {/* Action buttons */}
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
                 <Button
                   onClick={handleWhatsApp}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs h-9"
+                  className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white text-xs h-9"
                 >
                   <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
                   Send on WhatsApp
@@ -299,7 +299,7 @@ export default function ShareQuotationDialog({
                 <Button
                   onClick={handleCopy}
                   variant="outline"
-                  className="flex-1 text-xs h-9"
+                  className="w-full sm:flex-1 text-xs h-9"
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 mr-1.5 text-green-600" />
@@ -311,11 +311,11 @@ export default function ShareQuotationDialog({
               </div>
 
               {/* Secondary actions */}
-              <div className="flex gap-2 pt-0.5">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-0.5">
                 <button
                   onClick={handleGenerate}
                   disabled={loading}
-                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-theme-primary transition-colors disabled:opacity-50"
+                  className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-1.5 text-xs text-slate-500 hover:text-theme-primary transition-colors disabled:opacity-50"
                 >
                   {loading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -324,11 +324,11 @@ export default function ShareQuotationDialog({
                   )}
                   Refresh link (resets expiry)
                 </button>
-                <span className="text-slate-300">·</span>
+                <span className="hidden sm:inline text-slate-300">·</span>
                 <button
                   onClick={handleRevoke}
                   disabled={revoking}
-                  className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                  className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-1.5 text-xs text-red-400 hover:text-red-600 transition-colors disabled:opacity-50"
                 >
                   {revoking ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
