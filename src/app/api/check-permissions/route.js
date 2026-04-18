@@ -13,8 +13,8 @@
  * All AI API routes should call this first and return 403 if not allowed.
  */
 
-import { db } from "@/firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import { adminDb } from "@/firebase/admin";
+import { requireAuthenticatedUser } from "@/lib/serverAuth";
 
 // The full list of valid permission keys.
 // Any key NOT in this list is rejected immediately.
@@ -36,13 +36,33 @@ export async function POST(req) {
     );
   }
 
-  const { uid, permission } = body;
+  let requester;
+  try {
+    requester = await requireAuthenticatedUser(req);
+  } catch (error) {
+    return Response.json(
+      { allowed: false, reason: error.message },
+      { status: error.status || 401 }
+    );
+  }
+
+  const permission = body?.permission;
+  const targetUid = body?.uid || requester.uid;
 
   // ── 2. Validate inputs ───────────────────────────────────────────────────
-  if (!uid || typeof uid !== "string") {
+  if (!targetUid || typeof targetUid !== "string") {
     return Response.json(
       { allowed: false, reason: "Missing or invalid uid." },
       { status: 400 }
+    );
+  }
+
+  const canInspectOthers =
+    requester.role === "admin" || requester.role === "superadmin";
+  if (targetUid !== requester.uid && !canInspectOthers) {
+    return Response.json(
+      { allowed: false, reason: "You can only check your own permissions." },
+      { status: 403 }
     );
   }
 
@@ -58,10 +78,9 @@ export async function POST(req) {
 
   // ── 3. Check Firestore ───────────────────────────────────────────────────
   try {
-    const ref = doc(db, "agentPermissions", uid);
-    const snap = await getDoc(ref);
+    const snap = await adminDb.collection("agentPermissions").doc(targetUid).get();
 
-    if (!snap.exists()) {
+    if (!snap.exists) {
       // No document = agent was never granted any permissions
       return Response.json(
         {
@@ -74,7 +93,7 @@ export async function POST(req) {
     }
 
     const data = snap.data();
-    const isAllowed = data[permission] === true;
+    const isAllowed = data?.[permission] === true;
 
     if (!isAllowed) {
       return Response.json(

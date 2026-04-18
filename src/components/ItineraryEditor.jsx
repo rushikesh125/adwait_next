@@ -45,6 +45,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { auth } from "@/firebase/config";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 
@@ -818,9 +819,10 @@ export default function ItineraryEditor({
     setChatHistory([]);
 
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch("/api/ai-itinerary", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           packageContext,
           chatHistory: [],
@@ -886,9 +888,10 @@ export default function ItineraryEditor({
     };
 
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch("/api/ai-itinerary", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           packageContext,
           chatHistory: updatedHistory,
@@ -1452,4 +1455,16 @@ export default function ItineraryEditor({
       )}
     </div>
   );
+}
+
+async function getAuthHeaders() {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) {
+    throw new Error("Please sign in again to use AI itinerary generation.");
+  }
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
 }

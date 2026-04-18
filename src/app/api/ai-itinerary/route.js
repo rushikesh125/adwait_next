@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { db } from "@/firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import { adminDb } from "@/firebase/admin";
+import { requireAuthenticatedUser } from "@/lib/serverAuth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Permission Guard Helper
@@ -10,9 +10,8 @@ import { doc, getDoc } from "firebase/firestore";
 async function checkItineraryPermission(uid) {
   if (!uid) return false;
   try {
-    const ref = doc(db, "agentPermissions", uid);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return false;
+    const snap = await adminDb.collection("agentPermissions").doc(uid).get();
+    if (!snap.exists) return false;
     return snap.data()?.itinerary_ai === true;
   } catch (err) {
     console.error("[ai-itinerary] Permission check failed:", err);
@@ -185,7 +184,6 @@ export async function POST(req) {
   }
 
   const {
-    agentUid,                  // ← NEW: must be sent by the client
     packageContext,
     chatHistory = [],
     userPrompt = null,
@@ -193,14 +191,24 @@ export async function POST(req) {
   } = body;
 
   // ── 2. Permission check — BEFORE any AI call ──────────────────────────────
-  if (!agentUid) {
+  let requester;
+  try {
+    requester = await requireAuthenticatedUser(req);
+  } catch (error) {
     return Response.json(
-      { error: "agentUid is required to verify access." },
-      { status: 400 }
+      { error: error.message },
+      { status: error.status || 401 }
     );
   }
 
-  const isAllowed = await checkItineraryPermission(agentUid);
+  if (!requester.uid) {
+    return Response.json(
+      { error: "Authenticated user is required to verify access." },
+      { status: 401 }
+    );
+  }
+
+  const isAllowed = await checkItineraryPermission(requester.uid);
   if (!isAllowed) {
     return Response.json(
       {
