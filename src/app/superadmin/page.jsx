@@ -64,6 +64,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import UserDropdown from "@/components/UserDropdown";
+import SuperadminLeftMenu from "@/components/SuperadminLeftMenu";
+import RequireAuth from "@/components/RequireAuth";
 import { useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
 import StatusBadge from "@/components/StatusBadge";
@@ -89,8 +91,8 @@ const UserRow = ({
       className="group hover:bg-[#1E88E5]/[0.03] transition-colors duration-200"
       style={{ animation: `fadeInUp 0.35s ease ${index * 45}ms both` }}
     >
-      <td className="px-4 sm:px-8 py-4 sm:py-5 align-middle">
-        <div className="flex items-center gap-3 sm:gap-4">
+      <td className="px-3 sm:px-6 py-3 sm:py-3.5 align-middle">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <div
             className={`p-2.5 rounded-xl flex-shrink-0 ${type === "admins" ? "bg-[#1E88E5]/10 text-[#1E88E5]" : "bg-slate-100 text-slate-500"}`}
           >
@@ -116,7 +118,7 @@ const UserRow = ({
           </div>
         </div>
       </td>
-      <td className="px-8 py-5 align-middle hidden md:table-cell">
+      <td className="px-6 py-3.5 align-middle hidden md:table-cell">
         <div className="flex flex-col space-y-1">
           <span className="text-[13px] font-medium text-slate-600 flex items-center gap-2">
             <Mail size={12} className="text-slate-300" /> {user.email}
@@ -126,14 +128,14 @@ const UserRow = ({
           </span>
         </div>
       </td>
-      <td className="px-4 sm:px-8 py-4 sm:py-5 align-middle">
+      <td className="px-3 sm:px-6 py-3 sm:py-3.5 align-middle">
         <StatusBadge
           status={user.approved || "pending"}
           fallback="Pending"
           className="px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-lg whitespace-nowrap"
         />
       </td>
-      <td className="px-4 sm:px-8 py-4 sm:py-5 align-middle text-right">
+      <td className="px-3 sm:px-6 py-3 sm:py-3.5 align-middle text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -199,10 +201,10 @@ const UserTable = ({
     <table className="w-full text-left min-w-[480px]">
       <thead className="bg-slate-50/80 border-b border-slate-100">
         <tr className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-          <th className="px-4 sm:px-8 py-4">User Profile</th>
-          <th className="px-8 py-4 hidden md:table-cell">Contact Info</th>
-          <th className="px-4 sm:px-8 py-4">Status</th>
-          <th className="px-4 sm:px-8 py-4 text-right">Actions</th>
+          <th className="px-3 sm:px-6 py-3">User Profile</th>
+          <th className="px-6 py-3 hidden md:table-cell">Contact Info</th>
+          <th className="px-3 sm:px-6 py-3">Status</th>
+          <th className="px-3 sm:px-6 py-3 text-right">Actions</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-50">
@@ -414,22 +416,19 @@ export default function Dashboard() {
       label: "Total Personnel",
       value: totalUsers,
       icon: <Users size={18} />,
-      color: "text-[#1E88E5]",
-      bg: "bg-[#1E88E5]/10",
+      tone: "border-sky-200 bg-sky-50 text-sky-900",
     },
     {
       label: "Active Admins",
       value: activeAdmins,
       icon: <ShieldCheck size={18} />,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
+      tone: "border-emerald-200 bg-emerald-50 text-emerald-900",
     },
     {
       label: "Pending Review",
       value: pendingCount,
       icon: <AlertCircle size={18} />,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
+      tone: "border-amber-200 bg-amber-50 text-amber-900",
     },
   ];
 
@@ -441,13 +440,13 @@ export default function Dashboard() {
   };
 
   return (
-    <>
+    <RequireAuth allowedRoles={["superadmin"]}>
       <style>{`
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans antialiased text-slate-900">
+      <div className="min-h-screen bg-slate-50/70 flex flex-col font-sans antialiased text-slate-900">
         <Toaster
           position="top-right"
           toastOptions={{
@@ -456,50 +455,80 @@ export default function Dashboard() {
         />
 
         <header
-          className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-xl px-4 sm:px-8 h-16 flex items-center justify-between"
+          className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-xl px-4 sm:px-6 h-14 flex items-center justify-between"
           style={{ animation: "slideDown 0.4s ease both" }}
         >
-          <div className="flex items-center gap-3">
-            <div className="bg-[#1E88E5] p-2 rounded-xl shadow-lg shadow-blue-500/25">
-              <Shield className="text-white w-5 h-5" />
+          <div className="flex items-center gap-2.5">
+            <div className="bg-[#1E88E5] p-1.5 rounded-lg shadow-lg shadow-blue-500/25">
+              <Shield className="text-white w-4.5 h-4.5" />
             </div>
-            <span className="font-extrabold text-lg sm:text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#1E88E5] to-[#7C3AED]">
+            <span className="font-extrabold text-base sm:text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#1E88E5] to-[#7C3AED]">
               Adwait Admin
             </span>
           </div>
-          <UserDropdown user={currentUser} />
+          <div className="flex items-center gap-2">
+            <UserDropdown user={currentUser} />
+          </div>
         </header>
 
-        <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-10 space-y-6 sm:space-y-8">
-          {/* Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            {stats.map(({ label, value, icon, color, bg }, i) => (
-              <Card
-                key={label}
-                className="border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-200 rounded-2xl"
-                style={{ animation: `fadeInUp 0.4s ease ${i * 80}ms both` }}
-              >
-                <CardHeader className="pb-3 pt-5 px-6">
-                  <div className="flex items-center justify-between">
-                    <CardDescription className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                      {label}
-                    </CardDescription>
-                    <div className={`p-2 rounded-xl ${bg} ${color}`}>
-                      {icon}
+        <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4">
+            <SuperadminLeftMenu />
+
+            <div className="space-y-6">
+              <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+                <div className="bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_30%),linear-gradient(135deg,_#ffffff,_#f8fafc)] px-6 py-8 sm:px-8">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="max-w-3xl">
+                      <Badge
+                        variant="outline"
+                        className="border-sky-200 bg-sky-50 text-sky-700"
+                      >
+                        Super Admin Dashboard
+                      </Badge>
+                      <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
+                        Hello, {currentUser?.name || "Super Admin"}
+                      </h1>
+                      <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
+                        Manage platform users, approvals, and access statuses from one place.
+                      </p>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      onClick={fetchUsers}
+                      disabled={loading}
+                      className="border-slate-200 bg-white"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                      Refresh
+                    </Button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {stats.map(({ label, value, icon, tone }, i) => (
+                  <div
+                    key={label}
+                    className={`flex min-h-[148px] flex-col justify-between rounded-3xl border p-6 shadow-sm ${tone}`}
+                    style={{ animation: `fadeInUp 0.4s ease ${i * 80}ms both` }}
+                  >
+                    <div className="text-4xl font-black tracking-tight">{value}</div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div className="break-words text-sm font-semibold uppercase leading-5 tracking-[0.14em]">
+                        {label}
+                      </div>
+                      <span className="opacity-70">{icon}</span>
                     </div>
                   </div>
-                  <CardTitle className={`text-3xl font-black mt-1 ${color}`}>
-                    {value}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </section>
 
           <div style={{ animation: "fadeInUp 0.45s ease 220ms both" }}>
             <Tabs defaultValue="admins">
               {/* Filter Controls Bar */}
-              <div className="bg-white border border-slate-100 p-4 rounded-3xl mb-6 shadow-sm flex flex-col lg:flex-row gap-4 items-center">
+              <div className="bg-white border border-slate-200 p-4 rounded-3xl mb-6 shadow-sm flex flex-col lg:flex-row gap-4 items-center">
                 <div className="relative w-full lg:flex-1">
                   <Search
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -507,7 +536,7 @@ export default function Dashboard() {
                   />
                   <Input
                     placeholder="Search by name or email..."
-                    className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/50 focus:bg-white transition-all"
+                    className="pl-11 h-11 rounded-2xl border-slate-100 bg-slate-50/50 focus:bg-white transition-all"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -523,7 +552,7 @@ export default function Dashboard() {
 
                 <div className="flex w-full lg:w-auto gap-3">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-12 w-full lg:w-48 rounded-2xl border-slate-100 bg-slate-50/50 font-semibold text-slate-600">
+                    <SelectTrigger className="h-11 w-full lg:w-48 rounded-2xl border-slate-100 bg-slate-50/50 font-semibold text-slate-600">
                       <div className="flex items-center gap-2">
                         <Filter size={16} />
                         <SelectValue placeholder="Status" />
@@ -542,7 +571,7 @@ export default function Dashboard() {
                     variant="outline"
                     onClick={fetchUsers}
                     disabled={loading}
-                    className="h-12 w-12 lg:w-auto px-0 lg:px-4 rounded-2xl border-slate-100 text-slate-600"
+                    className="h-11 w-11 lg:w-auto px-0 lg:px-4 rounded-2xl border-slate-100 text-slate-600"
                   >
                     <RefreshCw
                       size={18}
@@ -578,7 +607,7 @@ export default function Dashboard() {
                 </TabsList>
               </div>
 
-              <Card className="rounded-3xl overflow-hidden border border-slate-200/60 shadow-lg">
+              <Card className="rounded-3xl overflow-hidden border border-slate-200/60 shadow-sm">
                 <TabsContent
                   value="admins"
                   className="mt-0 focus-visible:ring-0 outline-none"
@@ -603,6 +632,8 @@ export default function Dashboard() {
                 </TabsContent>
               </Card>
             </Tabs>
+          </div>
+          </div>
           </div>
         </main>
 
@@ -647,6 +678,6 @@ export default function Dashboard() {
           </DialogContent>
         </Dialog>
       </div>
-    </>
+    </RequireAuth>
   );
 }
