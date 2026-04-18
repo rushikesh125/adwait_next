@@ -1,0 +1,46 @@
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  1) import { db } from "@/firebase/config";
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  2) import { deleteDoc, doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  3) import { NextResponse } from "next/server";
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  4) 
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  5) export async function POST(request) {
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  6)   try {
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  7)     const { uid } = await request.json();
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  8)     if (!uid) {
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530  9)       return NextResponse.json({ error: "UID is required" }, { status: 400 });
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 10)     }
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 11) 
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 12)     //checking if user exits in 'admins' collection
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 13)     const adminRef = doc(db, "admins", uid);
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 14)     const adminSnap = await getDoc(adminRef);
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 15)     if (!adminSnap.exists()) {
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 16)       return NextResponse.json(
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 17)         { message: "User does not exits. Please Register with admin first" },
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 18)         { status: 404 },
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 19)       );
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 20)     }
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 21)     // if user exits , prepare the data for 'super_admins'
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 22)     const adminData = adminSnap.data();
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 23)     const superAdminData = {
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 24)       ...adminData,
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 25)       uid: uid,
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 26)       role: "superadmin",
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 27)       upgradedAt: Timestamp.now(),
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 28)     };
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 29)     await setDoc(doc(db, "super_admins", uid), superAdminData);
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 30)     // deleting user from admin collection 
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 31)     await deleteDoc(adminRef)
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 32)     return NextResponse.json(
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 33)       {
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 34)         message: "User successfully promoted to Super Admin,and removed from admin list",
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 35)         data: superAdminData,
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 36)       },
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 37)       { status: 200 },
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 38)     );
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 39)   } catch (error) {
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 40)     console.log("Error upgrading admin:", error);
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 41)     return NextResponse.json(
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 42)       { error: "Internal Server Error" },
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 43)       { status: 500 },
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 44)     );
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 45)   }
+014cc4dd (Rushikesh Gaikwad 2026-02-12 23:57:53 +0530 46) }
