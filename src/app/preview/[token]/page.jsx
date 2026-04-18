@@ -41,7 +41,6 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-import { respondToQuotationByToken } from "@/firebase/quotationShare";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -561,7 +560,17 @@ export default function PreviewPage() {
 
     setResponding(true);
     try {
-      const res = await respondToQuotationByToken(token, action);
+      const response = await fetch("/api/public/quotation-response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, action }),
+      });
+
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error || "Failed to process your response. Please try again.");
+      }
+
       setResponseDone(res.status);
       // Update local quotation status to reflect the change
       setQuotation((prev) =>
