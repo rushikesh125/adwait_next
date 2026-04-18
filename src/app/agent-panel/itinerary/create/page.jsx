@@ -28,7 +28,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "@/firebase/config";
+import { db, auth } from "@/firebase/config";
 import { toast } from "react-hot-toast";
 
 import { Button } from "@/components/ui/button";
@@ -47,25 +47,18 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSelector } from "react-redux";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ImgBB API Key – set your key here or pull from env
-// ─────────────────────────────────────────────────────────────────────────────
-const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY || "YOUR_IMGBB_API_KEY";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Upload a file to ImgBB, returns the display URL string
-// ─────────────────────────────────────────────────────────────────────────────
-async function uploadToImgBB(file) {
+async function uploadToImgBB(file, idToken) {
   const formData = new FormData();
   formData.append("image", file);
-  const res = await fetch(
-    `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
-    { method: "POST", body: formData }
-  );
-  if (!res.ok) throw new Error("ImgBB upload failed");
+  const res = await fetch("/api/upload-image", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Image upload failed");
   const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "ImgBB error");
-  return json.data.display_url; // permanent direct image URL
+  if (!json.success) throw new Error(json.error?.message || "Upload error");
+  return json.data.display_url;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,7 +92,8 @@ function ImageUploader({
     }
     setUploading(true);
     try {
-      const url = await uploadToImgBB(file);
+      const idToken = await auth.currentUser?.getIdToken();
+      const url = await uploadToImgBB(file, idToken);
       onChange(url);
       toast.success("Image uploaded!");
     } catch (err) {

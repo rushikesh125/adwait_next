@@ -49,21 +49,17 @@ import { auth } from "@/firebase/config";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ImgBB upload helper — same approach as ItineraryForm
-// ─────────────────────────────────────────────────────────────────────────────
-const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY || "YOUR_IMGBB_API_KEY";
-
-async function uploadToImgBB(file) {
+async function uploadToImgBB(file, idToken) {
   const formData = new FormData();
   formData.append("image", file);
-  const res = await fetch(
-    `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
-    { method: "POST", body: formData }
-  );
-  if (!res.ok) throw new Error("ImgBB upload failed");
+  const res = await fetch("/api/upload-image", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Image upload failed");
   const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "ImgBB error");
+  if (!json.success) throw new Error(json.error?.message || "Upload error");
   return json.data.display_url;
 }
 
@@ -92,7 +88,8 @@ function ImageUploader({
     }
     setUploading(true);
     try {
-      const url = await uploadToImgBB(file);
+      const idToken = await auth.currentUser?.getIdToken();
+      const url = await uploadToImgBB(file, idToken);
       onChange(url);
       toast.success("Image uploaded!");
     } catch (err) {

@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { adminDb } from "@/firebase/admin";
 import { requireAuthenticatedUser } from "@/lib/serverAuth";
+import { rateLimit } from "@/lib/rateLimit";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Permission Guard Helper
@@ -217,6 +218,18 @@ export async function POST(req) {
         code: "PERMISSION_DENIED",
       },
       { status: 403 }
+    );
+  }
+
+  // ── 2b. Rate limit — 10 generations per minute per user ──────────────────
+  const rl = rateLimit({ uid: requester.uid, action: "ai-itinerary", limit: 10, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return Response.json(
+      { error: "Too many requests. Please wait a moment before generating again." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+      }
     );
   }
 
