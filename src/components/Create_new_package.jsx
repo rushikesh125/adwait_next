@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import { useAgentPermissions } from "@/app/hooks/useAgentPermissions";
 import {
   collection,
@@ -121,7 +127,10 @@ const validateOptions = (options) => {
   // Check each option has at least one hotel
   for (const opt of options) {
     if (!opt.hotelEntries || opt.hotelEntries.length === 0) {
-      return { valid: false, error: `"${opt.name}" must have at least one hotel selected.` };
+      return {
+        valid: false,
+        error: `"${opt.name}" must have at least one hotel selected.`,
+      };
     }
   }
 
@@ -137,10 +146,22 @@ const validateOptions = (options) => {
     for (let j = i + 1; j < options.length; j++) {
       const a = options[i];
       const b = options[j];
-      const aHotels = (a.hotelEntries || []).map((h) => `${h.hotel}|${h.city}`).sort().join(",");
-      const bHotels = (b.hotelEntries || []).map((h) => `${h.hotel}|${h.city}`).sort().join(",");
-      const aDates = (a.hotelEntries || []).map((h) => `${h.checkInDate}|${h.checkOutDate}`).sort().join(",");
-      const bDates = (b.hotelEntries || []).map((h) => `${h.checkInDate}|${h.checkOutDate}`).sort().join(",");
+      const aHotels = (a.hotelEntries || [])
+        .map((h) => `${h.hotel}|${h.city}`)
+        .sort()
+        .join(",");
+      const bHotels = (b.hotelEntries || [])
+        .map((h) => `${h.hotel}|${h.city}`)
+        .sort()
+        .join(",");
+      const aDates = (a.hotelEntries || [])
+        .map((h) => `${h.checkInDate}|${h.checkOutDate}`)
+        .sort()
+        .join(",");
+      const bDates = (b.hotelEntries || [])
+        .map((h) => `${h.checkInDate}|${h.checkOutDate}`)
+        .sort()
+        .join(",");
       if (aHotels === bHotels && aDates === bDates) {
         return {
           valid: false,
@@ -213,23 +234,30 @@ const Create_new_package = ({
   const [customerName, setCustomerName] = useState("");
   const [optionValidationError, setOptionValidationError] = useState("");
 
-  const { hasPermission, loading: permissionsLoading } = useAgentPermissions(user?.uid);
-  const canUseItineraryAI = !permissionsLoading && hasPermission("itinerary_ai");
+  const { hasPermission, loading: permissionsLoading } = useAgentPermissions(
+    user?.uid,
+  );
+  const canUseItineraryAI =
+    !permissionsLoading && hasPermission("itinerary_ai");
 
   // ── Active Option helpers ──────────────────────────────────────────────────
-  const activeOption = packageOptions.find((o) => o.id === activeOptionId) || packageOptions[0];
+  const activeOption =
+    packageOptions.find((o) => o.id === activeOptionId) || packageOptions[0];
 
-  const updateActiveOption = useCallback((updater) => {
-    setPackageOptions((prev) =>
-      prev.map((opt) =>
-        opt.id === activeOptionId
-          ? typeof updater === "function"
-            ? updater(opt)
-            : { ...opt, ...updater }
-          : opt
-      )
-    );
-  }, [activeOptionId]);
+  const updateActiveOption = useCallback(
+    (updater) => {
+      setPackageOptions((prev) =>
+        prev.map((opt) =>
+          opt.id === activeOptionId
+            ? typeof updater === "function"
+              ? updater(opt)
+              : { ...opt, ...updater }
+            : opt,
+        ),
+      );
+    },
+    [activeOptionId],
+  );
 
   // Convenience destructures from active option
   const {
@@ -251,19 +279,30 @@ const Create_new_package = ({
   const setCheckInDate = (v) => updateActiveOption({ checkInDate: v });
   const setCheckOutDate = (v) => updateActiveOption({ checkOutDate: v });
   const setNights = (v) => updateActiveOption({ nights: v });
-  const setSelectedState = (v) => updateActiveOption({ selectedState: v, selectedHotelId: null, showCustomHotelForm: false });
+  const setSelectedState = (v) =>
+    updateActiveOption({
+      selectedState: v,
+      selectedHotelId: null,
+      showCustomHotelForm: false,
+    });
   const setSelectedHotelId = (v) => updateActiveOption({ selectedHotelId: v });
-  const setShowCustomHotelForm = (v) => updateActiveOption({ showCustomHotelForm: v });
-  const setIsReadyToAddAnother = (v) => updateActiveOption({ isReadyToAddAnother: v });
+  const setShowCustomHotelForm = (v) =>
+    updateActiveOption({ showCustomHotelForm: v });
+  const setIsReadyToAddAnother = (v) =>
+    updateActiveOption({ isReadyToAddAnother: v });
   const setEditingIndex = (v) => updateActiveOption({ editingIndex: v });
   const setRoomCategory = (v) => updateActiveOption({ roomCategory: v });
   const setMealPlan = (v) => updateActiveOption({ mealPlan: v });
-  const setCurrentHotelTotal = (v) => updateActiveOption({ currentHotelTotal: v });
+  const setCurrentHotelTotal = (v) =>
+    updateActiveOption({ currentHotelTotal: v });
   const setGuests = (v) => updateActiveOption({ guests: v });
 
   // ── Hotel dispatch-like helpers for per-option storage ─────────────────────
   const addHotelEntryToOption = (entry) => {
-    updateActiveOption((opt) => ({ ...opt, hotelEntries: [...opt.hotelEntries, entry] }));
+    updateActiveOption((opt) => ({
+      ...opt,
+      hotelEntries: [...opt.hotelEntries, entry],
+    }));
   };
   const updateHotelEntryInOption = (index, data) => {
     updateActiveOption((opt) => {
@@ -323,29 +362,33 @@ const Create_new_package = ({
       setNextOptionId(hydrated.length + 1);
     } else if (q.hotelSummary?.length) {
       // Legacy single-option
-      setPackageOptions([{
-        ...createEmptyOption(1, "Option 1"),
-        hotelEntries: q.hotelSummary,
-        checkInDate: q.hotelSummary[0]?.checkInDate || "",
-        checkOutDate: q.hotelSummary[0]?.checkOutDate || "",
-      }]);
+      setPackageOptions([
+        {
+          ...createEmptyOption(1, "Option 1"),
+          hotelEntries: q.hotelSummary,
+          checkInDate: q.hotelSummary[0]?.checkInDate || "",
+          checkOutDate: q.hotelSummary[0]?.checkOutDate || "",
+        },
+      ]);
     }
 
     if (q.transportSummary) {
       const t = q.transportSummary;
-      dispatch(setSelectedTransport({
-        name: t.packageName || "Custom",
-        pricingType: t.pricingType || "fixed",
-        isCustom: t.isCustom || false,
-        selectedVehicle: {
-          type: t.vehicleName || "",
-          ac: t.ac ?? false,
-          price: t.vehicleCost || 0,
-          perKmprice: t.perKmprice || 0,
+      dispatch(
+        setSelectedTransport({
+          name: t.packageName || "Custom",
+          pricingType: t.pricingType || "fixed",
           isCustom: t.isCustom || false,
-          driverAllowance: t.driverAllowance || 0,
-        },
-      }));
+          selectedVehicle: {
+            type: t.vehicleName || "",
+            ac: t.ac ?? false,
+            price: t.vehicleCost || 0,
+            perKmprice: t.perKmprice || 0,
+            isCustom: t.isCustom || false,
+            driverAllowance: t.driverAllowance || 0,
+          },
+        }),
+      );
       setMinKm(t.minKm || 300);
       setTollCharges(t.tollCharges || 0);
       setPermitCharges(t.permitCharges || 0);
@@ -353,8 +396,13 @@ const Create_new_package = ({
       if (t.vehicleCost) setEditableBaseCost(t.vehicleCost);
     }
     if (q.activitySummary?.length) {
-      const totalPrice = q.activitySummary.reduce((s, a) => s + (a.totalPrice || 0), 0);
-      dispatch(setSelectedActivities({ activities: q.activitySummary, totalPrice }));
+      const totalPrice = q.activitySummary.reduce(
+        (s, a) => s + (a.totalPrice || 0),
+        0,
+      );
+      dispatch(
+        setSelectedActivities({ activities: q.activitySummary, totalPrice }),
+      );
     }
     if (q.markup) dispatch(setConfirmedMarkup(q.markup));
     dispatch(setPackageName(q.packageName || ""));
@@ -365,14 +413,23 @@ const Create_new_package = ({
 
   useEffect(() => {
     getDocs(collection(db, "hotels")).then((snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data(), rooms: d.data().rooms || [] }));
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        rooms: d.data().rooms || [],
+      }));
       const unique = [
-        ...new Map(list.map((h) => [`${h.name?.toLowerCase()}-${h.state?.toLowerCase()}-${h.city?.toLowerCase()}`, h])).values(),
+        ...new Map(
+          list.map((h) => [
+            `${h.name?.toLowerCase()}-${h.state?.toLowerCase()}-${h.city?.toLowerCase()}`,
+            h,
+          ]),
+        ).values(),
       ];
       setHotels(unique);
     });
     getDocs(collection(db, "locations")).then((snap) =>
-      setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
   }, []);
 
@@ -388,31 +445,46 @@ const Create_new_package = ({
   // Keep redux context in sync (use all options combined for context)
   useEffect(() => {
     const allHotels = packageOptions.flatMap((o) => o.hotelEntries);
-    dispatch(setPackageContext({
-      hotelEntries: allHotels,
-      selectedTransport,
-      selectedActivities,
-      selectedState,
-      checkInDate,
-      checkOutDate,
-      packageName,
-      customerName,
-    }));
-  }, [packageOptions, selectedTransport, selectedActivities, selectedState, checkInDate, checkOutDate, packageName, customerName]);
+    dispatch(
+      setPackageContext({
+        hotelEntries: allHotels,
+        selectedTransport,
+        selectedActivities,
+        selectedState,
+        checkInDate,
+        checkOutDate,
+        packageName,
+        customerName,
+      }),
+    );
+  }, [
+    packageOptions,
+    selectedTransport,
+    selectedActivities,
+    selectedState,
+    checkInDate,
+    checkOutDate,
+    packageName,
+    customerName,
+  ]);
 
   // ── Filtered/Grouped Hotels ───────────────────────────────────────────────
   const filteredHotels = useMemo(
-    () => hotels.filter((h) => h.state?.toLowerCase() === selectedState.toLowerCase()),
-    [hotels, selectedState]
+    () =>
+      hotels.filter(
+        (h) => h.state?.toLowerCase() === selectedState.toLowerCase(),
+      ),
+    [hotels, selectedState],
   );
   const groupedHotels = useMemo(
-    () => filteredHotels.reduce((acc, h) => {
-      const c = h.city || "Other";
-      if (!acc[c]) acc[c] = [];
-      acc[c].push(h);
-      return acc;
-    }, {}),
-    [filteredHotels]
+    () =>
+      filteredHotels.reduce((acc, h) => {
+        const c = h.city || "Other";
+        if (!acc[c]) acc[c] = [];
+        acc[c].push(h);
+        return acc;
+      }, {}),
+    [filteredHotels],
   );
 
   const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
@@ -428,7 +500,11 @@ const Create_new_package = ({
     if (!selectedTransport?.selectedVehicle) return null;
     const vehicle = selectedTransport.selectedVehicle;
     // Use all options combined nights for transport
-    const totalNights = packageOptions[0]?.hotelEntries?.reduce((sum, e) => sum + (Number(e.nights) || 0), 0) || 0;
+    const totalNights =
+      packageOptions[0]?.hotelEntries?.reduce(
+        (sum, e) => sum + (Number(e.nights) || 0),
+        0,
+      ) || 0;
     const days = totalNights > 0 ? totalNights + 1 : 1;
     const perKm = Number(vehicle.perKmprice || 0);
     const lumpsum = Number(vehicle.price || 0);
@@ -436,24 +512,54 @@ const Create_new_package = ({
 
     if (perKm > 0) {
       const calculatedBaseCost = Number(minKm || 0) * perKm * days;
-      const baseCost = editableBaseCost !== null ? Number(editableBaseCost) : calculatedBaseCost;
+      const baseCost =
+        editableBaseCost !== null
+          ? Number(editableBaseCost)
+          : calculatedBaseCost;
       const driverAllowance = allowancePerDay * days;
       const toll = Math.max(0, Number(tollCharges || 0));
       const permit = Math.max(0, Number(permitCharges || 0));
       const other = Math.max(0, Number(otherCharges || 0));
-      return { baseCost, driverAllowance, toll, permit, other, total: baseCost + driverAllowance + toll + permit + other, isPerKm: true };
+      return {
+        baseCost,
+        driverAllowance,
+        toll,
+        permit,
+        other,
+        total: baseCost + driverAllowance + toll + permit + other,
+        isPerKm: true,
+      };
     }
     if (lumpsum > 0) {
-      return { baseCost: lumpsum, driverAllowance: 0, toll: 0, permit: 0, other: 0, total: lumpsum, isPerKm: false };
+      return {
+        baseCost: lumpsum,
+        driverAllowance: 0,
+        toll: 0,
+        permit: 0,
+        other: 0,
+        total: lumpsum,
+        isPerKm: false,
+      };
     }
     return null;
-  }, [selectedTransport, packageOptions, minKm, editableBaseCost, tollCharges, permitCharges, otherCharges]);
+  }, [
+    selectedTransport,
+    packageOptions,
+    minKm,
+    editableBaseCost,
+    tollCharges,
+    permitCharges,
+    otherCharges,
+  ]);
 
   const transportTotalPrice = transportBreakdown?.total || 0;
 
   // Grand total per option
   const getOptionGrandTotal = (opt) =>
-    getOptionHotelTotal(opt) + transportTotalPrice + activityTotalPrice + confirmedMarkup;
+    getOptionHotelTotal(opt) +
+    transportTotalPrice +
+    activityTotalPrice +
+    confirmedMarkup;
 
   const grandTotal = getOptionGrandTotal(activeOption);
 
@@ -480,7 +586,9 @@ const Create_new_package = ({
     }
     setPackageOptions((prev) => prev.filter((o) => o.id !== id));
     if (activeOptionId === id) {
-      setActiveOptionId(packageOptions.find((o) => o.id !== id)?.id || packageOptions[0].id);
+      setActiveOptionId(
+        packageOptions.find((o) => o.id !== id)?.id || packageOptions[0].id,
+      );
     }
     setOptionValidationError("");
   };
@@ -492,18 +600,36 @@ const Create_new_package = ({
 
   const handleConfirmRename = () => {
     const trimmed = renameValue.trim();
-    if (!trimmed) { toast.error("Option name cannot be empty."); return; }
-    const duplicate = packageOptions.some((o) => o.id !== renamingId && o.name.trim().toLowerCase() === trimmed.toLowerCase());
-    if (duplicate) { toast.error("Option name must be unique."); return; }
-    setPackageOptions((prev) => prev.map((o) => o.id === renamingId ? { ...o, name: trimmed } : o));
+    if (!trimmed) {
+      toast.error("Option name cannot be empty.");
+      return;
+    }
+    const duplicate = packageOptions.some(
+      (o) =>
+        o.id !== renamingId &&
+        o.name.trim().toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (duplicate) {
+      toast.error("Option name must be unique.");
+      return;
+    }
+    setPackageOptions((prev) =>
+      prev.map((o) => (o.id === renamingId ? { ...o, name: trimmed } : o)),
+    );
     setRenamingId(null);
     setRenameValue("");
   };
 
   // ── Hotel handlers ────────────────────────────────────────────────────────
   const handleSaveHotel = () => {
-    if (!selectedHotelData) { alert("Please select a hotel."); return; }
-    if (!mealPlan) { alert("Please select a meal plan."); return; }
+    if (!selectedHotelData) {
+      alert("Please select a hotel.");
+      return;
+    }
+    if (!mealPlan) {
+      alert("Please select a meal plan.");
+      return;
+    }
     const entry = {
       checkInDate,
       nights,
@@ -537,7 +663,9 @@ const Create_new_package = ({
       selectedState: entry.state,
       checkInDate: entry.checkInDate,
       nights: entry.nights,
-      selectedHotelId: hotels.find((h) => h.name === entry.hotel && h.city === entry.city)?.id || null,
+      selectedHotelId:
+        hotels.find((h) => h.name === entry.hotel && h.city === entry.city)
+          ?.id || null,
       editingIndex: index,
     });
     window.scrollTo({ top: 300, behavior: "smooth" });
@@ -573,7 +701,8 @@ const Create_new_package = ({
 
   const handleApplyMarkup = () => {
     const base = hotelTotalPrice + transportTotalPrice + activityTotalPrice;
-    const markup = markupType === "percentage" ? (markupAmount / 100) * base : markupAmount;
+    const markup =
+      markupType === "percentage" ? (markupAmount / 100) * base : markupAmount;
     dispatch(setConfirmedMarkup(markup));
   };
 
@@ -603,8 +732,14 @@ const Create_new_package = ({
 
   // ── Save Package ──────────────────────────────────────────────────────────
   const handleSavePackage = async () => {
-    if (!packageName.trim()) { alert("Please enter a package name."); return; }
-    if (!customerName.trim()) { alert("Please enter a customer name."); return; }
+    if (!packageName.trim()) {
+      alert("Please enter a package name.");
+      return;
+    }
+    if (!customerName.trim()) {
+      alert("Please enter a customer name.");
+      return;
+    }
 
     // Validate options
     const validation = validateOptions(packageOptions);
@@ -621,8 +756,8 @@ const Create_new_package = ({
       const c_data = customerId
         ? { customerId, customerName }
         : leadId
-        ? { leadId, leadName: customerName }
-        : { customerName };
+          ? { leadId, leadName: customerName }
+          : { customerName };
       const refNumber = await generateQuotationRef();
 
       // Build packageOptions summary for storage
@@ -671,9 +806,13 @@ const Create_new_package = ({
             : null,
           itinerarySummary: itineraryData ?? null,
           ...(isEditMode && quotationId ? { clonedFromId: quotationId } : {}),
-        }
+        },
       );
-      toast(isEditMode ? "Saved as new quotation! ✅" : "Package saved successfully! ✅");
+      toast(
+        isEditMode
+          ? "Saved as new quotation! ✅"
+          : "Package saved successfully! ✅",
+      );
       router.back();
       setShowSaveModal(false);
       dispatch(setPackageName(""));
@@ -684,187 +823,166 @@ const Create_new_package = ({
   };
 
   const allHotelEntries = packageOptions.flatMap((o) => o.hotelEntries);
-  const showRightPanel = selectedActivities.length > 0 || allHotelEntries.length > 0 || selectedTransport;
+  const showRightPanel =
+    selectedActivities.length > 0 ||
+    allHotelEntries.length > 0 ||
+    selectedTransport;
 
   return (
     <div className="min-h-screen pb-12">
       <div className="mx-auto p-0 md:px-4 lg:px-8">
         <div className="flex flex-col lg:flex-row lg:gap-6 xl:gap-8">
-
           {/* ══ LEFT COLUMN ══════════════════════════════════════════════════ */}
           <div className="flex-1 space-y-4 lg:pr-2 pb-8 lg:pb-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-
             {/* Edit mode banner */}
             {isEditMode && (
               <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-amber-500" />
                 <span>
                   Editing a copy — saving will create a{" "}
-                  <strong>new quotation with a new reference number</strong>. The original stays unchanged.
+                  <strong>new quotation with a new reference number</strong>.
+                  The original stays unchanged.
                 </span>
               </div>
             )}
 
             {/* ── Package Options Tabs ────────────────────────────────────── */}
-          {/* ── Package Options Section ────────────────────────────────────── */}
-<Card className="border-slate-200 shadow-sm overflow-hidden">
-  <CardHeader className="p-5 border-b border-slate-100 bg-slate-50">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-theme-primary/10 flex items-center justify-center">
-          <Layers className="h-5 w-5 text-theme-primary" />
-        </div>
-        <div>
-          <CardTitle className="text-xl font-semibold text-slate-800">Package Options</CardTitle>
-          <p className="text-sm text-slate-500 mt-1">
-            Create different package variations for your customer • Max {MAX_OPTIONS}
-          </p>
-        </div>
-      </div>
+            {/* ── Package Options Section ────────────────────────────────────── */}
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="p-4 pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-theme-primary" />
+                    <CardTitle className="text-lg font-semibold">
+                      Package Options
+                    </CardTitle>
+                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                      {packageOptions.length}/{MAX_OPTIONS}
+                    </span>
+                  </div>
 
-      <Button
-        onClick={handleAddOption}
-        disabled={packageOptions.length >= MAX_OPTIONS}
-        className="bg-theme-primary hover:bg-theme-primary/90 text-white shadow-md flex items-center gap-2 px-5"
-        size="sm"
-      >
-        <Plus className="h-4 w-4" />
-        Add New Option
-      </Button>
-    </div>
-  </CardHeader>
+                  <Button
+                    onClick={handleAddOption}
+                    disabled={packageOptions.length >= MAX_OPTIONS}
+                    variant="outline"
+                    size="sm"
+                    className="text-theme-primary border-theme-primary hover:bg-theme-primary/5"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add Option
+                  </Button>
+                </div>
+              </CardHeader>
 
-  <CardContent className="p-6">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {packageOptions.map((opt) => {
-        const isActive = activeOptionId === opt.id;
-        const hotelCount = opt.hotelEntries?.length || 0;
-        const optionTotal = getOptionGrandTotal(opt);
+              <CardContent className="p-4">
+                <div className="flex flex-wrap gap-2">
+                  {packageOptions.map((opt) => {
+                    const isActive = activeOptionId === opt.id;
+                    const hotelCount = opt.hotelEntries?.length || 0;
 
-        return (
-          <div
-            key={opt.id}
-            onClick={() => setActiveOptionId(opt.id)}
-            className={`
-              group relative rounded-3xl border-2 transition-all duration-300 cursor-pointer overflow-hidden
-              ${isActive 
-                ? 'border-theme-primary shadow-xl shadow-theme-primary/20 bg-white scale-[1.02]' 
-                : 'border-slate-200 hover:border-slate-300 hover:shadow-lg bg-white'
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => setActiveOptionId(opt.id)}
+                        className={`
+              group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer
+              ${
+                isActive
+                  ? "border-theme-primary bg-theme-primary/5 shadow-sm"
+                  : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
               }
             `}
-          >
-            {/* Active Badge */}
-            {isActive && (
-              <div className="absolute top-4 right-4 bg-theme-primary text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow">
-                <CheckCircle2 className="h-3 w-3" />
-                ACTIVE
-              </div>
-            )}
+                      >
+                        {/* Option Name */}
+                        <div className="flex-1 min-w-0">
+                          {renamingId === opt.id ? (
+                            <input
+                              autoFocus
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleConfirmRename();
+                                if (e.key === "Escape") {
+                                  setRenamingId(null);
+                                  setRenameValue("");
+                                }
+                              }}
+                              onBlur={handleConfirmRename}
+                              className="w-full bg-transparent font-medium text-sm focus:outline-none border-b border-theme-primary"
+                            />
+                          ) : (
+                            <div
+                              className="font-medium text-sm truncate"
+                              onDoubleClick={() => handleStartRename(opt)}
+                            >
+                              {opt.name}
+                            </div>
+                          )}
+                        </div>
 
-            <div className="p-6">
-              {/* Option Name */}
-              <div className="flex items-center justify-between mb-4">
-                {renamingId === opt.id ? (
-                  <input
-                    autoFocus
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleConfirmRename();
-                      if (e.key === "Escape") {
-                        setRenamingId(null);
-                        setRenameValue("");
-                      }
-                    }}
-                    onBlur={handleConfirmRename}
-                    className="text-2xl font-semibold bg-transparent border-b-2 border-theme-primary focus:outline-none w-full"
-                  />
-                ) : (
-                  <h3 
-                    className="text-2xl font-semibold text-slate-800 group-hover:text-theme-primary transition-colors"
-                    onDoubleClick={() => handleStartRename(opt)}
-                  >
-                    {opt.name}
-                  </h3>
+                        {/* Hotels Count */}
+                        <div
+                          className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1 ${
+                            hotelCount > 0
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          <Hotel className="h-3.5 w-3.5" />
+                          {hotelCount}
+                        </div>
+
+                        {/* Total */}
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartRename(opt);
+                            }}
+                            className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600"
+                          >
+                            <PenLine className="h-3.5 w-3.5" />
+                          </button>
+                          {packageOptions.length > 1 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveOption(opt.id);
+                              }}
+                              className="p-1.5 hover:bg-red-50 rounded-lg  text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Active Indicator */}
+                        {isActive && (
+                          <div className="w-2 h-2 bg-theme-primary rounded-full" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Messages */}
+                {optionValidationError && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl flex gap-2">
+                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    {optionValidationError}
+                  </div>
                 )}
 
-                {/* Action Buttons */}
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleStartRename(opt); }}
-                    className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600"
-                  >
-                    <PenLine className="h-4 w-4" />
-                  </button>
-                  {packageOptions.length > 1 && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleRemoveOption(opt.id); }}
-                      className="p-2 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Hotels Count */}
-              <div className="flex items-center gap-3 mb-6">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${hotelCount > 0 ? 'bg-emerald-100' : 'bg-slate-100'}`}>
-                  <Hotel className={`h-6 w-6 ${hotelCount > 0 ? 'text-emerald-600' : 'text-slate-400'}`} />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">Hotels Included</p>
-                  <p className="text-3xl font-bold text-slate-700">{hotelCount}</p>
-                </div>
-              </div>
-
-              {/* Total Price */}
-              <div className="pt-4 border-t border-slate-100">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-500 font-medium">Option Total</p>
-                    <p className="text-3xl font-black text-theme-primary tracking-tight">
-                      ₹{optionTotal.toLocaleString("en-IN")}
-                    </p>
-                  </div>
-                  {hotelCount > 0 && (
-                    <div className="text-right">
-                      <div className="text-[10px] text-slate-400">Hotels • Transport • Activities</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Accent Bar */}
-            <div className={`h-2 w-full transition-all ${isActive ? 'bg-theme-primary' : 'bg-slate-200 group-hover:bg-slate-300'}`} />
-          </div>
-        );
-      })}
-    </div>
-
-    {/* Helper Messages */}
-    {packageOptions.length < MAX_OPTIONS && (
-      <p className="text-center text-slate-500 text-sm mt-6">
-        💡 <span className="font-medium">Double-click</span> any option name to rename it
-      </p>
-    )}
-
-    {packageOptions.length >= MAX_OPTIONS && (
-      <div className="mt-6 flex items-center justify-center gap-2 text-amber-600 bg-amber-50 border border-amber-100 rounded-2xl p-4 text-sm">
-        <AlertCircle className="h-5 w-5" />
-        Maximum {MAX_OPTIONS} package options allowed
-      </div>
-    )}
-
-    {optionValidationError && (
-      <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm flex items-start gap-3">
-        <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-        {optionValidationError}
-      </div>
-    )}
-  </CardContent>
-</Card>
+                {packageOptions.length >= MAX_OPTIONS && (
+                  <p className="mt-4 text-xs text-amber-600 flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" />
+                    Maximum {MAX_OPTIONS} options allowed
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* ── 1. Date + Nights + State ── */}
             <Card className="border-slate-200 shadow-sm">
@@ -872,7 +990,8 @@ const Create_new_package = ({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div className="space-y-1">
                     <Label className="text-xs flex items-center gap-1 font-medium">
-                      <Calendar className="h-3 w-3 text-theme-primary" /> Check-in
+                      <Calendar className="h-3 w-3 text-theme-primary" />{" "}
+                      Check-in
                     </Label>
                     <Input
                       type="date"
@@ -918,7 +1037,9 @@ const Create_new_package = ({
                       </SelectTrigger>
                       <SelectContent>
                         {states.map((s) => (
-                          <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                          <SelectItem key={s.id} value={s.name}>
+                            {s.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -933,8 +1054,11 @@ const Create_new_package = ({
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Hotel className="h-4 w-4 text-theme-primary" />
-                    Hotels in <span className="text-theme-primary">{selectedState}</span>
-                    <span className="text-[10px] font-normal text-slate-500">— for {activeOption.name}</span>
+                    Hotels in{" "}
+                    <span className="text-theme-primary">{selectedState}</span>
+                    <span className="text-[10px] font-normal text-slate-500">
+                      — for {activeOption.name}
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0 space-y-3">
@@ -943,19 +1067,30 @@ const Create_new_package = ({
                       <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mx-auto">
                         <Hotel className="h-5 w-5 text-slate-400" />
                       </div>
-                      <p className="text-slate-500 text-xs">No hotels found in {selectedState}.</p>
-                      <Button onClick={() => setShowCustomHotelForm(true)} className="bg-theme-primary hover:bg-theme-secondary" size="sm">
-                        <PenLine className="h-3.5 w-3.5 mr-1.5" /> Add Custom Hotel
+                      <p className="text-slate-500 text-xs">
+                        No hotels found in {selectedState}.
+                      </p>
+                      <Button
+                        onClick={() => setShowCustomHotelForm(true)}
+                        className="bg-theme-primary hover:bg-theme-secondary"
+                        size="sm"
+                      >
+                        <PenLine className="h-3.5 w-3.5 mr-1.5" /> Add Custom
+                        Hotel
                       </Button>
                     </div>
                   ) : (
                     <>
-                      <div className={`${selectedHotelData && !showCustomHotelForm ? "grid grid-cols-1 lg:grid-cols-2 gap-3" : ""}`}>
+                      <div
+                        className={`${selectedHotelData && !showCustomHotelForm ? "grid grid-cols-1 lg:grid-cols-2 gap-3" : ""}`}
+                      >
                         <div className="space-y-1.5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
                             {Object.keys(groupedHotels).map((city) => (
                               <div key={city} className="space-y-1">
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-theme-secondary px-1">📍 {city}</p>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-theme-secondary px-1">
+                                  📍 {city}
+                                </p>
                                 {groupedHotels[city].map((h) => (
                                   <label
                                     key={h.id}
@@ -977,10 +1112,15 @@ const Create_new_package = ({
                                       className="accent-theme-primary flex-shrink-0"
                                     />
                                     <div className="min-w-0 flex-1">
-                                      <p className="text-xs font-semibold text-slate-800 truncate">{h.name}</p>
+                                      <p className="text-xs font-semibold text-slate-800 truncate">
+                                        {h.name}
+                                      </p>
                                       <div className="flex items-center gap-1 mt-0.5">
                                         <Star className="h-2 w-2 fill-yellow-400 text-yellow-400" />
-                                        <span className="text-[9px] text-slate-500">{h.GoogleReviewRating || "N/A"} · {h.city}</span>
+                                        <span className="text-[9px] text-slate-500">
+                                          {h.GoogleReviewRating || "N/A"} ·{" "}
+                                          {h.city}
+                                        </span>
                                       </div>
                                     </div>
                                   </label>
@@ -996,7 +1136,9 @@ const Create_new_package = ({
                               className="text-xs h-7 border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5"
                             >
                               <PenLine className="h-3 w-3 mr-1" />
-                              {showCustomHotelForm ? "Hide Custom Form" : "Add Custom Hotel"}
+                              {showCustomHotelForm
+                                ? "Hide Custom Form"
+                                : "Add Custom Hotel"}
                             </Button>
                           </div>
                         </div>
@@ -1006,7 +1148,9 @@ const Create_new_package = ({
                             <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
                               <Hotel className="h-3.5 w-3.5 text-theme-primary" />
                               {selectedHotelData.name}
-                              <span className="text-slate-400 font-normal">— {selectedHotelData.city}</span>
+                              <span className="text-slate-400 font-normal">
+                                — {selectedHotelData.city}
+                              </span>
                             </p>
                             <HotelRoomSelector
                               hotel={selectedHotelData}
@@ -1016,7 +1160,11 @@ const Create_new_package = ({
                               onRoomCategoryChange={setRoomCategory}
                               onMealPlanChange={setMealPlan}
                               onGuestsChange={setGuests}
-                              initial={editingIndex !== null ? hotelEntries[editingIndex] : {}}
+                              initial={
+                                editingIndex !== null
+                                  ? hotelEntries[editingIndex]
+                                  : {}
+                              }
                             />
                             <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
                               <Button
@@ -1024,7 +1172,9 @@ const Create_new_package = ({
                                 className="bg-theme-primary hover:bg-theme-secondary text-xs h-8"
                                 size="sm"
                               >
-                                {editingIndex !== null ? "✏️ Update Hotel" : "💾 Save Hotel"}
+                                {editingIndex !== null
+                                  ? "✏️ Update Hotel"
+                                  : "💾 Save Hotel"}
                               </Button>
                               {isReadyToAddAnother && (
                                 <Button
@@ -1033,7 +1183,8 @@ const Create_new_package = ({
                                   onClick={handleAddAnotherHotel}
                                   className="text-xs h-8 border-theme-primary text-theme-primary hover:bg-theme-primary/5"
                                 >
-                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Another Hotel
+                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                                  Another Hotel
                                 </Button>
                               )}
                             </div>
@@ -1063,7 +1214,8 @@ const Create_new_package = ({
                     <h3 className="text-sm font-bold text-slate-800">
                       {activeOption.name} — Hotels
                       <span className="ml-1.5 text-[11px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {hotelEntries.length} hotel{hotelEntries.length > 1 ? "s" : ""}
+                        {hotelEntries.length} hotel
+                        {hotelEntries.length > 1 ? "s" : ""}
                       </span>
                     </h3>
                   </div>
@@ -1092,7 +1244,9 @@ const Create_new_package = ({
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Car className="h-4 w-4 text-theme-primary" /> Transport
-                    <span className="text-[10px] font-normal text-slate-400">(shared)</span>
+                    <span className="text-[10px] font-normal text-slate-400">
+                      (shared)
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0 space-y-3">
@@ -1114,7 +1268,8 @@ const Create_new_package = ({
                       onEdit={() => setShowTransportSection(true)}
                     />
                   )}
-                  {!showTransportSection && !selectedTransport?.selectedVehicle ? (
+                  {!showTransportSection &&
+                  !selectedTransport?.selectedVehicle ? (
                     <Button
                       onClick={() => setShowTransportSection(true)}
                       className="w-full bg-theme-primary hover:bg-theme-secondary text-xs h-8"
@@ -1139,8 +1294,11 @@ const Create_new_package = ({
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Palmtree className="h-4 w-4 text-theme-primary" /> Activities
-                    <span className="text-[10px] font-normal text-slate-400">(shared)</span>
+                    <Palmtree className="h-4 w-4 text-theme-primary" />{" "}
+                    Activities
+                    <span className="text-[10px] font-normal text-slate-400">
+                      (shared)
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0 space-y-3">
@@ -1162,14 +1320,21 @@ const Create_new_package = ({
                   ) : showActivitiesSection ? (
                     <div className="space-y-2 mt-1">
                       <div className="space-y-1">
-                        <Label className="text-xs font-medium">State for Activities</Label>
-                        <Select value={selectedState} onValueChange={setSelectedState}>
+                        <Label className="text-xs font-medium">
+                          State for Activities
+                        </Label>
+                        <Select
+                          value={selectedState}
+                          onValueChange={setSelectedState}
+                        >
                           <SelectTrigger className="text-xs h-8">
                             <SelectValue placeholder="Select state" />
                           </SelectTrigger>
                           <SelectContent>
                             {states.map((s) => (
-                              <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                              <SelectItem key={s.id} value={s.name}>
+                                {s.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -1188,7 +1353,8 @@ const Create_new_package = ({
                           onClick={() => setShowActivitiesSection(false)}
                           className="text-xs h-7 border-green-300 text-green-700 hover:bg-green-50"
                         >
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Done — Collapse
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Done —
+                          Collapse
                         </Button>
                       )}
                     </div>
@@ -1222,12 +1388,12 @@ const Create_new_package = ({
           {/* ══ RIGHT COLUMN — Sticky Pricing Panel ══════════════════════ */}
           {showRightPanel && (
             <div className="lg:w-80 xl:w-96 lg:min-w-[300px] lg:sticky lg:top-6 lg:self-start space-y-3 pt-4 lg:pt-0">
-
               {/* All Options Summary */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100">
                   <h3 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-theme-primary" /> Package Options
+                    <Layers className="h-3.5 w-3.5 text-theme-primary" />{" "}
+                    Package Options
                   </h3>
                 </div>
                 <div className="p-3 space-y-2">
@@ -1240,28 +1406,50 @@ const Create_new_package = ({
                         key={opt.id}
                         onClick={() => setActiveOptionId(opt.id)}
                         className={`rounded-lg border p-2.5 cursor-pointer transition-all ${
-                          isActive ? "border-theme-primary bg-theme-primary/5" : "border-slate-100 hover:border-theme-primary/30"
+                          isActive
+                            ? "border-theme-primary bg-theme-primary/5"
+                            : "border-slate-100 hover:border-theme-primary/30"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs font-bold ${isActive ? "text-theme-primary" : "text-slate-700"}`}>
+                          <span
+                            className={`text-xs font-bold ${isActive ? "text-theme-primary" : "text-slate-700"}`}
+                          >
                             {opt.name}
                           </span>
                           <span className="text-xs font-black text-theme-primary">
-                            ₹{optGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                            ₹
+                            {optGrandTotal.toLocaleString("en-IN", {
+                              maximumFractionDigits: 0,
+                            })}
                           </span>
                         </div>
                         {opt.hotelEntries.length > 0 ? (
                           <div className="space-y-0.5">
                             {opt.hotelEntries.map((h, i) => (
-                              <p key={i} className="text-[10px] text-slate-500 truncate">
+                              <p
+                                key={i}
+                                className="text-[10px] text-slate-500 truncate"
+                              >
                                 🏨 {h.hotel} · {h.city} · {h.nights}N
                               </p>
                             ))}
                             <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
-                              <span>Hotels: ₹{optHotelTotal.toLocaleString("en-IN")}</span>
-                              {transportTotalPrice > 0 && <span>· Trans: ₹{transportTotalPrice.toLocaleString("en-IN")}</span>}
-                              {activityTotalPrice > 0 && <span>· Act: ₹{activityTotalPrice.toLocaleString("en-IN")}</span>}
+                              <span>
+                                Hotels: ₹{optHotelTotal.toLocaleString("en-IN")}
+                              </span>
+                              {transportTotalPrice > 0 && (
+                                <span>
+                                  · Trans: ₹
+                                  {transportTotalPrice.toLocaleString("en-IN")}
+                                </span>
+                              )}
+                              {activityTotalPrice > 0 && (
+                                <span>
+                                  · Act: ₹
+                                  {activityTotalPrice.toLocaleString("en-IN")}
+                                </span>
+                              )}
                             </div>
                           </div>
                         ) : (
@@ -1278,23 +1466,53 @@ const Create_new_package = ({
               {/* Active Option Breakdown */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-xs">{activeOption.name} — Breakdown</h3>
+                  <h3 className="font-bold text-slate-800 text-xs">
+                    {activeOption.name} — Breakdown
+                  </h3>
                   <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {hotelEntries.length}H · {selectedTransport ? "1T" : "0T"} · {selectedActivities.length}A
+                    {hotelEntries.length}H · {selectedTransport ? "1T" : "0T"} ·{" "}
+                    {selectedActivities.length}A
                   </span>
                 </div>
                 <div className="p-3 space-y-2">
                   {[
-                    { icon: <Hotel className="h-3 w-3 text-blue-600" />, bg: "bg-blue-100", label: `Hotels (${hotelEntries.length})`, val: hotelTotalPrice },
-                    { icon: <Car className="h-3 w-3 text-indigo-600" />, bg: "bg-indigo-100", label: "Transport", val: transportTotalPrice },
-                    { icon: <Palmtree className="h-3 w-3 text-emerald-600" />, bg: "bg-emerald-100", label: `Activities (${selectedActivities.length})`, val: activityTotalPrice },
+                    {
+                      icon: <Hotel className="h-3 w-3 text-blue-600" />,
+                      bg: "bg-blue-100",
+                      label: `Hotels (${hotelEntries.length})`,
+                      val: hotelTotalPrice,
+                    },
+                    {
+                      icon: <Car className="h-3 w-3 text-indigo-600" />,
+                      bg: "bg-indigo-100",
+                      label: "Transport",
+                      val: transportTotalPrice,
+                    },
+                    {
+                      icon: <Palmtree className="h-3 w-3 text-emerald-600" />,
+                      bg: "bg-emerald-100",
+                      label: `Activities (${selectedActivities.length})`,
+                      val: activityTotalPrice,
+                    },
                   ].map(({ icon, bg, label, val }) => (
-                    <div key={label} className="flex items-center justify-between text-xs">
+                    <div
+                      key={label}
+                      className="flex items-center justify-between text-xs"
+                    >
                       <div className="flex items-center gap-1.5 text-slate-600">
-                        <div className={`w-5 h-5 rounded-md ${bg} flex items-center justify-center`}>{icon}</div>
+                        <div
+                          className={`w-5 h-5 rounded-md ${bg} flex items-center justify-center`}
+                        >
+                          {icon}
+                        </div>
                         {label}
                       </div>
-                      <span className="font-semibold">₹{val.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                      <span className="font-semibold">
+                        ₹
+                        {val.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
                     </div>
                   ))}
                   {confirmedMarkup > 0 && (
@@ -1305,7 +1523,12 @@ const Create_new_package = ({
                         </div>
                         Markup
                       </div>
-                      <span className="font-semibold text-amber-600">+₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                      <span className="font-semibold text-amber-600">
+                        +₹
+                        {confirmedMarkup.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1315,7 +1538,8 @@ const Create_new_package = ({
               <Card className="shadow-sm border-slate-200">
                 <CardContent className="p-3">
                   <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
-                    <Wallet className="h-3.5 w-3.5 text-theme-primary" /> Add Markup
+                    <Wallet className="h-3.5 w-3.5 text-theme-primary" /> Add
+                    Markup
                   </p>
                   <div className="flex gap-1.5">
                     <Input
@@ -1344,7 +1568,13 @@ const Create_new_package = ({
                   </div>
                   {confirmedMarkup > 0 && (
                     <p className="mt-1.5 text-xs text-slate-500">
-                      Applied: <span className="font-bold text-theme-dark">₹{confirmedMarkup.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                      Applied:{" "}
+                      <span className="font-bold text-theme-dark">
+                        ₹
+                        {confirmedMarkup.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
                     </p>
                   )}
                 </CardContent>
@@ -1360,13 +1590,20 @@ const Create_new_package = ({
                     </div>
                     {hotelEntries.length > 0 && (
                       <p className="text-[10px] text-white/50">
-                        {hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0)}N ·{" "}
-                        {hotelEntries[0]?.numDouble || 0} room{(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
+                        {hotelEntries.reduce(
+                          (s, e) => s + (parseInt(e.nights) || 0),
+                          0,
+                        )}
+                        N · {hotelEntries[0]?.numDouble || 0} room
+                        {(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
                   <p className="text-4xl font-black tracking-tight mb-4">
-                    ₹{grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    ₹
+                    {grandTotal.toLocaleString("en-IN", {
+                      maximumFractionDigits: 0,
+                    })}
                   </p>
                   <Button
                     onClick={() => setShowSaveModal(true)}
@@ -1405,12 +1642,17 @@ const Create_new_package = ({
                 <h2 className="text-base font-bold">
                   {isEditMode ? "Save As New Quotation" : "Finalize Package"}
                 </h2>
-                <button onClick={() => setShowSaveModal(false)} className="text-white/70 hover:text-white">
+                <button
+                  onClick={() => setShowSaveModal(false)}
+                  className="text-white/70 hover:text-white"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
               <p className="text-white/60 text-xs mt-0.5">
-                {isEditMode ? "A new quotation with a new reference number will be created" : "Fill in details to save this package"}
+                {isEditMode
+                  ? "A new quotation with a new reference number will be created"
+                  : "Fill in details to save this package"}
               </p>
             </div>
             <div className="p-5 space-y-3">
@@ -1423,18 +1665,28 @@ const Create_new_package = ({
 
               {/* Options summary */}
               <div className="bg-slate-50 rounded-xl p-3 space-y-2 text-xs text-slate-600">
-                <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wide">Package Options</p>
+                <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wide">
+                  Package Options
+                </p>
                 {packageOptions.map((opt) => {
                   const optGrandTotal = getOptionGrandTotal(opt);
                   return (
-                    <div key={opt.id} className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+                    <div
+                      key={opt.id}
+                      className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0"
+                    >
                       <div>
-                        <span className="font-semibold text-slate-700">{opt.name}</span>
+                        <span className="font-semibold text-slate-700">
+                          {opt.name}
+                        </span>
                         <span className="ml-1.5 text-[10px] text-slate-400">
-                          {opt.hotelEntries.length} hotel{opt.hotelEntries.length !== 1 ? "s" : ""}
+                          {opt.hotelEntries.length} hotel
+                          {opt.hotelEntries.length !== 1 ? "s" : ""}
                         </span>
                       </div>
-                      <span className="font-bold text-theme-primary">₹{optGrandTotal.toLocaleString("en-IN")}</span>
+                      <span className="font-bold text-theme-primary">
+                        ₹{optGrandTotal.toLocaleString("en-IN")}
+                      </span>
                     </div>
                   );
                 })}
@@ -1466,12 +1718,20 @@ const Create_new_package = ({
                   className={`h-8 text-xs ${customerId ? "bg-slate-100 cursor-not-allowed" : ""}`}
                 />
                 {(customerId || leadId) && (
-                  <p className="text-[10px] text-slate-400">✓ Auto-filled from {customerId ? "customer" : "lead"} record</p>
+                  <p className="text-[10px] text-slate-400">
+                    ✓ Auto-filled from {customerId ? "customer" : "lead"} record
+                  </p>
                 )}
               </div>
             </div>
             <div className="px-5 pb-5 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowSaveModal(false)}>Cancel</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSaveModal(false)}
+              >
+                Cancel
+              </Button>
               <Button
                 onClick={handleSavePackage}
                 size="sm"

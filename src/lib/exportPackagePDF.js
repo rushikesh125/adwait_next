@@ -483,7 +483,6 @@ const drawCoverPage = async (
   if (hotelEntries.length > 0) {
     services.push({ label: "Hotels", path: "/hotel.png" });
 
-    // 🍽️ Meals (ONLY if NOT EP)
     const hasMeals = hotelEntries.some(
       (h) => h.selectedMealPlan && h.selectedMealPlan !== "EP",
     );
@@ -495,13 +494,13 @@ const drawCoverPage = async (
   // 🚗 Transfers
   if (selectedTransport) {
     services.push({ label: "Transfers", path: "/transfer.png" });
-
-    // 👀 Sightseeing (ALSO show when transfer exists)
-    services.push({ label: "Sightseeing", path: "/sightseeing.png" });
   }
 
-  // (keep existing activity-based sightseeing ALSO)
-  if (selectedActivities?.length > 0) {
+  // 👀 Sightseeing (ONLY ONCE if either condition is true)
+  const hasSightseeing =
+    selectedTransport || (selectedActivities && selectedActivities.length > 0);
+
+  if (hasSightseeing) {
     services.push({ label: "Sightseeing", path: "/sightseeing.png" });
   }
 
@@ -891,106 +890,131 @@ export const exportPackagePDF = async ({
   addFooter(pdfdoc);
 
   // ITINERARY PAGES + INCLUSIONS & EXCLUSIONS (original logic preserved)
-  const itin = itineraryData;
-  const hasDays = itin?.days?.length > 0;
+ // ── ITINERARY PAGES ─────────────────────────────────────────────
 
-  if (itin && hasDays) {
-    pdfdoc.addPage();
-    addHeader(pdfdoc, logoImg);
+const itin = itineraryData;
 
-    y = 42;
+// ✅ Only check if days exist (NOT strict)
+const hasValidItinerary =
+  itin &&
+  Array.isArray(itin.days) &&
+  itin.days.length > 0;
 
-    y = drawSectionHeading(
-      pdfdoc,
-      `Itinerary${itin.title ? ": " + itin.title : ""}`,
-      y,
-    );
-    y += 6;
+if (hasValidItinerary) {
+  pdfdoc.addPage();
+  addHeader(pdfdoc, logoImg);
 
-    if (itin.cities?.length) {
-      pdfdoc.setFont("helvetica", "normal");
-      pdfdoc.setFontSize(FONT_BODY);
-      pdfdoc.setTextColor("#555");
-      pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
-      y += 8;
-    }
+  y = 42;
 
+  // ── Heading ──
+  y = drawSectionHeading(
+    pdfdoc,
+    `Itinerary${itin.title ? ": " + itin.title : ""}`,
+    y
+  );
+  y += 6;
+
+  // ── Cities ──
+  if (itin.cities?.length) {
+    pdfdoc.setFont("helvetica", "normal");
+    pdfdoc.setFontSize(FONT_BODY);
+    pdfdoc.setTextColor("#555");
+    pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
+    y += 8;
+  }
+
+  // ✅ Filter valid days (ONLY for rendering days)
+  const validDays = itin.days.filter(
+    (d) => d && (d.title || d.description)
+  );
+
+  // ── Day-wise Heading ──
+  if (validDays.length > 0) {
     pdfdoc.setFont("helvetica", "bold");
     pdfdoc.setFontSize(FONT_DAY);
     pdfdoc.setTextColor(BRAND_DARK);
     pdfdoc.text("Day-wise Program", 15, y);
     y += 7;
 
-    for (let di = 0; di < itin.days.length; di++) {
-      const day = itin.days[di];
+    for (let di = 0; di < validDays.length; di++) {
+      const day = validDays[di];
+      const originalIndex = itin.days.indexOf(day);
+
       const enrichedDay = {
         ...day,
-        images: (dayImagesMap[di] || [])
+        images: (dayImagesMap[originalIndex] || [])
           .map((imgObj, ii) =>
-            imgObj ? { imgObj, src: (day.images || [])[ii] } : null,
+            imgObj ? { imgObj, src: (day.images || [])[ii] } : null
           )
           .filter(Boolean)
           .map((x) => x.src),
       };
+
       y = await drawDay(pdfdoc, logoImg, enrichedDay, y);
     }
-
-    // Terms & Conditions
-    const selectedTnc = (itin.tnc || []).filter((i) => i.selected);
-    const selectedCan = (itin.cancellation || []).filter((i) => i.selected);
-
-    if (selectedTnc.length || selectedCan.length) {
-      y = ensureSpace(pdfdoc, logoImg, y, 16);
-      y += 4;
-      y = drawSectionHeading(
-        pdfdoc,
-        "Terms & Conditions / Cancellation Policy",
-        y,
-      );
-      y += 4;
-
-      if (selectedTnc.length) {
-        y = drawChecklist(
-          pdfdoc,
-          logoImg,
-          "Terms & Conditions",
-          itin.tnc,
-          y,
-          AMBER,
-          true,
-        );
-      }
-      if (selectedCan.length) {
-        y = drawChecklist(
-          pdfdoc,
-          logoImg,
-          "Cancellation Policy",
-          itin.cancellation,
-          y,
-          "#C62828",
-          true,
-        );
-      }
-    }
-
-    // Important Information
-    if (itin.impInfo?.some((i) => i.selected)) {
-      y = ensureSpace(pdfdoc, logoImg, y, 16);
-      y += 4;
-      y = drawSectionHeading(pdfdoc, "Important Information", y);
-      y += 4;
-      y = drawChecklist(pdfdoc, logoImg, "", itin.impInfo, y, BRAND, true);
-    }
-
-    // ── INCLUSIONS & EXCLUSIONS (UPDATED - clean, no icons, better position) ──
-
-    addFooter(pdfdoc);
-  } else {
-    // No itinerary case - inclusions on page 2 (kept original fallback logic)
-    // ... (your original else block remains)
-    y = pdfdoc.lastAutoTable.finalY + 15;
-    // (You can keep your original no-itinerary inclusions code here if needed)
   }
+
+  // 🔥 IMPORTANT: ALWAYS show these (independent of validDays)
+
+  const selectedTnc = (itin.tnc || []).filter((i) => i.selected);
+  const selectedCan = (itin.cancellation || []).filter((i) => i.selected);
+
+  if (selectedTnc.length || selectedCan.length) {
+    y = ensureSpace(pdfdoc, logoImg, y, 16);
+    y += 4;
+
+    y = drawSectionHeading(
+      pdfdoc,
+      "Terms & Conditions / Cancellation Policy",
+      y
+    );
+    y += 4;
+
+    if (selectedTnc.length) {
+      y = drawChecklist(
+        pdfdoc,
+        logoImg,
+        "Terms & Conditions",
+        itin.tnc,
+        y,
+        AMBER,
+        true
+      );
+    }
+
+    if (selectedCan.length) {
+      y = drawChecklist(
+        pdfdoc,
+        logoImg,
+        "Cancellation Policy",
+        itin.cancellation,
+        y,
+        "#C62828",
+        true
+      );
+    }
+  }
+
+  if (itin.impInfo?.some((i) => i.selected)) {
+    y = ensureSpace(pdfdoc, logoImg, y, 16);
+    y += 4;
+
+    y = drawSectionHeading(pdfdoc, "Important Information", y);
+    y += 4;
+
+    y = drawChecklist(
+      pdfdoc,
+      logoImg,
+      "",
+      itin.impInfo,
+      y,
+      BRAND,
+      true
+    );
+  }
+
+  addFooter(pdfdoc);
+}
 
   // Generate PDF filename: ClientName_PackageName.pdf
   let rawName = `${(customerName || "Client").trim()}_${(packageName || "Travel_Package").trim()}.pdf`;
