@@ -541,12 +541,21 @@ setToggleValue(prev => !prev)
       [field]: value
     };
 
-    const total =
-      (updatedTransport.vehicleCost || 0) +
-      (updatedTransport.driverAllowance || 0) +
-      (updatedTransport.tollCharges || 0) +
-      (updatedTransport.permitCharges || 0) +
-      (updatedTransport.otherCharges || 0);
+    const isPerKmPricing = updatedTransport.pricingType === "perKm";
+    const total = isPerKmPricing
+      ? (updatedTransport.vehicleCost || 0) +
+        (updatedTransport.driverAllowance || 0) +
+        (updatedTransport.tollCharges || 0) +
+        (updatedTransport.permitCharges || 0) +
+        (updatedTransport.otherCharges || 0)
+      : (updatedTransport.vehicleCost || 0);
+
+    if (!isPerKmPricing) {
+      updatedTransport.driverAllowance = 0;
+      updatedTransport.tollCharges = 0;
+      updatedTransport.permitCharges = 0;
+      updatedTransport.otherCharges = 0;
+    }
 
     updatedTransport.totalTransportCost = total;
 
@@ -589,6 +598,15 @@ setToggleValue(prev => !prev)
         state: selectedTransportStateId,
       };
 
+      if (pkg.pricingType !== "perKm") {
+        trans.vehicleCost = vehicle.price ?? 0;
+        trans.driverAllowance = 0;
+        trans.tollCharges = 0;
+        trans.permitCharges = 0;
+        trans.otherCharges = 0;
+        trans.totalTransportCost = vehicle.price ?? 0;
+      }
+
       const updated = { ...prev, transportSummary: trans };
       return {
         ...updated,
@@ -611,6 +629,15 @@ setToggleValue(prev => !prev)
     ? vehicle.perKmprice ?? 0
     : vehicle.price ?? 0  
       };
+
+      if (prev.transportSummary.pricingType !== "perKm") {
+        trans.vehicleCost = vehicle.price ?? 0;
+        trans.driverAllowance = 0;
+        trans.tollCharges = 0;
+        trans.permitCharges = 0;
+        trans.otherCharges = 0;
+        trans.totalTransportCost = vehicle.price ?? 0;
+      }
 
       const updated = { ...prev, transportSummary: trans };
       return {
@@ -1210,6 +1237,7 @@ setToggleValue(prev => !prev)
                           </div>
 
 
+                          {editingQuotation?.transportSummary?.pricingType === "perKm" ? (
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
 
                           <div>
@@ -1268,6 +1296,18 @@ setToggleValue(prev => !prev)
                           </div>
 
                           </div>
+                          ) : (
+                          <div>
+                          <Label className="text-xs">Total Transport Cost</Label>
+                          <Input
+                          type="number"
+                          value={editingQuotation?.transportSummary?.vehicleCost || editingQuotation?.transportSummary?.totalTransportCost || 0}
+                          onChange={(e)=>
+                          handleTransportSummaryChange("vehicleCost", Number(e.target.value) || 0)
+                          }
+                          />
+                          </div>
+                          )}
 
                           </CardContent>
                           </Card>

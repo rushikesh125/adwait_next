@@ -102,6 +102,22 @@ const EditPackage = ({
     toast.success("Vehicle removed from list");
   };
 
+  const sanitizedVehicles = (formData.vehicles || []).map((vehicle) =>
+    formData.pricingType === "lumpsum"
+      ? {
+          ...vehicle,
+          price: Number(vehicle.price || 0),
+          perKmprice: 0,
+          driverAllowance: 0,
+        }
+      : {
+          ...vehicle,
+          price: 0,
+          perKmprice: Number(vehicle.perKmprice || 0),
+          driverAllowance: Number(vehicle.driverAllowance || 0),
+        }
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.vehicles.length === 0) {
@@ -112,7 +128,7 @@ const EditPackage = ({
       toast.error("Package name is required");
       return;
     }
-    const hasNegativeValues = formData.vehicles.some(
+    const hasNegativeValues = sanitizedVehicles.some(
       (v) =>
         (v.price !== null && v.price < 0) ||
         (v.perKmprice !== null && v.perKmprice < 0) ||
@@ -135,15 +151,17 @@ const EditPackage = ({
         return;
       }
 
+      const nextFormData = { ...formData, vehicles: sanitizedVehicles };
+
       const updatedPackages = stateData.packages.map((pkg) =>
-        pkg.id === packageId ? { ...pkg, ...formData } : pkg
+        pkg.id === packageId ? { ...pkg, ...nextFormData } : pkg
       );
 
       // Update both the state doc array AND the subcollection document
       await updateDoc(stateRef, { packages: updatedPackages });
       await updateDoc(
         doc(db, "transport", stateId, "packages", packageId),
-        formData
+        nextFormData
       );
 
       toast.success("Package updated successfully!");
@@ -276,9 +294,9 @@ const EditPackage = ({
                     <th className="px-4 py-3 text-left font-semibold text-slate-600">
                       {formData.pricingType === "lumpsum" ? "Rate (₹)" : "Rate/Km (₹)"}
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600">
-  Driver Allowance (₹)
-</th>
+                    {formData.pricingType !== "lumpsum" && (
+                      <th className="px-4 py-3 text-left font-semibold text-slate-600">Driver Allowance</th>
+                    )}
                     <th className="px-4 py-3 text-left font-semibold text-slate-600 w-24">Seats</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-600 w-32">Climate</th>
                     <th className="px-4 py-3 text-center font-semibold text-slate-600 w-12"></th>
@@ -312,16 +330,18 @@ const EditPackage = ({
                           className="h-9 border-slate-200 font-medium text-theme-primary"
                         />
                       </td>
-                      <td className="px-4 py-2">
-  <Input
-    type="number"
-    value={vehicle.driverAllowance ?? ""}
-    onChange={(e) =>
-      handleVehicleChange(idx, "driverAllowance", e.target.value)
-    }
-    className="h-9 border-slate-200"
-  />
-</td>
+                      {formData.pricingType !== "lumpsum" && (
+                        <td className="px-4 py-2">
+                          <Input
+                            type="number"
+                            value={vehicle.driverAllowance ?? ""}
+                            onChange={(e) =>
+                              handleVehicleChange(idx, "driverAllowance", e.target.value)
+                            }
+                            className="h-9 border-slate-200"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-2">
                         <Input
                           type="number"

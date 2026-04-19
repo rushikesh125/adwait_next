@@ -117,6 +117,22 @@ const Createpackage = ({ onClose }) => {
     toast.success("Vehicle removed from list");
   };
 
+  const sanitizedVehicles = vehicles.map((vehicle) =>
+    selectedPricingType === "lumpsum"
+      ? {
+          ...vehicle,
+          price: Number(vehicle.price || 0),
+          perKmprice: 0,
+          driverAllowance: 0,
+        }
+      : {
+          ...vehicle,
+          price: 0,
+          perKmprice: Number(vehicle.perKmprice || 0),
+          driverAllowance: Number(vehicle.driverAllowance || 0),
+        }
+  );
+
   const handleSubmit = async () => {
     if (!packageName.trim()) {
       toast.error("Package name is required");
@@ -131,7 +147,7 @@ const Createpackage = ({ onClose }) => {
       toast.error("Please add at least one vehicle");
       return;
     }
-    const hasNegativeValues = vehicles.some(
+    const hasNegativeValues = sanitizedVehicles.some(
       (v) =>
         (v.price !== null && v.price < 0) ||
         (v.perKmprice !== null && v.perKmprice < 0) ||
@@ -161,7 +177,7 @@ const Createpackage = ({ onClose }) => {
         pricingType: selectedPricingType,
         name: packageName.trim(),
         description: packageDescription.trim(),
-        vehicles,
+        vehicles: sanitizedVehicles,
         createdAt: new Date().toISOString(),
         // lumpsum-only fields
         ...(selectedPricingType === "lumpsum" && {
@@ -348,7 +364,9 @@ const Createpackage = ({ onClose }) => {
                       <th className="px-4 py-3 text-left font-semibold text-slate-600">
                         {selectedPricingType === "lumpsum" ? "Rate (₹)" : "Rate/Km (₹)"}
                       </th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-600"> Driver Allowance (₹)</th>
+                      {selectedPricingType !== "lumpsum" && (
+                        <th className="px-4 py-3 text-left font-semibold text-slate-600">Driver Allowance</th>
+                      )}
 
                       <th className="px-4 py-3 text-left font-semibold text-slate-600 w-24">Seats</th>
                       <th className="px-4 py-3 text-left font-semibold text-slate-600 w-32">Climate</th>
@@ -379,16 +397,18 @@ const Createpackage = ({ onClose }) => {
                             className="h-9 border-slate-200 font-medium text-theme-primary"
                           />
                         </td>
-                        <td className="px-4 py-2">
-  <Input
-    type="number"
-    value={v.driverAllowance ?? ""}
-    onChange={(e) =>
-      handleVehicleChange(idx, "driverAllowance", e.target.value)
-    }
-    className="h-9 border-slate-200"
-  />
-</td>
+                        {selectedPricingType !== "lumpsum" && (
+                          <td className="px-4 py-2">
+                            <Input
+                              type="number"
+                              value={v.driverAllowance ?? ""}
+                              onChange={(e) =>
+                                handleVehicleChange(idx, "driverAllowance", e.target.value)
+                              }
+                              className="h-9 border-slate-200"
+                            />
+                          </td>
+                        )}
                         <td className="px-4 py-2">
                           <Input
                             type="number"

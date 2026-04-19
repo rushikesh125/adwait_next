@@ -489,7 +489,14 @@ const QuotationModals = ({
     let transportTotal = 0;
     if (editingQuotation.transportSummary) {
       const t = editingQuotation.transportSummary;
-      transportTotal = (Number(t.vehicleCost) || 0) + (Number(t.driverAllowance) || 0) + (Number(t.tollCharges) || 0) + (Number(t.permitCharges) || 0) + (Number(t.otherCharges) || 0);
+      transportTotal =
+        t.pricingType === "perKm"
+          ? (Number(t.vehicleCost) || 0) +
+            (Number(t.driverAllowance) || 0) +
+            (Number(t.tollCharges) || 0) +
+            (Number(t.permitCharges) || 0) +
+            (Number(t.otherCharges) || 0)
+          : Number(t.vehicleCost || t.totalTransportCost || 0);
     }
     const activityTotal = editingQuotation.activitySummary?.reduce((s, a) => s + (a.totalPrice || 0), 0) || 0;
     return hotelTotal + transportTotal + activityTotal;
@@ -526,7 +533,13 @@ const QuotationModals = ({
   const editTransportTotal = useMemo(() => {
     if (!editingQuotation?.transportSummary) return 0;
     const t = editingQuotation.transportSummary;
-    return (Number(t.vehicleCost) || 0) + (Number(t.driverAllowance) || 0) + (Number(t.tollCharges) || 0) + (Number(t.permitCharges) || 0) + (Number(t.otherCharges) || 0);
+    return t.pricingType === "perKm"
+      ? (Number(t.vehicleCost) || 0) +
+          (Number(t.driverAllowance) || 0) +
+          (Number(t.tollCharges) || 0) +
+          (Number(t.permitCharges) || 0) +
+          (Number(t.otherCharges) || 0)
+      : Number(t.vehicleCost || t.totalTransportCost || 0);
   }, [editingQuotation?.transportSummary]);
 
   // ── Open voucher drawer for a specific hotel from the quotation ───────────

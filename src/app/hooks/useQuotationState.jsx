@@ -452,12 +452,21 @@ const handleTransportSummaryChange = (field, value) => {
       [field]: value,
     };
 
-    const total =
-      (updatedTransport.vehicleCost || 0) +
-      (updatedTransport.driverAllowance || 0) +
-      (updatedTransport.tollCharges || 0) +
-      (updatedTransport.permitCharges || 0) +
-      (updatedTransport.otherCharges || 0);
+    const isPerKmPricing = updatedTransport.pricingType === "perKm";
+    const total = isPerKmPricing
+      ? (updatedTransport.vehicleCost || 0) +
+        (updatedTransport.driverAllowance || 0) +
+        (updatedTransport.tollCharges || 0) +
+        (updatedTransport.permitCharges || 0) +
+        (updatedTransport.otherCharges || 0)
+      : (updatedTransport.vehicleCost || 0);
+
+    if (!isPerKmPricing) {
+      updatedTransport.driverAllowance = 0;
+      updatedTransport.tollCharges = 0;
+      updatedTransport.permitCharges = 0;
+      updatedTransport.otherCharges = 0;
+    }
 
     updatedTransport.totalTransportCost = total;
 
@@ -501,6 +510,14 @@ const handleTransportSummaryChange = (field, value) => {
         days: prev.transportSummary?.days ?? null,
         kms: prev.transportSummary?.kms ?? null,
       };
+      if (newPackage.pricingType !== "perKm") {
+        updatedTransport.vehicleCost = newVehicle.price ?? 0;
+        updatedTransport.driverAllowance = 0;
+        updatedTransport.tollCharges = 0;
+        updatedTransport.permitCharges = 0;
+        updatedTransport.otherCharges = 0;
+        updatedTransport.totalTransportCost = newVehicle.price ?? 0;
+      }
       const updated = { ...prev, transportSummary: updatedTransport };
       return { ...updated, grandTotal: recalculateGrandTotal(updated) };
     });
@@ -517,6 +534,14 @@ const handleTransportSummaryChange = (field, value) => {
         ac: newVehicle.ac ?? false,
         totalPrice: newVehicle.price ?? newVehicle.perKmprice ?? 0,
       };
+      if (prev.transportSummary?.pricingType !== "perKm") {
+        updatedTransport.vehicleCost = newVehicle.price ?? 0;
+        updatedTransport.driverAllowance = 0;
+        updatedTransport.tollCharges = 0;
+        updatedTransport.permitCharges = 0;
+        updatedTransport.otherCharges = 0;
+        updatedTransport.totalTransportCost = newVehicle.price ?? 0;
+      }
       const updated = { ...prev, transportSummary: updatedTransport };
       return { ...updated, grandTotal: recalculateGrandTotal(updated) };
     });
