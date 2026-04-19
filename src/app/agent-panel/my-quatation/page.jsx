@@ -19,6 +19,7 @@ import {
   Send,
   CheckCircle,
   XCircle,
+  CalendarCheck,
 } from "lucide-react";
 
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
@@ -35,9 +36,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { getQuotationById } from "@/firebase/quotations";
 import { getBookingById } from "@/firebase/bookingsService";
 import toast from "react-hot-toast";
-import {
-  updateLeadStatus,
-} from "@/firebase/leadsService";
+import { updateLeadStatus } from "@/firebase/leadsService";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -51,6 +50,9 @@ const MyQuotations = () => {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(50);
   const [previewQuotation, setPreviewQuotation] = useState(null);
+  // Add this state near your other useState declarations
+  const [optionSelectQuotation, setOptionSelectQuotation] = useState(null);
+  const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
 
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
@@ -123,7 +125,22 @@ const MyQuotations = () => {
     return obj.toISOString().slice(0, 10);
   };
 
-  const handleConvertToBooking = async (quotation) => {
+  // Step 1: called from table row / preview modal
+  const handleConvertToBookingClick = (quotation) => {
+    const hasMulti =
+      Array.isArray(quotation.packageOptions) &&
+      quotation.packageOptions.length > 1;
+
+    if (hasMulti) {
+      setSelectedOptionIdx(0);
+      setOptionSelectQuotation(quotation);
+    } else {
+      handleConvertToBooking(quotation, null); // null = use first option
+    }
+  };
+
+  // Step 2: actual conversion (now accepts a chosen option)
+  const handleConvertToBooking = async (quotation, chosenOption) => {
     if (quotation.convertedToBooking && quotation.bookingId) {
       try {
         const existing = await getBookingById(quotation.bookingId);
@@ -134,12 +151,21 @@ const MyQuotations = () => {
           return;
         }
       } catch {
-        /* proceed if check fails */
+        /* proceed */
       }
     }
-    const hotels = quotation.hotelSummary || [];
+
+    // Resolve which hotels/cost to use
+    const finalOption =
+      chosenOption ??
+      (Array.isArray(quotation.packageOptions) &&
+        quotation.packageOptions[0]) ??
+      null;
+
+    const hotels = finalOption?.hotelEntries ?? quotation.hotelSummary ?? [];
     const transport = quotation.transportSummary;
     const activities = quotation.activitySummary || [];
+
     const services = [
       ...hotels.map((h) => ({
         type: "Hotel",
@@ -180,6 +206,9 @@ const MyQuotations = () => {
         status: "Pending",
       })),
     ];
+
+    const grandTotal = finalOption?.grandTotal ?? quotation.grandTotal ?? "";
+
     const prefill = {
       customerName: quotation.customerName || quotation.leadName || "",
       destination: state.getDestinationOfpkg(quotation) || "",
@@ -188,15 +217,16 @@ const MyQuotations = () => {
       adults: 1,
       children: 0,
       status: "Pending",
-      totalAmount: quotation.grandTotal || "",
+      totalAmount: grandTotal,
       notes:
-        `Converted from quotation ${quotation.quoteNumber || quotation.refNumber || ""}`.trim(),
+        `Converted from quotation ${quotation.quoteNumber || quotation.refNumber || ""}`.trim() +
+        (finalOption?.name ? ` · ${finalOption.name}` : ""),
       services,
       payments: [],
       quotationId: quotation.id,
-      // Carry over hotelSummary so BookingDetailPage can build vouchers from it
-      hotelSummary: quotation.hotelSummary || [],
+      hotelSummary: hotels,
     };
+
     sessionStorage.setItem("bookingPrefill", JSON.stringify(prefill));
     router.push("/agent-panel/bookings/create?fromQuotation=true");
   };
@@ -549,7 +579,7 @@ const MyQuotations = () => {
               onClick={() => {
                 const q = bookingConfirmQuotation;
                 setBookingConfirmQuotation(null);
-                handleConvertToBooking(q);
+                handleConvertToBookingClick(q);
               }}
             >
               Yes, Create Booking
@@ -557,6 +587,116 @@ const MyQuotations = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* ── Option selector modal ─────────────────────────────────────────── */}
+      {optionSelectQuotation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="bg-theme-dark text-white px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-0.5">
+                Converting to booking
+              </p>
+              <h2 className="text-base font-bold">
+                Select final package option
+              </h2>
+              <p className="text-white/60 text-xs mt-0.5">
+                This determines the hotels and total cost for the booking.
+              </p>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {optionSelectQuotation.packageOptions.map((opt, idx) => {
+                const isSelected = idx === selectedOptionIdx;
+                const hotelTotal =
+                  opt.hotelTotal ??
+                  (opt.hotelEntries || []).reduce(
+                    (s, h) => s + Number(h.hotelTotal || 0),
+                    0,
+                  );
+                const grandTotal = opt.grandTotal ?? hotelTotal;
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedOptionIdx(idx)}
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? "border-theme-primary bg-theme-primary/5"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                            isSelected
+                              ? "border-theme-primary"
+                              : "border-slate-300"
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="w-2 h-2 rounded-full bg-theme-primary" />
+                          )}
+                        </div>
+                        <span
+                          className={`text-sm font-semibold ${isSelected ? "text-theme-primary" : "text-slate-800"}`}
+                        >
+                          {opt.name}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-base font-black flex-shrink-0 ${isSelected ? "text-theme-primary" : "text-slate-700"}`}
+                      >
+                        ₹
+                        {Number(grandTotal).toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
+                    </div>
+
+                    {(opt.hotelEntries || []).length > 0 && (
+                      <div className="mt-2 ml-6.5 space-y-1">
+                        {(opt.hotelEntries || []).map((h, i) => (
+                          <p
+                            key={i}
+                            className={`text-[11px] truncate ${isSelected ? "text-theme-secondary" : "text-slate-500"}`}
+                          >
+                            {h.hotel} · {h.city} · {h.nights}N
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="px-4 pb-4 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOptionSelectQuotation(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5"
+                onClick={() => {
+                  const chosen =
+                    optionSelectQuotation.packageOptions[selectedOptionIdx];
+                  const q = optionSelectQuotation;
+                  setOptionSelectQuotation(null);
+                  handleConvertToBooking(q, chosen);
+                }}
+              >
+                <CalendarCheck className="h-3.5 w-3.5 mr-1.5" />
+                Convert with{" "}
+                {optionSelectQuotation.packageOptions[selectedOptionIdx]?.name}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
