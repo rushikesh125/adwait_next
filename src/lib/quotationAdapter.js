@@ -27,47 +27,43 @@
  *   packageName:         string,
  * }}
  */
-export const normaliseQuotation = (quotation) => {
-  const {
-    hotelSummary      = [],
-    transportSummary  = null,
-    activitySummary   = [],
-    grandTotal        = 0,
-    customerName      = "",
-    leadName          = "",
-    packageName       = "",
-  } = quotation;
-
-  // ── Transport: map saved flat shape → { selectedVehicle, name } ──────────
-  // transportSummary shape (as saved in Create_new_package.jsx):
-  // {
-  //   packageName, vehicleName, price, ac, isCustom,
-  //   perKmprice, pricingType, seats, vehicles, allPkgs
-  // }
-  let selectedTransport = null;
-  if (transportSummary?.vehicleName || transportSummary?.price) {
-    selectedTransport = {
-      name: transportSummary.packageName || "Transport",
-      selectedVehicle: {
-        type:       transportSummary.vehicleName  || "",
-        price:      transportSummary.price        || 0,
-        ac:         transportSummary.ac           ?? false,
-        isCustom:   transportSummary.isCustom     ?? false,
-        perKmprice: transportSummary.perKmprice   || 0,
-        seating:    transportSummary.seats        || "",
-      },
-      vehicles:    transportSummary.vehicles    || [],
-      allPkgs:     transportSummary.allPkgs     || [],
-      pricingType: transportSummary.pricingType || "fixed",
-    };
-  }
+export const normaliseQuotation = (q) => {
+  if (!q) return {};
 
   return {
-    hotelEntries:       hotelSummary,
-    selectedTransport,
-    selectedActivities: activitySummary,
-    grandTotal:         Number(grandTotal) || 0,
-    customerName:       customerName || leadName,
-    packageName,
+    customerName: q.customerName || q.leadName || "",
+    packageName: q.packageName || "",
+
+    hotelEntries: q.hotelSummary || [],
+
+    selectedTransport: q.transportSummary
+      ? {
+          name: q.transportSummary.packageName || "Custom",
+          pricingType: q.transportSummary.pricingType || "fixed",
+          selectedVehicle: {
+            type: q.transportSummary.vehicleName || "",
+            ac: q.transportSummary.ac || false,
+            price: q.transportSummary.vehicleCost || 0,
+            perKmprice: q.transportSummary.perKmprice || 0,
+            driverAllowance: q.transportSummary.driverAllowance || 0,
+            isCustom: q.transportSummary.isCustom || false,
+          },
+
+          // ✅ optional but recommended
+          minKm: q.transportSummary.minKm || 0,
+          tollCharges: q.transportSummary.tollCharges || 0,
+          permitCharges: q.transportSummary.permitCharges || 0,
+          otherCharges: q.transportSummary.otherCharges || 0,
+        }
+      : null,
+
+    // ✅ FIXED HERE
+    selectedActivities: q.activitySummary || [],
+
+    grandTotal: q.grandTotal || 0,
+
+    itineraryData: q.itinerarySummary || null,
+
+    refNumber: q.refNumber || null,
   };
 };
