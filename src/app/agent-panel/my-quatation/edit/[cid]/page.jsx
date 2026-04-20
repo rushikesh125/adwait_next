@@ -97,6 +97,7 @@ const EditQuotationPage = () => {
   const [newCustomerName, setNewCustomerName] = useState("");
   const [saveAsLeadId, setSaveAsLeadId] = useState("");
   const [agentLeads, setAgentLeads] = useState([]);
+  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
 
   // ────────────────────────────────────────────────
   // Helper Functions
@@ -762,7 +763,11 @@ setToggleValue(prev => !prev)
     setNewCustomerName(editingQuotation.customerName || editingQuotation.leadName || "");
     setSaveAsLeadId(editingQuotation.leadId || "");
     if (user?.uid) {
-      getLeadsByAgent(user.uid).then(setAgentLeads).catch(() => {});
+      setIsLoadingLeads(true);
+      getLeadsByAgent(user.uid)
+        .then(setAgentLeads)
+        .catch(() => {})
+        .finally(() => setIsLoadingLeads(false));
     }
     setShowSaveAsModal(true);
   };
@@ -1525,7 +1530,7 @@ setToggleValue(prev => !prev)
 
         {/* Save As Modal */}
         <Dialog open={showSaveAsModal} onOpenChange={setShowSaveAsModal}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Save as New Quotation</DialogTitle>
             </DialogHeader>
@@ -1548,9 +1553,9 @@ setToggleValue(prev => !prev)
               </div>
               <div className="space-y-2">
                 <Label>Link to Lead <span className="text-slate-400 font-normal text-xs">(optional)</span></Label>
-                <Select value={saveAsLeadId || "none"} onValueChange={(v) => setSaveAsLeadId(v === "none" ? "" : v)}>
+                <Select value={saveAsLeadId || "none"} onValueChange={(v) => setSaveAsLeadId(v === "none" ? "" : v)} disabled={isLoadingLeads}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a lead..." />
+                    <SelectValue placeholder={isLoadingLeads ? "Loading leads..." : "Select a lead..."} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">— No lead —</SelectItem>
