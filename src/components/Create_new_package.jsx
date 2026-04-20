@@ -87,6 +87,7 @@ import {
 } from "lucide-react";
 import ItinerarySection from "./ItinerarySection";
 import { generateQuotationRef } from "@/firebase/quotationRef";
+import { getLeadsByAgent } from "@/firebase/leadsService";
 
 import HotelRoomSelector from "@/components/package/HotelRoomSelector";
 import CustomHotelForm from "@/components/package/CustomHotelForm";
@@ -240,6 +241,14 @@ const Create_new_package = ({
       setShowCustomerDropdown(false);
       setShowInlineCreateCustomer(false);
     }
+    if (v && isEditMode && user?.uid) {
+      setSaveAsLeadId(leadId || "");
+      setIsLoadingLeads(true);
+      getLeadsByAgent(user.uid)
+        .then(setAgentLeads)
+        .catch(() => {})
+        .finally(() => setIsLoadingLeads(false));
+    }
     _setShowSaveModal(v);
   };
   const [customerName, setCustomerName] = useState("");
@@ -251,6 +260,10 @@ const Create_new_package = ({
   const [selectedCustomerLink, setSelectedCustomerLink] = useState(null);
   const [showInlineCreateCustomer, setShowInlineCreateCustomer] = useState(false);
   const [newCustomerDraft, setNewCustomerDraft] = useState({ name: "", mobile: "", email: "" });
+  // ── Lead linking in save modal (edit/clone mode) ──────────────────────────
+  const [agentLeads, setAgentLeads] = useState([]);
+  const [saveAsLeadId, setSaveAsLeadId] = useState("");
+  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
 
   const { hasPermission, loading: permissionsLoading } = useAgentPermissions(
     user?.uid,
@@ -790,12 +803,13 @@ const Create_new_package = ({
     try {
       const agentId = user?.uid;
       if (!agentId) throw new Error("Not logged in");
+      const effectiveLeadId = isEditMode ? (saveAsLeadId || null) : leadId;
       const c_data = customerId
         ? { customerId, customerName }
         : selectedCustomerLink
           ? { customerId: selectedCustomerLink.id, customerName: selectedCustomerLink.name }
-          : leadId
-            ? { leadId, leadName: customerName }
+          : effectiveLeadId
+            ? { leadId: effectiveLeadId, leadName: customerName }
             : { customerName };
       const refNumber = await generateQuotationRef();
 
@@ -1907,6 +1921,41 @@ const Create_new_package = ({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Lead selector — only shown in edit/clone mode */}
+              {isEditMode && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">
+                    Link to Lead{" "}
+                    <span className="text-slate-400 font-normal">(optional)</span>
+                  </Label>
+                  <Select
+                    value={saveAsLeadId || "none"}
+                    onValueChange={(v) => setSaveAsLeadId(v === "none" ? "" : v)}
+                    disabled={isLoadingLeads}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue
+                        placeholder={
+                          isLoadingLeads ? "Loading leads..." : "Select a lead..."
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— No lead —</SelectItem>
+                      {agentLeads.map((lead) => (
+                        <SelectItem key={lead.id} value={lead.id}>
+                          {lead.name}
+                          {lead.destination ? ` · ${lead.destination}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-slate-400">
+                    Linking associates this quotation with a lead for tracking.
+                  </p>
                 </div>
               )}
             </div>
