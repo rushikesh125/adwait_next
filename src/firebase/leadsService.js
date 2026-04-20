@@ -172,6 +172,19 @@ export const deleteLead = async (id) => {
   await deleteDoc(doc(db, "leads", id));
 };
 
+export const cloneLead = async (id) => {
+  const ref = doc(db, "leads", id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Lead not found");
+  const { createdAt: _c, updatedAt: _u, ...data } = snap.data();
+  return await addDoc(leadsRef, {
+    ...data,
+    name: `Copy of ${data.name}`,
+    status: "New",
+    createdAt: serverTimestamp(),
+  });
+};
+
 export const deleteQuotation = async (quotationId) => {
   if (!quotationId) throw new Error("Quotation ID is required");
 

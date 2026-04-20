@@ -28,6 +28,7 @@ import {
   getLeadsByAgent,
   updateLeadStatus,
   deleteLead,
+  cloneLead,
   rejectAllQuotationsForLead,
 } from "@/firebase/leadsService";
 import { addCustomer } from "@/firebase/customersService";
@@ -321,6 +322,17 @@ const handleStatusChange = async (id, status) => {
   }
 };
 
+  const handleCloneLead = async (id) => {
+    const tid = toast.loading("Cloning lead...");
+    try {
+      await cloneLead(id);
+      toast.success("Lead cloned successfully", { id: tid });
+      loadLeads();
+    } catch (error) {
+      toast.error("Failed to clone lead", { id: tid });
+    }
+  };
+
   const handleCreateQuotation = (lead) => {
     router.push(
       `/agent-panel/my-quatation/create?leadId=${lead.id}&leadName=${encodeURIComponent(lead.name)}`,
@@ -493,6 +505,7 @@ const handleStatusChange = async (id, status) => {
               leads={leads}
               onStatusChange={handleStatusChange}
               onDeleteLead={handleDeleteLead}
+              onCloneLead={handleCloneLead}
               onCreateQuotation={handleCreateQuotation}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}

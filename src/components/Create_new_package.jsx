@@ -81,6 +81,9 @@ import {
   Layers,
   PackagePlus,
   AlertCircle,
+  UserPlus,
+  Search,
+  Link2,
 } from "lucide-react";
 import ItinerarySection from "./ItinerarySection";
 import { generateQuotationRef } from "@/firebase/quotationRef";
@@ -230,9 +233,24 @@ const Create_new_package = ({
   const [editableBaseCost, setEditableBaseCost] = useState(null);
   const [markupAmount, setMarkupAmount] = useState(0);
   const [markupType, setMarkupType] = useState("lumpsum");
-  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showSaveModal, _setShowSaveModal] = useState(false);
+  const setShowSaveModal = (v) => {
+    if (!v) {
+      setCustomerSearchText("");
+      setShowCustomerDropdown(false);
+      setShowInlineCreateCustomer(false);
+    }
+    _setShowSaveModal(v);
+  };
   const [customerName, setCustomerName] = useState("");
   const [optionValidationError, setOptionValidationError] = useState("");
+  // ── Customer linking in save modal ────────────────────────────────────────
+  const [customers, setCustomers] = useState([]);
+  const [customerSearchText, setCustomerSearchText] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedCustomerLink, setSelectedCustomerLink] = useState(null);
+  const [showInlineCreateCustomer, setShowInlineCreateCustomer] = useState(false);
+  const [newCustomerDraft, setNewCustomerDraft] = useState({ name: "", mobile: "", email: "" });
 
   const { hasPermission, loading: permissionsLoading } = useAgentPermissions(
     user?.uid,
@@ -324,6 +342,25 @@ const Create_new_package = ({
       updateActiveOption({ checkInDate: propCheckInDate });
     }
   }, [propCheckInDate]);
+
+  // ── Load customers for linking in save modal ──────────────────────────────
+  useEffect(() => {
+    getDocs(collection(db, "customers")).then((snap) => {
+      setCustomers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+  }, []);
+
+  const customerSuggestions = useMemo(() => {
+    const term = customerSearchText.trim().toLowerCase();
+    if (!term) return [];
+    return customers
+      .filter(
+        (c) =>
+          c.name?.toLowerCase().includes(term) ||
+          c.mobile?.includes(customerSearchText.trim()),
+      )
+      .slice(0, 8);
+  }, [customers, customerSearchText]);
 
   // ── Init / Load Data ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -755,9 +792,11 @@ const Create_new_package = ({
       if (!agentId) throw new Error("Not logged in");
       const c_data = customerId
         ? { customerId, customerName }
-        : leadId
-          ? { leadId, leadName: customerName }
-          : { customerName };
+        : selectedCustomerLink
+          ? { customerId: selectedCustomerLink.id, customerName: selectedCustomerLink.name }
+          : leadId
+            ? { leadId, leadName: customerName }
+            : { customerName };
       const refNumber = await generateQuotationRef();
 
       // Build packageOptions summary for storage
@@ -1708,21 +1747,168 @@ const Create_new_package = ({
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Customer Name *</Label>
-                <Input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Customer name"
-                  disabled={!!customerId}
-                  className={`h-8 text-xs ${customerId ? "bg-slate-100 cursor-not-allowed" : ""}`}
-                />
-                {(customerId || leadId) && (
-                  <p className="text-[10px] text-slate-400">
-                    ✓ Auto-filled from {customerId ? "customer" : "lead"} record
-                  </p>
-                )}
-              </div>
+              {/* Customer field: disabled if URL has customerId, searchable otherwise */}
+              {customerId ? (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Customer Name *</Label>
+                  <Input
+                    value={customerName}
+                    disabled
+                    className="h-8 text-xs bg-slate-100 cursor-not-allowed"
+                  />
+                  <p className="text-[10px] text-slate-400">✓ Auto-filled from customer record</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Customer *</Label>
+                  {selectedCustomerLink ? (
+                    <div className="flex items-center gap-2 h-8 px-3 rounded-lg border border-theme-primary/40 bg-theme-muted/20 text-xs">
+                      <Link2 className="h-3 w-3 text-theme-primary shrink-0" />
+                      <span className="flex-1 font-medium text-slate-800">{selectedCustomerLink.name}</span>
+                      <span className="text-[10px] font-bold text-theme-primary uppercase tracking-wide">Linked</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCustomerLink(null);
+                          setCustomerName("");
+                          setCustomerSearchText("");
+                          setShowCustomerDropdown(false);
+                        }}
+                        className="text-slate-400 hover:text-rose-500 ml-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
+                      <Input
+                        value={customerSearchText || customerName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomerSearchText(val);
+                          setCustomerName(val);
+                          setShowCustomerDropdown(val.length > 0);
+                          setShowInlineCreateCustomer(false);
+                        }}
+                        onFocus={() => {
+                          if ((customerSearchText || customerName).length > 0)
+                            setShowCustomerDropdown(true);
+                        }}
+                        placeholder="Search by name or mobile..."
+                        className="h-8 text-xs pl-8"
+                      />
+                      {showCustomerDropdown && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl z-20 overflow-hidden mt-0.5">
+                          {customerSuggestions.length > 0 ? (
+                            <ul className="max-h-36 overflow-y-auto divide-y divide-slate-100">
+                              {customerSuggestions.map((c) => (
+                                <li
+                                  key={c.id}
+                                  onMouseDown={() => {
+                                    setSelectedCustomerLink({ id: c.id, name: c.name });
+                                    setCustomerName(c.name);
+                                    setCustomerSearchText("");
+                                    setShowCustomerDropdown(false);
+                                  }}
+                                  className="flex items-center justify-between px-3 py-2 hover:bg-theme-muted/40 cursor-pointer"
+                                >
+                                  <div>
+                                    <p className="text-xs font-semibold text-slate-800">{c.name}</p>
+                                    {c.mobile && <p className="text-[10px] text-slate-400">{c.mobile}</p>}
+                                  </div>
+                                  {c.city && (
+                                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-medium text-slate-500">
+                                      {c.city}
+                                    </span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="px-3 py-2 text-xs text-slate-400 italic">No customers found</p>
+                          )}
+                          <button
+                            type="button"
+                            onMouseDown={() => {
+                              setNewCustomerDraft({ name: customerName, mobile: "", email: "" });
+                              setShowInlineCreateCustomer(true);
+                              setShowCustomerDropdown(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-theme-primary hover:bg-theme-muted/30 border-t border-slate-100 font-medium"
+                          >
+                            <UserPlus className="h-3 w-3" /> Create new customer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {leadId && !selectedCustomerLink && (
+                    <p className="text-[10px] text-slate-400">✓ Name auto-filled from lead. Optionally link to a customer.</p>
+                  )}
+
+                  {/* Inline create customer form */}
+                  {showInlineCreateCustomer && (
+                    <div className="border border-theme-primary/30 rounded-lg p-3 space-y-2 bg-slate-50 mt-1">
+                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">New Customer</p>
+                      <Input
+                        value={newCustomerDraft.name}
+                        onChange={(e) => setNewCustomerDraft((p) => ({ ...p, name: e.target.value }))}
+                        placeholder="Full name *"
+                        className="h-7 text-xs"
+                      />
+                      <Input
+                        value={newCustomerDraft.mobile}
+                        onChange={(e) => setNewCustomerDraft((p) => ({ ...p, mobile: e.target.value }))}
+                        placeholder="Mobile"
+                        className="h-7 text-xs"
+                      />
+                      <Input
+                        value={newCustomerDraft.email}
+                        onChange={(e) => setNewCustomerDraft((p) => ({ ...p, email: e.target.value }))}
+                        placeholder="Email"
+                        className="h-7 text-xs"
+                      />
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 text-xs bg-theme-primary hover:bg-theme-secondary flex-1"
+                          onClick={async () => {
+                            if (!newCustomerDraft.name.trim()) return;
+                            try {
+                              const ref = await addDoc(collection(db, "customers"), {
+                                ...newCustomerDraft,
+                                status: "New",
+                                date: new Date().toLocaleDateString(),
+                              });
+                              const newCust = { id: ref.id, ...newCustomerDraft };
+                              setCustomers((prev) => [...prev, newCust]);
+                              setSelectedCustomerLink({ id: ref.id, name: newCustomerDraft.name });
+                              setCustomerName(newCustomerDraft.name);
+                              setShowInlineCreateCustomer(false);
+                              toast.success("Customer created and linked");
+                            } catch (err) {
+                              toast.error("Failed to create customer");
+                            }
+                          }}
+                        >
+                          Save & Link
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setShowInlineCreateCustomer(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="px-5 pb-5 flex justify-end gap-2">
               <Button

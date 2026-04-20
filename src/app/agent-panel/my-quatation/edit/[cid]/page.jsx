@@ -64,6 +64,7 @@ import {
   Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { getLeadsByAgent } from "@/firebase/leadsService";
 
 const EditQuotationPage = () => {
   const params = useParams();
@@ -94,6 +95,8 @@ const EditQuotationPage = () => {
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
   const [newCustomerName, setNewCustomerName] = useState("");
+  const [saveAsLeadId, setSaveAsLeadId] = useState("");
+  const [agentLeads, setAgentLeads] = useState([]);
 
   // ────────────────────────────────────────────────
   // Helper Functions
@@ -756,7 +759,11 @@ setToggleValue(prev => !prev)
 
   const handleSaveAs = () => {
     setNewPackageName(`Copy of ${editingQuotation.packageName || "Quotation"}`);
-    setNewCustomerName(`Copy of ${editingQuotation.customerName || "Client"}`);
+    setNewCustomerName(editingQuotation.customerName || editingQuotation.leadName || "");
+    setSaveAsLeadId(editingQuotation.leadId || "");
+    if (user?.uid) {
+      getLeadsByAgent(user.uid).then(setAgentLeads).catch(() => {});
+    }
     setShowSaveAsModal(true);
   };
 
@@ -773,6 +780,15 @@ setToggleValue(prev => !prev)
     copy.packageName = newPackageName.trim();
     copy.customerName = newCustomerName.trim();
     copy.createdAt = new Date();
+
+    if (saveAsLeadId) {
+      const lead = agentLeads.find((l) => l.id === saveAsLeadId);
+      copy.leadId = saveAsLeadId;
+      copy.leadName = lead?.name || newCustomerName.trim();
+    } else {
+      delete copy.leadId;
+      delete copy.leadName;
+    }
 
     try {
       await addDoc(
@@ -1523,19 +1539,36 @@ setToggleValue(prev => !prev)
                 />
               </div>
               <div className="space-y-2">
-                <Label>New Customer Name</Label>
+                <Label>Customer Name</Label>
                 <Input
                   value={newCustomerName}
                   onChange={(e) => setNewCustomerName(e.target.value)}
                   placeholder="John Doe"
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Link to Lead <span className="text-slate-400 font-normal text-xs">(optional)</span></Label>
+                <Select value={saveAsLeadId || "none"} onValueChange={(v) => setSaveAsLeadId(v === "none" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a lead..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— No lead —</SelectItem>
+                    {agentLeads.map((lead) => (
+                      <SelectItem key={lead.id} value={lead.id}>
+                        {lead.name}{lead.destination ? ` · ${lead.destination}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-400">Linking associates this quotation with a lead for tracking.</p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowSaveAsModal(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleConfirmSaveAs}>Save</Button>
+              <Button onClick={handleConfirmSaveAs}>Save New Quotation</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

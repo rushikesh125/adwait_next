@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { useSelector } from "react-redux";
 import { updateQuotation } from "@/firebase/quotations";
+import { getLeadsByAgent } from "@/firebase/leadsService";
 
 export function useQuotationState() {
   // `loading` here is the auth loading state — managed automatically by Redux/auth slice.
@@ -64,6 +65,8 @@ export function useQuotationState() {
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
   const [newCustomerName, setNewCustomerName] = useState("");
+  const [saveAsLeadId, setSaveAsLeadId] = useState("");
+  const [agentLeads, setAgentLeads] = useState([]);
 
   // ─── Markup mode ─────────────────────────────────────────────────────────
   const [markupMode, setMarkupMode] = useState("amount"); // "amount" | "percentage"
@@ -943,7 +946,11 @@ const handleTransportSummaryChange = (field, value) => {
   const handleSaveAs = () => {
     if (!editingQuotation) { alert("No active quotation."); return; }
     setNewPackageName(`Copy of ${editingQuotation.packageName}`);
-    setNewCustomerName(`Copy of ${editingQuotation.customerName}`);
+    setNewCustomerName(editingQuotation.customerName || editingQuotation.leadName || "");
+    setSaveAsLeadId(editingQuotation.leadId || "");
+    if (user?.uid) {
+      getLeadsByAgent(user.uid).then(setAgentLeads).catch(() => {});
+    }
     setShowSaveAsModal(true);
     setIsEditModalOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -959,6 +966,14 @@ const handleTransportSummaryChange = (field, value) => {
     newData.packageName = newPackageName.trim();
     newData.customerName = newCustomerName.trim();
     newData.createdAt = new Date();
+    if (saveAsLeadId) {
+      const lead = agentLeads.find((l) => l.id === saveAsLeadId);
+      newData.leadId = saveAsLeadId;
+      newData.leadName = lead?.name || newCustomerName.trim();
+    } else {
+      delete newData.leadId;
+      delete newData.leadName;
+    }
     try {
       const ref = collection(db, "saved_packages_by_agents", agentId, "packages");
       await addDoc(ref, newData);
@@ -1089,7 +1104,7 @@ const handleTransportSummaryChange = (field, value) => {
     availableActivities, isFetchingActivities, selectedActivityToAdd, setSelectedActivityToAdd,
     // Save-as
     showSaveAsModal, setShowSaveAsModal, newPackageName, setNewPackageName,
-    newCustomerName, setNewCustomerName,
+    newCustomerName, setNewCustomerName, saveAsLeadId, setSaveAsLeadId, agentLeads,
     // Markup
     markupMode, setMarkupMode,
     // Computed

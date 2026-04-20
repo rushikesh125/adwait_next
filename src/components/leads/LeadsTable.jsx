@@ -16,6 +16,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,7 @@ export default function LeadsTable({
   leads,
   onStatusChange,
   onDeleteLead,
+  onCloneLead,
   statusFilter: controlledStatusFilter,
   setStatusFilter: setControlledStatusFilter,
 }) {
@@ -395,6 +397,15 @@ export default function LeadsTable({
                         onClick={() => router.push(`./leads/${lead.id}`)}
                       >
                         <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Clone lead"
+                        className="h-8 w-8 text-slate-400 hover:text-theme-primary"
+                        onClick={() => onCloneLead?.(lead.id)}
+                      >
+                        <Copy className="h-4 w-4" />
                       </Button>
                       <Button
                         size="icon"

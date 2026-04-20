@@ -456,6 +456,9 @@ const QuotationModals = ({
   newCustomerName,
   setNewCustomerName,
   handleConfirmSaveAs,
+  saveAsLeadId,
+  setSaveAsLeadId,
+  agentLeads,
   onOpenBookingConfirmation,
 }) => {
   const truncateText = (text, maxLength) => {
@@ -1338,8 +1341,31 @@ const QuotationModals = ({
             <DialogTitle className="text-lg sm:text-xl text-theme-primary">Save as New Quotation</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 sm:space-y-6 py-4">
-            <div className="space-y-2"><Label htmlFor="newPackageName" className="text-sm">New Package Name</Label><Input id="newPackageName" value={newPackageName} onChange={(e) => setNewPackageName(e.target.value)} placeholder="Summer Special Goa 2025" className="text-sm" /></div>
-            <div className="space-y-2"><Label htmlFor="newCustomerName" className="text-sm">New Customer Name</Label><Input id="newCustomerName" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="John Doe" className="text-sm" /></div>
+            <div className="space-y-2">
+              <Label htmlFor="newPackageName" className="text-sm">New Package Name</Label>
+              <Input id="newPackageName" value={newPackageName} onChange={(e) => setNewPackageName(e.target.value)} placeholder="Summer Special Goa 2025" className="text-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newCustomerName" className="text-sm">Customer Name</Label>
+              <Input id="newCustomerName" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="John Doe" className="text-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Link to Lead <span className="text-slate-400 font-normal">(optional)</span></Label>
+              <Select value={saveAsLeadId || "none"} onValueChange={(v) => setSaveAsLeadId(v === "none" ? "" : v)}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Select a lead..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— No lead —</SelectItem>
+                  {(agentLeads || []).map((lead) => (
+                    <SelectItem key={lead.id} value={lead.id}>
+                      {lead.name}{lead.destination ? ` · ${lead.destination}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-slate-400">Linking associates this quotation with a lead for tracking.</p>
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowSaveAsModal(false)} className="w-full sm:w-auto">Cancel</Button>
