@@ -375,6 +375,31 @@ const Create_new_package = ({
       .slice(0, 8);
   }, [customers, customerSearchText]);
 
+  // Active leads for the selected customer (used in lead selector dropdown)
+  const leadsForSelectedCustomer = useMemo(() => {
+    if (!selectedCustomerLink) return agentLeads;
+    return agentLeads.filter(
+      (l) =>
+        l.customerId === selectedCustomerLink.id &&
+        !["Closed Won", "Closed Lost"].includes(l.status),
+    );
+  }, [agentLeads, selectedCustomerLink]);
+
+  // Auto-select the latest active lead when customer changes
+  useEffect(() => {
+    if (!isEditMode || !selectedCustomerLink || agentLeads.length === 0) return;
+    const active = agentLeads.filter(
+      (l) =>
+        l.customerId === selectedCustomerLink.id &&
+        !["Closed Won", "Closed Lost"].includes(l.status),
+    );
+    if (active.length === 0) { setSaveAsLeadId(""); return; }
+    const latest = [...active].sort(
+      (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0),
+    )[0];
+    setSaveAsLeadId(latest.id);
+  }, [selectedCustomerLink, agentLeads]);
+
   // ── Init / Load Data ──────────────────────────────────────────────────────
   useEffect(() => {
     if (reduxCustomerName && !customerName) setCustomerName(reduxCustomerName);
@@ -1950,16 +1975,19 @@ const Create_new_package = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">— No lead —</SelectItem>
-                      {agentLeads.map((lead) => (
+                      {leadsForSelectedCustomer.map((lead) => (
                         <SelectItem key={lead.id} value={lead.id}>
                           {lead.name}
                           {lead.destination ? ` · ${lead.destination}` : ""}
+                          {lead.status ? ` (${lead.status})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-slate-400">
-                    Linking associates this quotation with a lead for tracking.
+                    {selectedCustomerLink
+                      ? `Showing active leads for ${selectedCustomerLink.name}.`
+                      : "Linking associates this quotation with a lead for tracking."}
                   </p>
                 </div>
               )}
