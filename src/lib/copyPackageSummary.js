@@ -1,6 +1,5 @@
 // src/utils/copyPackageSummary.js
-// Standalone clipboard-copy utility for WhatsApp package summaries.
-// Usage: import { copyPackageSummary } from "@/utils/copyPackageSummary";
+// Updated with multi-option package support
 
 import toast from "react-hot-toast";
 
@@ -32,36 +31,15 @@ const calculateTotalMeals = (entries) => {
   return { totalBreakfasts, totalLunches, totalDinners };
 };
 
-// ─── Summary Builder ─────────────────────────────────────────────────────────
-/**
- * Builds the plain-text WhatsApp summary string.
- *
- * @param {Object} params
- * @param {Array}       params.hotelEntries        - Saved hotel entries from Redux
- * @param {Object|null} params.selectedTransport   - Selected transport object from Redux
- * @param {Array}       params.selectedActivities  - Selected activities array from Redux
- * @param {number}      params.grandTotal          - Final grand total including markup
- * @param {Array}       params.hotels              - Full hotels list (for GoogleListingURL lookup)
- * @returns {string}
- */
-export const buildPackageSummary = ({
-  hotelEntries,
-  selectedTransport,
-  selectedActivities,
-  grandTotal,
-  hotels = [],
-}) => {
-  if (!hotelEntries.length) return "Hotel details not available.";
+// ─── Per-option block builder ─────────────────────────────────────────────────
+const buildOptionBlock = (option, index, hotels = []) => {
+  const hotelEntries = option.hotelEntries || [];
+  if (hotelEntries.length === 0) return `*${option.name}*\nNo hotels added.\n`;
 
-  const first = hotelEntries[0];
-  let s = `Dear Guests,\n\nGreetings from Adwait Tours!!\n`;
-  s += `Kindly find the best possible rates for your requirement starting ${formatDate(first.checkInDate)}\n`;
-  s += `${first.numDouble     || 0} Couple\n`;
-  s += `${first.numExtraAdult || 0} Extra Adult\n`;
-  s += `${first.numExtraChild || 0} Extra Child\n`;
-  if ((first.numCNB || 0) > 0)
-    s += `${first.numCNB} Child With No Bed (CNB)\n`;
-  s += `\n`;
+  const optHotelTotal = hotelEntries.reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
+  let s = `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
+  s += `*📦 ${option.name.toUpperCase()}*\n`;
+  s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n\n`;
   s += ` *HOTELS*\n`;
 
   hotelEntries.forEach((e, idx) => {
@@ -76,15 +54,117 @@ export const buildPackageSummary = ({
     s += ` ⇒ ${formatDate(e.checkInDate)} to ${formatDate(e.checkOutDate)} (${e.nights} Nights, ${MEAL_PLAN_LABELS[e.selectedMealPlan] || e.selectedMealPlan})\n\n`;
   });
 
-  s += `*TOTAL TOUR COST = ₹${grandTotal.toLocaleString("en-IN")}/-*\n\n`;
-  s += `*INCLUDED*\n`;
+  s += `🏨 *${option.name} Hotel Cost: ₹${optHotelTotal.toLocaleString("en-IN")}/-*\n`;
+  return s;
+};
 
-  const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(hotelEntries);
-  if (totalBreakfasts > 0)  s += `✅ ${totalBreakfasts} Breakfast(s)\n`;
-  if (totalLunches > 0)     s += `✅ ${totalLunches} Lunch(es)\n`;
-  if (totalDinners > 0)     s += `✅ ${totalDinners} Dinner(s)\n`;
-  if (!totalBreakfasts && !totalLunches && !totalDinners)
-    s += `✅ No meals included (EP Plan)\n`;
+// ─── Summary Builder ─────────────────────────────────────────────────────────
+/**
+ * Builds the plain-text WhatsApp summary string with multi-option support.
+ *
+ * @param {Object} params
+ * @param {Array}       params.packageOptions       - Array of package option objects (new API)
+ * @param {Object|null} params.selectedTransport    - Shared transport from Redux
+ * @param {Array}       params.selectedActivities   - Shared activities from Redux
+ * @param {number}      params.transportTotalPrice  - Shared transport cost
+ * @param {number}      params.activityTotalPrice   - Shared activity cost
+ * @param {number}      params.confirmedMarkup      - Markup amount
+ * @param {Array}       params.hotels               - Full hotels list for URL lookup
+ * --- Legacy single-option params (backwards compat) ---
+ * @param {Array}       params.hotelEntries         - Legacy: single option hotel entries
+ * @param {number}      params.grandTotal           - Legacy: single option grand total
+ * @returns {string}
+ */
+export const buildPackageSummary = ({
+  // New multi-option API
+  packageOptions,
+  selectedTransport,
+  selectedActivities,
+  transportTotalPrice = 0,
+  activityTotalPrice = 0,
+  confirmedMarkup = 0,
+  hotels = [],
+  // Legacy single-option compat
+  hotelEntries: legacyHotelEntries,
+  grandTotal: legacyGrandTotal,
+}) => {
+  // Normalise to always use options array
+  const options = packageOptions?.length
+    ? packageOptions
+    : legacyHotelEntries?.length
+    ? [{ id: 1, name: "Package", hotelEntries: legacyHotelEntries }]
+    : [];
+
+  if (!options.length) return "Hotel details not available.";
+
+  // Use first option's first entry for guest/date header
+  const firstEntry = options[0]?.hotelEntries?.[0] || {};
+
+  let s = `Dear Guests,\n\nGreetings from Adwait Tours!!\n`;
+  s += `Kindly find the best possible rates for your requirement starting ${formatDate(firstEntry.checkInDate)}\n`;
+  s += `${firstEntry.numDouble     || 0} Couple\n`;
+  s += `${firstEntry.numExtraAdult || 0} Extra Adult\n`;
+  s += `${firstEntry.numExtraChild || 0} Extra Child\n`;
+  if ((firstEntry.numCNB || 0) > 0) s += `${firstEntry.numCNB} Child With No Bed (CNB)\n`;
+  s += `\n`;
+
+  // If multiple options, note that
+  if (options.length > 1) {
+    s += `📋 *${options.length} Package Options Available — Choose Your Preference*\n\n`;
+  }
+
+  // Build each option block
+  for (let i = 0; i < options.length; i++) {
+    s += buildOptionBlock(options[i], i, hotels);
+    s += `\n`;
+  }
+
+  // Shared transport + activities
+  const hasSharedServices = selectedTransport?.selectedVehicle || selectedActivities?.length > 0;
+
+  if (hasSharedServices) {
+    s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
+    s += `*🤝 SHARED SERVICES (All Options)*\n`;
+    s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n\n`;
+
+    if (selectedTransport?.selectedVehicle) {
+      const v = selectedTransport.selectedVehicle;
+      s += `🚗 Transport: ${v.type || v.name} ${v.ac ? "AC" : "Non-AC"} — ₹${transportTotalPrice.toLocaleString("en-IN")}/-\n`;
+    }
+
+    selectedActivities?.forEach((act) => {
+      s += `🎯 ${act.name.toUpperCase()} (${act.city}) - ${act.participants} Person — ₹${Number(act.totalPrice || 0).toLocaleString("en-IN")}/-\n`;
+    });
+    s += `\n`;
+  }
+
+  // Grand total per option
+  s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
+  s += `*💰 TOTAL TOUR COST*\n`;
+  s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n\n`;
+
+  for (let i = 0; i < options.length; i++) {
+    const opt = options[i];
+    const optHotelTotal = (opt.hotelEntries || []).reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
+    const optGrandTotal = optHotelTotal + transportTotalPrice + activityTotalPrice + confirmedMarkup;
+    s += `*${opt.name}: ₹${optGrandTotal.toLocaleString("en-IN")}/-*\n`;
+  }
+
+  s += `\n`;
+
+  // Inclusions
+  s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
+  s += `*INCLUDED*\n`;
+  s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
+
+  s += `✅ Accommodation as per package selection\n`;
+
+  const allHotelEntries = options.flatMap((o) => o.hotelEntries || []);
+  const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(allHotelEntries);
+  if (totalBreakfasts > 0) s += `✅ ${totalBreakfasts} Breakfast(s)\n`;
+  if (totalLunches > 0)    s += `✅ ${totalLunches} Lunch(es)\n`;
+  if (totalDinners > 0)    s += `✅ ${totalDinners} Dinner(s)\n`;
+  if (!totalBreakfasts && !totalLunches && !totalDinners) s += `✅ No meals included (EP Plan)\n`;
 
   if (selectedTransport?.selectedVehicle) {
     const v = selectedTransport.selectedVehicle;
@@ -108,18 +188,15 @@ export const buildPackageSummary = ({
 // ─── Copy to Clipboard ───────────────────────────────────────────────────────
 /**
  * Builds the WhatsApp summary and copies it to the clipboard.
- * Shows a toast on success or failure.
- *
- * Accepts the same params as buildPackageSummary.
+ * Accepts new multi-option params and legacy single-option params.
  */
 export const copyPackageSummary = (params) => {
   const summary = buildPackageSummary(params);
 
-  // Prefer the modern Clipboard API; fall back to execCommand for older browsers.
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(summary)
-      .then(()  => toast("Package summary copied!"))
-      .catch(()  => toast.error("Copy failed"));
+      .then(() => toast("Package summary copied!"))
+      .catch(() => toast.error("Copy failed"));
     return;
   }
 
@@ -141,6 +218,7 @@ export const copyPackageSummary = (params) => {
   }
 };
 
+// ─── WhatsApp Share ───────────────────────────────────────────────────────────
 const normalizeWhatsAppNumber = (value = "") => {
   const digits = String(value).replace(/\D/g, "");
   if (!digits) return "";

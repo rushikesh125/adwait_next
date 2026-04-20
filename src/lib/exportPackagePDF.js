@@ -54,7 +54,7 @@ const calculateTotalMeals = (entries) => {
   let totalBreakfasts = 0,
     totalLunches = 0,
     totalDinners = 0;
-  entries.forEach(({ selectedMealPlan, nights }) => {
+  entries?.forEach(({ selectedMealPlan, nights }) => {
     const n = parseInt(nights, 10);
     if (isNaN(n)) return;
     if (selectedMealPlan === "CP") {
@@ -483,7 +483,6 @@ const drawCoverPage = async (
   if (hotelEntries.length > 0) {
     services.push({ label: "Hotels", path: "/hotel.png" });
 
-    // 🍽️ Meals (ONLY if NOT EP)
     const hasMeals = hotelEntries.some(
       (h) => h.selectedMealPlan && h.selectedMealPlan !== "EP",
     );
@@ -495,13 +494,13 @@ const drawCoverPage = async (
   // 🚗 Transfers
   if (selectedTransport) {
     services.push({ label: "Transfers", path: "/transfer.png" });
-
-    // 👀 Sightseeing (ALSO show when transfer exists)
-    services.push({ label: "Sightseeing", path: "/sightseeing.png" });
   }
 
-  // (keep existing activity-based sightseeing ALSO)
-  if (selectedActivities?.length > 0) {
+  // 👀 Sightseeing (ONLY ONCE if either condition is true)
+  const hasSightseeing =
+    selectedTransport || (selectedActivities && selectedActivities.length > 0);
+
+  if (hasSightseeing) {
     services.push({ label: "Sightseeing", path: "/sightseeing.png" });
   }
 
@@ -552,6 +551,12 @@ const drawCoverPage = async (
 };
 // ─── Main Export Function ─────────────────────────────────────────────────────
 export const exportPackagePDF = async ({
+  // new multi-option
+  packageOptions,
+  transportTotalPrice = 0,
+  activityTotalPrice = 0,
+  confirmedMarkup = 0,
+  // legacy single-option (kept for compat)
   hotelEntries,
   selectedTransport,
   selectedActivities,
@@ -561,7 +566,11 @@ export const exportPackagePDF = async ({
   itineraryData = null,
   refNumber = null,
 }) => {
-  if (!hotelEntries.length) {
+  const allHotelEntries = packageOptions?.length
+    ? packageOptions.flatMap((o) => o.hotelEntries || [])
+    : hotelEntries;
+
+  if (!allHotelEntries.length) {
     alert("Add at least one hotel before exporting.");
     return;
   }
@@ -591,7 +600,7 @@ export const exportPackagePDF = async ({
     pdfdoc,
     logoImg,
     posterImg,
-    hotelEntries,
+    allHotelEntries,
     itineraryData?.title,
     customerName,
     packageName,
@@ -608,126 +617,181 @@ export const exportPackagePDF = async ({
 
   let y = 42;
 
-  pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(11);
-  pdfdoc.setTextColor(BRAND);
-  pdfdoc.text("Hotel Details", 15, y);
-  pdfdoc.setTextColor("#000");
+  // ── Render each package option ──
+  const options = packageOptions?.length
+    ? packageOptions
+    : [{ id: 1, name: "Package", hotelEntries }];
 
-  autoTable(pdfdoc, {
-    startY: y + 5,
-    head: [
-      [
-        "Hotel Name",
-        "City",
-        "Room Type",
-        "Dates",
-        "Nights",
-        "Meal Plan",
-        "Guests",
-      ],
-    ],
-    didDrawCell: function (data) {
-      if (data.section === "body" && data.column.index === 0) {
-        const h = hotelEntries[data.row.index];
+  for (let optIdx = 0; optIdx < options.length; optIdx++) {
+    const opt = options[optIdx];
+    const optHotels = opt.hotelEntries || [];
+    const optHotelTotal = optHotels.reduce(
+      (s, e) => s + Number(e.hotelTotal || 0),
+      0,
+    );
+    const optGrandTotal =
+      optHotelTotal +
+      (transportTotalPrice || 0) +
+      (activityTotalPrice || 0) +
+      (confirmedMarkup || 0);
 
-        const link =
-          h.GoogleListingURL ||
-          h.googleLink ||
-          h.tripAdvisorLink ||
-          h.TripAdvisorURL;
+    y = ensureSpace(pdfdoc, logoImg, y, 30);
 
-        if (link) {
-          pdfdoc.link(
-            data.cell.x,
-            data.cell.y,
-            data.cell.width,
-            data.cell.height,
-            { url: link },
-          );
-        }
-      }
-    },
-    body: hotelEntries.map((h) => {
-      const guestParts = [
-        `${h.numDouble || 0} Rm`,
-        ...(h.numExtraAdult > 0 ? [`${h.numExtraAdult} Ext.Adult`] : []),
-        ...(h.numExtraChild > 0 ? [`${h.numExtraChild} Child`] : []),
-        ...(h.numCNB > 0 ? [`${h.numCNB} CNB`] : []),
-      ];
+    // Option heading
+    pdfdoc.setFillColor(BRAND);
+    pdfdoc.rect(15, y - 4, 180, 8, "F");
+    pdfdoc.setFont("helvetica", "bold");
+    pdfdoc.setFontSize(FONT_HEADING);
+    pdfdoc.setTextColor("#FFFFFF");
+    pdfdoc.text(`${opt.name}`, 18, y + 1);
+    pdfdoc.setTextColor("#000000");
+    y += 10;
 
-      // 🔗 Link priority logic
-      const hotelLink =
-        h.GoogleListingURL ||
-        h.googleLink ||
-        h.tripAdvisorLink ||
-        h.TripAdvisorURL;
-
-      const hotelCell = hotelLink
-        ? {
-            content: h.hotel,
-            styles: {
-              textColor: [13, 71, 161], // BRAND color
-              fontStyle: "bold",
-            },
-            link: hotelLink,
+    // Hotel table for this option
+    if (optHotels.length > 0) {
+      autoTable(pdfdoc, {
+        startY: y,
+        head: [
+          [
+            "Hotel Name",
+            "City",
+            "Room Type",
+            "Dates",
+            "Nights",
+            "Meal Plan",
+            "Guests",
+          ],
+        ],
+        didDrawCell: function (data) {
+          if (data.section === "body" && data.column.index === 0) {
+            const h = optHotels[data.row.index];
+            const link =
+              h.GoogleListingURL ||
+              h.googleLink ||
+              h.tripAdvisorLink ||
+              h.TripAdvisorURL;
+            if (link) {
+              pdfdoc.link(
+                data.cell.x,
+                data.cell.y,
+                data.cell.width,
+                data.cell.height,
+                { url: link },
+              );
+            }
           }
-        : h.hotel;
-
-      return [
-        hotelCell, // ✅ ONLY CHANGE HERE
-        h.city,
-        h.selectedRoomCategory,
-        `${formatDate(h.checkInDate)} - ${formatDate(h.checkOutDate)}`,
-        h.nights,
-        MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan || "—",
-        guestParts.join(", "),
-      ];
-    }),
-    theme: "grid",
-    headStyles: { fillColor: BRAND, fontSize: FONT_SMALL, fontStyle: "bold" },
-    styles: { fontSize: FONT_SMALL, cellPadding: 2.5, font: "helvetica" },
-    columnStyles: {
-      0: { cellWidth: 38 },
-      1: { cellWidth: 22 },
-      2: { cellWidth: 25 },
-      3: { cellWidth: 40 },
-      4: { cellWidth: 13 },
-      5: { cellWidth: 28 },
-      6: { cellWidth: 25 },
-    },
-    margin: { left: 15, right: 15 },
-    didDrawPage: () => addHeader(pdfdoc, logoImg),
-  });
-
-  y = pdfdoc.lastAutoTable.finalY;
-
-  autoTable(pdfdoc, {
-    startY: y + 10,
-    body: [
-      [
-        {
-          content: "Grand Total Tour Cost:",
-          styles: { fontStyle: "bold", textColor: BRAND, fontSize: FONT_BODY },
         },
-        {
-          content: `Rs. ${grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
-          styles: {
-            halign: "right",
-            fontStyle: "bold",
-            textColor: BRAND,
-            fontSize: FONT_BODY,
+        body: optHotels.map((h) => {
+          const guestParts = [
+            `${h.numDouble || 0} Rm`,
+            ...(h.numExtraAdult > 0 ? [`${h.numExtraAdult} Ext.Adult`] : []),
+            ...(h.numExtraChild > 0 ? [`${h.numExtraChild} Child`] : []),
+            ...(h.numCNB > 0 ? [`${h.numCNB} CNB`] : []),
+          ];
+          const hotelLink =
+            h.GoogleListingURL ||
+            h.googleLink ||
+            h.tripAdvisorLink ||
+            h.TripAdvisorURL;
+          const hotelCell = hotelLink
+            ? {
+                content: h.hotel,
+                styles: { textColor: [13, 71, 161], fontStyle: "bold" },
+              }
+            : h.hotel;
+          return [
+            hotelCell,
+            h.city,
+            h.selectedRoomCategory,
+            `${formatDate(h.checkInDate)} - ${formatDate(h.checkOutDate)}`,
+            h.nights,
+            MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan || "—",
+            guestParts.join(", "),
+          ];
+        }),
+        theme: "grid",
+        headStyles: {
+          fillColor: BRAND,
+          fontSize: FONT_SMALL,
+          fontStyle: "bold",
+        },
+        styles: { fontSize: FONT_SMALL, cellPadding: 2.5, font: "helvetica" },
+        columnStyles: {
+          0: { cellWidth: 38 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 40 },
+          4: { cellWidth: 13 },
+          5: { cellWidth: 28 },
+          6: { cellWidth: 25 },
+        },
+        margin: { left: 15, right: 15 },
+        didDrawPage: () => addHeader(pdfdoc, logoImg),
+      });
+      y = pdfdoc.lastAutoTable.finalY + 4;
+    }
+
+    // Transport + Activities names (no individual prices)
+    const sharedLines = [];
+    if (selectedTransport?.selectedVehicle) {
+      const v = selectedTransport.selectedVehicle;
+      sharedLines.push(
+        ` Transport: ${v.type || v.name}${v.ac ? " (AC)" : " (Non-AC)"}`,
+      );
+    }
+    if (selectedActivities?.length > 0) {
+      selectedActivities.forEach((a) => {
+        sharedLines.push(
+          ` Activity: ${a.name} (${a.city || "—"}) × ${a.participants} pax`,
+        );
+      });
+    }
+
+    if (sharedLines.length > 0) {
+      y = ensureSpace(pdfdoc, logoImg, y, sharedLines.length * 6 + 6);
+      pdfdoc.setFont("helvetica", "normal");
+      pdfdoc.setFontSize(FONT_SMALL);
+      pdfdoc.setTextColor("#444");
+      sharedLines.forEach((line) => {
+        pdfdoc.text(line, 18, y);
+        y += 5.5;
+      });
+      y += 2;
+    }
+
+    // Grand total for this option only
+    autoTable(pdfdoc, {
+      startY: y,
+      body: [
+        [
+          {
+            content: `${opt.name} — Total Tour Cost:`,
+            styles: {
+              fontStyle: "bold",
+              textColor: BRAND,
+              fontSize: FONT_BODY,
+            },
           },
-        },
+          {
+            content: `Rs. ${optGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+            styles: {
+              halign: "right",
+              fontStyle: "bold",
+              textColor: BRAND,
+              fontSize: FONT_BODY,
+            },
+          },
+        ],
       ],
-    ],
-    theme: "grid",
-    styles: { fontSize: FONT_BODY, cellPadding: 3, font: "helvetica" },
-    columnStyles: { 0: { cellWidth: 120 } },
-    margin: { left: 15, right: 15 },
-    didDrawPage: () => addHeader(pdfdoc, logoImg),
-  });
-  y = pdfdoc.lastAutoTable.finalY;
+      theme: "grid",
+      styles: { fontSize: FONT_BODY, cellPadding: 3, font: "helvetica" },
+      columnStyles: { 0: { cellWidth: 120 } },
+      margin: { left: 15, right: 15 },
+      didDrawPage: () => addHeader(pdfdoc, logoImg),
+    });
+
+    y = pdfdoc.lastAutoTable.finalY + 12;
+  }
   // ── MOVED: INCLUSIONS & EXCLUSIONS ──
   const { totalBreakfasts, totalLunches, totalDinners } =
     calculateTotalMeals(hotelEntries);
@@ -782,6 +846,11 @@ export const exportPackagePDF = async ({
 
     autoTable(pdfdoc, {
       startY: y,
+      margin: {
+        top: 42,
+        left: 15,
+        right: 15,
+      },
       head: [
         [
           {
@@ -807,8 +876,9 @@ export const exportPackagePDF = async ({
         font: "helvetica",
       },
       columnStyles: { 0: { cellWidth: 90 }, 1: { cellWidth: 90 } },
-      margin: { left: 15, right: 15 },
-      didDrawPage: () => addHeader(pdfdoc, logoImg),
+      didDrawPage: function () {
+        addHeader(pdfdoc, logoImg);
+      },
     });
 
     // Update y to the end of this table for any sections following it
@@ -820,106 +890,131 @@ export const exportPackagePDF = async ({
   addFooter(pdfdoc);
 
   // ITINERARY PAGES + INCLUSIONS & EXCLUSIONS (original logic preserved)
-  const itin = itineraryData;
-  const hasDays = itin?.days?.length > 0;
+ // ── ITINERARY PAGES ─────────────────────────────────────────────
 
-  if (itin && hasDays) {
-    pdfdoc.addPage();
-    addHeader(pdfdoc, logoImg);
+const itin = itineraryData;
 
-    y = 42;
+// ✅ Only check if days exist (NOT strict)
+const hasValidItinerary =
+  itin &&
+  Array.isArray(itin.days) &&
+  itin.days.length > 0;
 
-    y = drawSectionHeading(
-      pdfdoc,
-      `Itinerary${itin.title ? ": " + itin.title : ""}`,
-      y,
-    );
-    y += 6;
+if (hasValidItinerary) {
+  pdfdoc.addPage();
+  addHeader(pdfdoc, logoImg);
 
-    if (itin.cities?.length) {
-      pdfdoc.setFont("helvetica", "normal");
-      pdfdoc.setFontSize(FONT_BODY);
-      pdfdoc.setTextColor("#555");
-      pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
-      y += 8;
-    }
+  y = 42;
 
+  // ── Heading ──
+  y = drawSectionHeading(
+    pdfdoc,
+    `Itinerary${itin.title ? ": " + itin.title : ""}`,
+    y
+  );
+  y += 6;
+
+  // ── Cities ──
+  if (itin.cities?.length) {
+    pdfdoc.setFont("helvetica", "normal");
+    pdfdoc.setFontSize(FONT_BODY);
+    pdfdoc.setTextColor("#555");
+    pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
+    y += 8;
+  }
+
+  // ✅ Filter valid days (ONLY for rendering days)
+  const validDays = itin.days.filter(
+    (d) => d && (d.title || d.description)
+  );
+
+  // ── Day-wise Heading ──
+  if (validDays.length > 0) {
     pdfdoc.setFont("helvetica", "bold");
     pdfdoc.setFontSize(FONT_DAY);
     pdfdoc.setTextColor(BRAND_DARK);
     pdfdoc.text("Day-wise Program", 15, y);
     y += 7;
 
-    for (let di = 0; di < itin.days.length; di++) {
-      const day = itin.days[di];
+    for (let di = 0; di < validDays.length; di++) {
+      const day = validDays[di];
+      const originalIndex = itin.days.indexOf(day);
+
       const enrichedDay = {
         ...day,
-        images: (dayImagesMap[di] || [])
+        images: (dayImagesMap[originalIndex] || [])
           .map((imgObj, ii) =>
-            imgObj ? { imgObj, src: (day.images || [])[ii] } : null,
+            imgObj ? { imgObj, src: (day.images || [])[ii] } : null
           )
           .filter(Boolean)
           .map((x) => x.src),
       };
+
       y = await drawDay(pdfdoc, logoImg, enrichedDay, y);
     }
-
-    // Terms & Conditions
-    const selectedTnc = (itin.tnc || []).filter((i) => i.selected);
-    const selectedCan = (itin.cancellation || []).filter((i) => i.selected);
-
-    if (selectedTnc.length || selectedCan.length) {
-      y = ensureSpace(pdfdoc, logoImg, y, 16);
-      y += 4;
-      y = drawSectionHeading(
-        pdfdoc,
-        "Terms & Conditions / Cancellation Policy",
-        y,
-      );
-      y += 4;
-
-      if (selectedTnc.length) {
-        y = drawChecklist(
-          pdfdoc,
-          logoImg,
-          "Terms & Conditions",
-          itin.tnc,
-          y,
-          AMBER,
-          true,
-        );
-      }
-      if (selectedCan.length) {
-        y = drawChecklist(
-          pdfdoc,
-          logoImg,
-          "Cancellation Policy",
-          itin.cancellation,
-          y,
-          "#C62828",
-          true,
-        );
-      }
-    }
-
-    // Important Information
-    if (itin.impInfo?.some((i) => i.selected)) {
-      y = ensureSpace(pdfdoc, logoImg, y, 16);
-      y += 4;
-      y = drawSectionHeading(pdfdoc, "Important Information", y);
-      y += 4;
-      y = drawChecklist(pdfdoc, logoImg, "", itin.impInfo, y, BRAND, true);
-    }
-
-    // ── INCLUSIONS & EXCLUSIONS (UPDATED - clean, no icons, better position) ──
-
-    addFooter(pdfdoc);
-  } else {
-    // No itinerary case - inclusions on page 2 (kept original fallback logic)
-    // ... (your original else block remains)
-    y = pdfdoc.lastAutoTable.finalY + 15;
-    // (You can keep your original no-itinerary inclusions code here if needed)
   }
+
+  // 🔥 IMPORTANT: ALWAYS show these (independent of validDays)
+
+  const selectedTnc = (itin.tnc || []).filter((i) => i.selected);
+  const selectedCan = (itin.cancellation || []).filter((i) => i.selected);
+
+  if (selectedTnc.length || selectedCan.length) {
+    y = ensureSpace(pdfdoc, logoImg, y, 16);
+    y += 4;
+
+    y = drawSectionHeading(
+      pdfdoc,
+      "Terms & Conditions / Cancellation Policy",
+      y
+    );
+    y += 4;
+
+    if (selectedTnc.length) {
+      y = drawChecklist(
+        pdfdoc,
+        logoImg,
+        "Terms & Conditions",
+        itin.tnc,
+        y,
+        AMBER,
+        true
+      );
+    }
+
+    if (selectedCan.length) {
+      y = drawChecklist(
+        pdfdoc,
+        logoImg,
+        "Cancellation Policy",
+        itin.cancellation,
+        y,
+        "#C62828",
+        true
+      );
+    }
+  }
+
+  if (itin.impInfo?.some((i) => i.selected)) {
+    y = ensureSpace(pdfdoc, logoImg, y, 16);
+    y += 4;
+
+    y = drawSectionHeading(pdfdoc, "Important Information", y);
+    y += 4;
+
+    y = drawChecklist(
+      pdfdoc,
+      logoImg,
+      "",
+      itin.impInfo,
+      y,
+      BRAND,
+      true
+    );
+  }
+
+  addFooter(pdfdoc);
+}
 
   // Generate PDF filename: ClientName_PackageName.pdf
   let rawName = `${(customerName || "Client").trim()}_${(packageName || "Travel_Package").trim()}.pdf`;
