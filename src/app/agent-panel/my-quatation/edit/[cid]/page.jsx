@@ -790,6 +790,7 @@ setToggleValue(prev => !prev)
       const lead = agentLeads.find((l) => l.id === saveAsLeadId);
       copy.leadId = saveAsLeadId;
       copy.leadName = lead?.name || newCustomerName.trim();
+      if (lead?.customerId) copy.customerId = lead.customerId;
     } else {
       delete copy.leadId;
       delete copy.leadName;

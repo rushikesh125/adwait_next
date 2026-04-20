@@ -804,12 +804,17 @@ const Create_new_package = ({
       const agentId = user?.uid;
       if (!agentId) throw new Error("Not logged in");
       const effectiveLeadId = isEditMode ? (saveAsLeadId || null) : leadId;
+      const linkedLead = effectiveLeadId ? agentLeads.find((l) => l.id === effectiveLeadId) : null;
       const c_data = customerId
         ? { customerId, customerName }
         : selectedCustomerLink
           ? { customerId: selectedCustomerLink.id, customerName: selectedCustomerLink.name }
           : effectiveLeadId
-            ? { leadId: effectiveLeadId, leadName: customerName }
+            ? {
+                leadId: effectiveLeadId,
+                leadName: customerName,
+                ...(linkedLead?.customerId ? { customerId: linkedLead.customerId } : {}),
+              }
             : { customerName };
       const refNumber = await generateQuotationRef();
 

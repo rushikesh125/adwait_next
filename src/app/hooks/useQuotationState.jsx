@@ -970,6 +970,7 @@ const handleTransportSummaryChange = (field, value) => {
       const lead = agentLeads.find((l) => l.id === saveAsLeadId);
       newData.leadId = saveAsLeadId;
       newData.leadName = lead?.name || newCustomerName.trim();
+      if (lead?.customerId) newData.customerId = lead.customerId;
     } else {
       delete newData.leadId;
       delete newData.leadName;
