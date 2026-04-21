@@ -162,9 +162,15 @@ export async function generateInvoicePDF(invoice = {}) {
           ? `${item.discountValue}%`
           : rupee(item.discountValue)
         : "—";
+
+    // Build description cell: item name on first line, details below
+    const namePart = item.itemName || "";
+    const descPart = item.description || "";
+    const descCell = [namePart, descPart].filter(Boolean).join("\n") || "—";
+
     return [
       idx + 1,
-      item.description || "—",
+      descCell,
       item.quantity,
       rupee(item.unitPrice),
       discStr,
@@ -184,18 +190,49 @@ export async function generateInvoicePDF(invoice = {}) {
       fontStyle: "bold",
       fontSize: 8,
     },
-    bodyStyles: { fontSize: 8, textColor: hex2rgb(BRAND.text) },
+    bodyStyles: { fontSize: 7.5, textColor: hex2rgb(BRAND.text) },
     columnStyles: {
       0: { cellWidth: 8, halign: "center" },
-      1: { cellWidth: 60 },
+      1: { cellWidth: 62 },
       2: { cellWidth: 12, halign: "center" },
-      3: { cellWidth: 28, halign: "right" },
+      3: { cellWidth: 26, halign: "right" },
       4: { cellWidth: 22, halign: "right" },
       5: { cellWidth: 14, halign: "center" },
       6: { cellWidth: 28, halign: "right" },
     },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     margin: { left: ML, right: MR },
+    didParseCell: (data) => {
+      // Bold the item name (first line) in description column
+      if (data.section === "body" && data.column.index === 1) {
+        const lineItems = invoice.lineItems || [];
+        const item = lineItems[data.row.index];
+        if (item?.itemName) {
+          data.cell.styles.fontStyle = "bold";
+        }
+      }
+    },
+    didDrawCell: (data) => {
+      // Re-draw description in normal weight below the bold item name
+      if (data.section === "body" && data.column.index === 1) {
+        const lineItems = invoice.lineItems || [];
+        const item = lineItems[data.row.index];
+        if (item?.itemName && item?.description) {
+          const x = data.cell.x + 2;
+          const nameLineHeight = 4.5;
+          const y0 = data.cell.y + data.cell.padding("top") + nameLineHeight;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(6.5);
+          doc.setTextColor(...hex2rgb(BRAND.muted));
+          const descLines = doc.splitTextToSize(item.description, data.cell.width - 4);
+          doc.text(descLines, x, y0);
+          // Reset
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.setTextColor(...hex2rgb(BRAND.text));
+        }
+      }
+    },
   });
 
   y = doc.lastAutoTable.finalY + 6;

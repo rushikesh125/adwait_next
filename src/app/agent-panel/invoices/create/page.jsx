@@ -43,6 +43,7 @@ const INVOICE_STATUSES = ["Draft", "Sent", "Paid", "Partial", "Overdue", "Cancel
 
 const newLineItem = () => ({
   _key: Math.random().toString(36).slice(2),
+  itemName: "",
   description: "",
   quantity: 1,
   unitPrice: "",
@@ -126,21 +127,20 @@ function CreateInvoiceInner() {
         // Build line items from quotation package details
         const lineItems = [];
 
-        // Main package line item from quotation
         if (quotation) {
-          const packageDesc = buildPackageDescription(quotation);
           lineItems.push({
             ...newLineItem(),
-            description: packageDesc,
+            itemName: quotation.packageName || `Tour Package — ${booking.destination || ""}`,
+            description: buildPackageDescription(quotation),
             quantity: 1,
             unitPrice: Number(booking.totalAmount) || 0,
             gstRate: 0,
           });
         } else {
-          // No quotation — use booking total
           lineItems.push({
             ...newLineItem(),
-            description: `Travel Package — ${booking.destination || "Tour"}`,
+            itemName: `Tour Package — ${booking.destination || "Tour"}`,
+            description: "",
             quantity: 1,
             unitPrice: Number(booking.totalAmount) || 0,
             gstRate: 0,
@@ -185,7 +185,7 @@ function CreateInvoiceInner() {
           dueDate: inv.dueDate || "",
           status: inv.status || "Draft",
           gstType: inv.gstType || "intra",
-          lineItems: (inv.lineItems || [newLineItem()]).map((li) => ({ ...li, _key: li._key || Math.random().toString(36).slice(2) })),
+          lineItems: (inv.lineItems || [newLineItem()]).map((li) => ({ ...li, itemName: li.itemName || "", _key: li._key || Math.random().toString(36).slice(2) })),
           notes: inv.notes || "",
           termsAndConditions: inv.termsAndConditions || "",
           sourceType: inv.sourceType || "manual",
@@ -600,12 +600,25 @@ function LineItemRow({ item, index, onChange, onRemove, canRemove }) {
       </div>
 
       <div>
-        <Label className="text-xs font-bold text-slate-500 mb-1 block">Description</Label>
+        <Label className="text-xs font-bold text-slate-500 mb-1 block">Item Name</Label>
         <Input
+          value={item.itemName}
+          onChange={(e) => onChange("itemName", e.target.value)}
+          className="rounded-xl text-sm bg-white font-semibold"
+          placeholder="e.g. Goa Holiday Package"
+        />
+      </div>
+
+      <div>
+        <Label className="text-xs font-bold text-slate-500 mb-1 block">
+          Description <span className="text-slate-400 font-normal">(hotels, dates, inclusions)</span>
+        </Label>
+        <Textarea
           value={item.description}
           onChange={(e) => onChange("description", e.target.value)}
-          className="rounded-xl text-sm bg-white"
-          placeholder="Service or product description"
+          className="rounded-xl text-sm bg-white resize-none"
+          rows={4}
+          placeholder={"e.g.\nHotel Grand – Goa | Check-in: 10 Dec → Check-out: 13 Dec (3N)\nIncluded: Breakfast, Airport Transfer\nExcluded: Airfare, Personal expenses"}
         />
       </div>
 
@@ -707,22 +720,59 @@ function TotalRow({ label, value, color }) {
   );
 }
 
+const fmtDate = (d) => {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
+
 function buildPackageDescription(quotation) {
-  const parts = [`Package: ${quotation.packageName || "Tour Package"}`];
+  const lines = [];
+
+  // Hotels with check-in / check-out
   if (quotation.hotelSummary?.length) {
-    const hotels = quotation.hotelSummary
-      .map((h) => `${h.hotel || h.hotelName || "Hotel"} (${h.city || ""}, ${h.nights || 0}N)`)
-      .join(", ");
-    parts.push(`Hotels: ${hotels}`);
+    quotation.hotelSummary.forEach((h) => {
+      const name = h.hotel || h.hotelName || "Hotel";
+      const city = h.city ? ` – ${h.city}` : "";
+      const nights = h.nights ? ` (${h.nights}N)` : "";
+      const room = h.selectedRoomCategory ? `, ${h.selectedRoomCategory}` : "";
+      const meal = h.selectedMealPlan ? `, ${h.selectedMealPlan}` : "";
+      const cin = fmtDate(h.checkInDate || h.checkIn);
+      const cout = fmtDate(h.checkOutDate || h.checkOut);
+      const dates = cin && cout ? ` | Check-in: ${cin} → Check-out: ${cout}` : "";
+      lines.push(`🏨 ${name}${city}${nights}${room}${meal}${dates}`);
+    });
   }
+
+  // Transport
   if (quotation.transportSummary?.vehicleName) {
-    parts.push(`Transport: ${quotation.transportSummary.vehicleName}`);
+    const t = quotation.transportSummary;
+    lines.push(`🚗 Transport: ${t.vehicleName}${t.ac ? " (AC)" : ""}${t.state ? ` – ${t.state}` : ""}`);
   }
+
+  // Activities
   if (quotation.activitySummary?.length) {
     const acts = quotation.activitySummary.map((a) => a.name).join(", ");
-    parts.push(`Activities: ${acts}`);
+    lines.push(`🎯 Activities: ${acts}`);
   }
-  return parts.join("\n");
+
+  // Inclusions
+  const itinerary = quotation.itinerarySummary;
+  const included = (itinerary?.inclusions || [])
+    .filter((i) => i.selected)
+    .map((i) => i.text);
+  if (included.length) {
+    lines.push(`\n✅ Included:\n${included.map((i) => `  • ${i}`).join("\n")}`);
+  }
+
+  // Exclusions
+  const excluded = (itinerary?.exclusions || [])
+    .filter((i) => i.selected)
+    .map((i) => i.text);
+  if (excluded.length) {
+    lines.push(`\n❌ Excluded:\n${excluded.map((i) => `  • ${i}`).join("\n")}`);
+  }
+
+  return lines.join("\n");
 }
 
 export default function CreateInvoicePage() {

@@ -339,7 +339,15 @@ export default function InvoiceDetailPage() {
                       <tr key={i} className={`border-b border-slate-50 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
                         <td className="px-6 py-3 text-slate-400 text-xs">{i + 1}</td>
                         <td className="px-3 py-3">
-                          <p className="font-semibold text-slate-800 whitespace-pre-line">{item.description || "—"}</p>
+                          {item.itemName && (
+                            <p className="font-bold text-slate-800">{item.itemName}</p>
+                          )}
+                          {item.description && (
+                            <p className="text-xs text-slate-500 whitespace-pre-line mt-0.5 leading-relaxed">
+                              {item.description}
+                            </p>
+                          )}
+                          {!item.itemName && !item.description && <span className="text-slate-400">—</span>}
                         </td>
                         <td className="px-3 py-3 text-right text-slate-600">{item.quantity}</td>
                         <td className="px-3 py-3 text-right text-slate-600">{formatCurrency(item.unitPrice)}</td>
