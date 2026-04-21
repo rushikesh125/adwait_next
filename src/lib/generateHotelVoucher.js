@@ -289,25 +289,40 @@
     const rupee = "\u20B9";
     const dash  = "\u2014";
 
-    let payText = voucher.paymentStatus || dash;
+    const isPayAtHotel = voucher.paymentStatus === "Payment at hotel";
+    const isPaid       = voucher.paymentStatus === "Amount paid to hotel";
 
-    if (voucher.amount) {
-      const shouldShowAmount =
-        voucher.paymentStatus === "Payment at hotel" ||
-        (voucher.paymentStatus === "Amount paid to hotel" && voucher.showAmountInVoucher === true);
+    if (isPayAtHotel && voucher.amount) {
+      // Amber warning box: balance due at check-in
+      const amtBoxH = 16;
+      doc.setFillColor(255, 248, 225);   // amber-50
+      doc.rect(ML, y, CW, amtBoxH, "F");
+      doc.setDrawColor(251, 191, 36);    // amber-400
+      doc.setLineWidth(0.5);
+      doc.rect(ML, y, CW, amtBoxH, "S");
 
-      if (shouldShowAmount) {
-        payText = `${voucher.paymentStatus} ${dash} ${rupee}${voucher.amount}`;
-      } else {
-        payText = `${voucher.paymentStatus}`;
-      }
+      setFont("bold", 8.5, "#92400E");   // amber-800
+      doc.text("AMOUNT TO BE PAID AT HOTEL", ML + 4, y + 5.5);
+      setFont("bold", 11, "#78350F");    // amber-900
+      doc.text(`${rupee} ${Number(voucher.amount).toLocaleString("en-IN")}`, ML + CW - 4, y + 5.5, { align: "right" });
+
+      setFont("normal", 7.5, "#92400E");
+      doc.text("Please keep this amount ready to pay at check-in.", ML + 4, y + 12);
+
+      y += amtBoxH + 4;
+    } else {
+      // Simple status badge for Paid / Complimentary
+      const statusLabel = isPaid ? "Paid" : (voucher.paymentStatus || dash);
+      const badgeFill   = isPaid ? "#E8F5E9" : BRAND.light;
+      const badgeStroke = isPaid ? "#A5D6A7" : BRAND.rule;
+      const textColor   = isPaid ? "#1B5E20" : BRAND.text;
+
+      filledRect(ML, y, CW, 9, badgeFill);
+      borderedRect(ML, y, CW, 9, badgeStroke);
+      setFont(isPaid ? "bold" : "normal", 9.5, textColor);
+      doc.text(statusLabel, ML + 4, y + 6);
+      y += 13;
     }
-
-    filledRect(ML, y, CW, 9, BRAND.light);
-    borderedRect(ML, y, CW, 9, BRAND.rule);
-    setFont("normal", 9.5, BRAND.text);
-    doc.text(payText, ML + 4, y + 6);
-    y += 13;
 
     /* ─────────────────────────────────────────────────────────────────────
       CANCELLATION POLICY

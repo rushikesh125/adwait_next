@@ -916,71 +916,40 @@ const CreateHotelVoucherPage = () => {
         <Section title="Payment Details" icon={IndianRupee}>
           <RadioGroup
             value={form.paymentStatus}
-            onValueChange={(v) => setForm({ ...form, paymentStatus: v })}
+            onValueChange={(v) => setForm({ ...form, paymentStatus: v, amount: "" })}
             className="space-y-4"
           >
             {[
-              { value: "Amount paid to hotel", label: "Amount Paid to Hotel" },
+              { value: "Amount paid to hotel", label: "Paid" },
               { value: "Payment at hotel", label: "Pay at Hotel" },
               { value: "Complimentary", label: "Complimentary" },
             ].map((opt) => (
               <div key={opt.value} className="flex items-center gap-3">
                 <RadioGroupItem value={opt.value} id={opt.value} />
-                <Label
-                  htmlFor={opt.value}
-                  className="font-medium cursor-pointer"
-                >
+                <Label htmlFor={opt.value} className="font-medium cursor-pointer">
                   {opt.label}
                 </Label>
               </div>
             ))}
           </RadioGroup>
 
-          {(form.paymentStatus === "Amount paid to hotel" ||
-            form.paymentStatus === "Payment at hotel") && (
-            <div className="mt-6 space-y-5">
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-2">
-                  <IndianRupee className="h-4 w-4" />
-                  Amount (₹)
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="Enter amount"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                />
-              </div>
-
-              {form.paymentStatus === "Amount paid to hotel" && (
-                <div className="flex items-center gap-3 pt-2">
-                  <Checkbox
-                    id="showAmount"
-                    checked={form.showAmountInVoucher}
-                    onCheckedChange={(checked) =>
-                      setForm({ ...form, showAmountInVoucher: !!checked })
-                    }
-                  />
-                  <Label
-                    htmlFor="showAmount"
-                    className="cursor-pointer text-sm flex items-center gap-2"
-                  >
-                    {form.showAmountInVoucher ? (
-                      <Eye className="h-4 w-4 text-theme-primary" />
-                    ) : (
-                      <EyeOff className="h-4 w-4 text-slate-400" />
-                    )}
-                    Show this amount in Voucher / PDF
-                  </Label>
-                </div>
-              )}
-
-              {form.paymentStatus === "Payment at hotel" && (
-                <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  Amount will always be visible in the voucher
-                </p>
-              )}
+          {form.paymentStatus === "Payment at hotel" && (
+            <div className="mt-6 space-y-2">
+              <Label className="flex items-center gap-2 font-semibold text-amber-700">
+                <IndianRupee className="h-4 w-4" />
+                Amount to be paid at hotel (₹)
+              </Label>
+              <Input
+                type="number"
+                placeholder="Enter balance amount due at hotel"
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                className="border-amber-300 focus:ring-amber-400"
+              />
+              <p className="text-xs text-amber-600 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                This amount will be shown in the voucher so the customer knows the balance due at check-in.
+              </p>
             </div>
           )}
         </Section>
