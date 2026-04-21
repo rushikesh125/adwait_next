@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback, Suspense } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import {
@@ -11,18 +11,9 @@ import {
 } from "@/firebase/invoicesService";
 import { getBookingById } from "@/firebase/bookingsService";
 import { getQuotationById } from "@/firebase/quotations";
-import { getPaymentAccountsByAgent } from "@/firebase/paymentAccountsService";
 import { getAllCustomers, getCustomerById } from "@/firebase/customersService";
-import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  Loader2,
-  FileText,
-  ChevronDown,
-  Search,
-  X,
-} from "lucide-react";
+import { getLeadById } from "@/firebase/leadsService";
+import { ArrowLeft, Plus, Trash2, Loader2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +29,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import toast from "react-hot-toast";
 
-const GST_RATES = [0, 5, 18];
 const INVOICE_STATUSES = ["Draft", "Sent", "Paid", "Partial", "Overdue", "Cancelled"];
 
 const newLineItem = () => ({
@@ -90,7 +80,6 @@ function CreateInvoiceInner() {
   const [form, setForm] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit || !!bookingIdParam);
-  const [paymentAccounts, setPaymentAccounts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -99,16 +88,10 @@ function CreateInvoiceInner() {
     gstTotal: 0, grandTotal: 0, cgst: 0, sgst: 0, igst: 0,
   });
 
-  // Load payment accounts and customers
+  // Load customers for search
   useEffect(() => {
     if (!agentId) return;
-    Promise.all([
-      getPaymentAccountsByAgent(agentId).catch(() => []),
-      getAllCustomers().catch(() => []),
-    ]).then(([accts, custs]) => {
-      setPaymentAccounts(accts);
-      setCustomers(custs);
-    });
+    getAllCustomers().catch(() => []).then(setCustomers);
   }, [agentId]);
 
   // Load booking data if creating from booking
@@ -124,11 +107,17 @@ function CreateInvoiceInner() {
           quotation = await getQuotationById(booking.agentId, booking.quotationId).catch(() => null);
         }
 
-        // Fetch customer record: prefer customerId from quotation, then booking
+        // Fetch customer: prefer customerId from quotation → booking, then lead as fallback
         const customerId = quotation?.customerId || booking.customerId || null;
         let customer = null;
         if (customerId) {
           customer = await getCustomerById(customerId).catch(() => null);
+        }
+        // If no customer record, try the linked lead for email/mobile
+        let lead = null;
+        if (!customer) {
+          const leadId = quotation?.leadId || booking.leadId || null;
+          if (leadId) lead = await getLeadById(leadId).catch(() => null);
         }
 
         // Build line items from quotation package details
@@ -156,9 +145,9 @@ function CreateInvoiceInner() {
 
         setForm((prev) => ({
           ...prev,
-          customerName: customer?.name || booking.customerName || "",
-          customerMobile: customer?.mobile || booking.customerMobile || booking.mobile || "",
-          customerEmail: customer?.email || "",
+          customerName: customer?.name || lead?.name || booking.customerName || "",
+          customerMobile: customer?.mobile || lead?.mobile || booking.customerMobile || booking.mobile || "",
+          customerEmail: customer?.email || lead?.email || "",
           customerAddress: [customer?.city, customer?.state].filter(Boolean).join(", "),
           customerId: customerId || "",
           invoiceDate: new Date().toISOString().slice(0, 10),
