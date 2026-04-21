@@ -1,372 +1,370 @@
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 
-const BRAND = {
+/* ── Brand ───────────────────────────────────────────────────────────────── */
+const B = {
   name:    "Adwait Tours",
+  tagline: "Your Trusted Travel Partner",
   address: "Nagpur, Maharashtra, India",
   phone:   "+91 9884798483",
   email:   "sales@adwaittours.com",
   web:     "www.adwaittours.com",
-  primary: "#0D47A1",
-  accent:  "#1565C0",
-  light:   "#E3F2FD",
-  rule:    "#BBDEFB",
-  text:    "#1A1A2E",
-  muted:   "#546E7A",
-  green:   "#1B5E20",
+  // colours
+  navy:    "#0D3B6E",   // deep header navy
+  blue:    "#1565C0",   // primary accent
+  sky:     "#E8F0FE",   // light tint
+  ink:     "#0F172A",   // table header / dark text
+  body:    "#1E293B",   // body text
+  muted:   "#64748B",   // labels / secondary
+  border:  "#CBD5E1",   // hairlines
+  row:     "#F8FAFC",   // alternating row
+  green:   "#15803D",
+  red:     "#B91C1C",
 };
 
-const hex2rgb = (hex) => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return [r, g, b];
+const h2r = (hex) => [
+  parseInt(hex.slice(1, 3), 16),
+  parseInt(hex.slice(3, 5), 16),
+  parseInt(hex.slice(5, 7), 16),
+];
+
+const fmt = (v) => {
+  if (!v) return "—";
+  const d = new Date(v);
+  return isNaN(d) ? String(v) : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const fmt = (val) => {
-  if (!val) return "—";
-  const d = new Date(val);
-  if (isNaN(d)) return String(val);
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-};
-
-const rupee = (n) => {
+const rs = (n) => {
   const num = Number(n) || 0;
   return `Rs. ${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const loadLogoBase64 = () =>
+const loadLogo = () =>
   new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        canvas.getContext("2d").drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
-      } catch {
-        resolve(null);
-      }
+        const c = document.createElement("canvas");
+        c.width = img.naturalWidth || img.width;
+        c.height = img.naturalHeight || img.height;
+        c.getContext("2d").drawImage(img, 0, 0);
+        resolve(c.toDataURL("image/png"));
+      } catch { resolve(null); }
     };
     img.onerror = () => resolve(null);
     img.src = `/adwait-logo.jpg?v=${Date.now()}`;
   });
 
+/* ── Main export ─────────────────────────────────────────────────────────── */
 export async function generateInvoicePDF(invoice = {}) {
-  const logoBase64 = await loadLogoBase64();
-  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+  const logo = await loadLogo();
+  const doc  = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
 
-  const PW = 210;
-  const ML = 15;
-  const MR = 15;
-  const CW = PW - ML - MR;
-  let y = 15;
+  const PW = 210, PH = 297;
+  const ML = 14, MR = 14;
+  const CW = PW - ML - MR;   // 182 mm
+  let y = 0;
 
-  const setFont = (style = "normal", size = 10, color = BRAND.text) => {
+  /* helpers */
+  const sf = (style = "normal", size = 10, col = B.body) => {
     doc.setFont("helvetica", style);
     doc.setFontSize(size);
-    doc.setTextColor(...hex2rgb(color));
+    doc.setTextColor(...h2r(col));
   };
-
-  const rule = (thickness = 0.4, color = BRAND.rule, yy = y) => {
-    doc.setDrawColor(...hex2rgb(color));
-    doc.setLineWidth(thickness);
+  const ln = (yy = y, thick = 0.3, col = B.border) => {
+    doc.setDrawColor(...h2r(col));
+    doc.setLineWidth(thick);
     doc.line(ML, yy, ML + CW, yy);
   };
-
-  const fillRect = (x, yy, w, h, color) => {
-    doc.setFillColor(...hex2rgb(color));
-    doc.rect(x, yy, w, h, "F");
+  const box = (x, yy, w, h, fill, stroke = null) => {
+    doc.setFillColor(...h2r(fill));
+    doc.rect(x, yy, w, h, stroke ? "FD" : "F");
+    if (stroke) { doc.setDrawColor(...h2r(stroke)); doc.setLineWidth(0.3); doc.rect(x, yy, w, h, "S"); }
   };
 
-  /* ── HEADER ─────────────────────────────────────────────────────────── */
-  fillRect(ML, y, CW, 28, BRAND.primary);
+  /* ── TOP STRIPE ─────────────────────────────────────────────────────────── */
+  doc.setFillColor(...h2r(B.navy));
+  doc.rect(0, 0, PW, 8, "F");
 
-  if (logoBase64) {
-    doc.addImage(logoBase64, "PNG", ML + 3, y + 3, 18, 18);
-  }
+  /* ── HEADER ─────────────────────────────────────────────────────────────── */
+  y = 14;
 
-  setFont("bold", 18, "#FFFFFF");
-  doc.text(BRAND.name, ML + 26, y + 11);
-  setFont("normal", 8, "#BBDEFB");
-  doc.text(`${BRAND.address}  |  ${BRAND.phone}`, ML + 26, y + 17);
-  doc.text(`${BRAND.email}  |  ${BRAND.web}`, ML + 26, y + 22);
+  // Logo (left)
+  if (logo) doc.addImage(logo, "PNG", ML, y, 26, 26);
+  const cx = ML + (logo ? 30 : 0);
 
-  // TAX INVOICE label on right
-  setFont("bold", 16, "#FFFFFF");
-  doc.text("TAX INVOICE", ML + CW - 3, y + 12, { align: "right" });
+  // Company name & contact (left column)
+  sf("bold", 17, B.navy);
+  doc.text(B.name, cx, y + 9);
+  sf("italic", 7.5, B.muted);
+  doc.text(B.tagline, cx, y + 14);
+  sf("normal", 7.5, B.muted);
+  doc.text(B.address, cx, y + 19.5);
+  doc.text(`${B.phone}   |   ${B.email}`, cx, y + 24);
+  doc.text(B.web, cx, y + 28.5);
 
-  y += 32;
+  // TAX INVOICE (right, large)
+  sf("bold", 22, B.blue);
+  doc.text("TAX INVOICE", PW - MR, y + 10, { align: "right" });
 
-  /* ── INVOICE META ────────────────────────────────────────────────────── */
-  const metaLeft = ML;
-  const metaRight = ML + CW / 2 + 5;
-
-  // Left: Bill To
-  setFont("bold", 7, BRAND.muted);
-  doc.text("BILL TO", metaLeft, y);
-  y += 4;
-  setFont("bold", 11, BRAND.text);
-  doc.text(invoice.customerName || "—", metaLeft, y);
-  y += 5;
-  setFont("normal", 9, BRAND.muted);
-  if (invoice.customerMobile) {
-    doc.text(`Ph: ${invoice.customerMobile}`, metaLeft, y);
-    y += 4;
-  }
-  if (invoice.customerEmail) {
-    doc.text(`Email: ${invoice.customerEmail}`, metaLeft, y);
-    y += 4;
-  }
-  if (invoice.customerAddress) {
-    const lines = doc.splitTextToSize(invoice.customerAddress, CW / 2 - 10);
-    doc.text(lines, metaLeft, y);
-    y += lines.length * 4;
-  }
-
-  // Right: Invoice details box
-  const boxY = y - (invoice.customerAddress ? (invoice.customerAddress.split("\n").length * 4 + 13) : 13) - 4;
-  const detailRows = [
+  // Invoice meta rows (right column)
+  const metaW = 78;
+  const metaX = PW - MR - metaW;
+  const metaRows = [
     ["Invoice No.", invoice.invoiceNumber || "—"],
     ["Invoice Date", fmt(invoice.invoiceDate)],
-    ["Due Date", fmt(invoice.dueDate) || "—"],
-    ["Status", invoice.status || "Draft"],
   ];
-  if (invoice.bookingRef) detailRows.push(["Booking Ref.", invoice.bookingRef]);
+  if (invoice.dueDate)    metaRows.push(["Due Date",    fmt(invoice.dueDate)]);
+  if (invoice.bookingRef) metaRows.push(["Booking Ref.", invoice.bookingRef]);
+  metaRows.push(["Status", invoice.status || "Draft"]);
 
-  fillRect(metaRight, boxY, CW / 2 - 5, detailRows.length * 7 + 6, BRAND.light);
-
-  let boxRowY = boxY + 6;
-  detailRows.forEach(([label, val]) => {
-    setFont("normal", 8, BRAND.muted);
-    doc.text(label, metaRight + 4, boxRowY);
-    setFont("bold", 8, BRAND.text);
-    doc.text(String(val), metaRight + CW / 2 - 9, boxRowY, { align: "right" });
-    boxRowY += 7;
+  let mY = y + 16;
+  metaRows.forEach(([lbl, val]) => {
+    sf("normal", 7.5, B.muted);
+    doc.text(lbl, metaX, mY);
+    sf("bold", 7.5, B.body);
+    doc.text(String(val), PW - MR, mY, { align: "right" });
+    mY += 5;
   });
 
-  y += 6;
-  rule(0.3, BRAND.rule, y);
+  y = Math.max(y + 32, mY + 3);
+
+  /* ── PRIMARY DIVIDER ────────────────────────────────────────────────────── */
+  doc.setDrawColor(...h2r(B.navy));
+  doc.setLineWidth(0.6);
+  doc.line(ML, y, ML + CW, y);
+  y += 7;
+
+  /* ── BILL TO ────────────────────────────────────────────────────────────── */
+  sf("bold", 6.5, B.blue);
+  doc.text("BILL TO", ML, y);
   y += 5;
+  sf("bold", 12, B.ink);
+  doc.text(invoice.customerName || "—", ML, y);
+  y += 5.5;
+  sf("normal", 8.5, B.muted);
+  const contactLine = [
+    invoice.customerMobile && `Ph: ${invoice.customerMobile}`,
+    invoice.customerEmail,
+  ].filter(Boolean).join("   |   ");
+  if (contactLine) { doc.text(contactLine, ML, y); y += 4.5; }
+  if (invoice.customerAddress) {
+    const aLines = doc.splitTextToSize(invoice.customerAddress, CW * 0.55);
+    doc.text(aLines, ML, y);
+    y += aLines.length * 4;
+  }
+  y += 5;
+  ln(y, 0.3, B.border);
+  y += 7;
 
-  /* ── LINE ITEMS TABLE ────────────────────────────────────────────────── */
+  /* ── LINE ITEMS TABLE ───────────────────────────────────────────────────── */
   const lineItems = invoice.lineItems || [];
-
-  const tableHead = [["#", "Description", "Qty", "Unit Price", "Discount", "GST %", "Amount"]];
-  const tableBody = lineItems.map((item, idx) => {
-    const discStr =
-      item.discountValue > 0
-        ? item.discountType === "percentage"
-          ? `${item.discountValue}%`
-          : rupee(item.discountValue)
-        : "—";
-
-    // Build description cell: item name on first line, details below
-    const namePart = item.itemName || "";
-    const descPart = item.description || "";
-    const descCell = [namePart, descPart].filter(Boolean).join("\n") || "—";
-
-    return [
-      idx + 1,
-      descCell,
-      item.quantity,
-      rupee(item.unitPrice),
-      discStr,
-      item.gstRate > 0 ? `${item.gstRate}%` : "Nil",
-      rupee(item.total),
-    ];
-  });
 
   doc.autoTable({
     startY: y,
-    head: tableHead,
-    body: tableBody,
-    theme: "grid",
+    head: [["#", "Description", "Qty", "Unit Price", "Discount", "GST", "Amount"]],
+    body: lineItems.map((item, i) => {
+      const disc = item.discountValue > 0
+        ? (item.discountType === "percentage" ? `${item.discountValue}%` : rs(item.discountValue))
+        : "—";
+      const desc = [item.itemName || "", item.description || ""].filter(Boolean).join("\n") || "—";
+      return [i + 1, desc, item.quantity, rs(item.unitPrice), disc, item.gstRate > 0 ? `${item.gstRate}%` : "Nil", rs(item.total)];
+    }),
+    theme: "plain",
     headStyles: {
-      fillColor: hex2rgb(BRAND.primary),
+      fillColor: h2r(B.ink),
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 8,
+      fontSize: 7.5,
+      cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
     },
-    bodyStyles: { fontSize: 7.5, textColor: hex2rgb(BRAND.text) },
+    bodyStyles: {
+      fontSize: 7.5,
+      textColor: h2r(B.body),
+      cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
+    },
+    alternateRowStyles: { fillColor: h2r(B.row) },
     columnStyles: {
-      0: { cellWidth: 8, halign: "center" },
-      1: { cellWidth: 62 },
-      2: { cellWidth: 12, halign: "center" },
-      3: { cellWidth: 26, halign: "right" },
-      4: { cellWidth: 22, halign: "right" },
-      5: { cellWidth: 14, halign: "center" },
-      6: { cellWidth: 28, halign: "right" },
+      0: { cellWidth: 9,  halign: "center" },
+      1: { cellWidth: 66 },
+      2: { cellWidth: 10, halign: "center" },
+      3: { cellWidth: 25, halign: "right" },
+      4: { cellWidth: 20, halign: "right" },
+      5: { cellWidth: 13, halign: "center" },
+      6: { cellWidth: 21, halign: "right" },
     },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
     margin: { left: ML, right: MR },
-    didParseCell: (data) => {
-      // Bold the item name (first line) in description column
-      if (data.section === "body" && data.column.index === 1) {
-        const lineItems = invoice.lineItems || [];
-        const item = lineItems[data.row.index];
-        if (item?.itemName) {
-          data.cell.styles.fontStyle = "bold";
-        }
+    didParseCell: (d) => {
+      if (d.section === "body" && d.column.index === 1) {
+        if (lineItems[d.row.index]?.itemName) d.cell.styles.fontStyle = "bold";
       }
     },
-    didDrawCell: (data) => {
-      // Re-draw description in normal weight below the bold item name
-      if (data.section === "body" && data.column.index === 1) {
-        const lineItems = invoice.lineItems || [];
-        const item = lineItems[data.row.index];
+    didDrawCell: (d) => {
+      if (d.section === "body" && d.column.index === 1) {
+        const item = lineItems[d.row.index];
         if (item?.itemName && item?.description) {
-          const x = data.cell.x + 2;
-          const nameLineHeight = 4.5;
-          const y0 = data.cell.y + data.cell.padding("top") + nameLineHeight;
           doc.setFont("helvetica", "normal");
           doc.setFontSize(6.5);
-          doc.setTextColor(...hex2rgb(BRAND.muted));
-          const descLines = doc.splitTextToSize(item.description, data.cell.width - 4);
-          doc.text(descLines, x, y0);
-          // Reset
+          doc.setTextColor(...h2r(B.muted));
+          const dLines = doc.splitTextToSize(item.description, d.cell.width - 6);
+          doc.text(dLines, d.cell.x + 3, d.cell.y + d.cell.padding("top") + 5);
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7.5);
-          doc.setTextColor(...hex2rgb(BRAND.text));
+          doc.setTextColor(...h2r(B.body));
         }
       }
     },
   });
 
-  y = doc.lastAutoTable.finalY + 6;
+  y = doc.lastAutoTable.finalY + 8;
 
-  /* ── TOTALS ──────────────────────────────────────────────────────────── */
-  const totalBoxW = 80;
-  const totalBoxX = ML + CW - totalBoxW;
+  /* ── TOTALS ─────────────────────────────────────────────────────────────── */
+  const TW = 78, TX = ML + CW - TW;
 
-  const totalsRows = [["Subtotal", invoice.subtotal]];
-  if (invoice.discountTotal > 0)
-    totalsRows.push(["Discount", -invoice.discountTotal]);
-
-  totalsRows.push(["Taxable Amount", invoice.taxableAmount]);
-
+  const totRows = [["Subtotal", invoice.subtotal, false]];
+  if ((invoice.discountTotal || 0) > 0)
+    totRows.push(["Discount", -(invoice.discountTotal), true]);
+  totRows.push(["Taxable Amount", invoice.taxableAmount, false]);
   if (invoice.gstType === "inter") {
-    if (invoice.igst > 0) totalsRows.push([`IGST`, invoice.igst]);
+    if (invoice.igst > 0) totRows.push(["IGST", invoice.igst, false]);
   } else {
-    if (invoice.cgst > 0) totalsRows.push([`CGST`, invoice.cgst]);
-    if (invoice.sgst > 0) totalsRows.push([`SGST`, invoice.sgst]);
+    if (invoice.cgst > 0) totRows.push(["CGST", invoice.cgst, false]);
+    if (invoice.sgst > 0) totRows.push(["SGST", invoice.sgst, false]);
   }
 
-  fillRect(totalBoxX, y, totalBoxW, totalsRows.length * 6.5 + 14, BRAND.light);
+  const rowH = 6.5;
+  const totH = totRows.length * rowH + 4;
 
-  let ty = y + 5;
-  totalsRows.forEach(([label, val]) => {
-    setFont("normal", 8.5, BRAND.muted);
-    doc.text(label, totalBoxX + 4, ty);
-    setFont("bold", 8.5, Number(val) < 0 ? "#B71C1C" : BRAND.text);
-    doc.text(rupee(Math.abs(Number(val))), totalBoxX + totalBoxW - 4, ty, { align: "right" });
-    ty += 6.5;
+  // Subtle background card
+  box(TX - 3, y - 2, TW + 3, totH + 14, B.row, B.border);
+
+  let tY = y + 2;
+  totRows.forEach(([lbl, val, isNeg]) => {
+    sf("normal", 8, B.muted);
+    doc.text(lbl, TX + 2, tY);
+    sf("bold", 8, isNeg ? B.red : B.body);
+    doc.text(isNeg ? `- ${rs(Math.abs(Number(val)))}` : rs(Number(val)), TX + TW - 2, tY, { align: "right" });
+    tY += rowH;
   });
 
-  rule(0.4, BRAND.primary, ty);
-  ty += 5;
+  // Divider above grand total
+  doc.setDrawColor(...h2r(B.blue));
+  doc.setLineWidth(0.5);
+  doc.line(TX - 3, tY + 1, TX + TW, tY + 1);
+  tY += 3;
 
-  fillRect(totalBoxX, ty - 1, totalBoxW, 9, BRAND.primary);
-  setFont("bold", 10, "#FFFFFF");
-  doc.text("Grand Total", totalBoxX + 4, ty + 5.5);
-  doc.text(rupee(invoice.grandTotal), totalBoxX + totalBoxW - 4, ty + 5.5, { align: "right" });
+  // Grand total bar
+  box(TX - 3, tY, TW + 3, 11, B.navy);
+  sf("bold", 10, "#FFFFFF");
+  doc.text("GRAND TOTAL", TX + 2, tY + 7.5);
+  doc.text(rs(invoice.grandTotal), TX + TW - 2, tY + 7.5, { align: "right" });
 
-  ty += 12;
+  y = tY + 15;
 
-  /* ── PAYMENT SUMMARY ─────────────────────────────────────────────────── */
-  if ((invoice.amountReceived || 0) > 0 || (invoice.payments || []).length > 0) {
-    y = Math.max(y + totalsRows.length * 6.5 + 20, ty + 4);
+  /* ── PAYMENT SUMMARY ────────────────────────────────────────────────────── */
+  const payments = invoice.payments || [];
+  const hasPayments = payments.length > 0 || (invoice.amountReceived || 0) > 0;
 
-    setFont("bold", 8, BRAND.muted);
+  if (hasPayments) {
+    ln(y, 0.3, B.border);
+    y += 5;
+
+    sf("bold", 6.5, B.blue);
     doc.text("PAYMENT RECEIVED", ML, y);
     y += 4;
 
-    const payRows = (invoice.payments || []).map((p) => [
-      fmt(p.date),
-      p.paymentAccountName || p.mode || "—",
-      p.reference || "—",
-      rupee(p.amount),
-    ]);
-
-    if (payRows.length > 0) {
+    if (payments.length > 0) {
       doc.autoTable({
         startY: y,
         head: [["Date", "Account / Mode", "Reference", "Amount"]],
-        body: payRows,
-        theme: "striped",
+        body: payments.map((p) => [
+          fmt(p.date),
+          p.paymentAccountName || p.mode || "—",
+          p.reference || "—",
+          rs(p.amount),
+        ]),
+        theme: "plain",
         headStyles: {
-          fillColor: hex2rgb(BRAND.accent),
+          fillColor: h2r("#334155"),
           textColor: [255, 255, 255],
-          fontSize: 7.5,
+          fontSize: 7,
           fontStyle: "bold",
+          cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
         },
-        bodyStyles: { fontSize: 8 },
+        bodyStyles: {
+          fontSize: 7.5,
+          textColor: h2r(B.body),
+          cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
+        },
+        alternateRowStyles: { fillColor: h2r(B.row) },
         columnStyles: {
           0: { cellWidth: 28 },
-          1: { cellWidth: 55 },
-          2: { cellWidth: 45 },
-          3: { cellWidth: 30, halign: "right" },
+          1: { cellWidth: 65 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 31, halign: "right" },
         },
         margin: { left: ML, right: MR },
       });
       y = doc.lastAutoTable.finalY + 4;
     }
 
-    // Amount due box
-    const dueBoxX = ML + CW - 80;
-    fillRect(dueBoxX, y, 80, 16, invoice.amountDue <= 0 ? "#E8F5E9" : "#FFF3E0");
-    setFont("normal", 8.5, BRAND.muted);
-    doc.text("Amount Received", dueBoxX + 4, y + 6);
-    setFont("bold", 8.5, BRAND.green);
-    doc.text(rupee(invoice.amountReceived), dueBoxX + 76, y + 6, { align: "right" });
-    setFont("normal", 8.5, BRAND.muted);
-    doc.text("Balance Due", dueBoxX + 4, y + 12);
-    setFont("bold", 8.5, invoice.amountDue > 0 ? "#B71C1C" : BRAND.green);
-    doc.text(rupee(invoice.amountDue), dueBoxX + 76, y + 12, { align: "right" });
+    // Balance summary pill
+    const bW = 80, bX = ML + CW - bW;
+    const fullyPaid = (invoice.amountDue || 0) <= 0;
+    box(bX, y, bW, 17, fullyPaid ? "#F0FDF4" : "#FFF7ED", fullyPaid ? "#86EFAC" : "#FED7AA");
 
-    y += 20;
-  } else {
-    y = ty + 4;
+    sf("normal", 8, B.muted);
+    doc.text("Amount Received", bX + 4, y + 6);
+    sf("bold", 8.5, B.green);
+    doc.text(rs(invoice.amountReceived || 0), bX + bW - 4, y + 6, { align: "right" });
+
+    sf("normal", 8, B.muted);
+    doc.text("Balance Due", bX + 4, y + 13);
+    sf("bold", 9, fullyPaid ? B.green : B.red);
+    doc.text(rs(invoice.amountDue || 0), bX + bW - 4, y + 13, { align: "right" });
+
+    y += 21;
   }
 
-  /* ── NOTES / T&C ─────────────────────────────────────────────────────── */
-  if (invoice.notes) {
-    y += 4;
-    setFont("bold", 8, BRAND.muted);
-    doc.text("NOTES", ML, y);
-    y += 4;
-    setFont("normal", 8, BRAND.text);
-    const lines = doc.splitTextToSize(invoice.notes, CW);
-    doc.text(lines, ML, y);
-    y += lines.length * 4 + 2;
+  /* ── NOTES & T&C ────────────────────────────────────────────────────────── */
+  if (invoice.notes || invoice.termsAndConditions) {
+    ln(y, 0.3, B.border);
+    y += 5;
+    if (invoice.notes) {
+      sf("bold", 6.5, B.blue);
+      doc.text("NOTES", ML, y);
+      y += 4;
+      sf("normal", 8, B.body);
+      const nL = doc.splitTextToSize(invoice.notes, CW);
+      doc.text(nL, ML, y);
+      y += nL.length * 4 + 3;
+    }
+    if (invoice.termsAndConditions) {
+      sf("bold", 6.5, B.blue);
+      doc.text("TERMS & CONDITIONS", ML, y);
+      y += 4;
+      sf("normal", 7.5, B.muted);
+      const tL = doc.splitTextToSize(invoice.termsAndConditions, CW);
+      doc.text(tL, ML, y);
+    }
   }
 
-  if (invoice.termsAndConditions) {
-    setFont("bold", 8, BRAND.muted);
-    doc.text("TERMS & CONDITIONS", ML, y);
-    y += 4;
-    setFont("normal", 7.5, BRAND.muted);
-    const lines = doc.splitTextToSize(invoice.termsAndConditions, CW);
-    doc.text(lines, ML, y);
-    y += lines.length * 4;
-  }
+  /* ── FOOTER ─────────────────────────────────────────────────────────────── */
+  const FY = PH - 16;
+  doc.setFillColor(...h2r(B.navy));
+  doc.rect(0, FY - 2, PW, 18, "F");
 
-  /* ── FOOTER ──────────────────────────────────────────────────────────── */
-  const footerY = 285;
-  rule(0.3, BRAND.rule, footerY);
-  setFont("normal", 7, BRAND.muted);
+  sf("normal", 7, "#93C5FD");
   doc.text(
-    `${BRAND.name}  |  ${BRAND.address}  |  ${BRAND.phone}  |  ${BRAND.web}`,
-    PW / 2,
-    footerY + 4,
-    { align: "center" }
+    `${B.name}   |   ${B.address}   |   ${B.phone}   |   ${B.web}`,
+    PW / 2, FY + 3, { align: "center" }
   );
-  doc.text("Thank you for your business!", PW / 2, footerY + 8, { align: "center" });
+  sf("bold", 7.5, "#FFFFFF");
+  doc.text("Thank you for choosing Adwait Tours!", PW / 2, FY + 9, { align: "center" });
 
+  /* ── SAVE ────────────────────────────────────────────────────────────────── */
   const fileName = `Invoice_${invoice.invoiceNumber || "draft"}_${invoice.customerName || "customer"}.pdf`
     .replace(/[^a-zA-Z0-9_.-]/g, "_");
-
   doc.save(fileName);
 }
