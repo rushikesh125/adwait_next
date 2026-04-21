@@ -9,7 +9,7 @@ import {
   computeLineItem,
   computeInvoiceTotals,
 } from "@/firebase/invoicesService";
-import { getBookingById } from "@/firebase/bookingsService";
+import { getBookingById, updateBooking } from "@/firebase/bookingsService";
 import { getQuotationById } from "@/firebase/quotations";
 import { getAllCustomers, getCustomerById } from "@/firebase/customersService";
 import { getLeadById } from "@/firebase/leadsService";
@@ -277,9 +277,32 @@ function CreateInvoiceInner() {
         toast.success("Invoice updated");
         router.push(`/agent-panel/invoices/${editId}`);
       } else {
-        const id = await createInvoice(payload);
+        const invoiceId = await createInvoice(payload);
+
+        // Back-fill invoicePaymentId on booking payments so bidirectional sync works.
+        // Imported payments were assigned ids bk_<bookingId>_0, _1, ... in order of
+        // the non-zero booking payments, so we walk both arrays together.
+        if (payload.bookingId && (form.payments || []).length > 0) {
+          try {
+            const booking = await getBookingById(payload.bookingId);
+            if (booking?.payments?.length) {
+              let filteredIdx = 0;
+              const updatedBookingPayments = booking.payments.map((p) => {
+                if (Number(p.amount) > 0 && !p.invoicePaymentId) {
+                  const invPay = form.payments[filteredIdx++];
+                  return invPay ? { ...p, invoicePaymentId: invPay.id } : p;
+                }
+                return p;
+              });
+              await updateBooking(payload.bookingId, { payments: updatedBookingPayments });
+            }
+          } catch (e) {
+            console.warn("[CreateInvoice] Could not back-fill invoicePaymentId:", e);
+          }
+        }
+
         toast.success("Invoice created");
-        router.push(`/agent-panel/invoices/${id}`);
+        router.push(`/agent-panel/invoices/${invoiceId}`);
       }
     } catch (err) {
       toast.error(err.message || "Failed to save invoice");
