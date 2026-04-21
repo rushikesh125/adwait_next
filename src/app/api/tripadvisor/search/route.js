@@ -17,13 +17,24 @@ export async function GET(req) {
 
     const res = await fetch(
       `https://api.content.tripadvisor.com/api/v1/location/search?searchQuery=${encodeURIComponent(query)}&category=hotels&language=en&key=${apiKey}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: {
+          Referer: "https://portal.adwaittours.com",
+          Origin: "https://portal.adwaittours.com",
+        },
+      },
     );
 
     const data = await res.json();
     if (!res.ok) {
       return Response.json(
-        { error: data?.error?.message || data?.message || "TripAdvisor search failed" },
+        {
+          error:
+            data?.error?.message ||
+            data?.message ||
+            "TripAdvisor search failed",
+        },
         { status: res.status },
       );
     }
