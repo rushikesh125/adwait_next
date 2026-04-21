@@ -1,11 +1,13 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { getBookingById, deleteBooking, updateBooking } from "@/firebase/bookingsService";
+import { getBookingById, deleteBooking, updateBooking, computePaymentStatus } from "@/firebase/bookingsService";
+import { getInvoicesByBooking, updatePaymentInInvoice } from "@/firebase/invoicesService";
 import { updateQuotation } from "@/firebase/quotations";
 import {
   ArrowLeft,
   Edit3,
+  Pencil,
   Trash2,
   Loader2,
   CalendarCheck,
@@ -27,6 +29,15 @@ import {
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import StatusBadge from "@/components/StatusBadge";
@@ -133,6 +144,10 @@ export default function BookingDetailPage() {
   const [hotelListForSelection, setHotelListForSelection] = useState([]);
   const [deletingVoucherId, setDeletingVoucherId] = useState(null);
 
+  const [editingPaymentIdx, setEditingPaymentIdx] = useState(null);
+  const [editPaymentForm, setEditPaymentForm] = useState({ amount: "", date: "", mode: "Cash", reference: "", notes: "" });
+  const [savingBookingPayment, setSavingBookingPayment] = useState(false);
+
   useEffect(() => {
     (async () => {
       try {
@@ -146,6 +161,69 @@ export default function BookingDetailPage() {
       }
     })();
   }, [id]);
+
+  const handleOpenEditPayment = (idx) => {
+    const pay = booking.payments[idx];
+    setEditPaymentForm({
+      amount: String(pay.amount || ""),
+      date: pay.date || new Date().toISOString().slice(0, 10),
+      mode: pay.mode || "Cash",
+      reference: pay.reference || "",
+      notes: pay.notes || "",
+    });
+    setEditingPaymentIdx(idx);
+  };
+
+  const handleSaveBookingPayment = async () => {
+    const amount = Number(editPaymentForm.amount);
+    if (!amount || amount <= 0) { toast.error("Enter a valid amount"); return; }
+    if (!editPaymentForm.date) { toast.error("Date is required"); return; }
+
+    setSavingBookingPayment(true);
+    try {
+      const updatedPayments = (booking.payments || []).map((p, i) =>
+        i === editingPaymentIdx
+          ? { ...p, amount, date: editPaymentForm.date, mode: editPaymentForm.mode, reference: editPaymentForm.reference, notes: editPaymentForm.notes }
+          : p
+      );
+      const paidAmount = updatedPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+      const paymentStatus = computePaymentStatus(booking.totalAmount, paidAmount);
+
+      await updateBooking(id, { payments: updatedPayments, paidAmount, paymentStatus });
+      setBooking((prev) => ({ ...prev, payments: updatedPayments, paidAmount, paymentStatus }));
+
+      // Sync to linked invoice if this payment has an invoicePaymentId
+      const editedPayment = booking.payments[editingPaymentIdx];
+      if (editedPayment?.invoicePaymentId) {
+        try {
+          const invoices = await getInvoicesByBooking(id);
+          for (const inv of invoices) {
+            const match = (inv.payments || []).find((p) => p.id === editedPayment.invoicePaymentId);
+            if (match) {
+              await updatePaymentInInvoice(inv.id, editedPayment.invoicePaymentId, {
+                amount,
+                date: editPaymentForm.date,
+                mode: editPaymentForm.mode,
+                paymentAccountName: editPaymentForm.mode,
+                reference: editPaymentForm.reference,
+                notes: editPaymentForm.notes,
+              });
+              break;
+            }
+          }
+        } catch (e) {
+          console.warn("[BookingDetail] Could not sync invoice payment (non-critical):", e);
+        }
+      }
+
+      toast.success("Payment updated");
+      setEditingPaymentIdx(null);
+    } catch (err) {
+      toast.error(err.message || "Failed to update payment");
+    } finally {
+      setSavingBookingPayment(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm("Permanently delete this booking?")) return;
@@ -653,9 +731,19 @@ export default function BookingDetailPage() {
                           {pay.notes && ` · ${pay.notes}`}
                         </div>
                       </div>
-                      <span className="font-black text-emerald-600">
-                        {formatCurrency(pay.amount)}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-black text-emerald-600">
+                          {formatCurrency(pay.amount)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-slate-300 hover:text-blue-500 hover:bg-blue-50"
+                          onClick={() => handleOpenEditPayment(i)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -786,6 +874,78 @@ export default function BookingDetailPage() {
         agentId={booking.agentId || ""}
         onSaved={handleVoucherSaved}
       />
+
+      {/* Edit Payment Dialog */}
+      <Dialog open={editingPaymentIdx !== null} onOpenChange={(open) => { if (!open) setEditingPaymentIdx(null); }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-black text-slate-900">Edit Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Amount (₹) *</Label>
+              <Input
+                type="number"
+                value={editPaymentForm.amount}
+                onChange={(e) => setEditPaymentForm((p) => ({ ...p, amount: e.target.value }))}
+                className="rounded-xl"
+                placeholder="0.00"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Date *</Label>
+              <Input
+                type="date"
+                value={editPaymentForm.date}
+                onChange={(e) => setEditPaymentForm((p) => ({ ...p, date: e.target.value }))}
+                className="rounded-xl"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Mode</Label>
+              <Select value={editPaymentForm.mode} onValueChange={(v) => setEditPaymentForm((p) => ({ ...p, mode: v }))}>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["Cash", "Bank Transfer", "UPI", "Card", "Cheque", "Online"].map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Reference</Label>
+              <Input
+                value={editPaymentForm.reference}
+                onChange={(e) => setEditPaymentForm((p) => ({ ...p, reference: e.target.value }))}
+                className="rounded-xl"
+                placeholder="UTR, Cheque number, etc."
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Notes</Label>
+              <Input
+                value={editPaymentForm.notes}
+                onChange={(e) => setEditPaymentForm((p) => ({ ...p, notes: e.target.value }))}
+                className="rounded-xl"
+                placeholder="Optional"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditingPaymentIdx(null)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={handleSaveBookingPayment}
+                disabled={savingBookingPayment}
+              >
+                {savingBookingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Payment"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Multi-hotel selection dialog */}
       <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>

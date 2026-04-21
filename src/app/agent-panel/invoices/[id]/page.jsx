@@ -6,6 +6,7 @@ import {
   getInvoiceById,
   deleteInvoice,
   addPaymentToInvoice,
+  updatePaymentInInvoice,
   deletePaymentFromInvoice,
 } from "@/firebase/invoicesService";
 import { updateBooking, getBookingById } from "@/firebase/bookingsService";
@@ -14,6 +15,7 @@ import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import {
   ArrowLeft,
   Edit3,
+  Pencil,
   Trash2,
   Loader2,
   FileText,
@@ -82,6 +84,7 @@ export default function InvoiceDetailPage() {
   const [paymentAccounts, setPaymentAccounts] = useState([]);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState(newPaymentForm());
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
   const [savingPayment, setSavingPayment] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
   const [downloading, setDownloading] = useState(false);
@@ -130,15 +133,30 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const handleOpenPaymentDialog = () => {
-    const defaultAccount = paymentAccounts.find((a) => a.isDefault) || paymentAccounts[0];
-    setPaymentForm({
-      ...newPaymentForm(),
-      paymentAccountId: defaultAccount?.id || "",
-      paymentAccountName: defaultAccount?.name || "",
-      paymentAccountType: defaultAccount?.type || "",
-      mode: defaultAccount?.type === "Cash" ? "Cash" : "Bank Transfer",
-    });
+  const handleOpenPaymentDialog = (payment = null) => {
+    if (payment) {
+      setEditingPaymentId(payment.id);
+      setPaymentForm({
+        amount: String(payment.amount || ""),
+        date: payment.date || new Date().toISOString().slice(0, 10),
+        paymentAccountId: payment.paymentAccountId || "",
+        paymentAccountName: payment.paymentAccountName || "",
+        paymentAccountType: payment.paymentAccountType || "",
+        mode: payment.mode || "Cash",
+        reference: payment.reference || "",
+        notes: payment.notes || "",
+      });
+    } else {
+      setEditingPaymentId(null);
+      const defaultAccount = paymentAccounts.find((a) => a.isDefault) || paymentAccounts[0];
+      setPaymentForm({
+        ...newPaymentForm(),
+        paymentAccountId: defaultAccount?.id || "",
+        paymentAccountName: defaultAccount?.name || "",
+        paymentAccountType: defaultAccount?.type || "",
+        mode: defaultAccount?.type === "Cash" ? "Cash" : "Bank Transfer",
+      });
+    }
     setPaymentDialogOpen(true);
   };
 
@@ -159,60 +177,77 @@ export default function InvoiceDetailPage() {
     if (!paymentForm.date) { toast.error("Payment date is required"); return; }
 
     setSavingPayment(true);
+    const paymentData = {
+      amount,
+      date: paymentForm.date,
+      paymentAccountId: paymentForm.paymentAccountId,
+      paymentAccountName: paymentForm.paymentAccountName || paymentForm.mode,
+      paymentAccountType: paymentForm.paymentAccountType,
+      mode: paymentForm.mode,
+      reference: paymentForm.reference,
+      notes: paymentForm.notes,
+    };
+
     try {
-      const result = await addPaymentToInvoice(id, {
-        amount,
-        date: paymentForm.date,
-        paymentAccountId: paymentForm.paymentAccountId,
-        paymentAccountName: paymentForm.paymentAccountName || paymentForm.mode,
-        paymentAccountType: paymentForm.paymentAccountType,
-        mode: paymentForm.mode,
-        reference: paymentForm.reference,
-        notes: paymentForm.notes,
-      });
+      if (editingPaymentId) {
+        // ── EDIT existing payment ──────────────────────────────────────────
+        const result = await updatePaymentInInvoice(id, editingPaymentId, paymentData);
+        setInvoice((prev) => ({ ...prev, ...result }));
 
-      setInvoice((prev) => ({ ...prev, ...result }));
-
-      // Sync booking payments[] + paidAmount if linked
-      if (invoice.bookingId) {
-        try {
-          const booking = await getBookingById(invoice.bookingId);
-          if (booking) {
-            const newPaidAmount = result.amountReceived;
-            const paymentStatus =
-              newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
-
-            // Find the newly created invoice payment (not in the previous payments list)
-            const prevIds = new Set((invoice.payments || []).map((p) => p.id));
-            const newInvPayment = result.payments.find((p) => !prevIds.has(p.id));
-
-            const syncedBookingPayments = newInvPayment
-              ? [
-                  ...(booking.payments || []),
-                  {
-                    amount: Number(newInvPayment.amount),
-                    date: newInvPayment.date,
-                    mode: newInvPayment.paymentAccountName || newInvPayment.mode || "Cash",
-                    reference: newInvPayment.reference || "",
-                    notes: newInvPayment.notes || "",
-                    invoicePaymentId: newInvPayment.id,
-                  },
-                ]
-              : booking.payments;
-
-            await updateBooking(invoice.bookingId, {
-              paidAmount: newPaidAmount,
-              paymentStatus,
-              payments: syncedBookingPayments,
-            });
+        if (invoice.bookingId) {
+          try {
+            const booking = await getBookingById(invoice.bookingId);
+            if (booking) {
+              const newPaidAmount = result.amountReceived;
+              const paymentStatus =
+                newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
+              const syncedBookingPayments = (booking.payments || []).map((p) =>
+                p.invoicePaymentId === editingPaymentId
+                  ? { ...p, amount, date: paymentData.date, mode: paymentData.paymentAccountName, reference: paymentData.reference, notes: paymentData.notes }
+                  : p
+              );
+              await updateBooking(invoice.bookingId, { paidAmount: newPaidAmount, paymentStatus, payments: syncedBookingPayments });
+            }
+          } catch (e) {
+            console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
           }
-        } catch (e) {
-          console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
         }
+        toast.success("Payment updated");
+
+      } else {
+        // ── ADD new payment ────────────────────────────────────────────────
+        const result = await addPaymentToInvoice(id, paymentData);
+        setInvoice((prev) => ({ ...prev, ...result }));
+
+        if (invoice.bookingId) {
+          try {
+            const booking = await getBookingById(invoice.bookingId);
+            if (booking) {
+              const newPaidAmount = result.amountReceived;
+              const paymentStatus =
+                newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
+
+              const prevIds = new Set((invoice.payments || []).map((p) => p.id));
+              const newInvPayment = result.payments.find((p) => !prevIds.has(p.id));
+
+              const syncedBookingPayments = newInvPayment
+                ? [
+                    ...(booking.payments || []),
+                    { amount: Number(newInvPayment.amount), date: newInvPayment.date, mode: newInvPayment.paymentAccountName || newInvPayment.mode || "Cash", reference: newInvPayment.reference || "", notes: newInvPayment.notes || "", invoicePaymentId: newInvPayment.id },
+                  ]
+                : booking.payments;
+
+              await updateBooking(invoice.bookingId, { paidAmount: newPaidAmount, paymentStatus, payments: syncedBookingPayments });
+            }
+          } catch (e) {
+            console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
+          }
+        }
+        toast.success("Payment recorded");
       }
 
-      toast.success("Payment recorded");
       setPaymentDialogOpen(false);
+      setEditingPaymentId(null);
     } catch (err) {
       toast.error(err.message || "Failed to save payment");
     } finally {
@@ -466,8 +501,16 @@ export default function InvoiceDetailPage() {
                           {pay.notes && ` · ${pay.notes}`}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span className="font-black text-emerald-600">{formatCurrency(pay.amount)}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-slate-300 hover:text-blue-500 hover:bg-blue-50"
+                          onClick={() => handleOpenPaymentDialog(pay)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -581,10 +624,12 @@ export default function InvoiceDetailPage() {
       </div>
 
       {/* Record Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+      <Dialog open={paymentDialogOpen} onOpenChange={(open) => { setPaymentDialogOpen(open); if (!open) setEditingPaymentId(null); }}>
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-black text-slate-900">Record Payment</DialogTitle>
+            <DialogTitle className="font-black text-slate-900">
+            {editingPaymentId ? "Edit Payment" : "Record Payment"}
+          </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
@@ -697,7 +742,7 @@ export default function InvoiceDetailPage() {
                 onClick={handleSavePayment}
                 disabled={savingPayment}
               >
-                {savingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Payment"}
+                {savingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : editingPaymentId ? "Update Payment" : "Save Payment"}
               </Button>
             </div>
           </div>

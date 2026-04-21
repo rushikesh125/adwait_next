@@ -187,6 +187,33 @@ export const addPaymentToInvoice = async (id, payment) => {
   }
 };
 
+export const updatePaymentInInvoice = async (invoiceId, paymentId, updatedPayment) => {
+  try {
+    const invoice = await getInvoiceById(invoiceId);
+    if (!invoice) throw new Error("Invoice not found");
+
+    const payments = (invoice.payments || []).map((p) =>
+      p.id === paymentId ? { ...p, ...updatedPayment, id: paymentId } : p
+    );
+    const amountReceived = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const amountDue = (invoice.grandTotal || 0) - amountReceived;
+    const paymentStatus = computePaymentStatus(invoice.grandTotal, amountReceived);
+
+    await updateDoc(doc(db, COLLECTION, invoiceId), {
+      payments,
+      amountReceived,
+      amountDue,
+      paymentStatus,
+      updatedAt: serverTimestamp(),
+    });
+
+    return { payments, amountReceived, amountDue, paymentStatus };
+  } catch (e) {
+    logError("updatePaymentInInvoice", e);
+    throw e;
+  }
+};
+
 export const deletePaymentFromInvoice = async (id, paymentId) => {
   try {
     const invoice = await getInvoiceById(id);
