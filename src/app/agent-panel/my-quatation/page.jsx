@@ -273,14 +273,57 @@ const MyQuotations = () => {
       if (quoteToEdit) state.handleEditClick(quoteToEdit);
     }
   }, [editId, state.quotations, state.handleEditClick]);
-
   const handleDownloadPDF = (quotation) => {
     const normalized = normaliseQuotation(quotation);
-    if (quotation.itinerarySummary) {
-      normalized.itineraryData = quotation.itinerarySummary;
-    }
-    normalized.refNumber = quotation.refNumber || null;
-    exportPackagePDF(normalized);
+
+    const packageOptions =
+      quotation.packageOptions?.length > 0
+        ? quotation.packageOptions
+        : [
+            {
+              name: "Option 1",
+              hotelEntries: quotation.hotelSummary || [],
+            },
+          ];
+
+    const selectedTransport = quotation.transportSummary
+      ? {
+          selectedVehicle: {
+            type: quotation.transportSummary.vehicleName || "",
+            price: quotation.transportSummary.vehicleCost || 0,
+            perKmprice: quotation.transportSummary.perKmprice || 0,
+            ac: quotation.transportSummary.ac || false,
+            driverAllowance: quotation.transportSummary.driverAllowance || 0,
+          },
+          pricingType: quotation.transportSummary.pricingType || "fixed",
+          isCustom: quotation.transportSummary.isCustom || false,
+        }
+      : null;
+
+    const selectedActivities = quotation.activitySummary || [];
+
+    const transportTotalPrice =
+      quotation.transportSummary?.totalTransportCost || 0;
+
+   const activityTotalPrice = (quotation.activitySummary || []).reduce(
+  (sum, a) => sum + (a.totalPrice || 0),
+  0
+);
+
+    const confirmedMarkup = quotation.markup || 0;
+
+    exportPackagePDF({
+      packageOptions,
+      selectedTransport,
+      selectedActivities,
+      transportTotalPrice,
+      activityTotalPrice,
+      confirmedMarkup,
+      customerName: quotation.customerName || quotation.leadName || "",
+      packageName: quotation.packageName || "",
+      itineraryData: quotation.itinerarySummary || null,
+      refNumber: quotation.refNumber || null,
+    });
   };
 
   const handleCopyToClipboard = (quotation) => {
