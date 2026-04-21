@@ -12,7 +12,7 @@ import {
 import { getBookingById } from "@/firebase/bookingsService";
 import { getQuotationById } from "@/firebase/quotations";
 import { getPaymentAccountsByAgent } from "@/firebase/paymentAccountsService";
-import { getAllCustomers } from "@/firebase/customersService";
+import { getAllCustomers, getCustomerById } from "@/firebase/customersService";
 import {
   ArrowLeft,
   Plus,
@@ -124,6 +124,13 @@ function CreateInvoiceInner() {
           quotation = await getQuotationById(booking.agentId, booking.quotationId).catch(() => null);
         }
 
+        // Fetch customer record: prefer customerId from quotation, then booking
+        const customerId = quotation?.customerId || booking.customerId || null;
+        let customer = null;
+        if (customerId) {
+          customer = await getCustomerById(customerId).catch(() => null);
+        }
+
         // Build line items from quotation package details
         const lineItems = [];
 
@@ -149,8 +156,11 @@ function CreateInvoiceInner() {
 
         setForm((prev) => ({
           ...prev,
-          customerName: booking.customerName || "",
-          customerMobile: booking.customerMobile || booking.mobile || "",
+          customerName: customer?.name || booking.customerName || "",
+          customerMobile: customer?.mobile || booking.customerMobile || booking.mobile || "",
+          customerEmail: customer?.email || "",
+          customerAddress: [customer?.city, customer?.state].filter(Boolean).join(", "),
+          customerId: customerId || "",
           invoiceDate: new Date().toISOString().slice(0, 10),
           status: "Draft",
           sourceType: "booking",
