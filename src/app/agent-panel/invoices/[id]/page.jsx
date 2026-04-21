@@ -173,7 +173,7 @@ export default function InvoiceDetailPage() {
 
       setInvoice((prev) => ({ ...prev, ...result }));
 
-      // Sync booking paidAmount if linked
+      // Sync booking payments[] + paidAmount if linked
       if (invoice.bookingId) {
         try {
           const booking = await getBookingById(invoice.bookingId);
@@ -181,7 +181,30 @@ export default function InvoiceDetailPage() {
             const newPaidAmount = result.amountReceived;
             const paymentStatus =
               newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
-            await updateBooking(invoice.bookingId, { paidAmount: newPaidAmount, paymentStatus });
+
+            // Find the newly created invoice payment (not in the previous payments list)
+            const prevIds = new Set((invoice.payments || []).map((p) => p.id));
+            const newInvPayment = result.payments.find((p) => !prevIds.has(p.id));
+
+            const syncedBookingPayments = newInvPayment
+              ? [
+                  ...(booking.payments || []),
+                  {
+                    amount: Number(newInvPayment.amount),
+                    date: newInvPayment.date,
+                    mode: newInvPayment.paymentAccountName || newInvPayment.mode || "Cash",
+                    reference: newInvPayment.reference || "",
+                    notes: newInvPayment.notes || "",
+                    invoicePaymentId: newInvPayment.id,
+                  },
+                ]
+              : booking.payments;
+
+            await updateBooking(invoice.bookingId, {
+              paidAmount: newPaidAmount,
+              paymentStatus,
+              payments: syncedBookingPayments,
+            });
           }
         } catch (e) {
           console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
@@ -204,7 +227,7 @@ export default function InvoiceDetailPage() {
       const result = await deletePaymentFromInvoice(id, paymentId);
       setInvoice((prev) => ({ ...prev, ...result }));
 
-      // Sync booking paidAmount if linked
+      // Sync booking payments[] + paidAmount if linked
       if (invoice.bookingId) {
         try {
           const booking = await getBookingById(invoice.bookingId);
@@ -212,7 +235,17 @@ export default function InvoiceDetailPage() {
             const newPaidAmount = result.amountReceived;
             const paymentStatus =
               newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
-            await updateBooking(invoice.bookingId, { paidAmount: newPaidAmount, paymentStatus });
+
+            // Remove the corresponding booking payment entry (matched by invoicePaymentId)
+            const syncedBookingPayments = (booking.payments || []).filter(
+              (p) => p.invoicePaymentId !== paymentId
+            );
+
+            await updateBooking(invoice.bookingId, {
+              paidAmount: newPaidAmount,
+              paymentStatus,
+              payments: syncedBookingPayments,
+            });
           }
         } catch (e) {
           console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
