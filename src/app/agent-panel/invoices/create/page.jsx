@@ -735,21 +735,31 @@ const fmtDate = (d) => {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
 
+const MEAL_PLAN_LABELS = { EP: "EP (Room Only)", CP: "CP (Bed & Breakfast)", MAP: "MAP (Breakfast & Dinner)", AP: "AP (All Meals)" };
+
 function buildPackageDescription(quotation) {
   const lines = [];
 
-  // Hotels with check-in / check-out
+  // Hotels with full details
   if (quotation.hotelSummary?.length) {
     quotation.hotelSummary.forEach((h) => {
       const name = h.hotel || h.hotelName || "Hotel";
       const city = h.city ? ` – ${h.city}` : "";
       const nights = h.nights ? ` (${h.nights}N)` : "";
       const room = h.selectedRoomCategory ? `, ${h.selectedRoomCategory}` : "";
-      const meal = h.selectedMealPlan ? `, ${h.selectedMealPlan}` : "";
+      const meal = h.selectedMealPlan ? `, ${MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan}` : "";
       const cin = fmtDate(h.checkInDate || h.checkIn);
       const cout = fmtDate(h.checkOutDate || h.checkOut);
-      const dates = cin && cout ? ` | Check-in: ${cin} → Check-out: ${cout}` : "";
+      const dates = cin && cout ? ` | ${cin} → ${cout}` : "";
       lines.push(`🏨 ${name}${city}${nights}${room}${meal}${dates}`);
+
+      // Room occupancy — only show non-zero values
+      const occupancy = [];
+      if (Number(h.numDouble) > 0)      occupancy.push(`${h.numDouble} Room${h.numDouble > 1 ? "s" : ""}`);
+      if (Number(h.numExtraAdult) > 0)  occupancy.push(`${h.numExtraAdult} Extra Adult`);
+      if (Number(h.numExtraChild) > 0)  occupancy.push(`${h.numExtraChild} Extra Child`);
+      if (Number(h.numCNB) > 0)         occupancy.push(`${h.numCNB} Child Without Bed`);
+      if (occupancy.length) lines.push(`   ${occupancy.join(" · ")}`);
     });
   }
 
