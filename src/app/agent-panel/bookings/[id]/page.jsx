@@ -24,6 +24,7 @@ import {
   XCircle,
   MessageCircle,
   AlertTriangle,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -361,6 +362,15 @@ export default function BookingDetailPage() {
             >
               <MessageCircle className="w-4 h-4 mr-2" />
               Send Request
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/agent-panel/invoices/create?bookingId=${id}`)}
+              className="rounded-xl font-bold h-9 text-theme-primary border-blue-200 hover:bg-blue-50"
+              title="Create invoice from this booking"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Create Invoice
             </Button>
             <Button
               variant="outline"
