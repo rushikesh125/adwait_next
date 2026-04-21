@@ -286,7 +286,6 @@
     doc.text("PAYMENT", ML, y);
     y += 5;
 
-    const rupee = "\u20B9";
     const dash  = "\u2014";
 
     const isPayAtHotel = voucher.paymentStatus === "Payment at hotel";
@@ -294,20 +293,25 @@
 
     if (isPayAtHotel && voucher.amount) {
       // Amber warning box: balance due at check-in
-      const amtBoxH = 16;
-      doc.setFillColor(255, 248, 225);   // amber-50
+      const noteText = "Please keep this amount ready to pay at check-in.";
+      doc.setFontSize(7.5);
+      const noteLines = doc.splitTextToSize(noteText, CW - 10);
+      const amtBoxH = 5 + 6 + noteLines.length * 4.5 + 4;  // top pad + label line + note + bottom pad
+
+      doc.setFillColor(255, 248, 225);
       doc.rect(ML, y, CW, amtBoxH, "F");
-      doc.setDrawColor(251, 191, 36);    // amber-400
+      doc.setDrawColor(251, 191, 36);
       doc.setLineWidth(0.5);
       doc.rect(ML, y, CW, amtBoxH, "S");
 
-      setFont("bold", 8.5, "#92400E");   // amber-800
+      setFont("bold", 8.5, "#92400E");
       doc.text("AMOUNT TO BE PAID AT HOTEL", ML + 4, y + 5.5);
-      setFont("bold", 11, "#78350F");    // amber-900
-      doc.text(`${rupee} ${Number(voucher.amount).toLocaleString("en-IN")}`, ML + CW - 4, y + 5.5, { align: "right" });
+      setFont("bold", 11, "#78350F");
+      const amtStr = `Rs. ${Number(voucher.amount).toLocaleString("en-IN")}`;
+      doc.text(amtStr, ML + CW - 4, y + 5.5, { align: "right" });
 
       setFont("normal", 7.5, "#92400E");
-      doc.text("Please keep this amount ready to pay at check-in.", ML + 4, y + 12);
+      doc.text(noteLines, ML + 4, y + 5.5 + 6);
 
       y += amtBoxH + 4;
     } else {
