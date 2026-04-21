@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Download, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Download, CheckCircle2, IndianRupee } from "lucide-react";
 import {
   getNextVoucherNumber,
   saveVoucherToFirestore,
@@ -690,7 +690,7 @@ export default function HotelVoucherDrawer({
               <RadioGroup
                 value={form.paymentStatus}
                 onValueChange={(value) =>
-                  setForm({ ...form, paymentStatus: value })
+                  setForm({ ...form, paymentStatus: value, amount: "" })
                 }
                 className="mt-1 space-y-1"
               >
@@ -702,11 +702,8 @@ export default function HotelVoucherDrawer({
                 </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="Payment at hotel" id="pay-at-hotel" />
-                  <Label
-                    htmlFor="pay-at-hotel"
-                    className="cursor-pointer font-normal"
-                  >
-                    Pay at hotel
+                  <Label htmlFor="pay-at-hotel" className="cursor-pointer font-normal">
+                    Pay at Hotel
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
@@ -716,13 +713,24 @@ export default function HotelVoucherDrawer({
                   </Label>
                 </div>
               </RadioGroup>
-              {form.paymentStatus === "Amount paid to hotel" && (
-                <Input
-                  className="mt-2"
-                  placeholder="Amount paid (Rs)"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                />
+              {form.paymentStatus === "Payment at hotel" && (
+                <div className="mt-4 space-y-2">
+                  <Label className="flex items-center gap-2 font-semibold text-amber-700">
+                    <IndianRupee className="h-4 w-4" />
+                    Amount to be paid at hotel (₹)
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="Enter balance amount due at hotel"
+                    value={form.amount}
+                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    className="border-amber-300 focus:ring-amber-400"
+                  />
+                  <p className="flex items-center gap-1.5 text-xs text-amber-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    This amount will be shown in the voucher so the customer knows the balance due at check-in.
+                  </p>
+                </div>
               )}
             </div>
 
@@ -830,8 +838,12 @@ export default function HotelVoucherDrawer({
                 </p>
               )}
               <p>
-                <span className="font-semibold">Payment:</span> {form.paymentStatus}
-                {form.amount ? ` - Rs ${form.amount}` : ""}
+                <span className="font-semibold">Payment:</span>{" "}
+                {form.paymentStatus === "Payment at hotel" && form.amount
+                  ? `Pay at Hotel — Amount due at check-in: ₹${Number(form.amount).toLocaleString("en-IN")}`
+                  : form.paymentStatus === "Amount paid to hotel"
+                  ? "Paid"
+                  : form.paymentStatus}
               </p>
               {form.requests && (
                 <p>
