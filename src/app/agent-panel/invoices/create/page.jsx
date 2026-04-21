@@ -143,6 +143,21 @@ function CreateInvoiceInner() {
           });
         }
 
+        // Import booking payment records so invoice starts with correct paid amount
+        const existingPayments = (booking.payments || [])
+          .filter((p) => Number(p.amount) > 0)
+          .map((p, i) => ({
+            id: `bk_${bookingIdParam}_${i}`,
+            amount: Number(p.amount),
+            date: p.date || new Date().toISOString().slice(0, 10),
+            mode: p.mode || "Cash",
+            paymentAccountName: p.mode || "Cash",
+            paymentAccountType: p.mode || "Cash",
+            reference: p.reference || "",
+            notes: p.notes || "",
+            importedFromBooking: true,
+          }));
+
         setForm((prev) => ({
           ...prev,
           customerName: customer?.name || lead?.name || booking.customerName || "",
@@ -158,6 +173,7 @@ function CreateInvoiceInner() {
           leadId: booking.leadId || null,
           bookingRef: booking.bookingRef || "",
           lineItems,
+          payments: existingPayments,
         }));
       } catch (err) {
         toast.error("Failed to load booking data");

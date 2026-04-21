@@ -80,7 +80,16 @@ export const createInvoice = async (data) => {
   try {
     const invoiceNumber = await getNextInvoiceNumber();
     const totals = computeInvoiceTotals(data.lineItems || [], data.gstType);
-    const amountReceived = Number(data.amountReceived) || 0;
+
+    // Ensure all imported payments have a stable id
+    const payments = (data.payments || []).map((p, i) =>
+      p.id ? p : { ...p, id: `pay_${Date.now()}_${i}` }
+    );
+    // Compute amountReceived from payments when pre-populated (e.g. imported from booking)
+    const amountReceived = payments.length > 0
+      ? payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+      : (Number(data.amountReceived) || 0);
+
     const paymentStatus = computePaymentStatus(totals.grandTotal, amountReceived);
 
     const ref = await addDoc(collection(db, COLLECTION), {
@@ -91,7 +100,7 @@ export const createInvoice = async (data) => {
       amountDue: totals.grandTotal - amountReceived,
       paymentStatus,
       status: data.status || "Draft",
-      payments: data.payments || [],
+      payments,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });

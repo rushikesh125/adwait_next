@@ -203,6 +203,22 @@ export default function InvoiceDetailPage() {
     try {
       const result = await deletePaymentFromInvoice(id, paymentId);
       setInvoice((prev) => ({ ...prev, ...result }));
+
+      // Sync booking paidAmount if linked
+      if (invoice.bookingId) {
+        try {
+          const booking = await getBookingById(invoice.bookingId);
+          if (booking) {
+            const newPaidAmount = result.amountReceived;
+            const paymentStatus =
+              newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
+            await updateBooking(invoice.bookingId, { paidAmount: newPaidAmount, paymentStatus });
+          }
+        } catch (e) {
+          console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
+        }
+      }
+
       toast.success("Payment removed");
     } catch {
       toast.error("Failed to remove payment");
