@@ -637,7 +637,7 @@ export const exportPackagePDF = async ({
 
     y = ensureSpace(pdfdoc, logoImg, y, 30);
 
-    // Option heading
+    // ── Option heading bar ──
     pdfdoc.setFillColor(BRAND);
     pdfdoc.rect(15, y - 4, 180, 8, "F");
     pdfdoc.setFont("helvetica", "bold");
@@ -647,7 +647,7 @@ export const exportPackagePDF = async ({
     pdfdoc.setTextColor("#000000");
     y += 10;
 
-    // Hotel table for this option
+    // ── Hotel table for this option ──
     if (optHotels.length > 0) {
       autoTable(pdfdoc, {
         startY: y,
@@ -731,66 +731,49 @@ export const exportPackagePDF = async ({
       y = pdfdoc.lastAutoTable.finalY + 4;
     }
 
-    // Transport + Activities names (no individual prices)
-    const sharedLines = [];
-    if (selectedTransport?.selectedVehicle) {
-      const v = selectedTransport.selectedVehicle;
-      sharedLines.push(
-        ` Transport: ${v.type || v.name}${v.ac ? " (AC)" : " (Non-AC)"}`,
-      );
-    }
-    if (selectedActivities?.length > 0) {
-      selectedActivities.forEach((a) => {
-        sharedLines.push(
-          ` Activity: ${a.name} (${a.city || "—"}) × ${a.participants} pax`,
-        );
-      });
-    }
+    // ── Cost breakdown rows for this option ──
+    const breakdownRows = [];
 
-    if (sharedLines.length > 0) {
-      y = ensureSpace(pdfdoc, logoImg, y, sharedLines.length * 6 + 6);
-      pdfdoc.setFont("helvetica", "normal");
-      pdfdoc.setFontSize(FONT_SMALL);
-      pdfdoc.setTextColor("#444");
-      sharedLines.forEach((line) => {
-        pdfdoc.text(line, 18, y);
-        y += 5.5;
-      });
-      y += 2;
-    }
+  
 
-    // Grand total for this option only
+    
+
+    // Grand total row
+    breakdownRows.push([
+      {
+        content: `${opt.name} — Total Tour Cost`,
+        styles: {
+          fontStyle: "bold",
+          textColor: [13, 71, 161],
+          fontSize: FONT_BODY,
+          fillColor: [232, 240, 254],
+        },
+      },
+      {
+        content: `Rs. ${optGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+        styles: {
+          halign: "right",
+          fontStyle: "bold",
+          textColor: [13, 71, 161],
+          fontSize: FONT_BODY,
+          fillColor: [232, 240, 254],
+        },
+      },
+    ]);
+
+    y = ensureSpace(pdfdoc, logoImg, y, breakdownRows.length * 8 + 6);
+
     autoTable(pdfdoc, {
       startY: y,
-      body: [
-        [
-          {
-            content: `${opt.name} — Total Tour Cost:`,
-            styles: {
-              fontStyle: "bold",
-              textColor: BRAND,
-              fontSize: FONT_BODY,
-            },
-          },
-          {
-            content: `Rs. ${optGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
-            styles: {
-              halign: "right",
-              fontStyle: "bold",
-              textColor: BRAND,
-              fontSize: FONT_BODY,
-            },
-          },
-        ],
-      ],
+      body: breakdownRows,
       theme: "grid",
-      styles: { fontSize: FONT_BODY, cellPadding: 3, font: "helvetica" },
-      columnStyles: { 0: { cellWidth: 120 } },
+      styles: { fontSize: FONT_SMALL, cellPadding: 2.5, font: "helvetica" },
+      columnStyles: { 0: { cellWidth: 130 }, 1: { cellWidth: 50 } },
       margin: { left: 15, right: 15 },
       didDrawPage: () => addHeader(pdfdoc, logoImg),
     });
 
-    y = pdfdoc.lastAutoTable.finalY + 12;
+    y = pdfdoc.lastAutoTable.finalY + 14;
   }
   // ── MOVED: INCLUSIONS & EXCLUSIONS ──
   const { totalBreakfasts, totalLunches, totalDinners } =
@@ -890,131 +873,119 @@ export const exportPackagePDF = async ({
   addFooter(pdfdoc);
 
   // ITINERARY PAGES + INCLUSIONS & EXCLUSIONS (original logic preserved)
- // ── ITINERARY PAGES ─────────────────────────────────────────────
+  // ── ITINERARY PAGES ─────────────────────────────────────────────
 
-const itin = itineraryData;
+  const itin = itineraryData;
 
-// ✅ Only check if days exist (NOT strict)
-const hasValidItinerary =
-  itin &&
-  Array.isArray(itin.days) &&
-  itin.days.length > 0;
+  // ✅ Only check if days exist (NOT strict)
+  const hasValidItinerary =
+    itin && Array.isArray(itin.days) && itin.days.length > 0;
 
-if (hasValidItinerary) {
-  pdfdoc.addPage();
-  addHeader(pdfdoc, logoImg);
+  if (hasValidItinerary) {
+    pdfdoc.addPage();
+    addHeader(pdfdoc, logoImg);
 
-  y = 42;
+    y = 42;
 
-  // ── Heading ──
-  y = drawSectionHeading(
-    pdfdoc,
-    `Itinerary${itin.title ? ": " + itin.title : ""}`,
-    y
-  );
-  y += 6;
-
-  // ── Cities ──
-  if (itin.cities?.length) {
-    pdfdoc.setFont("helvetica", "normal");
-    pdfdoc.setFontSize(FONT_BODY);
-    pdfdoc.setTextColor("#555");
-    pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
-    y += 8;
-  }
-
-  // ✅ Filter valid days (ONLY for rendering days)
-  const validDays = itin.days.filter(
-    (d) => d && (d.title || d.description)
-  );
-
-  // ── Day-wise Heading ──
-  if (validDays.length > 0) {
-    pdfdoc.setFont("helvetica", "bold");
-    pdfdoc.setFontSize(FONT_DAY);
-    pdfdoc.setTextColor(BRAND_DARK);
-    pdfdoc.text("Day-wise Program", 15, y);
-    y += 7;
-
-    for (let di = 0; di < validDays.length; di++) {
-      const day = validDays[di];
-      const originalIndex = itin.days.indexOf(day);
-
-      const enrichedDay = {
-        ...day,
-        images: (dayImagesMap[originalIndex] || [])
-          .map((imgObj, ii) =>
-            imgObj ? { imgObj, src: (day.images || [])[ii] } : null
-          )
-          .filter(Boolean)
-          .map((x) => x.src),
-      };
-
-      y = await drawDay(pdfdoc, logoImg, enrichedDay, y);
-    }
-  }
-
-  // 🔥 IMPORTANT: ALWAYS show these (independent of validDays)
-
-  const selectedTnc = (itin.tnc || []).filter((i) => i.selected);
-  const selectedCan = (itin.cancellation || []).filter((i) => i.selected);
-
-  if (selectedTnc.length || selectedCan.length) {
-    y = ensureSpace(pdfdoc, logoImg, y, 16);
-    y += 4;
-
+    // ── Heading ──
     y = drawSectionHeading(
       pdfdoc,
-      "Terms & Conditions / Cancellation Policy",
-      y
-    );
-    y += 4;
-
-    if (selectedTnc.length) {
-      y = drawChecklist(
-        pdfdoc,
-        logoImg,
-        "Terms & Conditions",
-        itin.tnc,
-        y,
-        AMBER,
-        true
-      );
-    }
-
-    if (selectedCan.length) {
-      y = drawChecklist(
-        pdfdoc,
-        logoImg,
-        "Cancellation Policy",
-        itin.cancellation,
-        y,
-        "#C62828",
-        true
-      );
-    }
-  }
-
-  if (itin.impInfo?.some((i) => i.selected)) {
-    y = ensureSpace(pdfdoc, logoImg, y, 16);
-    y += 4;
-
-    y = drawSectionHeading(pdfdoc, "Important Information", y);
-    y += 4;
-
-    y = drawChecklist(
-      pdfdoc,
-      logoImg,
-      "",
-      itin.impInfo,
+      `Itinerary${itin.title ? ": " + itin.title : ""}`,
       y,
-      BRAND,
-      true
     );
-  }
+    y += 6;
 
-  addFooter(pdfdoc);
-}
+    // ── Cities ──
+    if (itin.cities?.length) {
+      pdfdoc.setFont("helvetica", "normal");
+      pdfdoc.setFontSize(FONT_BODY);
+      pdfdoc.setTextColor("#555");
+      pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
+      y += 8;
+    }
+
+    // ✅ Filter valid days (ONLY for rendering days)
+    const validDays = itin.days.filter((d) => d && (d.title || d.description));
+
+    // ── Day-wise Heading ──
+    if (validDays.length > 0) {
+      pdfdoc.setFont("helvetica", "bold");
+      pdfdoc.setFontSize(FONT_DAY);
+      pdfdoc.setTextColor(BRAND_DARK);
+      pdfdoc.text("Day-wise Program", 15, y);
+      y += 7;
+
+      for (let di = 0; di < validDays.length; di++) {
+        const day = validDays[di];
+        const originalIndex = itin.days.indexOf(day);
+
+        const enrichedDay = {
+          ...day,
+          images: (dayImagesMap[originalIndex] || [])
+            .map((imgObj, ii) =>
+              imgObj ? { imgObj, src: (day.images || [])[ii] } : null,
+            )
+            .filter(Boolean)
+            .map((x) => x.src),
+        };
+
+        y = await drawDay(pdfdoc, logoImg, enrichedDay, y);
+      }
+    }
+
+    // 🔥 IMPORTANT: ALWAYS show these (independent of validDays)
+
+    const selectedTnc = (itin.tnc || []).filter((i) => i.selected);
+    const selectedCan = (itin.cancellation || []).filter((i) => i.selected);
+
+    if (selectedTnc.length || selectedCan.length) {
+      y = ensureSpace(pdfdoc, logoImg, y, 16);
+      y += 4;
+
+      y = drawSectionHeading(
+        pdfdoc,
+        "Terms & Conditions / Cancellation Policy",
+        y,
+      );
+      y += 4;
+
+      if (selectedTnc.length) {
+        y = drawChecklist(
+          pdfdoc,
+          logoImg,
+          "Terms & Conditions",
+          itin.tnc,
+          y,
+          AMBER,
+          true,
+        );
+      }
+
+      if (selectedCan.length) {
+        y = drawChecklist(
+          pdfdoc,
+          logoImg,
+          "Cancellation Policy",
+          itin.cancellation,
+          y,
+          "#C62828",
+          true,
+        );
+      }
+    }
+
+    if (itin.impInfo?.some((i) => i.selected)) {
+      y = ensureSpace(pdfdoc, logoImg, y, 16);
+      y += 4;
+
+      y = drawSectionHeading(pdfdoc, "Important Information", y);
+      y += 4;
+
+      y = drawChecklist(pdfdoc, logoImg, "", itin.impInfo, y, BRAND, true);
+    }
+
+    addFooter(pdfdoc);
+  }
 
   // Generate PDF filename: ClientName_PackageName.pdf
   let rawName = `${(customerName || "Client").trim()}_${(packageName || "Travel_Package").trim()}.pdf`;
