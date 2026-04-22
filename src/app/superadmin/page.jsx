@@ -28,6 +28,7 @@ import {
   Search,
   Filter,
   XCircle,
+  KeyRound,
 } from "lucide-react";
 
 import {
@@ -85,6 +86,7 @@ const UserRow = ({
   onOpenReject,
   onSuspend,
   onDelete,
+  onResetPassword,
 }) => {
   return (
     <tr
@@ -174,6 +176,12 @@ const UserRow = ({
                 <Ban className="mr-2.5 w-4 h-4" /> Suspend
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem
+              onClick={() => onResetPassword({ ...user, type })}
+              className="rounded-xl text-blue-600 font-semibold cursor-pointer"
+            >
+              <KeyRound className="mr-2.5 w-4 h-4" /> Reset Password
+            </DropdownMenuItem>
             <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem
               onClick={() => onDelete(type, user.id)}
@@ -196,6 +204,7 @@ const UserTable = ({
   onOpenReject,
   onSuspend,
   onDelete,
+  onResetPassword,
 }) => (
   <div className="overflow-x-auto">
     <table className="w-full text-left min-w-[480px]">
@@ -230,6 +239,7 @@ const UserTable = ({
               onOpenReject={onOpenReject}
               onSuspend={onSuspend}
               onDelete={onDelete}
+              onResetPassword={onResetPassword}
             />
           ))
         ) : (
@@ -264,6 +274,10 @@ export default function Dashboard() {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -405,6 +419,46 @@ export default function Dashboard() {
     setIsRejectModalOpen(true);
   };
 
+  const handleOpenResetPassword = (user) => {
+    setResetPasswordUser(user);
+    setIsResetPasswordModalOpen(true);
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!resetPasswordUser?.email) return;
+    setResettingPassword(true);
+    try {
+      const res = await fetch("/api/superadmin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetPasswordUser.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to generate reset link");
+
+      await emailjs.send(
+        "service_gmfmqbu",
+        process.env.NEXT_PUBLIC_EMAILJS_RESET_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_APPROVAL_TEMPLATE_ID,
+        {
+          to_name: resetPasswordUser.name,
+          to_email: resetPasswordUser.email,
+          reset_link: data.resetLink,
+          admin_message: "Your password has been reset by an administrator. Click the link below to set a new password.",
+        },
+        "GjevhIIhLITokCOAK",
+      );
+
+      toast.success(`Password reset link sent to ${resetPasswordUser.email}`);
+      setIsResetPasswordModalOpen(false);
+      setResetPasswordUser(null);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to send reset link");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const totalUsers = admins.length + agents.length;
   const activeAdmins = admins.filter((a) => a.approved === "accepted").length;
   const pendingCount = [...admins, ...agents].filter(
@@ -437,6 +491,7 @@ export default function Dashboard() {
     onOpenReject: handleOpenReject,
     onSuspend: handleSuspend,
     onDelete: handleDelete,
+    onResetPassword: handleOpenResetPassword,
   };
 
   return (
@@ -636,6 +691,47 @@ export default function Dashboard() {
           </div>
           </div>
         </main>
+
+        {/* Reset Password Dialog */}
+        <Dialog open={isResetPasswordModalOpen} onOpenChange={setIsResetPasswordModalOpen}>
+          <DialogContent className="rounded-3xl p-6 sm:p-8 w-[calc(100%-2rem)] sm:max-w-lg mx-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-blue-600" /> Reset Password
+              </DialogTitle>
+              <DialogDescription className="pt-1.5 text-sm">
+                A password reset link will be sent to{" "}
+                <strong className="text-slate-700">{resetPasswordUser?.email}</strong>.
+                The user can use it to set a new password.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 text-sm text-blue-800 font-medium">
+              User: <span className="font-black">{resetPasswordUser?.name}</span><br />
+              Email: <span className="font-black">{resetPasswordUser?.email}</span>
+            </div>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2">
+              <Button
+                variant="ghost"
+                onClick={() => { setIsResetPasswordModalOpen(false); setResetPasswordUser(null); }}
+                className="rounded-xl font-bold w-full sm:w-auto"
+                disabled={resettingPassword}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmResetPassword}
+                disabled={resettingPassword}
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 font-black w-full sm:w-auto transition-colors"
+              >
+                {resettingPassword ? (
+                  <><Loader2 className="mr-2 w-4 h-4 animate-spin" /> Sending…</>
+                ) : (
+                  <><KeyRound className="mr-2 w-4 h-4" /> Send Reset Link</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Rejection Dialog */}
         <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
