@@ -1,5 +1,5 @@
-// src/utils/copyPackageSummary.js
-// Updated with multi-option package support
+// src/lib/copyPackageSummary.js
+// Updated: per-option markup support + transport/activity shown without price
 
 import toast from "react-hot-toast";
 
@@ -31,41 +31,56 @@ const calculateTotalMeals = (entries) => {
   return { totalBreakfasts, totalLunches, totalDinners };
 };
 
-// ─── Per-option grand total calculator ───────────────────────────────────────
+// ─── Shared helper: resolve per-option markup ─────────────────────────────────
 /**
- * Calculates the grand total for one option, applying markup correctly.
- * If markup was applied as a percentage it was already resolved to a rupee
- * amount in confirmedMarkup, so we just add it. But if the caller passes the
- * raw markupAmount + markupType we can recompute per-option. For simplicity
- * (matching the existing Redux flow) we accept the already-resolved
- * confirmedMarkup as a lump-sum and add it directly.
+ * If the option has a pre-stored `.markup` (set by the component), use it.
+ * Otherwise fall back: percentage → recompute for this option's base,
+ * lumpsum → use confirmedMarkup directly.
  */
-const calcOptionGrandTotal = (opt, transportTotal, activityTotal, confirmedMarkup) => {
+export const resolveOptionMarkup = (
+  opt,
+  transportTotal,
+  activityTotal,
+  confirmedMarkup,
+  markupType = "lumpsum",
+  markupAmount = 0,
+) => {
+  // Pre-stored per-option markup takes priority (set when user clicks Apply)
+  if (typeof opt.markup === "number") return opt.markup;
+
+  // Fallback: recompute from raw inputs if percentage
+  if (markupType === "percentage" && markupAmount > 0) {
+    const hotelTotal = (opt.hotelEntries || []).reduce(
+      (s, e) => s + Number(e.hotelTotal || 0),
+      0,
+    );
+    const base = hotelTotal + transportTotal + activityTotal;
+    return (markupAmount / 100) * base;
+  }
+
+  // Lumpsum: same for all options
+  return confirmedMarkup;
+};
+
+/**
+ * Calculates the per-option grand total.
+ * optionMarkup is already resolved to a ₹ amount for THIS option.
+ */
+const calcOptionGrandTotal = (opt, transportTotal, activityTotal, optionMarkup) => {
   const hotelTotal = (opt.hotelEntries || []).reduce(
     (s, e) => s + Number(e.hotelTotal || 0),
     0,
   );
-  return hotelTotal + transportTotal + activityTotal + confirmedMarkup;
+  return hotelTotal + transportTotal + activityTotal + optionMarkup;
 };
 
 // ─── Per-option block builder ─────────────────────────────────────────────────
-/**
- * Builds one option block.
- * @param {Object}  option
- * @param {number}  index
- * @param {Array}   hotels            - full hotel list for URL lookup
- * @param {number}  transportTotal
- * @param {number}  activityTotal
- * @param {number}  confirmedMarkup
- * @param {boolean} isMultiOption     - when false, suppress the option header
- */
 const buildOptionBlock = (
   option,
-  index,
   hotels = [],
   transportTotal = 0,
   activityTotal = 0,
-  confirmedMarkup = 0,
+  optionMarkup = 0,
   isMultiOption = true,
 ) => {
   const hotelEntries = option.hotelEntries || [];
@@ -73,7 +88,7 @@ const buildOptionBlock = (
     return isMultiOption ? `*${option.name}*\nNo hotels added.\n` : `No hotels added.\n`;
   }
 
-  const grandTotal = calcOptionGrandTotal(option, transportTotal, activityTotal, confirmedMarkup);
+  const grandTotal = calcOptionGrandTotal(option, transportTotal, activityTotal, optionMarkup);
 
   let s = "";
 
@@ -97,7 +112,7 @@ const buildOptionBlock = (
     s += ` ⇒ ${formatDate(e.checkInDate)} to ${formatDate(e.checkOutDate)} (${e.nights} Nights, ${MEAL_PLAN_LABELS[e.selectedMealPlan] || e.selectedMealPlan})\n\n`;
   });
 
-  // Grand total at bottom of each option block (no individual cost breakdown)
+  // Grand total per option — no individual cost breakdown shown
   s += `*💰 Total Tour Cost: ₹${grandTotal.toLocaleString("en-IN")}/-*\n`;
 
   return s;
@@ -105,19 +120,18 @@ const buildOptionBlock = (
 
 // ─── Summary Builder ─────────────────────────────────────────────────────────
 export const buildPackageSummary = ({
-  // New multi-option API
   packageOptions,
   selectedTransport,
   selectedActivities,
   transportTotalPrice = 0,
   activityTotalPrice = 0,
   confirmedMarkup = 0,
+  markupType = "lumpsum",
+  markupAmount = 0,
   hotels = [],
   // Legacy single-option compat
   hotelEntries: legacyHotelEntries,
-  grandTotal: legacyGrandTotal,
 }) => {
-  // Normalise to always use options array
   const options = packageOptions?.length
     ? packageOptions
     : legacyHotelEntries?.length
@@ -127,8 +141,6 @@ export const buildPackageSummary = ({
   if (!options.length) return "Hotel details not available.";
 
   const isMultiOption = options.length > 1;
-
-  // Use first option's first entry for guest/date header
   const firstEntry = options[0]?.hotelEntries?.[0] || {};
 
   let s = `Dear Guests,\n\nGreetings from Adwait Tours!!\n`;
@@ -143,17 +155,30 @@ export const buildPackageSummary = ({
     s += `📋 *${options.length} Package Options Available — Choose Your Preference*\n\n`;
   }
 
-  // Build each option block (grand total embedded, no individual cost lines)
   for (let i = 0; i < options.length; i++) {
-    s += buildOptionBlock(
-      options[i],
-      i,
-      hotels,
+    const opt = options[i];
+    const optionMarkup = resolveOptionMarkup(
+      opt,
       transportTotalPrice,
       activityTotalPrice,
       confirmedMarkup,
-      isMultiOption,
+      markupType,
+      markupAmount,
     );
+    s += buildOptionBlock(opt, hotels, transportTotalPrice, activityTotalPrice, optionMarkup, isMultiOption);
+    s += `\n`;
+  }
+
+  // Shared transport + activities listed without prices
+  const hasSharedServices = selectedTransport?.selectedVehicle || selectedActivities?.length > 0;
+  if (hasSharedServices) {
+    if (selectedTransport?.selectedVehicle) {
+      const v = selectedTransport.selectedVehicle;
+      s += `🚗 Transport: ${v.type || v.name} ${v.ac ? "AC" : "Non-AC"}\n`;
+    }
+    selectedActivities?.forEach((act) => {
+      s += `🎯 ${act.name.toUpperCase()} (${act.city}) - ${act.participants} Person\n`;
+    });
     s += `\n`;
   }
 
@@ -161,7 +186,6 @@ export const buildPackageSummary = ({
   s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
   s += `*INCLUDED*\n`;
   s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
-
   s += `✅ Accommodation as per package selection\n`;
 
   const allHotelEntries = options.flatMap((o) => o.hotelEntries || []);
@@ -201,7 +225,6 @@ export const copyPackageSummary = (params) => {
     return;
   }
 
-  // Fallback
   const ta = document.createElement("textarea");
   ta.value = summary;
   ta.style.cssText = "position:fixed;left:-9999px;top:-9999px";
@@ -232,10 +255,6 @@ export const sharePackageSummaryOnWhatsApp = (params, guestPhone = "") => {
   const url = phone
     ? `https://wa.me/${phone}?text=${encodeURIComponent(summary)}`
     : `https://api.whatsapp.com/send?text=${encodeURIComponent(summary)}`;
-
   window.open(url, "_blank", "noopener,noreferrer");
-
-  if (!phone) {
-    toast("Opening WhatsApp. Select the guest manually.");
-  }
+  if (!phone) toast("Opening WhatsApp. Select the guest manually.");
 };

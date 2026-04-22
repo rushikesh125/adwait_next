@@ -124,6 +124,7 @@ const createEmptyOption = (id, name = "") => ({
   currentHotelTotal: 0,
   guests: { numDouble: 1, numExtraAdult: 0, numExtraChild: 0, numCNB: 0 },
   saveChanges: false,
+  markup: null, // ← per-option resolved markup in ₹ (null = not yet applied)
 });
 
 // ─── Validation helpers ───────────────────────────────────────────────────────
@@ -166,10 +167,18 @@ const validateOptions = (options) => {
         .map((h) => `${h.checkInDate}|${h.checkOutDate}`)
         .sort()
         .join(",");
-      if (aHotels === bHotels && aDates === bDates) {
+      const aMeals = (a.hotelEntries || [])
+        .map((h) => `${h.hotel}|${h.city}|${h.selectedMealPlan}`)
+        .sort()
+        .join(",");
+      const bMeals = (b.hotelEntries || [])
+        .map((h) => `${h.hotel}|${h.city}|${h.selectedMealPlan}`)
+        .sort()
+        .join(",");
+      if (aHotels === bHotels && aDates === bDates && aMeals === bMeals) {
         return {
           valid: false,
-          error: `"${a.name}" and "${b.name}": Each package option must have either different hotels or different travel dates.`,
+          error: `"${a.name}" and "${b.name}": Options must differ in hotel, dates, or meal plan.`,
         };
       }
     }
@@ -638,11 +647,11 @@ const Create_new_package = ({
   const transportTotalPrice = transportBreakdown?.total || 0;
 
   // Grand total per option
-  const getOptionGrandTotal = (opt) =>
-    getOptionHotelTotal(opt) +
-    transportTotalPrice +
-    activityTotalPrice +
-    confirmedMarkup;
+   const getOptionGrandTotal = (opt) => {
+    // Use per-option markup if stored, else shared confirmedMarkup
+    const optMarkup = typeof opt.markup === "number" ? opt.markup : confirmedMarkup;
+    return getOptionHotelTotal(opt) + transportTotalPrice + activityTotalPrice + optMarkup;
+  };
 
   const grandTotal = getOptionGrandTotal(activeOption);
 
@@ -782,14 +791,32 @@ const Create_new_package = ({
     dispatch(setSelectedActivities({ activities, totalPrice: total }));
   };
 
-  const handleApplyMarkup = () => {
-    const base = hotelTotalPrice + transportTotalPrice + activityTotalPrice;
-    const markup =
-      markupType === "percentage" ? (markupAmount / 100) * base : markupAmount;
-    dispatch(setConfirmedMarkup(markup));
+ const handleApplyMarkup = () => {
+    if (markupType === "percentage") {
+      // Compute and store individual markup on every option
+      setPackageOptions((prev) =>
+        prev.map((opt) => {
+          const hotelTotal = (opt.hotelEntries || []).reduce(
+            (s, e) => s + Number(e.hotelTotal || 0),
+            0,
+          );
+          const base = hotelTotal + transportTotalPrice + activityTotalPrice;
+          const resolved = (markupAmount / 100) * base;
+          return { ...opt, markup: resolved };
+        }),
+      );
+      // Also store a representative value in Redux (first option) for UI display
+      const firstOptTotal = getOptionHotelTotal(packageOptions[0]);
+      const firstBase = firstOptTotal + transportTotalPrice + activityTotalPrice;
+      dispatch(setConfirmedMarkup((markupAmount / 100) * firstBase));
+    } else {
+      // Lumpsum: same for all — clear per-option markup and store in Redux
+      setPackageOptions((prev) => prev.map((opt) => ({ ...opt, markup: null })));
+      dispatch(setConfirmedMarkup(Number(markupAmount)));
+    }
   };
 
-  const handleCopyToClipboard = () =>
+   const handleCopyToClipboard = () =>
     copyPackageSummary({
       packageOptions,
       selectedTransport,
@@ -797,8 +824,11 @@ const Create_new_package = ({
       transportTotalPrice,
       activityTotalPrice,
       confirmedMarkup,
+      markupType,
+      markupAmount,
       hotels,
     });
+ 
 
   const handleExportToPDF = () =>
     exportPackagePDF({
@@ -808,6 +838,8 @@ const Create_new_package = ({
       transportTotalPrice,
       activityTotalPrice,
       confirmedMarkup,
+      markupType,
+      markupAmount,
       customerName,
       packageName,
       itineraryData,
