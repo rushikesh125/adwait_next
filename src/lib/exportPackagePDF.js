@@ -556,6 +556,8 @@ export const exportPackagePDF = async ({
   transportTotalPrice = 0,
   activityTotalPrice = 0,
   confirmedMarkup = 0,
+  markupType = "lumpsum", // Add this parameter
+  markupAmount = 0,
   // legacy single-option (kept for compat)
   hotelEntries,
   selectedTransport,
@@ -732,46 +734,53 @@ export const exportPackagePDF = async ({
     }
 
     // ── Cost breakdown rows for this option ──
-const breakdownRows = [];
+    const breakdownRows = [];
 
-// Calculate option-specific totals
-const optionHotelTotal = optHotels.reduce(
-  (s, e) => s + Number(e.hotelTotal || 0),
-  0
-);
-// Use resolved markup for this specific option
-const optionMarkup = typeof opt.markup === 'number' 
-  ? opt.markup 
-  : (markupType === 'percentage' && markupAmount > 0)
-    ? (markupAmount / 100) * (optionHotelTotal + (transportTotalPrice || 0) + (activityTotalPrice || 0))
-    : confirmedMarkup || 0;
+    // Calculate option-specific totals
+    const optionHotelTotal = optHotels.reduce(
+      (s, e) => s + Number(e.hotelTotal || 0),
+      0,
+    );
+    // Use resolved markup for this specific option
+    const optionMarkup =
+      typeof opt.markup === "number"
+        ? opt.markup
+        : markupType === "percentage" && markupAmount > 0
+          ? (markupAmount / 100) *
+            (optionHotelTotal +
+              (transportTotalPrice || 0) +
+              (activityTotalPrice || 0))
+          : confirmedMarkup || 0;
 
-// Calculate option grand total using option-specific values
-const optionGrandTotal = optionHotelTotal + (transportTotalPrice || 0) + (activityTotalPrice || 0) + optionMarkup;
+    // Calculate option grand total using option-specific values
+    const optionGrandTotal =
+      optionHotelTotal +
+      (transportTotalPrice || 0) +
+      (activityTotalPrice || 0) +
+      optionMarkup;
 
-
-// Grand total row - use option-specific total
-breakdownRows.push([
-  {
-    content: `${opt.name} — Total Tour Cost`,
-    styles: {
-      fontStyle: 'bold',
-      textColor: [13, 71, 161],
-      fontSize: FONT_BODY,
-      fillColor: [232, 240, 254],
-    },
-  },
-  {
-    content: `Rs. ${optionGrandTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/-`,
-    styles: {
-      halign: 'right',
-      fontStyle: 'bold',
-      textColor: [13, 71, 161],
-      fontSize: FONT_BODY,
-      fillColor: [232, 240, 254],
-    },
-  },
-]);
+    // Grand total row - use option-specific total
+    breakdownRows.push([
+      {
+        content: `${opt.name} — Total Tour Cost`,
+        styles: {
+          fontStyle: "bold",
+          textColor: [13, 71, 161],
+          fontSize: FONT_BODY,
+          fillColor: [232, 240, 254],
+        },
+      },
+      {
+        content: `Rs. ${optionGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+        styles: {
+          halign: "right",
+          fontStyle: "bold",
+          textColor: [13, 71, 161],
+          fontSize: FONT_BODY,
+          fillColor: [232, 240, 254],
+        },
+      },
+    ]);
 
     y = ensureSpace(pdfdoc, logoImg, y, breakdownRows.length * 8 + 6);
 

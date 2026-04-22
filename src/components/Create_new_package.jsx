@@ -832,18 +832,18 @@ const Create_new_package = ({
 
   const handleExportToPDF = () =>
     exportPackagePDF({
-      packageOptions,
-      selectedTransport,
-      selectedActivities,
-      transportTotalPrice,
-      activityTotalPrice,
-      confirmedMarkup,
-      markupType,
-      markupAmount,
-      customerName,
-      packageName,
-      itineraryData,
-    });
+    packageOptions,
+    selectedTransport,
+    selectedActivities,
+    transportTotalPrice,
+    activityTotalPrice,
+    confirmedMarkup,  // lumpsum markup value
+    markupType,       // 'percentage' or 'lumpsum'
+    markupAmount,     // percentage value or lumpsum amount
+    customerName,
+    packageName,
+    itineraryData,
+  });
 
   // ── Save Package ──────────────────────────────────────────────────────────
   const handleSavePackage = async () => {
