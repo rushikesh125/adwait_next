@@ -258,8 +258,13 @@ const Create_new_package = ({
   const [customerSearchText, setCustomerSearchText] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomerLink, setSelectedCustomerLink] = useState(null);
-  const [showInlineCreateCustomer, setShowInlineCreateCustomer] = useState(false);
-  const [newCustomerDraft, setNewCustomerDraft] = useState({ name: "", mobile: "", email: "" });
+  const [showInlineCreateCustomer, setShowInlineCreateCustomer] =
+    useState(false);
+  const [newCustomerDraft, setNewCustomerDraft] = useState({
+    name: "",
+    mobile: "",
+    email: "",
+  });
   // ── Lead linking in save modal (edit/clone mode) ──────────────────────────
   const [agentLeads, setAgentLeads] = useState([]);
   const [saveAsLeadId, setSaveAsLeadId] = useState("");
@@ -393,7 +398,10 @@ const Create_new_package = ({
         l.customerId === selectedCustomerLink.id &&
         !["Closed Won", "Closed Lost"].includes(l.status),
     );
-    if (active.length === 0) { setSaveAsLeadId(""); return; }
+    if (active.length === 0) {
+      setSaveAsLeadId("");
+      return;
+    }
     const latest = [...active].sort(
       (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0),
     )[0];
@@ -828,17 +836,24 @@ const Create_new_package = ({
     try {
       const agentId = user?.uid;
       if (!agentId) throw new Error("Not logged in");
-      const effectiveLeadId = isEditMode ? (saveAsLeadId || null) : leadId;
-      const linkedLead = effectiveLeadId ? agentLeads.find((l) => l.id === effectiveLeadId) : null;
+      const effectiveLeadId = isEditMode ? saveAsLeadId || null : leadId;
+      const linkedLead = effectiveLeadId
+        ? agentLeads.find((l) => l.id === effectiveLeadId)
+        : null;
       const c_data = customerId
         ? { customerId, customerName }
         : selectedCustomerLink
-          ? { customerId: selectedCustomerLink.id, customerName: selectedCustomerLink.name }
+          ? {
+              customerId: selectedCustomerLink.id,
+              customerName: selectedCustomerLink.name,
+            }
           : effectiveLeadId
             ? {
                 leadId: effectiveLeadId,
                 leadName: customerName,
-                ...(linkedLead?.customerId ? { customerId: linkedLead.customerId } : {}),
+                ...(linkedLead?.customerId
+                  ? { customerId: linkedLead.customerId }
+                  : {}),
               }
             : { customerName };
       const refNumber = await generateQuotationRef();
@@ -850,6 +865,19 @@ const Create_new_package = ({
         hotelTotal: getOptionHotelTotal(opt),
         grandTotal: getOptionGrandTotal(opt),
       }));
+      const cleanedItinerary =
+        itineraryData && Array.isArray(itineraryData.days)
+          ? {
+              ...itineraryData,
+              days: itineraryData.days.filter(
+                (day) =>
+                  day.title?.trim() ||
+                  day.description?.trim() ||
+                  (day.images && day.images.length > 0) ||
+                  (day.activityIds && day.activityIds.length > 0),
+              ),
+            }
+          : null;
 
       // Legacy hotelSummary = first option's hotels (for backwards compat)
       const firstOptionHotels = packageOptions[0]?.hotelEntries || [];
@@ -887,8 +915,10 @@ const Create_new_package = ({
                 isCustom: selectedTransport.selectedVehicle?.isCustom || false,
               }
             : null,
-          itinerarySummary: itineraryData ?? null,
-          ...(isEditMode && quotationId ? { clonedFromId: quotationId } : {}),
+          itinerarySummary:
+            cleanedItinerary && cleanedItinerary.days.length > 0
+              ? cleanedItinerary
+              : null,
         },
       );
       toast(
@@ -1800,7 +1830,9 @@ const Create_new_package = ({
                     disabled
                     className="h-8 text-xs bg-slate-100 cursor-not-allowed"
                   />
-                  <p className="text-[10px] text-slate-400">✓ Auto-filled from customer record</p>
+                  <p className="text-[10px] text-slate-400">
+                    ✓ Auto-filled from customer record
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -1808,8 +1840,12 @@ const Create_new_package = ({
                   {selectedCustomerLink ? (
                     <div className="flex items-center gap-2 h-8 px-3 rounded-lg border border-theme-primary/40 bg-theme-muted/20 text-xs">
                       <Link2 className="h-3 w-3 text-theme-primary shrink-0" />
-                      <span className="flex-1 font-medium text-slate-800">{selectedCustomerLink.name}</span>
-                      <span className="text-[10px] font-bold text-theme-primary uppercase tracking-wide">Linked</span>
+                      <span className="flex-1 font-medium text-slate-800">
+                        {selectedCustomerLink.name}
+                      </span>
+                      <span className="text-[10px] font-bold text-theme-primary uppercase tracking-wide">
+                        Linked
+                      </span>
                       <button
                         type="button"
                         onClick={() => {
@@ -1850,7 +1886,10 @@ const Create_new_package = ({
                                 <li
                                   key={c.id}
                                   onMouseDown={() => {
-                                    setSelectedCustomerLink({ id: c.id, name: c.name });
+                                    setSelectedCustomerLink({
+                                      id: c.id,
+                                      name: c.name,
+                                    });
                                     setCustomerName(c.name);
                                     setCustomerSearchText("");
                                     setShowCustomerDropdown(false);
@@ -1858,8 +1897,14 @@ const Create_new_package = ({
                                   className="flex items-center justify-between px-3 py-2 hover:bg-theme-muted/40 cursor-pointer"
                                 >
                                   <div>
-                                    <p className="text-xs font-semibold text-slate-800">{c.name}</p>
-                                    {c.mobile && <p className="text-[10px] text-slate-400">{c.mobile}</p>}
+                                    <p className="text-xs font-semibold text-slate-800">
+                                      {c.name}
+                                    </p>
+                                    {c.mobile && (
+                                      <p className="text-[10px] text-slate-400">
+                                        {c.mobile}
+                                      </p>
+                                    )}
                                   </div>
                                   {c.city && (
                                     <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-medium text-slate-500">
@@ -1870,12 +1915,18 @@ const Create_new_package = ({
                               ))}
                             </ul>
                           ) : (
-                            <p className="px-3 py-2 text-xs text-slate-400 italic">No customers found</p>
+                            <p className="px-3 py-2 text-xs text-slate-400 italic">
+                              No customers found
+                            </p>
                           )}
                           <button
                             type="button"
                             onMouseDown={() => {
-                              setNewCustomerDraft({ name: customerName, mobile: "", email: "" });
+                              setNewCustomerDraft({
+                                name: customerName,
+                                mobile: "",
+                                email: "",
+                              });
                               setShowInlineCreateCustomer(true);
                               setShowCustomerDropdown(false);
                             }}
@@ -1888,28 +1939,48 @@ const Create_new_package = ({
                     </div>
                   )}
                   {leadId && !selectedCustomerLink && (
-                    <p className="text-[10px] text-slate-400">✓ Name auto-filled from lead. Optionally link to a customer.</p>
+                    <p className="text-[10px] text-slate-400">
+                      ✓ Name auto-filled from lead. Optionally link to a
+                      customer.
+                    </p>
                   )}
 
                   {/* Inline create customer form */}
                   {showInlineCreateCustomer && (
                     <div className="border border-theme-primary/30 rounded-lg p-3 space-y-2 bg-slate-50 mt-1">
-                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">New Customer</p>
+                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                        New Customer
+                      </p>
                       <Input
                         value={newCustomerDraft.name}
-                        onChange={(e) => setNewCustomerDraft((p) => ({ ...p, name: e.target.value }))}
+                        onChange={(e) =>
+                          setNewCustomerDraft((p) => ({
+                            ...p,
+                            name: e.target.value,
+                          }))
+                        }
                         placeholder="Full name *"
                         className="h-7 text-xs"
                       />
                       <Input
                         value={newCustomerDraft.mobile}
-                        onChange={(e) => setNewCustomerDraft((p) => ({ ...p, mobile: e.target.value }))}
+                        onChange={(e) =>
+                          setNewCustomerDraft((p) => ({
+                            ...p,
+                            mobile: e.target.value,
+                          }))
+                        }
                         placeholder="Mobile"
                         className="h-7 text-xs"
                       />
                       <Input
                         value={newCustomerDraft.email}
-                        onChange={(e) => setNewCustomerDraft((p) => ({ ...p, email: e.target.value }))}
+                        onChange={(e) =>
+                          setNewCustomerDraft((p) => ({
+                            ...p,
+                            email: e.target.value,
+                          }))
+                        }
                         placeholder="Email"
                         className="h-7 text-xs"
                       />
@@ -1921,14 +1992,23 @@ const Create_new_package = ({
                           onClick={async () => {
                             if (!newCustomerDraft.name.trim()) return;
                             try {
-                              const ref = await addDoc(collection(db, "customers"), {
+                              const ref = await addDoc(
+                                collection(db, "customers"),
+                                {
+                                  ...newCustomerDraft,
+                                  status: "New",
+                                  date: new Date().toLocaleDateString(),
+                                },
+                              );
+                              const newCust = {
+                                id: ref.id,
                                 ...newCustomerDraft,
-                                status: "New",
-                                date: new Date().toLocaleDateString(),
-                              });
-                              const newCust = { id: ref.id, ...newCustomerDraft };
+                              };
                               setCustomers((prev) => [...prev, newCust]);
-                              setSelectedCustomerLink({ id: ref.id, name: newCustomerDraft.name });
+                              setSelectedCustomerLink({
+                                id: ref.id,
+                                name: newCustomerDraft.name,
+                              });
                               setCustomerName(newCustomerDraft.name);
                               setShowInlineCreateCustomer(false);
                               toast.success("Customer created and linked");
@@ -1959,17 +2039,23 @@ const Create_new_package = ({
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">
                     Link to Lead{" "}
-                    <span className="text-slate-400 font-normal">(optional)</span>
+                    <span className="text-slate-400 font-normal">
+                      (optional)
+                    </span>
                   </Label>
                   <Select
                     value={saveAsLeadId || "none"}
-                    onValueChange={(v) => setSaveAsLeadId(v === "none" ? "" : v)}
+                    onValueChange={(v) =>
+                      setSaveAsLeadId(v === "none" ? "" : v)
+                    }
                     disabled={isLoadingLeads}
                   >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue
                         placeholder={
-                          isLoadingLeads ? "Loading leads..." : "Select a lead..."
+                          isLoadingLeads
+                            ? "Loading leads..."
+                            : "Select a lead..."
                         }
                       />
                     </SelectTrigger>
