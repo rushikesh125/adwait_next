@@ -4,12 +4,21 @@ export async function GET(req) {
     const locationId = searchParams.get("locationId");
 
     if (!locationId) {
-      return Response.json({ error: "locationId is required" }, { status: 400 });
+      return Response.json(
+        { error: "locationId is required" },
+        { status: 400 },
+      );
     }
 
     const res = await fetch(
       `https://api.content.tripadvisor.com/api/v1/location/${locationId}/details?language=en&currency=INR&key=${process.env.TRIPADVISOR_API_KEY}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: {
+          Referer: "https://portal.adwaittours.com",
+          Origin: "https://portal.adwaittours.com",
+        },
+      },
     );
 
     const data = await res.json();
