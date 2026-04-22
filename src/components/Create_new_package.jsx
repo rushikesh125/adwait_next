@@ -647,10 +647,16 @@ const Create_new_package = ({
   const transportTotalPrice = transportBreakdown?.total || 0;
 
   // Grand total per option
-   const getOptionGrandTotal = (opt) => {
+  const getOptionGrandTotal = (opt) => {
     // Use per-option markup if stored, else shared confirmedMarkup
-    const optMarkup = typeof opt.markup === "number" ? opt.markup : confirmedMarkup;
-    return getOptionHotelTotal(opt) + transportTotalPrice + activityTotalPrice + optMarkup;
+    const optMarkup =
+      typeof opt.markup === "number" ? opt.markup : confirmedMarkup;
+    return (
+      getOptionHotelTotal(opt) +
+      transportTotalPrice +
+      activityTotalPrice +
+      optMarkup
+    );
   };
 
   const grandTotal = getOptionGrandTotal(activeOption);
@@ -791,7 +797,7 @@ const Create_new_package = ({
     dispatch(setSelectedActivities({ activities, totalPrice: total }));
   };
 
- const handleApplyMarkup = () => {
+  const handleApplyMarkup = () => {
     if (markupType === "percentage") {
       // Compute and store individual markup on every option
       setPackageOptions((prev) =>
@@ -807,16 +813,19 @@ const Create_new_package = ({
       );
       // Also store a representative value in Redux (first option) for UI display
       const firstOptTotal = getOptionHotelTotal(packageOptions[0]);
-      const firstBase = firstOptTotal + transportTotalPrice + activityTotalPrice;
+      const firstBase =
+        firstOptTotal + transportTotalPrice + activityTotalPrice;
       dispatch(setConfirmedMarkup((markupAmount / 100) * firstBase));
     } else {
       // Lumpsum: same for all — clear per-option markup and store in Redux
-      setPackageOptions((prev) => prev.map((opt) => ({ ...opt, markup: null })));
+      setPackageOptions((prev) =>
+        prev.map((opt) => ({ ...opt, markup: null })),
+      );
       dispatch(setConfirmedMarkup(Number(markupAmount)));
     }
   };
 
-   const handleCopyToClipboard = () =>
+  const handleCopyToClipboard = () =>
     copyPackageSummary({
       packageOptions,
       selectedTransport,
@@ -828,22 +837,21 @@ const Create_new_package = ({
       markupAmount,
       hotels,
     });
- 
 
   const handleExportToPDF = () =>
     exportPackagePDF({
-    packageOptions,
-    selectedTransport,
-    selectedActivities,
-    transportTotalPrice,
-    activityTotalPrice,
-    confirmedMarkup,  // lumpsum markup value
-    markupType,       // 'percentage' or 'lumpsum'
-    markupAmount,     // percentage value or lumpsum amount
-    customerName,
-    packageName,
-    itineraryData,
-  });
+      packageOptions,
+      selectedTransport,
+      selectedActivities,
+      transportTotalPrice,
+      activityTotalPrice,
+      confirmedMarkup, // lumpsum markup value
+      markupType, // 'percentage' or 'lumpsum'
+      markupAmount, // percentage value or lumpsum amount
+      customerName,
+      packageName,
+      itineraryData,
+    });
 
   // ── Save Package ──────────────────────────────────────────────────────────
   const handleSavePackage = async () => {
@@ -1154,8 +1162,10 @@ const Create_new_package = ({
                       type="number"
                       min={1}
                       value={nights ?? ""}
-                      onChange={(e) =>{const val = e.target.value;
-                    setNights(val === "" ? "" : Number(val))}}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNights(val === "" ? "" : Number(val));
+                      }}
                       className="h-8 text-xs"
                     />
                   </div>
@@ -1908,65 +1918,74 @@ const Create_new_package = ({
                           if ((customerSearchText || customerName).length > 0)
                             setShowCustomerDropdown(true);
                         }}
+                        onBlur={() =>
+                          setTimeout(() => setShowCustomerDropdown(false), 200)
+                        } // Allow click on dropdown items
                         placeholder="Search by name or mobile..."
                         className="h-8 text-xs pl-8"
                       />
                       {showCustomerDropdown && (
-                        <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl z-20 overflow-hidden mt-0.5">
-                          {customerSuggestions.length > 0 ? (
-                            <ul className="max-h-36 overflow-y-auto divide-y divide-slate-100">
-                              {customerSuggestions.map((c) => (
-                                <li
-                                  key={c.id}
-                                  onMouseDown={() => {
-                                    setSelectedCustomerLink({
-                                      id: c.id,
-                                      name: c.name,
-                                    });
-                                    setCustomerName(c.name);
-                                    setCustomerSearchText("");
-                                    setShowCustomerDropdown(false);
-                                  }}
-                                  className="flex items-center justify-between px-3 py-2 hover:bg-theme-muted/40 cursor-pointer"
-                                >
-                                  <div>
-                                    <p className="text-xs font-semibold text-slate-800">
-                                      {c.name}
-                                    </p>
-                                    {c.mobile && (
-                                      <p className="text-[10px] text-slate-400">
-                                        {c.mobile}
+                        <div
+                          className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl z-20 overflow-hidden mt-1 max-h-48"
+                          style={{ maxHeight: "192px" }} // Ensure consistent max height
+                        >
+                          <div className="overflow-y-auto max-h-40">
+                            {customerSuggestions.length > 0 ? (
+                              <ul className="divide-y divide-slate-100">
+                                {customerSuggestions.map((c) => (
+                                  <li
+                                    key={c.id}
+                                    onMouseDown={() => {
+                                      setSelectedCustomerLink({
+                                        id: c.id,
+                                        name: c.name,
+                                      });
+                                      setCustomerName(c.name);
+                                      setCustomerSearchText("");
+                                      setShowCustomerDropdown(false);
+                                    }}
+                                    className="flex items-center justify-between px-3 py-2 hover:bg-theme-muted/40 cursor-pointer"
+                                  >
+                                    <div>
+                                      <p className="text-xs font-semibold text-slate-800">
+                                        {c.name}
                                       </p>
+                                      {c.mobile && (
+                                        <p className="text-[10px] text-slate-400">
+                                          {c.mobile}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {c.city && (
+                                      <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-medium text-slate-500">
+                                        {c.city}
+                                      </span>
                                     )}
-                                  </div>
-                                  {c.city && (
-                                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-medium text-slate-500">
-                                      {c.city}
-                                    </span>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="px-3 py-2 text-xs text-slate-400 italic">
-                              No customers found
-                            </p>
-                          )}
-                          <button
-                            type="button"
-                            onMouseDown={() => {
-                              setNewCustomerDraft({
-                                name: customerName,
-                                mobile: "",
-                                email: "",
-                              });
-                              setShowInlineCreateCustomer(true);
-                              setShowCustomerDropdown(false);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-theme-primary hover:bg-theme-muted/30 border-t border-slate-100 font-medium"
-                          >
-                            <UserPlus className="h-3 w-3" /> Create new customer
-                          </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="px-3 py-2 text-xs text-slate-400 italic">
+                                No customers found
+                              </p>
+                            )}
+                            <button
+                              type="button"
+                              onMouseDown={() => {
+                                setNewCustomerDraft({
+                                  name: customerName,
+                                  mobile: "",
+                                  email: "",
+                                });
+                                setShowInlineCreateCustomer(true);
+                                setShowCustomerDropdown(false);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-theme-primary hover:bg-theme-muted/30 border-t border-slate-100 font-medium"
+                            >
+                              <UserPlus className="h-3 w-3" /> Create new
+                              customer
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
