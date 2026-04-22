@@ -194,7 +194,7 @@ export default function ShareQuotationDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full">
+      <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Share2 className="h-4 w-4 text-theme-primary" />
