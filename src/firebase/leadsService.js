@@ -52,41 +52,12 @@ export const createAssignedLead = async ({ agentId, customerId, agentName, ...da
   });
 };
 
-/**
- * Get all quotations for a lead across all agents
- */
 export const getQuotationsForLead = async (leadId) => {
   if (!leadId) return [];
-  
-  console.log("🔍 getQuotationsForLead called with leadId:", leadId);
-  
   try {
-    const agentsRef = collection(db, "saved_packages_by_agents");
-    const agentSnap = await getDocs(agentsRef);
-    console.log("👥 Found agents:", agentSnap.docs.length);
-    console.log("👥 Agent IDs:", agentSnap.docs.map(doc => doc.id));
-    
-    const allQuotations = [];
-
-    for (const agentDoc of agentSnap.docs) {
-      console.log("🔍 Checking agent:", agentDoc.id);
-      const packagesRef = collection(db, "saved_packages_by_agents", agentDoc.id, "packages");
-      const q = query(packagesRef, where("leadId", "==", leadId));
-      const packageSnap = await getDocs(q);
-      console.log("📦 Quotations found for agent", agentDoc.id, ":", packageSnap.docs.length);
-      
-      const quotationsForAgent = packageSnap.docs.map(doc => ({
-        id: doc.id,
-        agentId: agentDoc.id,
-        ...doc.data()
-      }));
-      
-      console.log("📋 Quotations data:", quotationsForAgent.map(q => ({ id: q.id, leadId: q.leadId, status: q.status })));
-      allQuotations.push(...quotationsForAgent);
-    }
-    
-    console.log("📊 Total quotations found:", allQuotations.length);
-    return allQuotations;
+    const q = query(collectionGroup(db, "packages"), where("leadId", "==", leadId));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (error) {
     console.error("Error fetching quotations for lead:", error);
     return [];
