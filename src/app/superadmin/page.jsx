@@ -278,6 +278,7 @@ export default function Dashboard() {
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState(null);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
 
   const fetchUsers = useCallback(async () => {
@@ -423,12 +424,14 @@ export default function Dashboard() {
   const handleOpenResetPassword = (user) => {
     setResetPasswordUser(user);
     setNewPassword("");
+    setConfirmPassword("");
     setIsResetPasswordModalOpen(true);
   };
 
   const handleConfirmResetPassword = async () => {
     if (!newPassword.trim()) return toast.error("Please enter a new password");
     if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
+    if (newPassword !== confirmPassword) return toast.error("Passwords do not match");
     setResettingPassword(true);
     try {
       const res = await fetch("/api/superadmin/reset-password", {
@@ -442,6 +445,7 @@ export default function Dashboard() {
       setIsResetPasswordModalOpen(false);
       setResetPasswordUser(null);
       setNewPassword("");
+      setConfirmPassword("");
     } catch (err) {
       console.error(err);
       toast.error(err.message || "Failed to update password");
@@ -684,7 +688,7 @@ export default function Dashboard() {
         </main>
 
         {/* Reset Password Dialog */}
-        <Dialog open={isResetPasswordModalOpen} onOpenChange={(open) => { if (!open) { setIsResetPasswordModalOpen(false); setNewPassword(""); setResetPasswordUser(null); } }}>
+        <Dialog open={isResetPasswordModalOpen} onOpenChange={(open) => { if (!open) { setIsResetPasswordModalOpen(false); setNewPassword(""); setConfirmPassword(""); setResetPasswordUser(null); } }}>
           <DialogContent className="rounded-3xl p-6 sm:p-8 w-[calc(100%-2rem)] sm:max-w-lg mx-auto">
             <DialogHeader>
               <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
@@ -696,21 +700,37 @@ export default function Dashboard() {
                 ({resetPasswordUser?.email}). Share it with the user manually.
               </DialogDescription>
             </DialogHeader>
-            <div className="py-2 space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-500">New Password</label>
-              <Input
-                type="text"
-                placeholder="Enter new password (min. 6 characters)"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="h-11 rounded-2xl text-sm font-mono"
-                autoComplete="new-password"
-              />
+            <div className="py-2 space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">New Password</label>
+                <Input
+                  type="text"
+                  placeholder="Enter new password (min. 6 characters)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="h-11 rounded-2xl text-sm font-mono"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Confirm Password</label>
+                <Input
+                  type="text"
+                  placeholder="Re-enter password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`h-11 rounded-2xl text-sm font-mono ${confirmPassword && confirmPassword !== newPassword ? "border-red-400 focus-visible:ring-red-400" : confirmPassword && confirmPassword === newPassword ? "border-emerald-400 focus-visible:ring-emerald-400" : ""}`}
+                  autoComplete="new-password"
+                />
+                {confirmPassword && confirmPassword !== newPassword && (
+                  <p className="text-xs text-red-500 font-semibold">Passwords do not match</p>
+                )}
+              </div>
             </div>
             <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2">
               <Button
                 variant="ghost"
-                onClick={() => { setIsResetPasswordModalOpen(false); setNewPassword(""); setResetPasswordUser(null); }}
+                onClick={() => { setIsResetPasswordModalOpen(false); setNewPassword(""); setConfirmPassword(""); setResetPasswordUser(null); }}
                 className="rounded-xl font-bold w-full sm:w-auto"
                 disabled={resettingPassword}
               >
@@ -718,7 +738,7 @@ export default function Dashboard() {
               </Button>
               <Button
                 onClick={handleConfirmResetPassword}
-                disabled={resettingPassword || newPassword.length < 6}
+                disabled={resettingPassword || newPassword.length < 6 || newPassword !== confirmPassword}
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 font-black w-full sm:w-auto transition-colors"
               >
                 {resettingPassword ? (
