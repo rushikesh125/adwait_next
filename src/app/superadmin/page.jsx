@@ -440,7 +440,7 @@ export default function Dashboard() {
       const res = await fetch("/api/superadmin/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ uid: resetPasswordUser.uid || resetPasswordUser.id, password: newPassword }),
+        body: JSON.stringify({ email: resetPasswordUser.email, password: newPassword }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update password");

@@ -9,15 +9,16 @@ export async function POST(request) {
 
     await requireRole(request, ["superadmin"]);
 
-    const { uid, password } = await request.json();
-    if (!uid || !password) {
-      return NextResponse.json({ error: "UID and password are required" }, { status: 400 });
+    const { email, password } = await request.json();
+    if (!email || !password) {
+      return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
     if (password.length < 6) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
-    await adminAuth.updateUser(uid, { password });
+    const userRecord = await adminAuth.getUserByEmail(email);
+    await adminAuth.updateUser(userRecord.uid, { password });
     return NextResponse.json({ message: "Password updated successfully" }, { status: 200 });
   } catch (error) {
     console.error("[reset-password]", error);
