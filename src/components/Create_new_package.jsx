@@ -1091,8 +1091,9 @@ const Create_new_package = ({
                     <Input
                       type="number"
                       min={1}
-                      value={nights}
-                      onChange={(e) => setNights(parseInt(e.target.value) || 1)}
+                      value={nights ?? ""}
+                      onChange={(e) =>{const val = e.target.value;
+                    setNights(val === "" ? "" : Number(val))}}
                       className="h-8 text-xs"
                     />
                   </div>

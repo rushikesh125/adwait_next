@@ -483,10 +483,15 @@ setToggleValue(prev => !prev)
         "numCNB",
       ];
 
-      hotels[index][field] = numericFields.includes(field)
-        ? parseInt(value, 10) || 0
-        : value;
+      // hotels[index][field] = numericFields.includes(field)
+      //   ? parseInt(value, 10) || 0
+      //   : value;
 
+        if (numericFields.includes(field)) {
+  hotels[index][field] = value === "" ? "" : Number(value);
+} else {
+  hotels[index][field] = value;
+}
       // Handle check-in / nights chain update
       if (field === "nights" || field === "checkInDate") {
         for (let i = index; i < hotels.length; i++) {
@@ -1083,7 +1088,7 @@ setToggleValue(prev => !prev)
                                 <Input
                                   type="number"
                                   min="1"
-                                  value={hotel.nights || 1}
+                                  value={hotel.nights === "" ? "" : hotel.nights ?? 1}
                                   onChange={(e) =>
                                     handleHotelSummaryChange(idx, "nights", e.target.value)
                                   }
