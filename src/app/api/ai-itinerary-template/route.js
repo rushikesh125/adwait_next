@@ -67,14 +67,27 @@ const geminiSchema = {
     numDays: { type: "number" },
     days: { type: "array", items: daySchema },
   },
-  required: ["title", "states", "cities", "startCity", "endCity", "numDays", "days"],
+  required: [
+    "title",
+    "states",
+    "cities",
+    "startCity",
+    "endCity",
+    "numDays",
+    "days",
+  ],
 };
 // ─────────────────────────────────────────────────────────────────────────────
 // Base Prompt Builder
 // Context: template creation — no package/booking context, purely geographic
 // ─────────────────────────────────────────────────────────────────────────────
 function buildBasePrompt({ states, cities, startCity, endCity, numDays }) {
-  const hasContext = states.length > 0 || cities.length > 0 || startCity || endCity || numDays >= 1;
+  const hasContext =
+    states.length > 0 ||
+    cities.length > 0 ||
+    startCity ||
+    endCity ||
+    numDays >= 1;
   const statesList = states.length > 0 ? states.join(", ") : null;
   const citiesList = cities.length > 0 ? cities.join(", ") : null;
 
@@ -190,11 +203,14 @@ export async function POST(req) {
   try {
     body = await req.json();
   } catch {
-    return Response.json({ error: "Invalid JSON in request body." }, { status: 400 });
+    return Response.json(
+      { error: "Invalid JSON in request body." },
+      { status: 400 },
+    );
   }
 
   const {
-    templateContext,        // { states, cities, startCity, endCity, numDays }
+    templateContext, // { states, cities, startCity, endCity, numDays }
     chatHistory = [],
     userPrompt = null,
     currentItinerary = null,
@@ -205,24 +221,43 @@ export async function POST(req) {
   try {
     requester = await requireAuthenticatedUser(req);
   } catch (error) {
-    return Response.json({ error: error.message }, { status: error.status || 401 });
+    return Response.json(
+      { error: error.message },
+      { status: error.status || 401 },
+    );
   }
-
+//   // 🟢 ADMIN BYPASS (ADD THIS BLOCK HERE)
+//   if (requester.role === "admin" || requester.role === "superadmin") {
+//     return Response.json({ allowed: true }, { status: 200 });
+//   }
   if (!requester.uid) {
-    return Response.json({ error: "Authenticated user required." }, { status: 401 });
+    return Response.json(
+      { error: "Authenticated user required." },
+      { status: 401 },
+    );
   }
 
   // ── 3. Permission check ───────────────────────────────────────────────────
-  const isAllowed = await checkItineraryPermission(requester.uid);
-  if (!isAllowed) {
-    return Response.json(
-      {
-        error: "You don't have access to AI Itinerary Creation. Please contact your admin.",
-        code: "PERMISSION_DENIED",
-      },
-      { status: 403 }
-    );
-  }
+ const isAdmin =
+  requester.role === "admin" || requester.role === "superadmin";
+
+let isAllowed = true;
+
+// Only check Firestore for agents
+if (!isAdmin) {
+  isAllowed = await checkItineraryPermission(requester.uid);
+}
+
+if (!isAllowed) {
+  return Response.json(
+    {
+      error:
+        "You don't have access to AI Itinerary Creation. Please contact your admin.",
+      code: "PERMISSION_DENIED",
+    },
+    { status: 403 },
+  );
+}
 
   // ── 4. Rate limit — 10 per minute ────────────────────────────────────────
   const rl = rateLimit({
@@ -233,17 +268,25 @@ export async function POST(req) {
   });
   if (!rl.allowed) {
     return Response.json(
-      { error: "Too many requests. Please wait a moment before generating again." },
+      {
+        error:
+          "Too many requests. Please wait a moment before generating again.",
+      },
       {
         status: 429,
-        headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
-      }
+        headers: {
+          "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)),
+        },
+      },
     );
   }
 
   // ── 5. Validate templateContext ───────────────────────────────────────────
   if (!templateContext) {
-    return Response.json({ error: "templateContext is required." }, { status: 400 });
+    return Response.json(
+      { error: "templateContext is required." },
+      { status: 400 },
+    );
   }
 
   const {
@@ -254,7 +297,7 @@ export async function POST(req) {
     numDays = 0,
   } = templateContext;
 
-// Fields are optional — AI will infer them from user prompts if not provided
+  // Fields are optional — AI will infer them from user prompts if not provided
 
   // ── 6. Sanitise chatHistory ───────────────────────────────────────────────
   const safeChatHistory = Array.isArray(chatHistory)
@@ -263,14 +306,21 @@ export async function POST(req) {
           m &&
           typeof m === "object" &&
           (m.role === "user" || m.role === "assistant") &&
-          typeof m.content === "string"
+          typeof m.content === "string",
       )
     : [];
 
   // ── 7. Build prompt ───────────────────────────────────────────────────────
-  const isRefinement = typeof userPrompt === "string" && userPrompt.trim().length > 0;
+  const isRefinement =
+    typeof userPrompt === "string" && userPrompt.trim().length > 0;
 
-  const basePrompt = buildBasePrompt({ states, cities, startCity, endCity, numDays });
+  const basePrompt = buildBasePrompt({
+    states,
+    cities,
+    startCity,
+    endCity,
+    numDays,
+  });
 
   const fullPrompt = isRefinement
     ? `${basePrompt}\n\n${buildRefinementSuffix({
@@ -285,7 +335,7 @@ export async function POST(req) {
     console.error("[ai-itinerary-template] GEMINI_API_KEY not set.");
     return Response.json(
       { error: "AI service is not configured. Please contact support." },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -293,8 +343,14 @@ export async function POST(req) {
   try {
     ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   } catch (initErr) {
-    console.error("[ai-itinerary-template] Failed to init GoogleGenAI:", initErr);
-    return Response.json({ error: "Failed to initialise AI service." }, { status: 503 });
+    console.error(
+      "[ai-itinerary-template] Failed to init GoogleGenAI:",
+      initErr,
+    );
+    return Response.json(
+      { error: "Failed to initialise AI service." },
+      { status: 503 },
+    );
   }
 
   // ── 9. Call Gemini ────────────────────────────────────────────────────────
@@ -313,26 +369,41 @@ export async function POST(req) {
     console.error("[ai-itinerary-template] Gemini API error:", geminiErr);
     const msg = geminiErr?.message || "";
     if (msg.includes("quota") || msg.includes("429")) {
-      return Response.json({ error: "AI quota exceeded. Please try again in a moment." }, { status: 429 });
+      return Response.json(
+        { error: "AI quota exceeded. Please try again in a moment." },
+        { status: 429 },
+      );
     }
     if (msg.includes("safety") || msg.includes("blocked")) {
       return Response.json(
-        { error: "The AI blocked this request due to content policy. Try rephrasing." },
-        { status: 422 }
+        {
+          error:
+            "The AI blocked this request due to content policy. Try rephrasing.",
+        },
+        { status: 422 },
       );
     }
     if (msg.includes("deadline") || msg.includes("timeout")) {
-      return Response.json({ error: "AI took too long to respond. Please try again." }, { status: 504 });
+      return Response.json(
+        { error: "AI took too long to respond. Please try again." },
+        { status: 504 },
+      );
     }
     return Response.json(
-      { error: "AI generation failed. Please try again.", details: msg || "Unknown error" },
-      { status: 502 }
+      {
+        error: "AI generation failed. Please try again.",
+        details: msg || "Unknown error",
+      },
+      { status: 502 },
     );
   }
 
   // ── 10. Guard empty response ──────────────────────────────────────────────
   if (!rawText?.trim()) {
-    return Response.json({ error: "AI returned an empty response. Please try again." }, { status: 502 });
+    return Response.json(
+      { error: "AI returned an empty response. Please try again." },
+      { status: 502 },
+    );
   }
 
   // ── 11. Strip markdown fences ─────────────────────────────────────────────
@@ -347,10 +418,16 @@ export async function POST(req) {
     parsed = JSON.parse(cleanedText);
   } catch (jsonErr) {
     console.error("[ai-itinerary-template] JSON parse failed:", jsonErr);
-    console.error("[ai-itinerary-template] Raw output (first 500):", rawText.slice(0, 500));
+    console.error(
+      "[ai-itinerary-template] Raw output (first 500):",
+      rawText.slice(0, 500),
+    );
     return Response.json(
-      { error: "AI returned malformed data. Please try again.", details: `JSON parse error: ${jsonErr.message}` },
-      { status: 422 }
+      {
+        error: "AI returned malformed data. Please try again.",
+        details: `JSON parse error: ${jsonErr.message}`,
+      },
+      { status: 422 },
     );
   }
 
@@ -363,7 +440,10 @@ export async function POST(req) {
     // Return unvalidated as fallback — better than a hard error
     return Response.json(parsed, {
       status: 200,
-      headers: { "X-Validation-Warning": "Schema validation failed; data may be incomplete." },
+      headers: {
+        "X-Validation-Warning":
+          "Schema validation failed; data may be incomplete.",
+      },
     });
   }
 

@@ -13,9 +13,15 @@ import {
   FileText,
   ListChecks,
   MapPin,
-  Upload,
   ImageIcon,
+  AudioLinesIcon,
+  Send,
+  Lock,
+  MessageSquare,
+  AlertCircle,
   RefreshCw,
+  ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import {
   collection,
@@ -37,374 +43,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useSelector } from "react-redux";
 
-async function uploadToImgBB(file, idToken) {
-  const formData = new FormData();
-  formData.append("image", file);
-  const res = await fetch("/api/upload-image", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${idToken}` },
-    body: formData,
-  });
-  if (!res.ok) throw new Error("Image upload failed");
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "Upload error");
-  return json.data.display_url;
-}
+import {
+  ImageUploader,
+  MultiImageUploader,
+  ActivitySelector,
+  ChecklistSection,
+  MultiStateDropdown,
+} from "./../ItinerarySubComponents";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ImageUploader – single slot with preview, upload, remove, replace
-// Props:
-//   value      : string | null   – current image URL
-//   onChange   : (url|null) => void
-//   label      : string
-//   aspectClass: tailwind aspect class e.g. "aspect-video" | "aspect-square"
-//   maxSizeMB  : number (default 5)
-// ─────────────────────────────────────────────────────────────────────────────
-function ImageUploader({
-  value,
-  onChange,
-  label = "Image",
-  aspectClass = "aspect-video",
-  maxSizeMB = 5,
-}) {
-  const [uploading, setUploading] = useState(false);
-  const inputRef = useRef(null);
-
-  const handleFile = async (file) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file.");
-      return;
-    }
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      toast.error(`Image must be under ${maxSizeMB} MB.`);
-      return;
-    }
-    setUploading(true);
-    try {
-      const idToken = await auth.currentUser?.getIdToken();
-      const url = await uploadToImgBB(file, idToken);
-      onChange(url);
-      toast.success("Image uploaded!");
-    } catch (err) {
-      toast.error(err.message || "Upload failed");
-    } finally {
-      setUploading(false);
-      // Reset input so same file can be re-selected
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
-  };
-
-  const handleDragOver = (e) => e.preventDefault();
-
-  return (
-    <div className="space-y-1.5">
-      {label && (
-        <Label className="text-xs text-slate-500 font-medium">{label}</Label>
-      )}
-
-      {value ? (
-        // ── Preview state ──
-        <div className={`relative group w-full ${aspectClass} rounded-lg overflow-hidden border border-slate-200 bg-slate-100`}>
-          <img
-            src={value}
-            alt={label}
-            className="w-full h-full object-cover"
-          />
-          {/* Overlay actions */}
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-            {/* Replace */}
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 hover:bg-white text-slate-700 rounded-md text-xs font-semibold shadow transition-all"
-            >
-              {uploading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="w-3.5 h-3.5" />
-              )}
-              Replace
-            </button>
-            {/* Remove */}
-            <button
-              type="button"
-              onClick={() => onChange(null)}
-              disabled={uploading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs font-semibold shadow transition-all"
-            >
-              <X className="w-3.5 h-3.5" />
-              Remove
-            </button>
-          </div>
-          {uploading && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-white animate-spin" />
-            </div>
-          )}
-        </div>
-      ) : (
-        // ── Drop-zone state ──
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onClick={() => !uploading && inputRef.current?.click()}
-          className={`
-            relative w-full ${aspectClass} rounded-lg border-2 border-dashed border-slate-300
-            bg-slate-50 hover:bg-blue-50 hover:border-blue-400
-            flex flex-col items-center justify-center gap-2
-            cursor-pointer transition-all duration-150
-            ${uploading ? "pointer-events-none opacity-70" : ""}
-          `}
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
-              <span className="text-xs text-slate-500">Uploading…</span>
-            </>
-          ) : (
-            <>
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                <Upload className="w-5 h-5 text-slate-400" />
-              </div>
-              <div className="text-center">
-                <p className="text-xs font-semibold text-slate-600">
-                  Click or drag & drop
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  PNG, JPG, WEBP · max {maxSizeMB} MB
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
-      />
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MultiImageUploader – up to `max` images in a row
-// Props:
-//   values     : string[]         – current image URLs
-//   onChange   : (urls: string[]) => void
-//   max        : number           (default 2)
-// ─────────────────────────────────────────────────────────────────────────────
-function MultiImageUploader({ values = [], onChange, max = 2 }) {
-  const canAdd = values.length < max;
-
-  const handleAdd = (url) => {
-    onChange([...values, url]);
-  };
-
-  const handleRemove = (idx) => {
-    onChange(values.filter((_, i) => i !== idx));
-  };
-
-  const handleReplace = (idx, url) => {
-    const updated = [...values];
-    updated[idx] = url;
-    onChange(updated);
-  };
-
-  return (
-    <div className="flex gap-3 flex-wrap">
-      {/* Existing images */}
-      {values.map((url, idx) => (
-        <div key={idx} className="w-36 flex-shrink-0">
-          <ImageUploader
-            value={url}
-            onChange={(newUrl) =>
-              newUrl === null ? handleRemove(idx) : handleReplace(idx, newUrl)
-            }
-            label={`Image ${idx + 1}`}
-            aspectClass="aspect-video"
-          />
-        </div>
-      ))}
-
-      {/* Add slot */}
-      {canAdd && (
-        <div className="w-36 flex-shrink-0">
-          <ImageUploader
-            value={null}
-            onChange={(url) => url && handleAdd(url)}
-            label={values.length === 0 ? "Add Image" : `Add Image ${values.length + 1}`}
-            aspectClass="aspect-video"
-          />
-        </div>
-      )}
-
-      {!canAdd && values.length === 0 && (
-        <p className="text-xs text-slate-400 italic">No images yet.</p>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Activity Selector
-// ─────────────────────────────────────────────────────────────────────────────
-function ActivitySelector({ dayIdx, activityIds, availableActivities, onToggle, state }) {
-  const unselected = availableActivities.filter(
-    (a) => !(activityIds || []).includes(a.id)
-  );
-
-  const handleChange = (e) => {
-    const selectedId = e.target.value;
-    if (!selectedId) return;
-    onToggle(dayIdx, selectedId);
-    e.target.value = "";
-  };
-
-  return (
-    <select
-      onChange={handleChange}
-      disabled={!state || unselected.length === 0}
-      defaultValue=""
-      className="w-full px-3 py-2 text-sm border rounded-md bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-    >
-      <option value="" disabled>
-        {!state
-          ? "Select a state first"
-          : unselected.length === 0
-          ? "All activities added"
-          : "Select an activity to add..."}
-      </option>
-      {unselected.map((activity) => (
-        <option key={activity.id} value={activity.id}>
-          {activity.name}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Checklist Section
-// ─────────────────────────────────────────────────────────────────────────────
-function ChecklistSection({ items, onToggle, onSelectAll, onAdd, onRemove, addLabel = "Add Item" }) {
-  const [newItem, setNewItem] = useState("");
-  const allSelected = items.length > 0 && items.every((i) => i.selected);
-
-  const handleAdd = () => {
-    const trimmed = newItem.trim();
-    if (!trimmed) return;
-    onAdd(trimmed);
-    setNewItem("");
-  };
-
-  return (
-    <div className="space-y-3">
-      {items.length > 0 && (
-        <div className="flex items-center gap-2 pb-1">
-          <Checkbox
-            id={`select-all-${addLabel}`}
-            checked={allSelected}
-            onCheckedChange={onSelectAll}
-            className="border-blue-400 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-          />
-          <label
-            htmlFor={`select-all-${addLabel}`}
-            className="text-sm font-medium text-blue-600 cursor-pointer select-none"
-          >
-            Select All
-          </label>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-2 group">
-            <Checkbox
-              id={item.id}
-              checked={item.selected}
-              onCheckedChange={() => onToggle(item.id)}
-              className="border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 flex-shrink-0"
-            />
-            <label
-              htmlFor={item.id}
-              className="text-sm text-slate-700 flex-1 cursor-pointer select-none"
-            >
-              {item.text}
-            </label>
-            {item.isDefault ? (
-              <button
-                type="button"
-                onClick={() => onRemove(item.id)}
-                className="text-[10px] text-red-500 border border-red-300 rounded px-2 py-0.5 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-              >
-                Remove Default
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onRemove(item.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-red-50"
-              >
-                <X className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex gap-2 pt-2">
-        <Input
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleAdd();
-            }
-          }}
-          placeholder="Type and press Enter or click Add..."
-          className="text-sm h-9"
-        />
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleAdd}
-          className="bg-blue-700 hover:bg-blue-800 text-white h-9 px-4 flex-shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5 mr-1" /> {addLabel}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Default data
+// Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 const mkId = () => `id-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+async function getAuthHeaders() {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("Please sign in again to use AI generation.");
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Default checklist data
+// ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_INCLUSIONS = [
   "Hotel to Airport transfer on the day of departure.",
   "All tours & transfers are on a shared coach basis.",
@@ -452,7 +117,251 @@ const SECTIONS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main Component
+// AIChatPopup — floating popup with chat history + prompt input
+// ─────────────────────────────────────────────────────────────────────────────
+function AIChatPopup({
+  open,
+  onClose,
+  chatHistory,
+  isGenerating,
+  aiError,
+  onGenerate,
+  onRefine,
+  hasGenerated,
+  canGenerate, // true when required fields are filled
+}) {
+  const [prompt, setPrompt] = useState("");
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatHistory, open]);
+
+  const handleSubmit = () => {
+    const trimmed = prompt.trim();
+    if (!trimmed || isGenerating) return;
+    onRefine(trimmed);
+    setPrompt("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+
+      {/* Popup panel */}
+      <div
+        className="fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+        style={{ maxHeight: "calc(100vh - 5rem)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+              <AudioLinesIcon className="w-3.5 h-3.5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white leading-tight">
+                AI Itinerary Assistant
+              </p>
+              <p className="text-[10px] text-blue-100">
+                {hasGenerated
+                  ? "Refine your itinerary"
+                  : "Generate day-wise itinerary"}
+              </p>
+            </div>
+            {chatHistory.length > 0 && (
+              <Badge className="bg-white/20 text-white border-none text-[10px] px-1.5 py-0 ml-1">
+                {chatHistory.filter((m) => m.role === "user").length} msg
+              </Badge>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+          >
+            <X className="w-3.5 h-3.5 text-white" />
+          </button>
+        </div>
+
+        {/* Chat area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+          {chatHistory.length === 0 && !isGenerating && (
+            <div className="text-center py-6 space-y-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mx-auto">
+                <Sparkles className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-700">
+                  Ready to generate!
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Click Generate to create a day-wise itinerary. You can
+                  describe your trip in the chat, or fill in the fields above —
+                  AI will suggest missing details automatically.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {chatHistory.map((msg, idx) => (
+            <div
+              key={idx}
+              className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              {msg.role === "assistant" && (
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <AudioLinesIcon className="w-3 h-3 text-white" />
+                </div>
+              )}
+              <div
+                className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white rounded-br-sm"
+                    : msg.isError
+                      ? "bg-red-50 text-red-700 border border-red-200 rounded-bl-sm"
+                      : "bg-slate-100 text-slate-700 rounded-bl-sm"
+                }`}
+              >
+                {msg.isError && (
+                  <AlertCircle className="w-3 h-3 inline mr-1 mb-0.5" />
+                )}
+                {msg.content}
+              </div>
+              {msg.role === "user" && (
+                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-[9px] font-bold text-slate-600">U</span>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {isGenerating && (
+            <div className="flex gap-2 justify-start">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AudioLinesIcon className="w-3 h-3 text-white" />
+              </div>
+              <div className="bg-slate-100 rounded-2xl rounded-bl-sm px-3 py-2.5 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          )}
+
+          {aiError && chatHistory.length === 0 && (
+            <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>{aiError}</span>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input area */}
+        <div className="p-3 border-t border-slate-100 bg-slate-50/80 flex-shrink-0 space-y-2">
+          {!hasGenerated ? (
+            // Initial generate button
+            <Button
+              type="button"
+              onClick={onGenerate}
+              disabled={isGenerating || !canGenerate}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl py-2.5 disabled:opacity-50 shadow-sm"
+            >
+              {isGenerating ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 mr-2"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
+                  </svg>
+                  Generating itinerary…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Itinerary with AI
+                </>
+              )}
+            </Button>
+          ) : (
+            // Refinement input
+            <>
+              <div className="flex items-center gap-1.5 mb-1">
+                <MessageSquare className="w-3 h-3 text-slate-400" />
+                <span className="text-[10px] text-slate-500 font-medium">
+                  Refine with a follow-up instruction · Ctrl+Enter to send
+                </span>
+              </div>
+              <div className="flex gap-2 items-end">
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`e.g. "Add a food tour on Day 2" or "Make Day 3 more relaxed"…`}
+                  disabled={isGenerating}
+                  className="text-xs resize-none min-h-[60px] max-h-[120px] flex-1 disabled:opacity-60 leading-relaxed rounded-xl bg-white"
+                  rows={2}
+                />
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!prompt.trim() || isGenerating}
+                  className="h-9 w-9 p-0 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-40 mb-0.5"
+                  title="Send (Ctrl+Enter)"
+                >
+                  {isGenerating ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+              <button
+                type="button"
+                onClick={onGenerate}
+                disabled={isGenerating}
+                className="flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-40 mt-1"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Regenerate from scratch
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component: ItineraryForm
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ItineraryForm() {
   const router = useRouter();
@@ -461,19 +370,23 @@ export default function ItineraryForm() {
 
   const [activeSection, setActiveSection] = useState("itinerary");
   const [loading, setLoading] = useState(!!itineraryId);
-  const [states, setStates] = useState([]);
+  const [allStates, setAllStates] = useState([]);
   const [availableActivities, setAvailableActivities] = useState([]);
   const [cityInput, setCityInput] = useState("");
   const { user } = useSelector((state) => state.auth);
 
+  // ── Form state ─────────────────────────────────────────────────────────────
   const [form, setForm] = useState({
     title: "",
-    state: "",
+    states: [], // multi-select (was single `state`)
     cities: [],
+    startCity: "", // NEW: first destination city
+    endCity: "", // NEW: last destination city
+    numDays: "", // NEW: number of trip days
     tags: [],
     isActive: true,
     version: 0,
-    posterImage: null, // string | null – ImgBB URL
+    posterImage: null,
   });
 
   const [days, setDays] = useState([
@@ -483,27 +396,45 @@ export default function ItineraryForm() {
       title: "",
       description: "",
       activityIds: [],
-      images: [], // string[] – up to 2 ImgBB URLs
+      images: [],
     },
   ]);
 
   const [inclusions, setInclusions] = useState(() =>
-    DEFAULT_INCLUSIONS.map((i) => ({ ...i, id: mkId() }))
+    DEFAULT_INCLUSIONS.map((i) => ({ ...i, id: mkId() })),
   );
   const [exclusions, setExclusions] = useState(() =>
-    DEFAULT_EXCLUSIONS.map((i) => ({ ...i, id: mkId() }))
+    DEFAULT_EXCLUSIONS.map((i) => ({ ...i, id: mkId() })),
   );
   const [tnc, setTnc] = useState(() =>
-    DEFAULT_TNC.map((i) => ({ ...i, id: mkId() }))
+    DEFAULT_TNC.map((i) => ({ ...i, id: mkId() })),
   );
   const [cancellation, setCancellation] = useState(() =>
-    DEFAULT_CANCELLATION.map((i) => ({ ...i, id: mkId() }))
+    DEFAULT_CANCELLATION.map((i) => ({ ...i, id: mkId() })),
   );
   const [impInfo, setImpInfo] = useState(() =>
-    DEFAULT_IMP_INFO.map((i) => ({ ...i, id: mkId() }))
+    DEFAULT_IMP_INFO.map((i) => ({ ...i, id: mkId() })),
   );
 
-  // ── Load states ───────────────────────────────────────────────────────────
+  // ── AI state ───────────────────────────────────────────────────────────────
+  const [chatPopupOpen, setChatPopupOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [canUseAI, setCanUseAI] = useState(false);
+
+  // Check AI permission
+  useEffect(() => {
+    if (!user?.uid) return;
+    // Optimistically check — parent or API will enforce
+    setCanUseAI(true); // Set based on your agentPermissions logic if needed client-side
+  }, [user?.uid]);
+
+  // ── Can generate? requires key fields ─────────────────────────────────────
+  const canGenerate = true;
+
+  // ── Load states ─────────────────────────────────────────────────────────
   useEffect(() => {
     const fetchStates = async () => {
       try {
@@ -511,7 +442,7 @@ export default function ItineraryForm() {
         const uniqueStates = [
           ...new Set(snap.docs.map((d) => d.data().name)),
         ].sort();
-        setStates(uniqueStates);
+        setAllStates(uniqueStates);
       } catch {
         toast.error("Failed to load states");
       }
@@ -519,7 +450,7 @@ export default function ItineraryForm() {
     fetchStates();
   }, []);
 
-  // ── Load existing itinerary for edit ──────────────────────────────────────
+  // ── Load existing itinerary for edit ────────────────────────────────────
   useEffect(() => {
     if (!itineraryId) return;
     const loadData = async () => {
@@ -529,8 +460,12 @@ export default function ItineraryForm() {
           const data = snap.data();
           setForm({
             title: data.title || "",
-            state: data.state || "",
+            // Support both legacy single `state` and new multi `states`
+            states: data.states || (data.state ? [data.state] : []),
             cities: data.cities || [],
+            startCity: data.startCity || "",
+            endCity: data.endCity || "",
+            numDays: data.numDays ? String(data.numDays) : "",
             tags: data.tags || [],
             isActive: data.isActive ?? true,
             version: data.version || 0,
@@ -542,7 +477,7 @@ export default function ItineraryForm() {
                 ...d,
                 activityIds: d.activityIds || [],
                 images: d.images || [],
-              }))
+              })),
             );
           if (data.inclusions) setInclusions(data.inclusions);
           if (data.exclusions) setExclusions(data.exclusions);
@@ -559,32 +494,45 @@ export default function ItineraryForm() {
     loadData();
   }, [itineraryId]);
 
-  // ── Load activities when state changes ────────────────────────────────────
+  // ── Load activities when states change ──────────────────────────────────
   useEffect(() => {
-    if (!form.state) {
+    if (form.states.length === 0) {
       setAvailableActivities([]);
       return;
     }
     const fetchActivities = async () => {
       try {
-        const q = query(
-          collection(db, "activities"),
-          where("state", "==", form.state)
+        // Fetch activities for all selected states
+        const snaps = await Promise.all(
+          form.states.map((s) =>
+            getDocs(
+              query(collection(db, "activities"), where("state", "==", s)),
+            ),
+          ),
         );
-        const snap = await getDocs(q);
-        setAvailableActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const seen = new Set();
+        const all = [];
+        for (const snap of snaps) {
+          for (const d of snap.docs) {
+            if (!seen.has(d.id)) {
+              seen.add(d.id);
+              all.push({ id: d.id, ...d.data() });
+            }
+          }
+        }
+        setAvailableActivities(all);
       } catch {
         toast.error("Error fetching activities");
       }
     };
     fetchActivities();
-  }, [form.state]);
+  }, [form.states]);
 
-  // ── Checklist helpers ─────────────────────────────────────────────────────
+  // ── Checklist helpers ──────────────────────────────────────────────────
   const makeHandlers = (setter) => ({
     toggle: (id) =>
       setter((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, selected: !i.selected } : i))
+        prev.map((i) => (i.id === id ? { ...i, selected: !i.selected } : i)),
       ),
     selectAll: (checked) =>
       setter((prev) => prev.map((i) => ({ ...i, selected: !!checked }))),
@@ -602,7 +550,7 @@ export default function ItineraryForm() {
   const canH = makeHandlers(setCancellation);
   const impH = makeHandlers(setImpInfo);
 
-  // ── Day handlers ──────────────────────────────────────────────────────────
+  // ── City tag input ─────────────────────────────────────────────────────
   const handleAddCity = (e) => {
     if (e.key === "Enter" && cityInput.trim()) {
       e.preventDefault();
@@ -614,13 +562,13 @@ export default function ItineraryForm() {
       setCityInput("");
     }
   };
-
   const removeCity = (city) =>
     setForm((prev) => ({
       ...prev,
       cities: prev.cities.filter((c) => c !== city),
     }));
 
+  // ── Day handlers ───────────────────────────────────────────────────────
   const handleAddDay = () =>
     setDays((prev) => [
       ...prev,
@@ -639,7 +587,7 @@ export default function ItineraryForm() {
     setDays((prev) =>
       prev
         .filter((_, i) => i !== idx)
-        .map((d, i) => ({ ...d, dayNumber: i + 1 }))
+        .map((d, i) => ({ ...d, dayNumber: i + 1 })),
     );
   };
 
@@ -651,8 +599,8 @@ export default function ItineraryForm() {
     });
 
   const toggleActivity = (dayIdx, actId) =>
-    setDays((prev) => {
-      const updated = prev.map((d, i) => {
+    setDays((prev) =>
+      prev.map((d, i) => {
         if (i !== dayIdx) return d;
         const current = d.activityIds || [];
         return {
@@ -661,28 +609,203 @@ export default function ItineraryForm() {
             ? current.filter((id) => id !== actId)
             : [...current, actId],
         };
-      });
-      return updated;
-    });
+      }),
+    );
 
-  // ── Day image handler ─────────────────────────────────────────────────────
-  const updateDayImages = (dayIdx, newImages) => {
+  const updateDayImages = (dayIdx, newImages) =>
     setDays((prev) => {
       const updated = [...prev];
       updated[dayIdx] = { ...updated[dayIdx], images: newImages };
       return updated;
     });
+
+  // ── AI: Apply response — ONLY title + days ─────────────────────────────
+  const applyAIResponse = (data) => {
+    setForm((prev) => ({
+      ...prev,
+      ...(data.title ? { title: data.title } : {}),
+      ...(data.states?.length && prev.states.length === 0
+        ? { states: data.states }
+        : {}),
+      ...(data.cities?.length && prev.cities.length === 0
+        ? { cities: data.cities }
+        : {}),
+      ...(data.startCity && !prev.startCity
+        ? { startCity: data.startCity }
+        : {}),
+      ...(data.endCity && !prev.endCity ? { endCity: data.endCity } : {}),
+      ...(data.numDays && !prev.numDays
+        ? { numDays: String(data.numDays) }
+        : {}),
+    }));
+    if (data.days?.length) {
+      setDays(
+        data.days.map((d, i) => ({
+          id: mkId(),
+          dayNumber: d.dayNumber ?? i + 1,
+          title: d.title || "",
+          description: d.description || "",
+          activityIds: [],
+          images: [],
+        })),
+      );
+    }
   };
 
-  // ── Save ──────────────────────────────────────────────────────────────────
-  const handleSave = async (isDraft = false) => {
-    if (!form.title || !form.state || form.cities.length === 0)
-      return toast.error("Required: Title, State, and at least 1 City.");
-    if (!user || !(user?.uid && user?.role)) {
-      return toast.error("User should be logged in");
+  // ── AI: Initial generation ─────────────────────────────────────────────
+  const handleGenerateWithAI = async () => {
+    setIsGenerating(true);
+    setAiError(null);
+    setChatHistory([]);
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/ai-itinerary-template", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          templateContext: {
+            states: form.states,
+            cities: form.cities,
+            startCity: form.startCity,
+            endCity: form.endCity,
+            numDays: Number(form.numDays),
+          },
+          chatHistory: [],
+          userPrompt: null,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || `Server error (${res.status})`);
+      }
+
+      const data = await res.json();
+      applyAIResponse(data);
+      setHasGenerated(true);
+
+      setChatHistory([
+        {
+          role: "assistant",
+          content: `Itinerary generated! Created ${data.days?.length ?? 0} days for "${data.title || "your trip"}". You can now refine it with follow-up messages, or edit the days manually below.`,
+        },
+      ]);
+    } catch (err) {
+      console.error("[AI ItineraryForm]", err);
+      const errMsg =
+        err.message || "Generation failed. You can still fill in manually.";
+      setAiError(errMsg);
+      setChatHistory([
+        {
+          role: "assistant",
+          content: `Could not generate: ${errMsg}`,
+          isError: true,
+        },
+      ]);
+    } finally {
+      setIsGenerating(false);
     }
+  };
+
+  // ── AI: Refinement ─────────────────────────────────────────────────────
+  const handleRefine = async (userPrompt) => {
+    if (!userPrompt.trim() || isGenerating) return;
+
+    setIsGenerating(true);
+    setAiError(null);
+
+    const updatedHistory = [
+      ...chatHistory,
+      { role: "user", content: userPrompt },
+    ];
+    setChatHistory(updatedHistory);
+
+    const currentItinerary = { title: form.title, days };
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch("/api/ai-itinerary-template", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          templateContext: {
+            states: form.states,
+            cities: form.cities,
+            startCity: form.startCity,
+            endCity: form.endCity,
+            numDays: Number(form.numDays),
+          },
+          chatHistory: updatedHistory,
+          userPrompt,
+          currentItinerary,
+        }),
+      });
+
+      if (!res.ok) {
+        let errMsg = `Server error (${res.status})`;
+        try {
+          const errBody = await res.json();
+          errMsg = errBody?.error || errMsg;
+          if (errBody?.details) errMsg += ` — ${errBody.details}`;
+        } catch {}
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      applyAIResponse(data);
+
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Done! Updated the itinerary based on your request.${
+            data.days?.length
+              ? ` The plan now has ${data.days.length} days.`
+              : ""
+          }`,
+        },
+      ]);
+    } catch (err) {
+      console.error("[AI ItineraryForm Refine]", err);
+      const errMsg =
+        err.message ||
+        "Could not apply changes. Please try again or edit manually.";
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "assistant", content: errMsg, isError: true },
+      ]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // ── Save ───────────────────────────────────────────────────────────────
+  const handleSave = async (isDraft = false) => {
+    if (!form.title || form.states.length === 0 || form.cities.length === 0)
+      return toast.error(
+        "Required: Title, at least one State, and at least one City.",
+      );
+    if (!form.startCity.trim())
+      return toast.error("Starting City is required.");
+    if (!form.endCity.trim()) return toast.error("Ending City is required.");
+    if (!form.numDays || Number(form.numDays) < 1)
+      return toast.error("Number of Days must be at least 1.");
+    if (!user?.uid || !user?.role)
+      return toast.error("User should be logged in");
+
     const payload = {
-      ...form,
+      title: form.title,
+      states: form.states,
+      // Keep legacy `state` field as first state for backward compatibility
+      state: form.states[0] || "",
+      cities: form.cities,
+      startCity: form.startCity,
+      endCity: form.endCity,
+      numDays: Number(form.numDays),
+      tags: form.tags,
+      isActive: form.isActive,
+      posterImage: form.posterImage,
       days,
       inclusions,
       exclusions,
@@ -693,8 +816,8 @@ export default function ItineraryForm() {
       version: (form.version || 0) + 1,
       updatedAt: serverTimestamp(),
       status: isDraft ? "Draft" : "Published",
-      clientRole: user?.role,
-      clientId: user?.uid,
+      clientRole: user.role,
+      clientId: user.uid,
     };
 
     try {
@@ -722,8 +845,8 @@ export default function ItineraryForm() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      {/* ── Sticky Header ── */}
-      <header className="sticky top-0 z-20 bg-white border-b px-8 py-4 flex justify-between items-center shadow-sm">
+      {/* ── Sticky Header ─────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-20 bg-white border-b px-6 py-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ChevronLeft />
@@ -732,7 +855,23 @@ export default function ItineraryForm() {
             {itineraryId ? "Edit" : "Create"} Itinerary Template
           </h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 items-center">
+          {/* AI Trigger Button */}
+          <Button
+            type="button"
+            onClick={() => setChatPopupOpen(true)}
+            variant="outline"
+            className="flex items-center gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 relative"
+          >
+            <Sparkles className="w-4 h-4" />
+            AI Generate
+            {isGenerating && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse" />
+            )}
+            {hasGenerated && !isGenerating && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full" />
+            )}
+          </Button>
           <Button variant="outline" onClick={() => handleSave(true)}>
             Save Draft
           </Button>
@@ -745,7 +884,7 @@ export default function ItineraryForm() {
         </div>
       </header>
 
-      {/* ── Section Tabs ── */}
+      {/* ── Section Tabs ───────────────────────────────────────────────────── */}
       <div className="sticky top-[73px] z-10 bg-white border-b shadow-sm">
         <div className="max-w-5xl mx-auto px-4 flex gap-1 py-2 overflow-x-auto">
           {SECTIONS.map(({ id, label, icon: Icon }) => (
@@ -779,40 +918,34 @@ export default function ItineraryForm() {
                   Step 1: Header Info
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label>Itinerary Title *</Label>
-                    <Input
-                      value={form.title}
-                      onChange={(e) =>
-                        setForm({ ...form, title: e.target.value })
-                      }
-                      placeholder="e.g. 5N Golden Triangle"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Base State *</Label>
-                    <Select
-                      value={form.state}
-                      onValueChange={(v) => setForm({ ...form, state: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select State" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {states.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <CardContent className="space-y-5">
+                {/* Title */}
+                <div className="space-y-1">
+                  <Label>Itinerary Title *</Label>
+                  <Input
+                    value={form.title}
+                    onChange={(e) =>
+                      setForm({ ...form, title: e.target.value })
+                    }
+                    placeholder="e.g. 6D5N Rajasthan Heritage Circuit"
+                  />
                 </div>
 
+                {/* States (multi-select) */}
+                <div className="space-y-1.5">
+                  <Label>Base State(s) *</Label>
+                  <MultiStateDropdown
+                    states={allStates}
+                    selectedStates={form.states}
+                    onChange={(states) =>
+                      setForm((prev) => ({ ...prev, states }))
+                    }
+                  />
+                </div>
+
+                {/* Cities */}
                 <div className="space-y-2">
-                  <Label>Cities Covered (Type and press Enter) *</Label>
+                  <Label>Cities Covered (type and press Enter) *</Label>
                   <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-white min-h-[45px] focus-within:ring-1 focus-within:ring-blue-500">
                     {form.cities.map((city) => (
                       <Badge
@@ -822,11 +955,7 @@ export default function ItineraryForm() {
                         {city}
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            removeCity(city);
-                          }}
+                          onClick={() => removeCity(city)}
                           className="hover:text-red-600 p-0.5 rounded-full"
                         >
                           <X className="w-3 h-3" />
@@ -843,14 +972,104 @@ export default function ItineraryForm() {
                   </div>
                 </div>
 
-                {/* ── Poster Image ── */}
+                {/* Start City + End City */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>Starting City *</Label>
+                    <Input
+                      value={form.startCity}
+                      onChange={(e) =>
+                        setForm({ ...form, startCity: e.target.value })
+                      }
+                      placeholder="e.g. Jaipur"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      First destination of the trip
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Ending City *</Label>
+                    <Input
+                      value={form.endCity}
+                      onChange={(e) =>
+                        setForm({ ...form, endCity: e.target.value })
+                      }
+                      placeholder="e.g. Udaipur"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      Final city before departure
+                    </p>
+                  </div>
+                </div>
+
+                {/* Number of Days */}
+                <div className="space-y-1 max-w-xs">
+                  <Label>Number of Trip Days *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={form.numDays}
+                    onChange={(e) =>
+                      setForm({ ...form, numDays: e.target.value })
+                    }
+                    placeholder="e.g. 6"
+                  />
+                  <p className="text-[11px] text-slate-400">
+                    Total days including arrival and departure
+                  </p>
+                </div>
+
+                {/* AI hint banner */}
+                {canGenerate && !hasGenerated && (
+                  <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+                    <Sparkles className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-700">
+                        Ready to generate with AI
+                      </p>
+                      <p className="text-xs text-blue-500">
+                        Click "AI Generate" in the header to auto-fill the day
+                        program.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setChatPopupOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 flex-shrink-0"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mr-1" />
+                      Generate
+                    </Button>
+                  </div>
+                )}
+
+                {hasGenerated && (
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 rounded-xl">
+                    <span className="text-green-600 text-sm">✓</span>
+                    <p className="text-xs text-green-700 font-medium">
+                      AI-generated itinerary applied. Review the days below and
+                      edit as needed.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setChatPopupOpen(true)}
+                      className="ml-auto text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Refine
+                    </button>
+                  </div>
+                )}
+
+                {/* Poster Image */}
                 <div className="space-y-1.5 pt-2 border-t">
                   <Label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
                     <ImageIcon className="w-4 h-4 text-blue-500" />
                     Poster / Cover Image
                   </Label>
                   <p className="text-xs text-slate-400">
-                    This is the main image shown at the top of the itinerary.
+                    Main image shown at the top of the itinerary.
                   </p>
                   <div className="max-w-lg">
                     <ImageUploader
@@ -869,9 +1088,17 @@ export default function ItineraryForm() {
 
             {/* Day Program */}
             <div className="space-y-4">
-              <h2 className="text-lg font-bold text-slate-800">
-                Step 2: Day Program
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-800">
+                  Step 2: Day Program
+                </h2>
+                {!canGenerate && (
+                  <p className="text-xs text-slate-400">
+                    Fill in States, Cities, Start/End city and Days to enable AI
+                    generation
+                  </p>
+                )}
+              </div>
 
               {days.map((day, idx) => (
                 <Card
@@ -902,7 +1129,7 @@ export default function ItineraryForm() {
                       className="font-bold text-md"
                     />
                     <Textarea
-                      placeholder="What happens today?"
+                      placeholder="What happens today? Describe transfers, sightseeing, meals…"
                       value={day.description}
                       onChange={(e) =>
                         updateDayField(idx, "description", e.target.value)
@@ -910,7 +1137,7 @@ export default function ItineraryForm() {
                       className="min-h-[100px]"
                     />
 
-                    {/* ── Day Images ── */}
+                    {/* Day Images */}
                     <div className="space-y-2 border-t pt-3">
                       <Label className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                         <ImageIcon className="w-3.5 h-3.5" />
@@ -931,12 +1158,11 @@ export default function ItineraryForm() {
                       <Label className="text-xs text-slate-500">
                         Linked Activities
                       </Label>
-
                       {(day.activityIds || []).length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {day.activityIds.map((actId) => {
                             const activity = availableActivities.find(
-                              (a) => a.id === actId
+                              (a) => a.id === actId,
                             );
                             return (
                               <Badge
@@ -963,18 +1189,16 @@ export default function ItineraryForm() {
                           })}
                         </div>
                       )}
-
                       <ActivitySelector
                         dayIdx={idx}
                         activityIds={day.activityIds || []}
                         availableActivities={availableActivities}
                         onToggle={toggleActivity}
-                        state={form.state}
+                        state={form.states[0] || ""}
                       />
                     </div>
                   </CardContent>
 
-                  {/* Add Day button inside the last card */}
                   {idx === days.length - 1 && (
                     <div className="px-5 pb-5">
                       <button
@@ -1025,7 +1249,7 @@ export default function ItineraryForm() {
                   onSelectAll={incH.selectAll}
                   onAdd={incH.add}
                   onRemove={incH.remove}
-                  addLabel="Add Inclusions"
+                  addLabel="Add Inclusion"
                 />
               </div>
               <div className="space-y-4">
@@ -1038,7 +1262,7 @@ export default function ItineraryForm() {
                   onSelectAll={excH.selectAll}
                   onAdd={excH.add}
                   onRemove={excH.remove}
-                  addLabel="Add Exclusions"
+                  addLabel="Add Exclusion"
                 />
               </div>
             </CardContent>
@@ -1110,6 +1334,19 @@ export default function ItineraryForm() {
           </Card>
         )}
       </main>
+
+      {/* ── AI Chat Popup ───────────────────────────────────────────────────── */}
+      <AIChatPopup
+        open={chatPopupOpen}
+        onClose={() => setChatPopupOpen(false)}
+        chatHistory={chatHistory}
+        isGenerating={isGenerating}
+        aiError={aiError}
+        onGenerate={handleGenerateWithAI}
+        onRefine={handleRefine}
+        hasGenerated={hasGenerated}
+        canGenerate={canGenerate}
+      />
     </div>
   );
 }

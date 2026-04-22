@@ -45,7 +45,10 @@ export async function POST(req) {
       { status: error.status || 401 }
     );
   }
-
+// 🟢 ADMIN BYPASS (ADD THIS BLOCK HERE)
+if (requester.role === "admin" || requester.role === "superadmin") {
+  return Response.json({ allowed: true }, { status: 200 });
+}
   const permission = body?.permission;
   const targetUid = body?.uid || requester.uid;
 
