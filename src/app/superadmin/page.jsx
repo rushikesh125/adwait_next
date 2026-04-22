@@ -277,6 +277,7 @@ export default function Dashboard() {
 
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
 
   const fetchUsers = useCallback(async () => {
@@ -421,39 +422,29 @@ export default function Dashboard() {
 
   const handleOpenResetPassword = (user) => {
     setResetPasswordUser(user);
+    setNewPassword("");
     setIsResetPasswordModalOpen(true);
   };
 
   const handleConfirmResetPassword = async () => {
-    if (!resetPasswordUser?.email) return;
+    if (!newPassword.trim()) return toast.error("Please enter a new password");
+    if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
     setResettingPassword(true);
     try {
       const res = await fetch("/api/superadmin/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetPasswordUser.email }),
+        body: JSON.stringify({ uid: resetPasswordUser.id, password: newPassword }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to generate reset link");
-
-      await emailjs.send(
-        "service_gmfmqbu",
-        process.env.NEXT_PUBLIC_EMAILJS_RESET_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_APPROVAL_TEMPLATE_ID,
-        {
-          to_name: resetPasswordUser.name,
-          to_email: resetPasswordUser.email,
-          reset_link: data.resetLink,
-          admin_message: "Your password has been reset by an administrator. Click the link below to set a new password.",
-        },
-        "GjevhIIhLITokCOAK",
-      );
-
-      toast.success(`Password reset link sent to ${resetPasswordUser.email}`);
+      if (!res.ok) throw new Error(data.error || "Failed to update password");
+      toast.success(`Password updated for ${resetPasswordUser.name}`);
       setIsResetPasswordModalOpen(false);
       setResetPasswordUser(null);
+      setNewPassword("");
     } catch (err) {
       console.error(err);
-      toast.error(err.message || "Failed to send reset link");
+      toast.error(err.message || "Failed to update password");
     } finally {
       setResettingPassword(false);
     }
@@ -693,26 +684,33 @@ export default function Dashboard() {
         </main>
 
         {/* Reset Password Dialog */}
-        <Dialog open={isResetPasswordModalOpen} onOpenChange={setIsResetPasswordModalOpen}>
+        <Dialog open={isResetPasswordModalOpen} onOpenChange={(open) => { if (!open) { setIsResetPasswordModalOpen(false); setNewPassword(""); setResetPasswordUser(null); } }}>
           <DialogContent className="rounded-3xl p-6 sm:p-8 w-[calc(100%-2rem)] sm:max-w-lg mx-auto">
             <DialogHeader>
               <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-blue-600" /> Reset Password
+                <KeyRound className="w-5 h-5 text-blue-600" /> Set New Password
               </DialogTitle>
               <DialogDescription className="pt-1.5 text-sm">
-                A password reset link will be sent to{" "}
-                <strong className="text-slate-700">{resetPasswordUser?.email}</strong>.
-                The user can use it to set a new password.
+                Set a new password for{" "}
+                <strong className="text-slate-700">{resetPasswordUser?.name}</strong>{" "}
+                ({resetPasswordUser?.email}). Share it with the user manually.
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 text-sm text-blue-800 font-medium">
-              User: <span className="font-black">{resetPasswordUser?.name}</span><br />
-              Email: <span className="font-black">{resetPasswordUser?.email}</span>
+            <div className="py-2 space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500">New Password</label>
+              <Input
+                type="text"
+                placeholder="Enter new password (min. 6 characters)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="h-11 rounded-2xl text-sm font-mono"
+                autoComplete="new-password"
+              />
             </div>
             <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2">
               <Button
                 variant="ghost"
-                onClick={() => { setIsResetPasswordModalOpen(false); setResetPasswordUser(null); }}
+                onClick={() => { setIsResetPasswordModalOpen(false); setNewPassword(""); setResetPasswordUser(null); }}
                 className="rounded-xl font-bold w-full sm:w-auto"
                 disabled={resettingPassword}
               >
@@ -720,13 +718,13 @@ export default function Dashboard() {
               </Button>
               <Button
                 onClick={handleConfirmResetPassword}
-                disabled={resettingPassword}
+                disabled={resettingPassword || newPassword.length < 6}
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 font-black w-full sm:w-auto transition-colors"
               >
                 {resettingPassword ? (
-                  <><Loader2 className="mr-2 w-4 h-4 animate-spin" /> Sending…</>
+                  <><Loader2 className="mr-2 w-4 h-4 animate-spin" /> Updating…</>
                 ) : (
-                  <><KeyRound className="mr-2 w-4 h-4" /> Send Reset Link</>
+                  <><KeyRound className="mr-2 w-4 h-4" /> Update Password</>
                 )}
               </Button>
             </DialogFooter>

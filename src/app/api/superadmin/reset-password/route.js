@@ -6,13 +6,16 @@ export async function POST(request) {
   try {
     await requireRole(request, ["superadmin"]);
 
-    const { email } = await request.json();
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    const { uid, password } = await request.json();
+    if (!uid || !password) {
+      return NextResponse.json({ error: "UID and password are required" }, { status: 400 });
+    }
+    if (password.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
-    const resetLink = await adminAuth.generatePasswordResetLink(email);
-    return NextResponse.json({ resetLink }, { status: 200 });
+    await adminAuth.updateUser(uid, { password });
+    return NextResponse.json({ message: "Password updated successfully" }, { status: 200 });
   } catch (error) {
     console.error("[reset-password]", error);
     return NextResponse.json(
