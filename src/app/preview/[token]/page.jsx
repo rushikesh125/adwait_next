@@ -622,7 +622,7 @@ export default function PreviewPage() {
   const showPricing = quotation.showPricing === true;
 
   const totalNights = hotels.reduce((s, h) => s + (parseInt(h.nights) || 0), 0);
-  const totalDays = itinerary?.days?.length || totalNights + 1;
+  const totalDays = totalNights + 1;
   const destinations = [...new Set(hotels.map((h) => h.city).filter(Boolean))];
 
   const firstCheckIn = hotels[0]?.checkInDate;
