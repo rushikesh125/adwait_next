@@ -305,10 +305,10 @@ const MyQuotations = () => {
     const transportTotalPrice =
       quotation.transportSummary?.totalTransportCost || 0;
 
-   const activityTotalPrice = (quotation.activitySummary || []).reduce(
-  (sum, a) => sum + (a.totalPrice || 0),
-  0
-);
+    const activityTotalPrice = (quotation.activitySummary || []).reduce(
+      (sum, a) => sum + (a.totalPrice || 0),
+      0,
+    );
 
     const confirmedMarkup = quotation.markup || 0;
 
