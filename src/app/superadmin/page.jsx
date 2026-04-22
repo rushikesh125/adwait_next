@@ -65,6 +65,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import UserDropdown from "@/components/UserDropdown";
+import { auth } from "@/firebase/config";
 import SuperadminLeftMenu from "@/components/SuperadminLeftMenu";
 import RequireAuth from "@/components/RequireAuth";
 import { useSelector } from "react-redux";
@@ -434,9 +435,11 @@ export default function Dashboard() {
     if (newPassword !== confirmPassword) return toast.error("Passwords do not match");
     setResettingPassword(true);
     try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not authenticated. Please sign in again.");
       const res = await fetch("/api/superadmin/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ uid: resetPasswordUser.id, password: newPassword }),
       });
       const data = await res.json();
