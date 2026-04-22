@@ -84,14 +84,14 @@ const Transport = () => {
     setLoading(true);
     try {
       const snapshot = await getDocs(collection(db, "transport"));
-      const stateData = snapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          stateName: doc.data().stateName,
-          packages: doc.data().packages || [],
-        }))
-        .filter((s) => s.packages.length > 0);
-      setPackagesByState(stateData);
+      const stateData = await Promise.all(
+        snapshot.docs.map(async (stateDoc) => {
+          const pkgSnap = await getDocs(collection(db, "transport", stateDoc.id, "packages"));
+          const packages = pkgSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          return { id: stateDoc.id, stateName: stateDoc.data().stateName, packages };
+        })
+      );
+      setPackagesByState(stateData.filter((s) => s.packages.length > 0));
     } catch (err) {
       console.error("Error fetching:", err);
       toast.error("Failed to load transport data");
