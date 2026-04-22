@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { adminAuth } from "@/firebase/admin";
-import { requireRole } from "@/lib/serverAuth";
 
 export async function POST(request) {
   try {
+    const [{ adminAuth }, { requireRole }] = await Promise.all([
+      import("@/firebase/admin"),
+      import("@/lib/serverAuth"),
+    ]);
+
     await requireRole(request, ["superadmin"]);
 
     const { uid, password } = await request.json();
