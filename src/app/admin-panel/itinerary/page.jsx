@@ -510,9 +510,7 @@ export default function ItineraryListPage() {
                   align="center"
                 />
               </TableHead>
-              <TableHead className="w-[14%] text-center">
-                Actions
-              </TableHead>
+              <TableHead className="w-[14%] text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -545,7 +543,7 @@ export default function ItineraryListPage() {
                 const nights =
                   item.durationNights ?? (item.days?.length || 1) - 1;
                 const days = nights + 1;
-
+                // console.log(item.states)
                 return (
                   <TableRow
                     key={item.id}
@@ -562,8 +560,15 @@ export default function ItineraryListPage() {
 
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-sm text-slate-700 font-medium">
-                        <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                        {item.state}
+                        {(item.states || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 text-sm text-slate-700 font-medium">
+                            <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+
+                            {(item.states || []).map((state, i) => (
+                              <span key={i}>{state},</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {(item.cities || []).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
@@ -599,7 +604,8 @@ export default function ItineraryListPage() {
                       <div className="w-full flex justify-start">
                         <span className="text-sm font-semibold text-slate-700">
                           {totalActivities}
-                        </span>&nbsp;
+                        </span>
+                        &nbsp;
                         <div className="text-[10px] text-slate-400">linked</div>
                       </div>
                     </TableCell>
