@@ -515,9 +515,7 @@ export default function ItineraryListPage() {
                   align="center"
                 />
               </TableHead>
-              <TableHead className="w-[14%] text-center">
-                Actions
-              </TableHead>
+              <TableHead className="w-[14%] text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -567,8 +565,15 @@ export default function ItineraryListPage() {
 
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-sm text-slate-700 font-medium">
-                        <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                        {item.state}
+                        {(item.states || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 text-sm text-slate-700 font-medium">
+                            <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+
+                            {(item.states || []).map((state, i) => (
+                              <span key={i}>{state},</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {(item.cities || []).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
