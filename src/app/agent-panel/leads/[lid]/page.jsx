@@ -52,7 +52,7 @@ import {
   addLeadNote,
   deleteLeadNote,
   updateLeadNote,
-  getAgentQuotationsForLead,
+  getQuotationsForLead,
   updateLeadDetails,
 } from "@/firebase/leadsService";
 import toast, { Toaster } from "react-hot-toast";
@@ -123,7 +123,7 @@ export default function LeadProfilePage({ params }) {
       setLoading(true);
       const [leadData, quotesData, notesData] = await Promise.all([
         getLeadById(lid),
-        getAgentQuotationsForLead(user.uid, lid),
+        getQuotationsForLead(lid),
         getLeadNotes(lid),
       ]);
       setLead(leadData);
