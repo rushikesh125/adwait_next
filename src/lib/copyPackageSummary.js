@@ -5,10 +5,10 @@ import toast from "react-hot-toast";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MEAL_PLAN_LABELS = {
-  EP:  "Accommodation only",
-  CP:  "Bed + Breakfast",
+  EP: "Accommodation only",
+  CP: "Bed + Breakfast",
   MAP: "Breakfast + Dinner",
-  AP:  "All Meals",
+  AP: "All Meals",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -16,17 +16,32 @@ const formatDate = (dateStr) => {
   const d = new Date(dateStr);
   return isNaN(d)
     ? "—"
-    : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    : d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 };
 
 const calculateTotalMeals = (entries) => {
-  let totalBreakfasts = 0, totalLunches = 0, totalDinners = 0;
+  let totalBreakfasts = 0,
+    totalLunches = 0,
+    totalDinners = 0;
   entries.forEach(({ selectedMealPlan, nights }) => {
     const n = parseInt(nights, 10);
     if (isNaN(n)) return;
-    if (selectedMealPlan === "CP")  { totalBreakfasts += n; }
-    if (selectedMealPlan === "MAP") { totalBreakfasts += n; totalDinners += n; }
-    if (selectedMealPlan === "AP")  { totalBreakfasts += n; totalLunches += n; totalDinners += n; }
+    if (selectedMealPlan === "CP") {
+      totalBreakfasts += n;
+    }
+    if (selectedMealPlan === "MAP") {
+      totalBreakfasts += n;
+      totalDinners += n;
+    }
+    if (selectedMealPlan === "AP") {
+      totalBreakfasts += n;
+      totalLunches += n;
+      totalDinners += n;
+    }
   });
   return { totalBreakfasts, totalLunches, totalDinners };
 };
@@ -66,7 +81,12 @@ export const resolveOptionMarkup = (
  * Calculates the per-option grand total.
  * optionMarkup is already resolved to a ₹ amount for THIS option.
  */
-const calcOptionGrandTotal = (opt, transportTotal, activityTotal, optionMarkup) => {
+const calcOptionGrandTotal = (
+  opt,
+  transportTotal,
+  activityTotal,
+  optionMarkup,
+) => {
   const hotelTotal = (opt.hotelEntries || []).reduce(
     (s, e) => s + Number(e.hotelTotal || 0),
     0,
@@ -85,10 +105,17 @@ const buildOptionBlock = (
 ) => {
   const hotelEntries = option.hotelEntries || [];
   if (hotelEntries.length === 0) {
-    return isMultiOption ? `*${option.name}*\nNo hotels added.\n` : `No hotels added.\n`;
+    return isMultiOption
+      ? `*${option.name}*\nNo hotels added.\n`
+      : `No hotels added.\n`;
   }
 
-  const grandTotal = calcOptionGrandTotal(option, transportTotal, activityTotal, optionMarkup);
+  const grandTotal = calcOptionGrandTotal(
+    option,
+    transportTotal,
+    activityTotal,
+    optionMarkup,
+  );
 
   let s = "";
 
@@ -107,7 +134,7 @@ const buildOptionBlock = (
     s += ` ⇒ Rooms: ${e.numDouble || 0}`;
     if ((e.numExtraAdult || 0) > 0) s += ` | Extra Adult: ${e.numExtraAdult}`;
     if ((e.numExtraChild || 0) > 0) s += ` | Extra Child: ${e.numExtraChild}`;
-    if ((e.numCNB        || 0) > 0) s += ` | CNB: ${e.numCNB}`;
+    if ((e.numCNB || 0) > 0) s += ` | CNB: ${e.numCNB}`;
     s += ` | Category: ${(e.selectedRoomCategory || "").toUpperCase()}\n`;
     s += ` ⇒ ${formatDate(e.checkInDate)} to ${formatDate(e.checkOutDate)} (${e.nights} Nights, ${MEAL_PLAN_LABELS[e.selectedMealPlan] || e.selectedMealPlan})\n\n`;
   });
@@ -135,8 +162,8 @@ export const buildPackageSummary = ({
   const options = packageOptions?.length
     ? packageOptions
     : legacyHotelEntries?.length
-    ? [{ id: 1, name: "Package", hotelEntries: legacyHotelEntries }]
-    : [];
+      ? [{ id: 1, name: "Package", hotelEntries: legacyHotelEntries }]
+      : [];
 
   if (!options.length) return "Hotel details not available.";
 
@@ -145,10 +172,11 @@ export const buildPackageSummary = ({
 
   let s = `Dear Guests,\n\nGreetings from Adwait Tours!!\n`;
   s += `Kindly find the best possible rates for your requirement starting ${formatDate(firstEntry.checkInDate)}\n`;
-  s += `${firstEntry.numDouble     || 0} Couple\n`;
+  s += `${firstEntry.numDouble || 0} Couple\n`;
   s += `${firstEntry.numExtraAdult || 0} Extra Adult\n`;
   s += `${firstEntry.numExtraChild || 0} Extra Child\n`;
-  if ((firstEntry.numCNB || 0) > 0) s += `${firstEntry.numCNB} Child With No Bed (CNB)\n`;
+  if ((firstEntry.numCNB || 0) > 0)
+    s += `${firstEntry.numCNB} Child With No Bed (CNB)\n`;
   s += `\n`;
 
   if (isMultiOption) {
@@ -165,22 +193,18 @@ export const buildPackageSummary = ({
       markupType,
       markupAmount,
     );
-    s += buildOptionBlock(opt, hotels, transportTotalPrice, activityTotalPrice, optionMarkup, isMultiOption);
+    s += buildOptionBlock(
+      opt,
+      hotels,
+      transportTotalPrice,
+      activityTotalPrice,
+      optionMarkup,
+      isMultiOption,
+    );
     s += `\n`;
   }
 
-  // Shared transport + activities listed without prices
-  const hasSharedServices = selectedTransport?.selectedVehicle || selectedActivities?.length > 0;
-  if (hasSharedServices) {
-    if (selectedTransport?.selectedVehicle) {
-      const v = selectedTransport.selectedVehicle;
-      s += `🚗 Transport: ${v.type || v.name} ${v.ac ? "AC" : "Non-AC"}\n`;
-    }
-    selectedActivities?.forEach((act) => {
-      s += `🎯 ${act.name.toUpperCase()} (${act.city}) - ${act.participants} Person\n`;
-    });
-    s += `\n`;
-  }
+
 
   // Inclusions
   s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
@@ -189,11 +213,13 @@ export const buildPackageSummary = ({
   s += `✅ Accommodation as per package selection\n`;
 
   const allHotelEntries = options.flatMap((o) => o.hotelEntries || []);
-  const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(allHotelEntries);
+  const { totalBreakfasts, totalLunches, totalDinners } =
+    calculateTotalMeals(allHotelEntries);
   if (totalBreakfasts > 0) s += `✅ ${totalBreakfasts} Breakfast(s)\n`;
-  if (totalLunches > 0)    s += `✅ ${totalLunches} Lunch(es)\n`;
-  if (totalDinners > 0)    s += `✅ ${totalDinners} Dinner(s)\n`;
-  if (!totalBreakfasts && !totalLunches && !totalDinners) s += `✅ No meals included (EP Plan)\n`;
+  if (totalLunches > 0) s += `✅ ${totalLunches} Lunch(es)\n`;
+  if (totalDinners > 0) s += `✅ ${totalDinners} Dinner(s)\n`;
+  if (!totalBreakfasts && !totalLunches && !totalDinners)
+    s += `✅ No meals included (EP Plan)\n`;
 
   if (selectedTransport?.selectedVehicle) {
     const v = selectedTransport.selectedVehicle;
@@ -219,7 +245,8 @@ export const copyPackageSummary = (params) => {
   const summary = buildPackageSummary(params);
 
   if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(summary)
+    navigator.clipboard
+      .writeText(summary)
       .then(() => toast("Package summary copied!"))
       .catch(() => toast.error("Copy failed"));
     return;
@@ -234,7 +261,7 @@ export const copyPackageSummary = (params) => {
     ta.setSelectionRange(0, ta.value.length);
     const ok = document.execCommand("copy");
     if (ok) toast("Package summary copied!");
-    else    toast.error("Copy failed.");
+    else toast.error("Copy failed.");
   } catch {
     toast.error("Copy error.");
   } finally {
