@@ -28,6 +28,7 @@ import {
   Search,
   Filter,
   XCircle,
+  KeyRound,
 } from "lucide-react";
 
 import {
@@ -64,6 +65,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import UserDropdown from "@/components/UserDropdown";
+import { auth } from "@/firebase/config";
 import SuperadminLeftMenu from "@/components/SuperadminLeftMenu";
 import RequireAuth from "@/components/RequireAuth";
 import { useSelector } from "react-redux";
@@ -85,6 +87,7 @@ const UserRow = ({
   onOpenReject,
   onSuspend,
   onDelete,
+  onResetPassword,
 }) => {
   return (
     <tr
@@ -174,6 +177,12 @@ const UserRow = ({
                 <Ban className="mr-2.5 w-4 h-4" /> Suspend
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem
+              onClick={() => onResetPassword({ ...user, type })}
+              className="rounded-xl text-blue-600 font-semibold cursor-pointer"
+            >
+              <KeyRound className="mr-2.5 w-4 h-4" /> Reset Password
+            </DropdownMenuItem>
             <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem
               onClick={() => onDelete(type, user.id)}
@@ -196,6 +205,7 @@ const UserTable = ({
   onOpenReject,
   onSuspend,
   onDelete,
+  onResetPassword,
 }) => (
   <div className="overflow-x-auto">
     <table className="w-full text-left min-w-[480px]">
@@ -230,6 +240,7 @@ const UserTable = ({
               onOpenReject={onOpenReject}
               onSuspend={onSuspend}
               onDelete={onDelete}
+              onResetPassword={onResetPassword}
             />
           ))
         ) : (
@@ -264,6 +275,12 @@ export default function Dashboard() {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -405,6 +422,41 @@ export default function Dashboard() {
     setIsRejectModalOpen(true);
   };
 
+  const handleOpenResetPassword = (user) => {
+    setResetPasswordUser(user);
+    setNewPassword("");
+    setConfirmPassword("");
+    setIsResetPasswordModalOpen(true);
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!newPassword.trim()) return toast.error("Please enter a new password");
+    if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
+    if (newPassword !== confirmPassword) return toast.error("Passwords do not match");
+    setResettingPassword(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not authenticated. Please sign in again.");
+      const res = await fetch("/api/superadmin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: resetPasswordUser.email, password: newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update password");
+      toast.success(`Password updated for ${resetPasswordUser.name}`);
+      setIsResetPasswordModalOpen(false);
+      setResetPasswordUser(null);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to update password");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const totalUsers = admins.length + agents.length;
   const activeAdmins = admins.filter((a) => a.approved === "accepted").length;
   const pendingCount = [...admins, ...agents].filter(
@@ -437,6 +489,7 @@ export default function Dashboard() {
     onOpenReject: handleOpenReject,
     onSuspend: handleSuspend,
     onDelete: handleDelete,
+    onResetPassword: handleOpenResetPassword,
   };
 
   return (
@@ -636,6 +689,70 @@ export default function Dashboard() {
           </div>
           </div>
         </main>
+
+        {/* Reset Password Dialog */}
+        <Dialog open={isResetPasswordModalOpen} onOpenChange={(open) => { if (!open) { setIsResetPasswordModalOpen(false); setNewPassword(""); setConfirmPassword(""); setResetPasswordUser(null); } }}>
+          <DialogContent className="rounded-3xl p-6 sm:p-8 w-[calc(100%-2rem)] sm:max-w-lg mx-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-blue-600" /> Set New Password
+              </DialogTitle>
+              <DialogDescription className="pt-1.5 text-sm">
+                Set a new password for{" "}
+                <strong className="text-slate-700">{resetPasswordUser?.name}</strong>{" "}
+                ({resetPasswordUser?.email}). Share it with the user manually.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-2 space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">New Password</label>
+                <Input
+                  type="text"
+                  placeholder="Enter new password (min. 6 characters)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="h-11 rounded-2xl text-sm font-mono"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Confirm Password</label>
+                <Input
+                  type="text"
+                  placeholder="Re-enter password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`h-11 rounded-2xl text-sm font-mono ${confirmPassword && confirmPassword !== newPassword ? "border-red-400 focus-visible:ring-red-400" : confirmPassword && confirmPassword === newPassword ? "border-emerald-400 focus-visible:ring-emerald-400" : ""}`}
+                  autoComplete="new-password"
+                />
+                {confirmPassword && confirmPassword !== newPassword && (
+                  <p className="text-xs text-red-500 font-semibold">Passwords do not match</p>
+                )}
+              </div>
+            </div>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2">
+              <Button
+                variant="ghost"
+                onClick={() => { setIsResetPasswordModalOpen(false); setNewPassword(""); setConfirmPassword(""); setResetPasswordUser(null); }}
+                className="rounded-xl font-bold w-full sm:w-auto"
+                disabled={resettingPassword}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmResetPassword}
+                disabled={resettingPassword || newPassword.length < 6 || newPassword !== confirmPassword}
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 font-black w-full sm:w-auto transition-colors"
+              >
+                {resettingPassword ? (
+                  <><Loader2 className="mr-2 w-4 h-4 animate-spin" /> Updating…</>
+                ) : (
+                  <><KeyRound className="mr-2 w-4 h-4" /> Update Password</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Rejection Dialog */}
         <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>

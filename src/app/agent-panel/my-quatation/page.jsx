@@ -311,6 +311,8 @@ const MyQuotations = () => {
     );
 
     const confirmedMarkup = quotation.markup || 0;
+    const markupType = quotation.markupType || "lumpsum";
+    const markupAmount = quotation.markupAmount || quotation.markup || 0;
 
     exportPackagePDF({
       packageOptions,
@@ -319,6 +321,8 @@ const MyQuotations = () => {
       transportTotalPrice,
       activityTotalPrice,
       confirmedMarkup,
+      markupType, // ✅ ADD THIS
+      markupAmount, // ✅ ADD THIS
       customerName: quotation.customerName || quotation.leadName || "",
       packageName: quotation.packageName || "",
       itineraryData: quotation.itinerarySummary || null,
@@ -327,8 +331,55 @@ const MyQuotations = () => {
   };
 
   const handleCopyToClipboard = (quotation) => {
+    const normalized = normaliseQuotation(quotation);
+
+    const packageOptions =
+      quotation.packageOptions?.length > 0
+        ? quotation.packageOptions
+        : [
+            {
+              name: "Option 1",
+              hotelEntries: quotation.hotelSummary || [],
+            },
+          ];
+
+    const selectedTransport = quotation.transportSummary
+      ? {
+          selectedVehicle: {
+            type: quotation.transportSummary.vehicleName || "",
+            perKmprice: quotation.transportSummary.perKmprice || 0,
+            price: quotation.transportSummary.vehicleCost || 0,
+            ac: quotation.transportSummary.ac || false,
+            driverAllowance: quotation.transportSummary.driverAllowance || 0,
+          },
+          pricingType: quotation.transportSummary.pricingType || "fixed",
+          isCustom: quotation.transportSummary.isCustom || false,
+        }
+      : null;
+
+    const selectedActivities = quotation.activitySummary || [];
+
+    const transportTotalPrice =
+      quotation.transportSummary?.totalTransportCost || 0;
+
+    const activityTotalPrice = (quotation.activitySummary || []).reduce(
+      (sum, a) => sum + (a.totalPrice || 0),
+      0,
+    );
+
+    const confirmedMarkup = quotation.markup || 0;
+    const markupType = quotation.markupType || "lumpsum";
+    const markupAmount = quotation.markupAmount || quotation.markup || 0;
+
     copyPackageSummary({
-      ...normaliseQuotation(quotation),
+      packageOptions,
+      selectedTransport,
+      selectedActivities,
+      transportTotalPrice,
+      activityTotalPrice,
+      confirmedMarkup,
+      markupType,
+      markupAmount,
       hotels: state.allHotels,
     });
   };
