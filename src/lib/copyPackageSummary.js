@@ -129,7 +129,18 @@ const buildOptionBlock = (
 
   hotelEntries.forEach((e, idx) => {
     const fullH = hotels.find((h) => h.name === e.hotel && h.city === e.city);
-    s += `${idx + 1}. ${e.hotel.toUpperCase()} ${fullH?.GoogleListingURL || ""}\n`;
+    const link =
+      fullH?.GoogleListingURL ||
+      e.GoogleListingURL ||
+      e.googleLink ||
+      e.tripAdvisorLink ||
+      e.TripAdvisorURL;
+
+    s += `${idx + 1}. ${e.hotel.toUpperCase()}\n`;
+
+    if (link) {
+      s += ` 🔗 View Hotel: ${link}\n`;
+    }
     s += ` ⇒ ${e.city}, ${e.state}\n`;
     s += ` ⇒ Rooms: ${e.numDouble || 0}`;
     if ((e.numExtraAdult || 0) > 0) s += ` | Extra Adult: ${e.numExtraAdult}`;
