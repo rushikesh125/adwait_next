@@ -4,7 +4,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "jspdf-autotable";
-
+import { resolveOptionMarkup } from "@/lib/copyPackageSummary";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BRAND = "#0D47A1";
 const BRAND_DARK = "#0A3880";
@@ -556,6 +556,8 @@ export const exportPackagePDF = async ({
   transportTotalPrice = 0,
   activityTotalPrice = 0,
   confirmedMarkup = 0,
+  markupType = "lumpsum", // Add this parameter
+  markupAmount = 0,
   // legacy single-option (kept for compat)
   hotelEntries,
   selectedTransport,
@@ -734,11 +736,30 @@ export const exportPackagePDF = async ({
     // ── Cost breakdown rows for this option ──
     const breakdownRows = [];
 
-  
+    // Calculate option-specific totals
+    const optionHotelTotal = optHotels.reduce(
+      (s, e) => s + Number(e.hotelTotal || 0),
+      0,
+    );
+    // Use resolved markup for this specific option
+    const optionMarkup =
+      typeof opt.markup === "number"
+        ? opt.markup
+        : markupType === "percentage" && markupAmount > 0
+          ? (markupAmount / 100) *
+            (optionHotelTotal +
+              (transportTotalPrice || 0) +
+              (activityTotalPrice || 0))
+          : confirmedMarkup || 0;
 
-    
+    // Calculate option grand total using option-specific values
+    const optionGrandTotal =
+      optionHotelTotal +
+      (transportTotalPrice || 0) +
+      (activityTotalPrice || 0) +
+      optionMarkup;
 
-    // Grand total row
+    // Grand total row - use option-specific total
     breakdownRows.push([
       {
         content: `${opt.name} — Total Tour Cost`,
@@ -750,7 +771,7 @@ export const exportPackagePDF = async ({
         },
       },
       {
-        content: `Rs. ${optGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+        content: `Rs. ${optionGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
         styles: {
           halign: "right",
           fontStyle: "bold",
