@@ -18,13 +18,14 @@ const leadsRef = collection(db, "leads");
 
 // --- Existing Functions ---
 export const addLead = async (data) => {
-  return await addDoc(leadsRef, {
+  const ref = await addDoc(leadsRef, {
     ...data,
     createdAt: serverTimestamp(),
     status: "New",
   });
-};
 
+  return ref.id; // ✅ IMPORTANT
+};
 export const getAllLeads = async () => {
   const q = query(leadsRef, orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
