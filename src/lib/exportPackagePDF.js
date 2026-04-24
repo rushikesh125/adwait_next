@@ -797,16 +797,54 @@ export const exportPackagePDF = async ({
     y = pdfdoc.lastAutoTable.finalY + 14;
   }
   // ── MOVED: INCLUSIONS & EXCLUSIONS ──
-  const { totalBreakfasts, totalLunches, totalDinners } =
-    calculateTotalMeals(hotelEntries);
+// ✅ Detect multi option
+const isMultiOption = packageOptions?.length > 1;
 
-  const legacyIncluded = ["Hotel accommodation as specified."];
+// ✅ Get ALL hotel entries (same as summary logic)
+const allEntries = packageOptions?.length
+  ? packageOptions.flatMap(o => o.hotelEntries || [])
+  : hotelEntries;
+
+// ✅ Calculate meals (only used for single option)
+const { totalBreakfasts, totalLunches, totalDinners } =
+  calculateTotalMeals(allEntries);
+
+// ✅ Build INCLUDED dynamically
+const legacyIncluded = [];
+
+if (isMultiOption) {
+  // 🔥 MULTI OPTION LOGIC
+  legacyIncluded.push("Accommodation as per package selection");
+
+  const mealPlans = [
+    ...new Set(allEntries.map(e => e.selectedMealPlan).filter(Boolean))
+  ];
+
+  if (mealPlans.length === 1) {
+    legacyIncluded.push(
+      MEAL_PLAN_LABELS[mealPlans[0]] || mealPlans[0]
+    );
+  } else {
+    legacyIncluded.push(
+      `Meal Plan varies (${mealPlans.join(" / ")})`
+    );
+  }
+
+} else {
+  // 🔥 SINGLE OPTION LOGIC
+  legacyIncluded.push("Accommodation as specified.");
+
   if (totalBreakfasts > 0)
     legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
-  if (totalLunches > 0) legacyIncluded.push(`${totalLunches} Lunch(es)`);
-  if (totalDinners > 0) legacyIncluded.push(`${totalDinners} Dinner(s)`);
-  if (!totalBreakfasts && !totalLunches && !totalDinners)
+  if (totalLunches > 0)
+    legacyIncluded.push(`${totalLunches} Lunch(es)`);
+  if (totalDinners > 0)
+    legacyIncluded.push(`${totalDinners} Dinner(s)`);
+
+  if (!totalBreakfasts && !totalLunches && !totalDinners) {
     legacyIncluded.push("No meals included (EP Plan)");
+  }
+}
 
   if (selectedTransport?.selectedVehicle) {
     const v = selectedTransport.selectedVehicle;
