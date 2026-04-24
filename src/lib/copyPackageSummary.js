@@ -120,16 +120,27 @@ const buildOptionBlock = (
   let s = "";
 
   if (isMultiOption) {
-    s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
+    s += `*━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
     s += `*📦 ${option.name.toUpperCase()}*\n`;
-    s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n\n`;
+    s += `*━━━━━━━━━━━━━━━━━━━━━━━━*\n\n`;
   }
 
   s += ` *HOTELS*\n`;
 
   hotelEntries.forEach((e, idx) => {
     const fullH = hotels.find((h) => h.name === e.hotel && h.city === e.city);
-    s += `${idx + 1}. ${e.hotel.toUpperCase()} ${fullH?.GoogleListingURL || ""}\n`;
+    const link =
+      fullH?.GoogleListingURL ||
+      e.GoogleListingURL ||
+      e.googleLink ||
+      e.tripAdvisorLink ||
+      e.TripAdvisorURL;
+
+    s += `${idx + 1}. ${e.hotel.toUpperCase()}\n`;
+
+    if (link) {
+      s += ` 🔗 View Hotel: ${link}\n`;
+    }
     s += ` ⇒ ${e.city}, ${e.state}\n`;
     s += ` ⇒ Rooms: ${e.numDouble || 0}`;
     if ((e.numExtraAdult || 0) > 0) s += ` | Extra Adult: ${e.numExtraAdult}`;
@@ -140,7 +151,7 @@ const buildOptionBlock = (
   });
 
   // Grand total per option — no individual cost breakdown shown
-  s += `*💰 Total Tour Cost: ₹${grandTotal.toLocaleString("en-IN")}/-*\n`;
+  s += `*TOTAL TOUR COST: ₹${grandTotal.toLocaleString("en-IN")}/-*\n`;
 
   return s;
 };
@@ -203,23 +214,26 @@ export const buildPackageSummary = ({
     );
     s += `\n`;
   }
-
-
-
+  s += `*━━━━━━━━━━━━━━━━━━━━━━━━*\n\n`;
   // Inclusions
-  s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
   s += `*INCLUDED*\n`;
-  s += `*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*\n`;
-  s += `✅ Accommodation as per package selection\n`;
+  if (isMultiOption) {
+    s += `✅ Accommodation as per package selection\n`;
+    s += `✅ Meal Plan as per package selection\n`;
+  } else {
+    s += `✅ Accommodation as per mentioned above\n`;
+  }
 
   const allHotelEntries = options.flatMap((o) => o.hotelEntries || []);
   const { totalBreakfasts, totalLunches, totalDinners } =
     calculateTotalMeals(allHotelEntries);
-  if (totalBreakfasts > 0) s += `✅ ${totalBreakfasts} Breakfast(s)\n`;
-  if (totalLunches > 0) s += `✅ ${totalLunches} Lunch(es)\n`;
-  if (totalDinners > 0) s += `✅ ${totalDinners} Dinner(s)\n`;
-  if (!totalBreakfasts && !totalLunches && !totalDinners)
-    s += `✅ No meals included (EP Plan)\n`;
+  if (!isMultiOption) {
+    if (totalBreakfasts > 0) s += `✅ ${totalBreakfasts} Breakfast(s)\n`;
+    if (totalLunches > 0) s += `✅ ${totalLunches} Lunch(es)\n`;
+    if (totalDinners > 0) s += `✅ ${totalDinners} Dinner(s)\n`;
+  }
+  // if (!totalBreakfasts && !totalLunches && !totalDinners)
+  //   s += `✅ No meals included (EP Plan)\n`;
 
   if (selectedTransport?.selectedVehicle) {
     const v = selectedTransport.selectedVehicle;
@@ -236,6 +250,8 @@ export const buildPackageSummary = ({
   s += `❌ Early check in and late check out as per hotel policy\n`;
   s += `❌ Medical, Emergency, Entry Tickets, activities, expenses\n`;
   s += `❌ Anything not mentioned in included\n`;
+  if (!totalBreakfasts && !totalLunches && !totalDinners)
+    s += ` No meals included (EP Plan)\n`;
 
   return s;
 };

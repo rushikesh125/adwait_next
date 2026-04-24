@@ -341,7 +341,7 @@ export default function ItineraryListPage() {
   };
 
   const handleEdit = (id) =>
-    router.push(`/admin-panel/itinerary/create?itineraryid=${id}`);
+    router.push(`/agent-panel/itinerary/create?itineraryid=${id}`);
 
   const handleStatusUpdate = async (item, status) => {
     try {
