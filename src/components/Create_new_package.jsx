@@ -81,6 +81,7 @@ import {
   Layers,
   PackagePlus,
   AlertCircle,
+  AlertTriangle,
   UserPlus,
   Search,
   Link2,
@@ -185,6 +186,64 @@ const validateOptions = (options) => {
   }
 
   return { valid: true };
+};
+
+const normalizeDateForComparison = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const addDays = (date, days) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const formatGapDate = (date) =>
+  date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+const formatGapLabels = (gaps) => gaps.map((gap) => gap.label).join(", ");
+
+const getOptionHotelGaps = (option) => {
+  const entries = (option?.hotelEntries || [])
+    .map((entry) => ({
+      ...entry,
+      normalizedCheckIn: normalizeDateForComparison(entry.checkInDate),
+      normalizedCheckOut: normalizeDateForComparison(entry.checkOutDate),
+    }))
+    .filter((entry) => entry.normalizedCheckIn && entry.normalizedCheckOut)
+    .sort((a, b) => a.normalizedCheckIn - b.normalizedCheckIn);
+
+  const gaps = [];
+
+  for (let i = 0; i < entries.length - 1; i += 1) {
+    const currentCheckOut = entries[i].normalizedCheckOut;
+    const nextCheckIn = entries[i + 1].normalizedCheckIn;
+
+    if (nextCheckIn > currentCheckOut) {
+      const gapStart = new Date(currentCheckOut);
+      const gapEnd = addDays(nextCheckIn, -1);
+
+      gaps.push({
+        start: gapStart,
+        end: gapEnd,
+        label:
+          gapStart.getTime() === gapEnd.getTime()
+            ? formatGapDate(gapStart)
+            : `${formatGapDate(gapStart)} to ${formatGapDate(gapEnd)}`,
+      });
+    }
+  }
+
+  return gaps;
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -660,6 +719,25 @@ const Create_new_package = ({
   };
 
   const grandTotal = getOptionGrandTotal(activeOption);
+  const optionsWithHotelGaps = useMemo(
+    () =>
+      packageOptions
+        .map((opt) => ({ ...opt, hotelGaps: getOptionHotelGaps(opt) }))
+        .filter((opt) => opt.hotelGaps.length > 0),
+    [packageOptions],
+  );
+  const activeOptionHotelGaps = useMemo(
+    () => getOptionHotelGaps(activeOption),
+    [activeOption],
+  );
+  const activeOptionHasHotelGap = useMemo(
+    () => activeOptionHotelGaps.length > 0,
+    [activeOptionHotelGaps],
+  );
+  const hasHotelGapWarning = optionsWithHotelGaps.length > 0;
+  const activeHotelGapWarningText = `There is no hotel selected for these dates: ${formatGapLabels(
+    activeOptionHotelGaps,
+  )}.`;
 
   // ── Option Management ─────────────────────────────────────────────────────
   const handleAddOption = () => {
@@ -998,6 +1076,7 @@ const Create_new_package = ({
                 </span>
               </div>
             )}
+
 
             {/* ── Package Options Tabs ────────────────────────────────────── */}
             {/* ── Package Options Section ────────────────────────────────────── */}
@@ -1364,6 +1443,14 @@ const Create_new_package = ({
             {/* ── 3. Hotel Itinerary for active option ── */}
             {hotelEntries.length > 0 && (
               <div className="space-y-2">
+                {activeOptionHasHotelGap && (
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-amber-500" />
+                    <div>
+                      <p>{activeHotelGapWarningText}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
@@ -1852,6 +1939,23 @@ const Create_new_package = ({
                 <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                   <AlertCircle className="h-3 w-3 flex-shrink-0" />
                   {optionValidationError}
+                </div>
+              )}
+
+              {hasHotelGapWarning && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p>There are hotel gaps in this quotation.</p>
+                    {optionsWithHotelGaps.map((opt) => (
+                      <p
+                        key={opt.id}
+                        className="mt-1 text-[10px] text-amber-700/90"
+                      >
+                        {opt.name}: {formatGapLabels(opt.hotelGaps)}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
 
