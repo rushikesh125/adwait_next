@@ -38,6 +38,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
 import { enquiryInitialValues, normalizeMobile } from "@/lib/enquiryForm";
+import { addFollowUp } from "@/firebase/followUpService";
 
 export default function LeadsPage() {
   const { user } = useSelector((state) => state.auth);
@@ -254,42 +255,67 @@ export default function LeadsPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const toastId = toast.loading("Creating lead...");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  const toastId = toast.loading("Creating lead...");
+
+  try {
+    // ✅ Create lead and get ID
+    const leadId = await addLead({
+      ...form,
+      email: form.email || "",
+      mobile: form.mobile ? normalizeMobile(form.mobile) : "",
+
+      customerId: selectedCustomer?.id || null,
+      customerName: selectedCustomer?.name || form.name,
+
+      agentId: user?.uid || null,
+      assignedAgentId: user?.uid || null,
+      assignedAgentName: user?.name || "",
+      status: "New",
+      createdAt: new Date().toISOString(),
+    });
+
+    // ✅ AUTO FOLLOW-UP (SAFE BLOCK)
     try {
-      await addLead({
-        ...form,
-        email: form.email || "",
-        mobile: form.mobile ? normalizeMobile(form.mobile) : "",
-
-        customerId: selectedCustomer?.id || null, // 🔥 LINK
-        customerName: selectedCustomer?.name || form.name, // optional but useful
-
-        agentId: user?.uid || null,
-        assignedAgentId: user?.uid || null,
-        assignedAgentName: user?.name || "",
-        status: "New",
-        createdAt: new Date().toISOString(),
+      await addFollowUp(leadId, {
+        dateTime: new Date(
+          Date.now() + 16 * 60 * 60 * 1000
+        ).toISOString(),
+        mode: "Call",
+        notes: "Initial follow-up for new lead",
+        quotationIds: [],
       });
-      toast.success("Lead added successfully", { id: toastId });
-      setShowAddLead(false);
-      if (searchParams.get("open") === "new") {
-        router.replace("/agent-panel/leads");
-      }
-      setForm({
-        ...enquiryInitialValues,
-        email: "",
-        mobile: "",
-      });
-      loadLeads();
-    } catch (error) {
-      toast.error("Error creating lead", { id: toastId });
-    }finally{
-      setSelectedCustomer(null);
+
+      console.log("[Lead] Auto follow-up created");
+    } catch (followErr) {
+      console.error("[Lead] Auto follow-up failed:", followErr);
+      // ❗ Don't block main flow
     }
-  };
 
+    toast.success("Lead added successfully", { id: toastId });
+
+    setShowAddLead(false);
+
+    if (searchParams.get("open") === "new") {
+      router.replace("/agent-panel/leads");
+    }
+
+    setForm({
+      ...enquiryInitialValues,
+      email: "",
+      mobile: "",
+    });
+
+    loadLeads();
+
+  } catch (error) {
+    console.error("[Lead] creation error:", error);
+    toast.error("Error creating lead", { id: toastId });
+  } finally {
+    setSelectedCustomer(null);
+  }
+};
   const handleDeleteLead = async (id) => {
     if (!window.confirm("Are you sure you want to delete this lead?")) return;
 

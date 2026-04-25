@@ -33,7 +33,28 @@ const getSpecialRequests = (quotation = {}, hotel = {}) => {
   );
 };
 
-export const normaliseHotelForBookingConfirmation = (hotel = {}) => ({
+const getHotelGuestCount = (quotation = {}, hotel = {}) => {
+  const explicitHotelGuestCount = Number(
+    hotel.totalGuests ?? hotel.totalPax ?? hotel.guests,
+  );
+  if (explicitHotelGuestCount > 0) return explicitHotelGuestCount;
+
+  const bookingGuestCount =
+    Number(quotation.adults || 0) + Number(quotation.children || 0);
+  if (bookingGuestCount > 0) return bookingGuestCount;
+
+  return (
+    Number(hotel.numDouble || 0) * 2 +
+    Number(hotel.numExtraAdult || 0) +
+    Number(hotel.numExtraChild || 0) +
+    Number(hotel.numCNB || 0)
+  );
+};
+
+export const normaliseHotelForBookingConfirmation = (
+  hotel = {},
+  quotation = {},
+) => ({
   hotelName: hotel.hotel || hotel.hotelName || "Hotel",
   city: hotel.city || "",
   checkInDate: hotel.checkInDate || hotel.checkIn || "",
@@ -42,15 +63,11 @@ export const normaliseHotelForBookingConfirmation = (hotel = {}) => ({
   roomType: hotel.selectedRoomCategory || hotel.roomCategory || "N/A",
   numberOfRooms: hotel.numDouble || hotel.rooms || 0,
   mealPlan: toMealPlanLabel(hotel.selectedMealPlan || hotel.mealPlan || "EP"),
-  totalGuests:
-    Number(hotel.numDouble || 0) * 2 +
-    Number(hotel.numExtraAdult || 0) +
-    Number(hotel.numExtraChild || 0) +
-    Number(hotel.numCNB || 0),
+  totalGuests: getHotelGuestCount(quotation, hotel),
 });
 
 export function generateHotelBookingConfirmationMessage(quotation = {}, rawHotel = {}) {
-  const hotel = normaliseHotelForBookingConfirmation(rawHotel);
+  const hotel = normaliseHotelForBookingConfirmation(rawHotel, quotation);
   const guestName =
     quotation.customerName || quotation.leadName || quotation.guestName || "Guest";
 

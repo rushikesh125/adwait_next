@@ -19,9 +19,22 @@ import {
 import { db } from "@/firebase/config";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import FollowUpCalendar from "@/components/dashboard/FollowUpCalendar";
 
-const LEAD_STATUSES = ["New", "Contacted", "Quotation Sent", "Closed Won", "Closed Lost"];
+const LEAD_STATUSES = [
+  "New",
+  "Contacted",
+  "Quotation Sent",
+  "Closed Won",
+  "Closed Lost",
+];
 const QUOTATION_STATUSES = ["Draft", "Sent", "Accepted", "Rejected"];
 const QUICK_LINKS = [
   {
@@ -57,14 +70,18 @@ const emptyCounts = (statuses) =>
   }, {});
 
 function normalizeStatus(value, statuses, fallback) {
-  const incoming = String(value || "").trim().toLowerCase();
+  const incoming = String(value || "")
+    .trim()
+    .toLowerCase();
   const match = statuses.find((status) => status.toLowerCase() === incoming);
   return match || fallback;
 }
 
 function StatusCard({ label, value, tone }) {
   return (
-    <div className={`flex min-h-[148px] flex-col justify-between rounded-3xl border p-6 shadow-sm ${tone}`}>
+    <div
+      className={`flex min-h-[148px] flex-col justify-between rounded-3xl border p-6 shadow-sm ${tone}`}
+    >
       <div className="text-4xl font-black tracking-tight">{value}</div>
       <div className="mt-3 break-words text-sm font-semibold uppercase leading-5 tracking-[0.12em] sm:tracking-[0.16em]">
         {label}
@@ -78,8 +95,12 @@ export default function AgentDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [leadCounts, setLeadCounts] = useState(() => emptyCounts(LEAD_STATUSES));
-  const [quotationCounts, setQuotationCounts] = useState(() => emptyCounts(QUOTATION_STATUSES));
+  const [leadCounts, setLeadCounts] = useState(() =>
+    emptyCounts(LEAD_STATUSES),
+  );
+  const [quotationCounts, setQuotationCounts] = useState(() =>
+    emptyCounts(QUOTATION_STATUSES),
+  );
 
   const loadDashboard = useCallback(async () => {
     if (!user?.uid) return;
@@ -89,19 +110,31 @@ export default function AgentDashboard() {
 
     try {
       const [leadsSnap, quotationsSnap] = await Promise.all([
-        getDocs(query(collection(db, "leads"), where("agentId", "==", user.uid))),
-        getDocs(collection(db, "saved_packages_by_agents", user.uid, "packages")),
+        getDocs(
+          query(collection(db, "leads"), where("agentId", "==", user.uid)),
+        ),
+        getDocs(
+          collection(db, "saved_packages_by_agents", user.uid, "packages"),
+        ),
       ]);
 
       const nextLeadCounts = emptyCounts(LEAD_STATUSES);
       leadsSnap.docs.forEach((doc) => {
-        const status = normalizeStatus(doc.data()?.status, LEAD_STATUSES, "New");
+        const status = normalizeStatus(
+          doc.data()?.status,
+          LEAD_STATUSES,
+          "New",
+        );
         nextLeadCounts[status] += 1;
       });
 
       const nextQuotationCounts = emptyCounts(QUOTATION_STATUSES);
       quotationsSnap.docs.forEach((doc) => {
-        const status = normalizeStatus(doc.data()?.status, QUOTATION_STATUSES, "Draft");
+        const status = normalizeStatus(
+          doc.data()?.status,
+          QUOTATION_STATUSES,
+          "Draft",
+        );
         nextQuotationCounts[status] += 1;
       });
 
@@ -161,6 +194,9 @@ export default function AgentDashboard() {
   return (
     <div className="min-h-screen bg-slate-50/70 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
+        <section>
+          <FollowUpCalendar />
+        </section>
         <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
           <div className="bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.12),_transparent_30%),linear-gradient(135deg,_#ffffff,_#f8fafc)] px-6 py-8 sm:px-8">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -175,7 +211,8 @@ export default function AgentDashboard() {
                   Hello, {user?.name || "Agent"}
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
-                  A simple view of your enquiries and quotations so you can track progress and conversion at a glance.
+                  A simple view of your enquiries and quotations so you can
+                  track progress and conversion at a glance.
                 </p>
               </div>
 
@@ -185,7 +222,9 @@ export default function AgentDashboard() {
                 disabled={refreshing}
                 className="border-slate-200 bg-white"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                />
                 Refresh
               </Button>
             </div>
@@ -229,7 +268,9 @@ export default function AgentDashboard() {
                 <TrendingUp className="h-5 w-5" />
               </div>
               <div>
-                <CardTitle className="text-xl text-slate-900">Conversion Rate</CardTitle>
+                <CardTitle className="text-xl text-slate-900">
+                  Conversion Rate
+                </CardTitle>
                 <CardDescription>
                   Accepted quotations divided by total quotations.
                 </CardDescription>
@@ -241,7 +282,8 @@ export default function AgentDashboard() {
                   {conversionRate}%
                 </div>
                 <p className="mt-2 text-sm text-emerald-800">
-                  {quotationCounts.Accepted} accepted out of {totalQuotations} total quotations
+                  {quotationCounts.Accepted} accepted out of {totalQuotations}{" "}
+                  total quotations
                 </p>
                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-emerald-100">
                   <div
@@ -261,7 +303,9 @@ export default function AgentDashboard() {
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <CardTitle className="text-xl text-slate-900">Quotations</CardTitle>
+                <CardTitle className="text-xl text-slate-900">
+                  Quotations
+                </CardTitle>
                 <CardDescription>
                   Current quotation status distribution across your pipeline.
                 </CardDescription>
@@ -283,7 +327,9 @@ export default function AgentDashboard() {
         <section>
           <Card className="border-slate-200/80 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-xl text-slate-900">Quick Links</CardTitle>
+              <CardTitle className="text-xl text-slate-900">
+                Quick Links
+              </CardTitle>
               <CardDescription>
                 Fast access to the workflows you use most often.
               </CardDescription>
@@ -300,7 +346,9 @@ export default function AgentDashboard() {
                       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-theme-primary shadow-sm transition group-hover:bg-theme-primary group-hover:text-white">
                         <link.icon className="h-5 w-5" />
                       </div>
-                      <h3 className="font-semibold text-slate-900">{link.title}</h3>
+                      <h3 className="font-semibold text-slate-900">
+                        {link.title}
+                      </h3>
                       <p className="mt-1 text-sm leading-6 text-slate-500">
                         {link.description}
                       </p>

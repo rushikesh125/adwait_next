@@ -18,13 +18,14 @@ const leadsRef = collection(db, "leads");
 
 // --- Existing Functions ---
 export const addLead = async (data) => {
-  return await addDoc(leadsRef, {
+  const ref = await addDoc(leadsRef, {
     ...data,
     createdAt: serverTimestamp(),
     status: "New",
   });
-};
 
+  return ref.id; // ✅ IMPORTANT
+};
 export const getAllLeads = async () => {
   const q = query(leadsRef, orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
@@ -40,7 +41,7 @@ export const getLeadsByAgent = async (agentId) => {
 };
 
 export const createAssignedLead = async ({ agentId, customerId, agentName, ...data }) => {
-  return await addDoc(leadsRef, {
+  const docRef = await addDoc(leadsRef, {
     ...data,
     agentId,
     assignedAgentId: agentId,
@@ -50,6 +51,8 @@ export const createAssignedLead = async ({ agentId, customerId, agentName, ...da
     status: "New",
     source: data.source || "Enquiry Form",
   });
+
+  return docRef.id; // ✅ FIXED
 };
 
 export const getQuotationsForLead = async (leadId) => {
