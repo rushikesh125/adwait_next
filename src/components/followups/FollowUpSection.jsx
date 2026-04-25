@@ -246,7 +246,7 @@ function FollowUpCard({ followUp, onEdit, onDelete, onMarkComplete }) {
         {/* Actions */}
         {!completed && (
           <TooltipProvider>
-            <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex gap-0.5 shrink-0  ">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
