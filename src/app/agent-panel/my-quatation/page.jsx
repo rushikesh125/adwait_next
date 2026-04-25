@@ -330,9 +330,7 @@ const MyQuotations = () => {
     });
   };
 
-  const handleCopyToClipboard = (quotation) => {
-    const normalized = normaliseQuotation(quotation);
-
+  const buildQuotationSummaryPayload = (quotation) => {
     const packageOptions =
       quotation.packageOptions?.length > 0
         ? quotation.packageOptions
@@ -358,20 +356,17 @@ const MyQuotations = () => {
       : null;
 
     const selectedActivities = quotation.activitySummary || [];
-
     const transportTotalPrice =
       quotation.transportSummary?.totalTransportCost || 0;
-
-    const activityTotalPrice = (quotation.activitySummary || []).reduce(
-      (sum, a) => sum + (a.totalPrice || 0),
+    const activityTotalPrice = selectedActivities.reduce(
+      (sum, activity) => sum + (activity.totalPrice || 0),
       0,
     );
-
     const confirmedMarkup = quotation.markup || 0;
     const markupType = quotation.markupType || "lumpsum";
     const markupAmount = quotation.markupAmount || quotation.markup || 0;
 
-    copyPackageSummary({
+    return {
       packageOptions,
       selectedTransport,
       selectedActivities,
@@ -381,7 +376,11 @@ const MyQuotations = () => {
       markupType,
       markupAmount,
       hotels: state.allHotels,
-    });
+    };
+  };
+
+  const handleCopyToClipboard = (quotation) => {
+    copyPackageSummary(buildQuotationSummaryPayload(quotation));
   };
 
   const handleShareOnWhatsApp = async (quotation) => {
@@ -415,10 +414,7 @@ const MyQuotations = () => {
     }
 
     sharePackageSummaryOnWhatsApp(
-      {
-        ...normaliseQuotation(quotation),
-        hotels: state.allHotels,
-      },
+      buildQuotationSummaryPayload(quotation),
       guestPhone,
     );
   };

@@ -42,6 +42,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import StatusBadge from "@/components/StatusBadge";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
+import { sendHotelBookingRequestOnWhatsApp } from "@/lib/hotelBookingRequestWhatsapp";
 import {
   Dialog,
   DialogContent,
@@ -142,6 +143,7 @@ export default function BookingDetailPage() {
   const [selectedHotelForVoucher, setSelectedHotelForVoucher] = useState(null);
   const [hotelSelectionOpen, setHotelSelectionOpen] = useState(false);
   const [hotelListForSelection, setHotelListForSelection] = useState([]);
+  const [hotelSelectionMode, setHotelSelectionMode] = useState("voucher");
   const [deletingVoucherId, setDeletingVoucherId] = useState(null);
 
   const [editingPaymentIdx, setEditingPaymentIdx] = useState(null);
@@ -274,6 +276,7 @@ export default function BookingDetailPage() {
       setSelectedHotelForVoucher(hotels[0]);
       setVoucherDrawerOpen(true);
     } else {
+      setHotelSelectionMode("voucher");
       setHotelListForSelection(hotels);
       setHotelSelectionOpen(true);
     }
@@ -349,6 +352,34 @@ export default function BookingDetailPage() {
     } finally {
       setDeletingVoucherId(null);
     }
+  };
+
+  const handleHotelBookingRequestForHotel = async (hotel) => {
+    setHotelSelectionOpen(false);
+    const { phone } = await sendHotelBookingRequestOnWhatsApp(booking, hotel);
+    if (!phone) {
+      toast("Opening WhatsApp. Hotel number not found; please select the hotel manually.", {
+        icon: "📱",
+      });
+    }
+  };
+
+  const handleHotelBookingRequest = () => {
+    const hotels = extractHotelsFromBooking(booking);
+
+    if (hotels.length === 0) {
+      toast.error("No hotel data found in this booking.");
+      return;
+    }
+
+    if (hotels.length === 1) {
+      handleHotelBookingRequestForHotel(hotels[0]);
+      return;
+    }
+
+    setHotelSelectionMode("bookingRequest");
+    setHotelListForSelection(hotels);
+    setHotelSelectionOpen(true);
   };
 
   const handleSendBookingRequest = () => {
@@ -434,9 +465,9 @@ export default function BookingDetailPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={handleSendBookingRequest}
+              onClick={handleHotelBookingRequest}
               className="rounded-xl font-bold h-9 text-green-600 border-green-300 hover:bg-green-50"
-              title="Send booking details to customer via WhatsApp"
+              title="Send hotel booking request via WhatsApp"
             >
               <MessageCircle className="w-4 h-4 mr-2" />
               Send Request
@@ -951,10 +982,16 @@ export default function BookingDetailPage() {
       <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Select Hotel for Voucher</DialogTitle>
+            <DialogTitle>
+              {hotelSelectionMode === "bookingRequest"
+                ? "Select Hotel for Booking Request"
+                : "Select Hotel for Voucher"}
+            </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-500 -mt-1">
-            This booking has multiple hotels. Pick one to generate a voucher.
+            {hotelSelectionMode === "bookingRequest"
+              ? "This booking has multiple hotels. Pick one to send the hotel booking request on WhatsApp."
+              : "This booking has multiple hotels. Pick one to generate a voucher."}
           </p>
           <div className="grid grid-cols-2 gap-4 mt-2">
             {hotelListForSelection.map((h, i) => {
@@ -963,12 +1000,17 @@ export default function BookingDetailPage() {
               const hasVoucher = activeVouchers.some(
                 (v) => hotelVoucherKey(v.hotelName, v.checkIn) === key
               );
+              const isVoucherMode = hotelSelectionMode === "voucher";
               return (
                 <div
                   key={i}
-                  onClick={() => !hasVoucher && handleSelectHotelForVoucher(h)}
+                  onClick={() =>
+                    isVoucherMode
+                      ? !hasVoucher && handleSelectHotelForVoucher(h)
+                      : handleHotelBookingRequestForHotel(h)
+                  }
                   className={`border rounded-xl p-4 transition ${
-                    hasVoucher
+                    isVoucherMode && hasVoucher
                       ? "opacity-50 cursor-not-allowed bg-slate-50"
                       : "cursor-pointer hover:bg-blue-50 hover:border-blue-300"
                   }`}
@@ -983,7 +1025,7 @@ export default function BookingDetailPage() {
                   <p className="text-sm text-slate-500">
                     {h.roomCategory || "-"} · {h.mealPlan || "-"}
                   </p>
-                  {hasVoucher && (
+                  {isVoucherMode && hasVoucher && (
                     <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
                       Voucher already created
