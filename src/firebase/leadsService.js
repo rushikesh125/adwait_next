@@ -41,7 +41,7 @@ export const getLeadsByAgent = async (agentId) => {
 };
 
 export const createAssignedLead = async ({ agentId, customerId, agentName, ...data }) => {
-  return await addDoc(leadsRef, {
+  const docRef = await addDoc(leadsRef, {
     ...data,
     agentId,
     assignedAgentId: agentId,
@@ -51,6 +51,8 @@ export const createAssignedLead = async ({ agentId, customerId, agentName, ...da
     status: "New",
     source: data.source || "Enquiry Form",
   });
+
+  return docRef.id; // ✅ FIXED
 };
 
 export const getQuotationsForLead = async (leadId) => {
