@@ -783,16 +783,32 @@ function HotelFormPageInner() {
     const anyConflict = rooms.some(r => roomHasUnresolvedConflict(r.seasons));
     if (anyConflict) { toast.error("Resolve all date conflicts before saving"); return; }
 
+    const normalized = {
+      name: hotelName,
+      city: selectedCity?.name || cityInput || "",
+      state: selectedState,
+      rating: hotelRating,
+      GoogleReviewRating,
+      GoogleListingURL,
+      TripAdvisorRating,
+      TripAdvisorURL,
+      address: hotelAddress,
+      phone: hotelPhone,
+      rooms,
+    };
+    const validation = validateHotelData(normalized);
+    if (!validation.isValid) {
+      validation.errors.forEach(e => toast.error(e));
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (editMode) {
-        const normalized = { name: hotelName, city: selectedCity?.name || "", state: selectedState, rating: hotelRating, GoogleReviewRating, GoogleListingURL, TripAdvisorRating, TripAdvisorURL, address: hotelAddress, phone: hotelPhone, rooms };
-        const validation = validateHotelData(normalized);
-        if (!validation.isValid) { validation.errors.forEach(e => toast.error(e)); return; }
         const success = await updateHotelComplete(savedHotelId, normalized);
         if (success) toast.success("Hotel saved successfully!");
       } else {
-        await updateDoc(doc(db, "hotels", savedHotelId), { rooms });
+        await updateDoc(doc(db, "hotels", savedHotelId), { rooms: normalized.rooms });
         toast.success("Rooms saved successfully!");
       }
     } catch {

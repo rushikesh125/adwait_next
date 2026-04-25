@@ -2,6 +2,102 @@ import { doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import toast from "react-hot-toast";
 
+const MEAL_PLAN_ORDER = ["ep", "cp", "map", "ap"];
+const RATE_CATEGORIES = ["double", "extraAdult", "extraChild", "cnb"];
+const RATE_CATEGORY_LABELS = {
+  double: "Double",
+  extraAdult: "Extra Adult",
+  extraChild: "Extra Child",
+  cnb: "CNB",
+};
+const MEAL_PLAN_LABELS = {
+  ep: "EP",
+  cp: "CP",
+  map: "MAP",
+  ap: "AP",
+};
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const hasAnyPositiveValue = (values) => values.some((value) => toNumber(value) > 0);
+const hasPositiveValue = (value) => toNumber(value) > 0;
+
+const getHierarchyErrorsForSeason = (season, roomIndex, seasonIndex) => {
+  const errors = [];
+  const pricing = season?.pricing || {};
+  const seasonPrefix = `Room ${roomIndex + 1}, Season ${seasonIndex + 1}`;
+
+  RATE_CATEGORIES.forEach((categoryKey) => {
+    const availablePlanRates = MEAL_PLAN_ORDER
+      .map((planKey) => ({
+        planKey,
+        value: toNumber(pricing?.[planKey]?.[categoryKey]),
+      }))
+      .filter(({ value }) => value > 0);
+
+    if (availablePlanRates.length < 2) return;
+
+    const isOrdered = availablePlanRates.every(
+      ({ value }, index) => index === 0 || availablePlanRates[index - 1].value < value,
+    );
+
+    if (!isOrdered) {
+      errors.push(
+        `${seasonPrefix}: ${RATE_CATEGORY_LABELS[categoryKey]} rates must follow EP < CP < MAP < AP.`,
+      );
+    }
+  });
+
+  MEAL_PLAN_ORDER.forEach((planKey) => {
+    if (!pricing?.[planKey]) return;
+
+    const values = RATE_CATEGORIES.map((categoryKey) => pricing[planKey]?.[categoryKey]);
+    if (!hasAnyPositiveValue(values)) return;
+
+    const doubleRate = toNumber(pricing[planKey]?.double);
+    const extraAdultRate = toNumber(pricing[planKey]?.extraAdult);
+    const extraChildRate = toNumber(pricing[planKey]?.extraChild);
+    const cnbRate = toNumber(pricing[planKey]?.cnb);
+
+    if (
+      hasPositiveValue(doubleRate) &&
+      hasPositiveValue(extraAdultRate) &&
+      !(doubleRate > extraAdultRate)
+    ) {
+      errors.push(
+        `${seasonPrefix}: ${MEAL_PLAN_LABELS[planKey]} rates must follow Double > Extra Adult >= Extra Child > CNB.`,
+      );
+      return;
+    }
+
+    if (
+      hasPositiveValue(extraAdultRate) &&
+      hasPositiveValue(extraChildRate) &&
+      !(extraAdultRate >= extraChildRate)
+    ) {
+      errors.push(
+        `${seasonPrefix}: ${MEAL_PLAN_LABELS[planKey]} rates must follow Double > Extra Adult >= Extra Child > CNB.`,
+      );
+      return;
+    }
+
+    if (
+      hasPositiveValue(extraChildRate) &&
+      hasPositiveValue(cnbRate) &&
+      !(extraChildRate > cnbRate)
+    ) {
+      errors.push(
+        `${seasonPrefix}: ${MEAL_PLAN_LABELS[planKey]} rates must follow Double > Extra Adult >= Extra Child > CNB.`,
+      );
+    }
+  });
+
+  return errors;
+};
+
 /**
  * Update hotel basic information
  * @param {string} hotelId - The hotel document ID
@@ -344,6 +440,8 @@ export const validateHotelData = (hotelData) => {
           if (!season.end) {
             errors.push(`Room ${roomIndex + 1}, Season ${seasonIndex + 1}: End date is required`);
           }
+
+          errors.push(...getHierarchyErrorsForSeason(season, roomIndex, seasonIndex));
         });
       }
     });

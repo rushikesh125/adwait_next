@@ -50,13 +50,13 @@ const AgentPanelLayout = ({ children }) => {
 
   const navItems = [
     { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
-    { name: "Leads", href: "/agent-panel/leads", icon: Briefcase },
-    { name: "My Quotations", href: "/agent-panel/my-quatation", icon: Map },
-    { name: "Customers", href: "/agent-panel/customers", icon: Users },
-    { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
-    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon},
-    { name: "Bookings", href: "/agent-panel/bookings", icon: CalendarCheck },
+    { name: "Lead", href: "/agent-panel/leads", icon: Briefcase },
+    { name: "Quotation", href: "/agent-panel/my-quatation", icon: Map },
+    { name: "Booking", href: "/agent-panel/bookings", icon: CalendarCheck },
     { name: "Invoices", href: "/agent-panel/invoices", icon: FileText },
+    { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
+    { name: "Customer", href: "/agent-panel/customers", icon: Users },
+    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon},
     { name: "Railway Booking", href: "/agent-panel/bookingform", icon: Component },
   ];
 

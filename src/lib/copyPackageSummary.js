@@ -156,7 +156,7 @@ const buildOptionBlock = (
   return s;
 };
 
-// ─── Summary Builder ─────────────────────────────────────────────────────────
+// ─── Summary Builder 
 export const buildPackageSummary = ({
   packageOptions,
   selectedTransport,
@@ -250,8 +250,6 @@ export const buildPackageSummary = ({
   s += `❌ Early check in and late check out as per hotel policy\n`;
   s += `❌ Medical, Emergency, Entry Tickets, activities, expenses\n`;
   s += `❌ Anything not mentioned in included\n`;
-  if (!totalBreakfasts && !totalLunches && !totalDinners)
-    s += ` No meals included (EP Plan)\n`;
 
   return s;
 };

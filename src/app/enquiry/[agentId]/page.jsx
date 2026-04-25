@@ -16,7 +16,10 @@ import {
 import emailjs from "@emailjs/browser";
 import LeadForm from "@/components/leads/LeadForm";
 import { db } from "@/firebase/config";
-import { addCustomer, findExistingCustomerByEmailOrMobile } from "@/firebase/customersService";
+import {
+  addCustomer,
+  findExistingCustomerByEmailOrMobile,
+} from "@/firebase/customersService";
 import { createAssignedLead } from "@/firebase/leadsService";
 import { getAgentByEnquiryIdentifier } from "@/firebase/users";
 import {
@@ -29,6 +32,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { addFollowUp } from "@/firebase/followUpService";
 
 export default function PublicEnquiryPage() {
   const params = useParams();
@@ -135,7 +139,7 @@ export default function PublicEnquiryPage() {
         }
       }
 
-      await createAssignedLead({
+      const leadId = await createAssignedLead({
         ...form,
         name: form.name.trim(),
         email: cleanEmail,
@@ -145,7 +149,19 @@ export default function PublicEnquiryPage() {
         agentName: agent.name || "",
         source: "Public Enquiry Form",
       });
+      console.log("leadId:", leadId, typeof leadId);
+      try {
+        await addFollowUp(leadId, {
+          dateTime: new Date(Date.now() + 16 * 60 * 60 * 1000).toISOString(),
+          mode: "Call",
+          notes: "Initial follow-up for public enquiry",
+          quotationIds: [],
+        });
 
+        console.log("[Public Enquiry] Auto follow-up created");
+      } catch (followErr) {
+        console.error("[Public Enquiry] Auto follow-up failed:", followErr);
+      }
       // Notify agent about the new lead via email
       console.log("[Lead Email] agent.email:", agent.email);
       if (agent.email) {
@@ -171,7 +187,7 @@ export default function PublicEnquiryPage() {
               budget: form.budget || "Not specified",
               notes: form.notes || "None",
             },
-            "yTtNjop0pU1m6XnE0"
+            "yTtNjop0pU1m6XnE0",
           );
         } catch (emailError) {
           // Don't block submission if email fails
@@ -184,7 +200,9 @@ export default function PublicEnquiryPage() {
       setErrors({});
     } catch (error) {
       console.error(error);
-      setFatalError("We could not submit your enquiry right now. Please try again.");
+      setFatalError(
+        "We could not submit your enquiry right now. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -254,9 +272,9 @@ export default function PublicEnquiryPage() {
                     {titleText}
                   </CardTitle>
                   <p className="max-w-xl text-sm leading-7 text-slate-600 sm:text-base">
-                    Tell us where you want to go, how you like to travel, and the
-                    kind of stay you prefer. Our team will review your request and
-                    get in touch with the right plan for your trip.
+                    Tell us where you want to go, how you like to travel, and
+                    the kind of stay you prefer. Our team will review your
+                    request and get in touch with the right plan for your trip.
                   </p>
                 </div>
 
@@ -280,7 +298,9 @@ export default function PublicEnquiryPage() {
                     <Compass className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900">Customized planning</p>
+                    <p className="font-semibold text-slate-900">
+                      Customized planning
+                    </p>
                     <p className="mt-1 leading-6 text-slate-600">
                       Share your trip preferences once and let our team shape a
                       suitable quotation around them.
@@ -293,7 +313,9 @@ export default function PublicEnquiryPage() {
                     <MapPinned className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900">Clear trip brief</p>
+                    <p className="font-semibold text-slate-900">
+                      Clear trip brief
+                    </p>
                     <p className="mt-1 leading-6 text-slate-600">
                       Destination, dates, trip type, rooms, meals, and transport
                       preferences help us recommend the right option faster.
@@ -306,7 +328,9 @@ export default function PublicEnquiryPage() {
                     <ShieldCheck className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900">Professional follow-up</p>
+                    <p className="font-semibold text-slate-900">
+                      Professional follow-up
+                    </p>
                     <p className="mt-1 leading-6 text-slate-600">
                       Once submitted, our team reviews your enquiry and contacts
                       you shortly to discuss the next steps.
@@ -320,7 +344,8 @@ export default function PublicEnquiryPage() {
                   <CheckCircle2 className="h-4 w-4" />
                   <AlertTitle>Enquiry submitted successfully</AlertTitle>
                   <AlertDescription>
-                    Your enquiry has been submitted successfully. Our team will contact you shortly.
+                    Your enquiry has been submitted successfully. Our team will
+                    contact you shortly.
                   </AlertDescription>
                 </Alert>
               )}
@@ -336,7 +361,8 @@ export default function PublicEnquiryPage() {
                 <Alert variant="destructive">
                   <AlertTitle>Please check your details</AlertTitle>
                   <AlertDescription>
-                    Some required fields are missing or invalid. Please review the form and submit again.
+                    Some required fields are missing or invalid. Please review
+                    the form and submit again.
                   </AlertDescription>
                 </Alert>
               )}
@@ -350,38 +376,45 @@ export default function PublicEnquiryPage() {
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl text-slate-900">Trip Enquiry Form</CardTitle>
+                  <CardTitle className="text-xl text-slate-900">
+                    Trip Enquiry Form
+                  </CardTitle>
                   <p className="mt-1 text-sm text-slate-500">
-                    Please fill in your details so we can prepare the right travel plan.
+                    Please fill in your details so we can prepare the right
+                    travel plan.
                   </p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6 bg-white px-6 py-6 sm:px-8">
-                <div className="grid gap-5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    {renderFieldLabel("Contact Number", true)}
-                    <Input
-                      id="mobile"
+              <div className="grid gap-5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  {renderFieldLabel("Contact Number", true)}
+                  <Input
+                    id="mobile"
                     name="mobile"
                     maxLength={10}
                     value={form.mobile}
                     onChange={handleChange}
                     placeholder="10-digit mobile number"
                   />
-                  {errors.mobile && <p className="text-xs text-red-600">{errors.mobile}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    {renderFieldLabel("Email ID", true)}
-                    <Input
-                      id="email"
+                  {errors.mobile && (
+                    <p className="text-xs text-red-600">{errors.mobile}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {renderFieldLabel("Email ID", true)}
+                  <Input
+                    id="email"
                     name="email"
                     type="email"
                     value={form.email}
                     onChange={handleChange}
                     placeholder="name@example.com"
                   />
-                  {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
+                  {errors.email && (
+                    <p className="text-xs text-red-600">{errors.email}</p>
+                  )}
                 </div>
               </div>
 
