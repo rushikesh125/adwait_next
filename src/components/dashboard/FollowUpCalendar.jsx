@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import dayjs from "dayjs";
 import { useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
-import { collectionGroup, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { Phone, MessageCircle, Mail, ChevronLeft, ChevronRight, CalendarClock, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,13 +54,25 @@ export default function FollowUpCalendar() {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const q = query(collectionGroup(db, "followups"), where("agentId", "==", user.uid));
-      const snap = await getDocs(q);
-      setFollowUps(snap.docs.map((doc) => ({
-        id: doc.id,
-        leadId: doc.ref.parent.parent.id,
-        ...doc.data(),
-      })));
+      const leadsSnap = await getDocs(
+        query(collection(db, "leads"), where("agentId", "==", user.uid)),
+      );
+
+      const followUpDocs = await Promise.all(
+        leadsSnap.docs.map(async (leadDoc) => {
+          const followUpsSnap = await getDocs(
+            collection(db, "leads", leadDoc.id, "followups"),
+          );
+
+          return followUpsSnap.docs.map((doc) => ({
+            id: doc.id,
+            leadId: leadDoc.id,
+            ...doc.data(),
+          }));
+        }),
+      );
+
+      setFollowUps(followUpDocs.flat());
     } catch (err) {
       console.error("[FollowUpCalendar]", err);
     } finally {

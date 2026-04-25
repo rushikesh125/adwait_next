@@ -6,8 +6,8 @@ import { Toaster } from "react-hot-toast";
 
 export default function Layout({ children }) {
   return (
-    <html lang="en">
-      <body className={` antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={` antialiased`} suppressHydrationWarning>
         <ReduxProvider>{children}</ReduxProvider>
 
         <Toaster />
