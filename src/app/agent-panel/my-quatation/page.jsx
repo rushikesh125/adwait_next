@@ -4,7 +4,6 @@ import "@/app/globals.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import QuotationsTable from "./QuotationsTable";
-
 import { useQuotationState } from "@/app/hooks/useQuotationState";
 import {
   Dialog,
@@ -37,6 +36,9 @@ import { getQuotationById } from "@/firebase/quotations";
 import { getBookingById } from "@/firebase/bookingsService";
 import toast from "react-hot-toast";
 import { updateLeadStatus } from "@/firebase/leadsService";
+import FollowUpForm from "@/components/followups/FollowUpForm";
+import QuotationSentFollowUpPrompt from "@/components/followups/QuotationSentFollowUpPrompt";
+import { addFollowUp } from "@/firebase/followUpService";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -53,6 +55,9 @@ const MyQuotations = () => {
   // Add this state near your other useState declarations
   const [optionSelectQuotation, setOptionSelectQuotation] = useState(null);
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
+  const [sentFollowUpQuotation, setSentFollowUpQuotation] = useState(null);
+  const [showSentFollowUpPrompt, setShowSentFollowUpPrompt] = useState(false);
+  const [showSentFollowUpForm, setShowSentFollowUpForm] = useState(false);
 
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
@@ -236,25 +241,65 @@ const MyQuotations = () => {
     nextStatus,
   ) => {
     const quotation = state.quotations.find((q) => q.id === quotationId);
-
     await state.handleQuotationStatusChange(quotationId, nextStatus);
-
+    console.log("[debug] quotation object:", quotation); // ← add this
     if (quotation?.leadId) {
-      if (nextStatus === "Sent") {
+      if (nextStatus === "Sent")
         await updateLeadStatus(quotation.leadId, "Quotation Sent");
-      }
-      if (nextStatus === "Accepted") {
+      if (nextStatus === "Accepted")
         await updateLeadStatus(quotation.leadId, "Closed Won");
-      }
     }
 
-    // Prompt to create booking when accepted (existing behaviour, unchanged)
+    // ── NEW: trigger follow-up prompt when marked Sent ──────────────────────
+    if (nextStatus === "Sent" && quotation) {
+      setSentFollowUpQuotation({ ...quotation, status: "Sent" });
+      setShowSentFollowUpPrompt(true);
+    }
+
     if (nextStatus !== "Accepted" || !quotation || quotation.convertedToBooking)
       return;
-
     setBookingConfirmQuotation(quotation);
   };
+  const handleSentFollowUpSchedule = () => {
+    setShowSentFollowUpPrompt(false);
+    setShowSentFollowUpForm(true);
+  };
 
+  const handleSentFollowUpSkip = () => {
+    setShowSentFollowUpPrompt(false);
+    setSentFollowUpQuotation(null);
+  };
+
+  const handleSentFollowUpSubmit = async (formData) => {
+    if (!sentFollowUpQuotation?.leadId) {
+      toast.error(
+        "No lead linked to this quotation — follow-up cannot be saved.",
+      );
+      setShowSentFollowUpForm(false);
+      setSentFollowUpQuotation(null);
+      return;
+    }
+    await addFollowUp(sentFollowUpQuotation.leadId, {
+      ...formData,
+      agentId: state.user?.uid || "",
+      agentName: state.user?.displayName || "Agent",
+      quotationIds: [
+        ...new Set([
+          ...(formData.quotationIds || []),
+          sentFollowUpQuotation.id,
+        ]),
+      ],
+      quotationNames: [
+        ...new Set([
+          ...(formData.quotationNames || []),
+          sentFollowUpQuotation.packageName || "",
+        ]),
+      ],
+    });
+    toast.success("Follow-up scheduled");
+    setShowSentFollowUpForm(false);
+    setSentFollowUpQuotation(null);
+  };
   const handleEditRedirect = (quotation) => {
     dispatch(setEditingQuotation(quotation));
 
@@ -791,6 +836,36 @@ const MyQuotations = () => {
           </div>
         </div>
       )}
+      {/* Quotation-Sent Follow-Up Prompt */}
+      <QuotationSentFollowUpPrompt
+        open={showSentFollowUpPrompt}
+        quotation={sentFollowUpQuotation}
+        onSchedule={handleSentFollowUpSchedule}
+        onSkip={handleSentFollowUpSkip}
+      />
+
+      {/* Follow-Up Form */}
+      <FollowUpForm
+        open={showSentFollowUpForm}
+        onClose={() => {
+          setShowSentFollowUpForm(false);
+          setSentFollowUpQuotation(null);
+        }}
+        onSubmit={handleSentFollowUpSubmit}
+        leadQuotations={sentFollowUpQuotation ? [sentFollowUpQuotation] : []}
+        initialData={
+          sentFollowUpQuotation
+            ? {
+                dateTime: "",
+                mode: "Call",
+                notes: `Follow-up for ${sentFollowUpQuotation.packageName || "quotation"} – awaiting customer response.`,
+                quotationIds: [sentFollowUpQuotation.id],
+                quotationNames: [sentFollowUpQuotation.packageName || ""],
+              }
+            : null
+        }
+        isEdit={false}
+      />
     </div>
   );
 };
