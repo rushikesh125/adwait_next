@@ -136,8 +136,8 @@ export default function FollowUpCalendar() {
     <Card className="border-slate-200/80 shadow-sm overflow-hidden">
 
       {/* ── Header ── */}
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-5 pt-5">
-        <div className="flex items-center gap-3">
+      <CardHeader className="flex flex-col gap-3 px-4 pb-0 pt-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 sm:px-5 sm:pt-5">
+        <div className="flex items-start gap-3 sm:items-center">
           <div className="rounded-xl bg-blue-100 p-2.5 text-blue-700">
             <CalendarClock className="h-5 w-5" />
           </div>
@@ -149,40 +149,47 @@ export default function FollowUpCalendar() {
         <button
           onClick={() => load(true)}
           disabled={refreshing}
-          className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors"
+          className="flex h-9 w-full items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:bg-slate-50 sm:h-8 sm:w-8"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
         </button>
       </CardHeader>
 
-      <CardContent className="p-0 mt-4">
+      <CardContent className="mt-4 p-0">
 
         {/* ── Month stats strip ── */}
-        <div className="grid grid-cols-4 border-y border-slate-100">
+        <div className="grid grid-cols-2 border-y border-slate-100 sm:grid-cols-4">
           {[
             { label: "This month", value: monthStats.total, color: "text-slate-800" },
             { label: "Overdue",    value: monthStats.overdue, color: "text-red-600" },
             { label: "Pending",   value: monthStats.pending, color: "text-amber-600" },
             { label: "Done",      value: monthStats.done,    color: "text-green-600" },
           ].map(({ label, value, color }, i) => (
-            <div key={label} className={`py-3 px-4 ${i < 3 ? "border-r border-slate-100" : ""}`}>
+            <div
+              key={label}
+              className={`px-4 py-3 ${
+                i % 2 === 0 ? "border-r border-slate-100 sm:border-r" : ""
+              } ${i < 2 ? "border-b border-slate-100 sm:border-b-0" : ""} ${
+                i < 3 ? "sm:border-r sm:border-slate-100" : ""
+              }`}
+            >
               <p className={`text-2xl font-bold ${color}`}>{value}</p>
               <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
             </div>
           ))}
         </div>
 
-        <div className="flex divide-x divide-slate-100">
+        <div className="flex flex-col divide-y divide-slate-100 lg:flex-row lg:divide-x lg:divide-y-0">
 
           {/* ── Calendar pane ── */}
-          <div className="flex-1 min-w-0 p-4">
+          <div className="min-w-0 flex-1 p-3 sm:p-4">
 
             {/* Nav */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm font-semibold text-slate-800">
                 {MONTHS[currentMonth.month()]} {currentMonth.year()}
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 self-start sm:self-auto">
                 <button
                   onClick={goToday}
                   className="h-7 px-3 rounded-lg border border-slate-200 text-[11px] font-medium text-slate-500 hover:bg-slate-50 transition-colors"
@@ -201,7 +208,7 @@ export default function FollowUpCalendar() {
             </div>
 
             {/* Calendar filter pills */}
-            <div className="flex gap-1.5 mb-3">
+            <div className="mb-3 flex flex-wrap gap-1.5">
               {["all", "overdue", "pending", "done"].map((f) => (
                 <button
                   key={f}
@@ -245,12 +252,12 @@ export default function FollowUpCalendar() {
                     key={key}
                     onClick={() => { setSelectedKey(key); setSbFilter("all"); }}
                     className={`
-                      min-h-[52px] rounded-lg p-1.5 flex flex-col gap-1 text-left transition-all border
+                      flex min-h-[46px] flex-col gap-1 rounded-lg border p-1 text-left transition-all sm:min-h-[52px] sm:p-1.5
                       ${isSelected ? "border-blue-400 bg-blue-50" : "border-transparent hover:bg-slate-50 hover:border-slate-200"}
                       ${hasOverdue && !isSelected && calFilter === "all" ? "border-l-2 border-l-red-300 rounded-l-none" : ""}
                     `}
                   >
-                    <span className={`text-[11px] font-semibold w-[18px] h-[18px] flex items-center justify-center rounded-full ${
+                    <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full text-[11px] font-semibold ${
                       isToday ? "bg-blue-600 text-white" : "text-slate-600"
                     }`}>
                       {day}
@@ -268,7 +275,7 @@ export default function FollowUpCalendar() {
             </div>
 
             {/* Legend */}
-            <div className="flex gap-4 mt-3">
+            <div className="mt-3 flex flex-wrap gap-4">
               {[
                 { color: "bg-red-400",   label: "Overdue" },
                 { color: "bg-amber-400", label: "Pending" },
@@ -283,7 +290,7 @@ export default function FollowUpCalendar() {
           </div>
 
           {/* ── Sidebar ── */}
-          <div className="w-64 flex-shrink-0 flex flex-col bg-slate-50/60">
+          <div className="flex w-full flex-shrink-0 flex-col bg-slate-50/60 lg:w-64">
 
             {/* Sidebar header */}
             <div className="px-4 py-3 border-b border-slate-100">
@@ -319,7 +326,7 @@ export default function FollowUpCalendar() {
             </div>
 
             {/* Follow-up list */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            <div className="flex-1 space-y-2 overflow-y-auto p-3 lg:max-h-[430px]">
               {loading ? (
                 <p className="text-xs text-slate-400 text-center pt-6">Loading…</p>
               ) : selectedFus.length === 0 ? (
