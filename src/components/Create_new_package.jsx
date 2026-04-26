@@ -593,12 +593,12 @@ const Create_new_package = ({
     updateActiveOption({ checkOutDate: d.toISOString().split("T")[0] });
   }, [checkInDate, nights, activeOptionId]);
 
-  // Keep redux context in sync (use all options combined for context)
+  // Keep redux context in sync for itinerary/AI. Package options are alternatives,
+  // so duration-sensitive context must follow the active option only.
   useEffect(() => {
-    const allHotels = packageOptions.flatMap((o) => o.hotelEntries);
     dispatch(
       setPackageContext({
-        hotelEntries: allHotels,
+        hotelEntries,
         selectedTransport,
         selectedActivities,
         selectedState,
@@ -609,7 +609,8 @@ const Create_new_package = ({
       }),
     );
   }, [
-    packageOptions,
+    activeOptionId,
+    hotelEntries,
     selectedTransport,
     selectedActivities,
     selectedState,
@@ -617,6 +618,7 @@ const Create_new_package = ({
     checkOutDate,
     packageName,
     customerName,
+    dispatch,
   ]);
 
   // ── Filtered/Grouped Hotels ───────────────────────────────────────────────
@@ -1616,9 +1618,9 @@ const Create_new_package = ({
             </div>
 
             {/* ── 5. Itinerary ── */}
-            {allHotelEntries.length > 0 && (
+            {hotelEntries.length > 0 && (
               <ItinerarySection
-                hotelEntries={allHotelEntries}
+                hotelEntries={hotelEntries}
                 selectedState={selectedState}
                 itineraryData={itineraryData}
                 setItineraryData={setItineraryData}
