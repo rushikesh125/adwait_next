@@ -897,7 +897,12 @@ const handleTransportSummaryChange = (field, value) => {
     }
   };
 
-  const handleQuotationStatusChange = async (quotationId, nextStatus) => {
+  const handleQuotationStatusChange = async (
+    quotationId,
+    nextStatus,
+    extraData = {},
+    options = {},
+  ) => {
     const agentId = user?.uid;
     if (!agentId) {
       alert("Must be logged in.");
@@ -905,26 +910,29 @@ const handleTransportSummaryChange = (field, value) => {
     }
 
     try {
-      await updateQuotation(agentId, quotationId, { status: nextStatus });
+      const updateData = { status: nextStatus, ...extraData };
+      await updateQuotation(agentId, quotationId, updateData, options);
 
       setQuotations((prev) =>
         prev.map((quotation) =>
           quotation.id === quotationId
-            ? { ...quotation, status: nextStatus }
+            ? { ...quotation, ...updateData }
             : quotation,
         ),
       );
 
       setViewingQuotation((prev) =>
-        prev?.id === quotationId ? { ...prev, status: nextStatus } : prev,
+        prev?.id === quotationId ? { ...prev, ...updateData } : prev,
       );
 
       setEditingQuotation((prev) =>
-        prev?.id === quotationId ? { ...prev, status: nextStatus } : prev,
+        prev?.id === quotationId ? { ...prev, ...updateData } : prev,
       );
+      return true;
     } catch (err) {
       console.error("Failed to update quotation status:", err);
       alert("Failed to update quotation status.");
+      return false;
     }
   };
 

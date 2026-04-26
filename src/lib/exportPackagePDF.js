@@ -5,6 +5,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "jspdf-autotable";
 import { resolveOptionMarkup } from "@/lib/copyPackageSummary";
+import { getQuotationDuration } from "@/lib/quotationDuration";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BRAND = "#0D47A1";
 const BRAND_DARK = "#0A3880";
@@ -378,6 +379,7 @@ const drawCoverPage = async (
   selectedTransport,
   selectedActivities,
   refNumber = null,
+  durationLabel = null,
 ) => {
   const overlayY = PAGE_H * 0.45;
 
@@ -439,11 +441,7 @@ const drawCoverPage = async (
   });
 
   // 5. Trip Metadata (Nights/Days & Date)
-  const totalNights = hotelEntries.reduce(
-    (s, e) => s + (parseInt(e.nights) || 0),
-    0,
-  );
-  const tripLabel = `${totalNights} Nights / ${totalNights + 1} Days`;
+  const tripLabel = durationLabel || "0 Nights / 1 Day";
 
   // Aligned perfectly below the card
   let currentY = cardY + cardH + 12;
@@ -562,7 +560,6 @@ export const exportPackagePDF = async ({
   hotelEntries,
   selectedTransport,
   selectedActivities,
-  grandTotal,
   customerName,
   packageName,
   itineraryData = null,
@@ -570,7 +567,8 @@ export const exportPackagePDF = async ({
 }) => {
   const allHotelEntries = packageOptions?.length
     ? packageOptions.flatMap((o) => o.hotelEntries || [])
-    : hotelEntries;
+    : hotelEntries || [];
+  const duration = getQuotationDuration({ packageOptions, hotelEntries });
 
   if (!allHotelEntries.length) {
     alert("Add at least one hotel before exporting.");
@@ -609,6 +607,7 @@ export const exportPackagePDF = async ({
     selectedTransport,
     selectedActivities,
     refNumber,
+    duration.label,
   );
 
   addFooter(pdfdoc);
@@ -622,20 +621,11 @@ export const exportPackagePDF = async ({
   // ── Render each package option ──
   const options = packageOptions?.length
     ? packageOptions
-    : [{ id: 1, name: "Package", hotelEntries }];
+    : [{ id: 1, name: "Package", hotelEntries: hotelEntries || [] }];
 
   for (let optIdx = 0; optIdx < options.length; optIdx++) {
     const opt = options[optIdx];
     const optHotels = opt.hotelEntries || [];
-    const optHotelTotal = optHotels.reduce(
-      (s, e) => s + Number(e.hotelTotal || 0),
-      0,
-    );
-    const optGrandTotal =
-      optHotelTotal +
-      (transportTotalPrice || 0) +
-      (activityTotalPrice || 0) +
-      (confirmedMarkup || 0);
 
     y = ensureSpace(pdfdoc, logoImg, y, 30);
 
@@ -742,15 +732,14 @@ export const exportPackagePDF = async ({
       0,
     );
     // Use resolved markup for this specific option
-    const optionMarkup =
-      typeof opt.markup === "number"
-        ? opt.markup
-        : markupType === "percentage" && markupAmount > 0
-          ? (markupAmount / 100) *
-            (optionHotelTotal +
-              (transportTotalPrice || 0) +
-              (activityTotalPrice || 0))
-          : confirmedMarkup || 0;
+    const optionMarkup = resolveOptionMarkup(
+      opt,
+      transportTotalPrice || 0,
+      activityTotalPrice || 0,
+      confirmedMarkup || 0,
+      markupType,
+      markupAmount,
+    );
 
     // Calculate option grand total using option-specific values
     const optionGrandTotal =
