@@ -39,6 +39,7 @@ import { updateLeadStatus } from "@/firebase/leadsService";
 import FollowUpForm from "@/components/followups/FollowUpForm";
 import QuotationSentFollowUpPrompt from "@/components/followups/QuotationSentFollowUpPrompt";
 import { addFollowUp } from "@/firebase/followUpService";
+import QuotationRejectionDialog from "@/components/QuotationRejectionDialog";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -58,6 +59,8 @@ const MyQuotations = () => {
   const [sentFollowUpQuotation, setSentFollowUpQuotation] = useState(null);
   const [showSentFollowUpPrompt, setShowSentFollowUpPrompt] = useState(false);
   const [showSentFollowUpForm, setShowSentFollowUpForm] = useState(false);
+  const [rejectionQuotation, setRejectionQuotation] = useState(null);
+  const [isRejectingQuotation, setIsRejectingQuotation] = useState(false);
 
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
@@ -241,8 +244,22 @@ const MyQuotations = () => {
     nextStatus,
   ) => {
     const quotation = state.quotations.find((q) => q.id === quotationId);
-    await state.handleQuotationStatusChange(quotationId, nextStatus);
-    console.log("[debug] quotation object:", quotation); // ← add this
+    if (!quotation) {
+      toast.error("Quotation not found.");
+      return;
+    }
+
+    if (nextStatus === "Rejected") {
+      if (quotation.status === "Rejected") return;
+      setRejectionQuotation(quotation);
+      return;
+    }
+
+    const didUpdate = await state.handleQuotationStatusChange(
+      quotationId,
+      nextStatus,
+    );
+    if (!didUpdate) return;
     if (quotation?.leadId) {
       if (nextStatus === "Sent")
         await updateLeadStatus(quotation.leadId, "Quotation Sent");
@@ -260,6 +277,38 @@ const MyQuotations = () => {
       return;
     setBookingConfirmQuotation(quotation);
   };
+
+  const handleQuotationRejectConfirm = async (rejection) => {
+    if (!rejectionQuotation) return;
+
+    setIsRejectingQuotation(true);
+    try {
+      const didUpdate = await state.handleQuotationStatusChange(
+        rejectionQuotation.id,
+        "Rejected",
+        {
+          rejectionReason: rejection.reason || "",
+          rejectionComment: rejection.comment || "",
+          rejectionDetails: rejection.details || "",
+          rejectedAt: new Date().toISOString(),
+        },
+        {
+          agentName: state.user?.displayName || state.user?.email || "Agent",
+        },
+      );
+
+      if (!didUpdate) return;
+      toast.success(
+        rejectionQuotation.leadId
+          ? "Quotation rejected and lead note added."
+          : "Quotation rejected.",
+      );
+      setRejectionQuotation(null);
+    } finally {
+      setIsRejectingQuotation(false);
+    }
+  };
+
   const handleSentFollowUpSchedule = () => {
     setShowSentFollowUpPrompt(false);
     setShowSentFollowUpForm(true);
@@ -861,6 +910,16 @@ const MyQuotations = () => {
             : null
         }
         isEdit={false}
+      />
+
+      <QuotationRejectionDialog
+        open={!!rejectionQuotation}
+        quotation={rejectionQuotation}
+        isSubmitting={isRejectingQuotation}
+        onOpenChange={(open) => {
+          if (!open && !isRejectingQuotation) setRejectionQuotation(null);
+        }}
+        onConfirm={handleQuotationRejectConfirm}
       />
     </div>
   );

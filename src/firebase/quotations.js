@@ -12,9 +12,12 @@ getDoc,
   deleteDoc,
   updateDoc,
   addDoc,
+  writeBatch,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./config";
 import { updateLeadStatus } from "./leadsService";
+import { buildQuotationRejectionNote } from "@/lib/quotationRejection";
 
 /* ──────────────────────────────────────────────
    QUOTATIONS CRUD
@@ -61,7 +64,7 @@ export async function getQuotationById(agentId, quotationId) {
 /**
  * Update existing quotation
  */
-export async function updateQuotation(agentId, quotationId, data) {
+export async function updateQuotation(agentId, quotationId, data, options = {}) {
   if (!agentId || !quotationId) {
     throw new Error("Missing agentId or quotationId");
   }
@@ -77,10 +80,31 @@ export async function updateQuotation(agentId, quotationId, data) {
   const snap = await getDoc(ref);
   if (snap.exists()) {
     const quotation = snap.data();
-    const leadId = quotation.leadId;
+    const leadId = data.leadId !== undefined ? data.leadId : quotation.leadId;
+    const previousStatus = quotation.status || "Draft";
 
-    // Update the quotation first
-    await updateDoc(ref, data);
+    if (data.status === "Rejected" && previousStatus !== "Rejected" && leadId) {
+      const noteText = buildQuotationRejectionNote(
+        { id: quotationId, ...quotation, ...data },
+        {
+          reason: data.rejectionReason,
+          comment: data.rejectionComment,
+          details: data.rejectionDetails,
+        },
+      );
+      const batch = writeBatch(db);
+      const noteRef = doc(collection(db, "leads", leadId, "notes"));
+      batch.update(ref, data);
+      batch.set(noteRef, {
+        text: noteText,
+        createdBy: options.agentName || "Agent",
+        createdAt: serverTimestamp(),
+      });
+      await batch.commit();
+    } else {
+      // Update the quotation first
+      await updateDoc(ref, data);
+    }
 
     // Check if status is being set to Accepted
     if (data.status === "Accepted" && leadId) {

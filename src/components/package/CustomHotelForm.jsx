@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PenLine, Plus } from "lucide-react";
+import { min } from "date-fns";
 
 const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
   const [hotelName, setHotelName] = useState("");
@@ -309,10 +310,11 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
         </div>
 
         {/* Stay details — compact grid */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {/* <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {[
             { label: "Check-in", type: "date", val: checkInDate, set: setCheckInDate },
-            { label: "Nights", type: "number", val: nights, set: (v) => setNights(parseInt(v) || 1) },
+             { label: "Nights", type: "number", val: nights, set: (v) => setNights(parseInt(v) || 1) },
+           
             { label: "Rooms", type: "number", val: numDouble, set: (v) => setNumDouble(parseInt(v) || 0) },
             { label: "Ex. Adults", type: "number", val: numExtraAdult, set: (v) => setNumExtraAdult(parseInt(v) || 0) },
             { label: "Ex. Children", type: "number", val: numExtraChild, set: (v) => setNumExtraChild(parseInt(v) || 0) },
@@ -329,7 +331,80 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
               />
             </div>
           ))}
-        </div>
+        </div> */}
+        
+<div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+  {[
+    { label: "Check-in", type: "date", val: checkInDate, set: setCheckInDate },
+
+    {
+      label: "Nights",
+      type: "number",
+      val: nights,
+      min:1,
+      set: (v) => {
+        if (v === "") return setNights("");
+        setNights(Math.max(1, Number(v)));
+      },
+    },
+
+    {
+      label: "Rooms",
+      type: "number",
+      val: numDouble,
+      min:1,
+      set: (v) => {
+        if (v === "") return setNumDouble("");
+        setNumDouble(Math.max(0, Number(v)));
+      },
+    },
+
+    {
+      label: "Ex. Adults",
+      type: "number",
+      val: numExtraAdult,
+       min: 0,
+      set: (v) => {
+        if (v === "") return setNumExtraAdult("");
+        setNumExtraAdult(Math.max(0, Number(v)));
+      },
+    },
+
+    {
+      label: "Ex. Children",
+      type: "number",
+      val: numExtraChild,
+      min: 0,
+      set: (v) => {
+        if (v === "") return setNumExtraChild("");
+        setNumExtraChild(Math.max(0, Number(v)));
+      },
+    },
+
+    {
+      label: "CNB",
+      type: "number",
+      val: numCNB,
+      min: 0,
+      set: (v) => {
+        if (v === "") return setNumCNB("");
+        setNumCNB(Math.max(0, Number(v)));
+      },
+    },
+  ].map(({ label, type, val, set }) => (
+    <div key={label} className="space-y-0.5">
+      <Label className="text-[10px]">{label}</Label>
+
+      <input
+        type={type}
+        min={type === "number" ? 0 : undefined}
+        value={val}
+        onChange={(e) => set(e.target.value)}
+        className="w-full h-7 border rounded px-1.5 text-xs outline-none focus:ring-1 focus:ring-theme-primary"
+      />
+    </div>
+  ))}
+</div>
 
         {/* Footer: price + actions */}
         <div className="flex items-center justify-between pt-2 border-t gap-4">

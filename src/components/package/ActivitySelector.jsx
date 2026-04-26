@@ -257,7 +257,7 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-[10px]">Participants</Label>
-                <Input
+                {/* <Input
                   type="number"
                   min="1"
                   value={customForm.participants}
@@ -268,7 +268,31 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
                     }))
                   }
                   className="text-xs h-7"
-                />
+                /> */}
+                <Input
+  type="number"
+  min="1"
+  value={customForm.participants}
+  onChange={(e) => {
+    const val = e.target.value;
+
+    setCustomForm((p) => ({
+      ...p,
+      participants: val === "" ? "" : Math.max(1, Number(val)),
+    }));
+  }}
+  onBlur={() => {
+    
+    if (!customForm.participants || customForm.participants < 1) {
+      setCustomForm((p) => ({
+        ...p,
+        participants: 1,
+      }));
+    }
+  }}
+ 
+  className="text-xs h-7"
+/>
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px]">Price/Person (₹)</Label>
