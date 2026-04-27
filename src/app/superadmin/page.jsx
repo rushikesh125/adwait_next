@@ -136,7 +136,8 @@ const UserRow = ({
             <Mail size={12} className="text-slate-300" /> {user.email}
           </span>
           <span className="text-[13px] font-medium text-slate-500 flex items-center gap-2">
-            <Phone size={12} className="text-slate-300" /> {user.phone || "—"}
+            <Phone size={12} className="text-slate-300" />
+            {user.phone ? <a href={`tel:${user.phone}`} className="hover:text-theme-primary hover:underline">{user.phone}</a> : "—"}
           </span>
         </div>
       </td>

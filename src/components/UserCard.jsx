@@ -40,7 +40,8 @@ export default function UserRow({ user, type, onChange, onDelete }) {
               <Mail size={12} className="mr-2 text-slate-300" /> {user.email}
             </div>
             <div className="flex items-center text-[13px] font-medium text-slate-600">
-              <Phone size={12} className="mr-2 text-slate-300" /> {user.phone || "---"}
+              <Phone size={12} className="mr-2 text-slate-300" />
+              {user.phone ? <a href={`tel:${user.phone}`} className="hover:text-theme-primary hover:underline">{user.phone}</a> : "---"}
             </div>
           </div>
         </td>

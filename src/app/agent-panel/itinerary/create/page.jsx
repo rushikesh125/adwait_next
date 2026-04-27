@@ -551,27 +551,54 @@ export default function ItineraryForm() {
   const impH = makeHandlers(setImpInfo);
 
   // ── City tag input ─────────────────────────────────────────────────────
+  // const handleAddCity = (e) => {
+  //   if (e.key === "Enter" && cityInput.trim()) {
+  //     e.preventDefault();
+
+  //     const value = cityInput.trim();
+
+  //     if (!isValidCityName(value)) {
+  //       toast.error("City name should only contain letters and spaces.");
+  //       return;
+  //     }
+
+  //     if (!form.cities.includes(value)) {
+  //       setForm((prev) => ({
+  //         ...prev,
+  //         cities: [...prev.cities, value],
+  //       }));
+  //     }
+
+  //     setCityInput("");
+  //   }
+  // };
   const handleAddCity = (e) => {
-    if (e.key === "Enter" && cityInput.trim()) {
-      e.preventDefault();
+  // Block numbers and special characters on keypress
+  // if (/[^A-Za-z\s]/.test(e.key) && e.key.length === 1) {
+  //   e.preventDefault();
+  //   return;
+  // }
 
-      const value = cityInput.trim();
+  if (e.key === "Enter" && cityInput.trim()) {
+    e.preventDefault();
 
-      if (!isValidCityName(value)) {
-        toast.error("City name should only contain letters and spaces.");
-        return;
-      }
+    const value = cityInput.trim();
 
-      if (!form.cities.includes(value)) {
-        setForm((prev) => ({
-          ...prev,
-          cities: [...prev.cities, value],
-        }));
-      }
-
-      setCityInput("");
+    if (!isValidCityName(value)) {
+      toast.error("City name should only contain letters and spaces.");
+      return;
     }
-  };
+
+    if (!form.cities.includes(value)) {
+      setForm((prev) => ({
+        ...prev,
+        cities: [...prev.cities, value],
+      }));
+    }
+
+    setCityInput("");
+  }
+};
   const removeCity = (city) =>
     setForm((prev) => ({
       ...prev,
@@ -983,13 +1010,41 @@ export default function ItineraryForm() {
                         </button>
                       </Badge>
                     ))}
-                    <input
+                    {/* <input
                       className="flex-1 outline-none text-sm min-w-[120px]"
                       value={cityInput}
-                      onChange={(e) => setCityInput(e.target.value)}
-                      onKeyDown={handleAddCity}
+                    onChange={(e) => {
+                        const value = e.target.value;
+
+                        // Allow only letters and spaces
+                         if (/^[A-Za-z\s]*$/.test(value)) {
+                          setCityInput(value);
+                        }
+                      }}                      onKeyDown={handleAddCity}
                       placeholder="Add city..."
-                    />
+                    /> */}
+                 <input
+  className="flex-1 outline-none text-sm min-w-[120px]"
+  value={cityInput}
+  onChange={(e) => {
+    const filtered = e.target.value.replace(/[^A-Za-z\s]/g, "");
+    setCityInput(filtered);
+  }}
+  onKeyDown={(e) => {
+    if (/[^A-Za-z\s]/.test(e.key) && e.key.length === 1) {
+      e.preventDefault();
+      return;
+    }
+    handleAddCity(e);
+  }}
+  onPaste={(e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text");
+    const filtered = pasted.replace(/[^A-Za-z\s]/g, "");
+    setCityInput((prev) => (prev + filtered).trimStart());
+  }}
+  placeholder="Add city..."
+/>
                   </div>
                 </div>
 

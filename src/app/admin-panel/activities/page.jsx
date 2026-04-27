@@ -71,10 +71,6 @@ const Activities = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
-  useEffect(() => {
-    fetchActivities();
-  }, []);
-
   const fetchActivities = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, "activities"));
@@ -92,6 +88,10 @@ const Activities = () => {
       console.error("Error fetching activities:", error);
     }
   };
+
+  useEffect(() => {
+    fetchActivities(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []);
 
   const handleDeleteActivity = async (activityId) => {
     if (!window.confirm("Are you sure you want to delete this activity?")) return;
@@ -142,7 +142,7 @@ const Activities = () => {
   }, [activities, searchQuery, stateFilter, sortConfig]);
 
   // Reset page on filter change
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, stateFilter, itemsPerPage]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, stateFilter, itemsPerPage]); // eslint-disable-line react-hooks/set-state-in-effect
 
   const totalPages = Math.ceil(processed.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;

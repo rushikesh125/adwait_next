@@ -10,9 +10,7 @@ import { auth } from "@/firebase/config";
 import { Button } from "./ui/button";
 
 const UserDropdown = ({ user }) => {
-  if (!user) return null;
-
-  const { name, email, role, photoURL } = user;
+  const { name, email, role, photoURL } = user ?? {};
   const [imgSrc, setImgSrc] = useState(photoURL ?? "/profile.png");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -28,6 +26,8 @@ const UserDropdown = ({ user }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  if (!user) return null;
 
   return (
     <div className="relative" ref={dropdownRef}>

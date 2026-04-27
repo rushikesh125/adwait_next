@@ -4,11 +4,9 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 
-// Icons
 import {
-  LayoutDashboard, ShieldCheck, UserCog, Database,
-  BarChart3, Settings, LogOut, Menu, X, Bell, Lock, Globe,
-  TruckElectric, ActivityIcon, HardDriveUpload, BookPlus,
+  LayoutDashboard, ShieldCheck, LogOut, Menu, X, Lock,
+  TruckElectric, ActivityIcon, BookPlus,
   Users, Briefcase, FileText, CalendarCheck, UserCircle,
   Inbox, Receipt,
 } from "lucide-react";
@@ -25,7 +23,6 @@ const AdminPanelLayout = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Close mobile sidebar on route change
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
@@ -150,8 +147,7 @@ const AdminPanelLayout = ({ children }) => {
   return (
     <RequireAuth allowedRoles={["admin"]}>
     <div className="h-screen bg-[#F8FAFC] flex overflow-hidden">
-      
-      {/* MOBILE DRAWER */}
+
       <div className={`fixed inset-0 z-100 lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
         <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsMobileOpen(false)} />
         <div className={`absolute inset-y-0 left-0 w-72 transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
@@ -159,12 +155,10 @@ const AdminPanelLayout = ({ children }) => {
         </div>
       </div>
 
-      {/* DESKTOP SIDEBAR - Fixed position */}
       <aside className={`hidden lg:flex flex-col border-r border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}>
-        <SidebarContent mobile={false} />
+        <SidebarContent />
       </aside>
 
-      {/* MAIN CONTENT - Scrollable area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <header className="h-16 lg:h-20 bg-white border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
           <div className="flex items-center gap-2">
@@ -177,11 +171,11 @@ const AdminPanelLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <UserDropdown user={user}/>
+            <UserDropdown user={user} />
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto ">
+        <main className="flex-1 overflow-y-auto">
           <div className="mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
             {children}
           </div>

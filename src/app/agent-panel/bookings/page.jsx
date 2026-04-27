@@ -14,7 +14,7 @@ import {
   Search,
   Loader2,
   Pencil,
-  Eye,
+
   Edit3,
   Trash2,
   ArrowUpDown,
@@ -533,7 +533,7 @@ export default function BookingsPage() {
                 </TableRow>
               ) : (
                 paged.map((booking) => (
-                  <TableRow key={booking.id} className="group hover:bg-slate-50/40 transition-colors">
+                  <TableRow key={booking.id} className="group hover:bg-slate-50/40 transition-colors cursor-pointer" onClick={() => router.push(`/agent-panel/bookings/${booking.id}`)}>
                     <TableCell className="pl-6 text-left">
                       <span className="font-bold text-theme-primary text-xs tracking-wide">
                         {booking.bookingRef}
@@ -551,7 +551,7 @@ export default function BookingsPage() {
                         <div className="text-slate-400">to {formatDate(booking.endDate)}</div>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
                         {editingStatusId !== booking.id ? (
                           <>
@@ -561,7 +561,7 @@ export default function BookingsPage() {
                               className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
                             />
                             <button
-                              onClick={() => setEditingStatusId(booking.id)}
+                              onClick={(e) => { e.stopPropagation(); setEditingStatusId(booking.id); }}
                               className="text-slate-400 hover:text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -598,22 +598,13 @@ export default function BookingsPage() {
                         className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
                       />
                     </TableCell>
-                    <TableCell className="pr-6">
+                    <TableCell className="pr-6" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1">
-                        {/* View */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => router.push(`/agent-panel/bookings/${booking.id}`)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
                         {/* Edit */}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                          className="h-8 w-8 text-slate-700 hover:text-slate-900"
                           onClick={() => router.push(`/agent-panel/bookings/create?id=${booking.id}`)}
                         >
                           <Edit3 className="w-4 h-4" />
@@ -629,7 +620,7 @@ export default function BookingsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                              className="h-8 w-8 text-slate-700 hover:text-slate-900"
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>

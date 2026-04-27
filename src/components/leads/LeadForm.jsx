@@ -12,6 +12,8 @@ import {
   Wallet,
   FileText,
   Send,
+  Radio,
+  Phone,
 } from "lucide-react";
 import { Coffee, Utensils, ChefHat } from "lucide-react";
 
@@ -124,6 +126,20 @@ export default function LeadForm({
             </div>
 
             <div className="space-y-2">
+              <FieldLabel icon={Phone} optional>
+                Mobile Number
+              </FieldLabel>
+              <Input
+                name="mobile"
+                value={form.mobile || ""}
+                placeholder="10-digit mobile number"
+                onChange={onChange}
+                className="h-11 border-slate-200 focus-visible:ring-theme-primary"
+                maxLength={15}
+              />
+            </div>
+
+            <div className="space-y-2">
               <FieldLabel icon={MapPin} required>
                 Travel To
               </FieldLabel>
@@ -211,6 +227,35 @@ export default function LeadForm({
                   <SelectItem value="Corporate">Corporate</SelectItem>
                   <SelectItem value="Couple">Couple</SelectItem>
                   <SelectItem value="Study">Study</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lead Source */}
+            <div className="space-y-2">
+              <FieldLabel icon={Radio} optional>
+                How did you hear about us?
+              </FieldLabel>
+              <Select
+                value={form.source || ""}
+                onValueChange={(value) =>
+                  onChange({ target: { name: "source", value } })
+                }
+              >
+                <SelectTrigger className={selectTriggerClass}>
+                  <SelectValue placeholder="Select a source" />
+                </SelectTrigger>
+                <SelectContent side="bottom" position="popper" align="start" className="w-[var(--radix-select-trigger-width)]">
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="Referral">Referral</SelectItem>
+                  <SelectItem value="Enquiry Form">Enquiry Form</SelectItem>
+                  <SelectItem value="Walk-in">Walk-in</SelectItem>
+                  <SelectItem value="Cold Call">Cold Call</SelectItem>
+                  <SelectItem value="Google">Google</SelectItem>
+                  <SelectItem value="Facebook">Facebook</SelectItem>
+                  <SelectItem value="Instagram">Instagram</SelectItem>
+                  <SelectItem value="Website">Website</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>

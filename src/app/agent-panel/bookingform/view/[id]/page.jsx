@@ -463,7 +463,7 @@ export default function TripViewPage({ params: paramsPromise }) {
                     <TableCell>
                       <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-0.5">
                         <Phone size={12} className="text-blue-500" />{" "}
-                        {res.mobile}
+                        {res.mobile ? <a href={`tel:${res.mobile}`} className="hover:text-theme-primary hover:underline">{res.mobile}</a> : "—"}
                       </p>
                       <p className="text-[10px] text-slate-400 truncate max-w-[180px]">
                         {res.address}

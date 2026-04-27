@@ -202,6 +202,8 @@ export default function LeadProfilePage({ params }) {
       childAges: Array.isArray(lead.childAges) ? lead.childAges : [],
       sightseeingVehicle: lead.sightseeingVehicle || "",
       ticketHelp: lead.ticketHelp || [],
+      mobile: lead.mobile || lead.phone || "",
+      source: lead.source || "",
     });
   }, [lead]);
 
@@ -460,7 +462,7 @@ export default function LeadProfilePage({ params }) {
 
   const tripFields = [
     { icon: User, label: "Lead Name", value: lead?.name || "-" },
-    { icon: Phone, label: "Mobile", value: lead?.mobile || "-" },
+    { icon: Phone, label: "Mobile", value: lead?.mobile || "-", href: lead?.mobile ? `tel:${lead.mobile}` : null },
     { icon: Mail, label: "Email", value: lead?.email || "-" },
     { icon: MapPin, label: "Destination", value: lead?.destination || "-" },
     { icon: Calendar, label: "Travel Date", value: formatDate(lead?.travelDate) },
@@ -535,7 +537,7 @@ export default function LeadProfilePage({ params }) {
                 {lead?.mobile && (
                   <div className="flex items-center gap-1">
                     <Phone className="h-3.5 w-3.5 text-slate-400" />
-                    <p className="text-sm font-semibold text-slate-700">{lead.mobile}</p>
+                    <a href={`tel:${lead.mobile}`} className="text-sm font-semibold text-slate-700 hover:text-theme-primary hover:underline">{lead.mobile}</a>
                   </div>
                 )}
                 {lead?.email && (
@@ -594,7 +596,9 @@ export default function LeadProfilePage({ params }) {
                             {item.label}
                           </p>
                           <p className="break-words text-xs font-bold text-slate-700 leading-snug">
-                            {item.value}
+                            {item.href ? (
+                              <a href={item.href} className="hover:text-theme-primary hover:underline">{item.value}</a>
+                            ) : item.value}
                           </p>
                         </div>
                       </div>

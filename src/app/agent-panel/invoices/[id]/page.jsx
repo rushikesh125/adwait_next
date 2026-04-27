@@ -388,7 +388,7 @@ export default function InvoiceDetailPage() {
             <CardContent className="px-6 pb-5">
               <p className="font-bold text-slate-800">{invoice.customerName || "—"}</p>
               {invoice.customerMobile && (
-                <p className="text-sm text-slate-500 mt-0.5">{invoice.customerMobile}</p>
+                <a href={`tel:${invoice.customerMobile}`} className="block text-sm text-slate-500 mt-0.5 hover:text-theme-primary hover:underline">{invoice.customerMobile}</a>
               )}
               {invoice.customerEmail && (
                 <p className="text-sm text-slate-500">{invoice.customerEmail}</p>

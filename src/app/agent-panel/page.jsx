@@ -27,6 +27,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import FollowUpCalendar from "@/components/dashboard/FollowUpCalendar";
+import RevenueChart from "@/components/dashboard/RevenueChart";
 
 const LEAD_STATUSES = [
   "New",
@@ -322,6 +323,10 @@ export default function AgentDashboard() {
               ))}
             </CardContent>
           </Card>
+        </section>
+
+        <section>
+          <RevenueChart agentId={user?.uid} />
         </section>
 
         <section>

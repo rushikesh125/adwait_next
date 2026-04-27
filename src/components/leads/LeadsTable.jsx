@@ -5,7 +5,6 @@ import {
   Search,
   MapPin,
   Calendar,
-  Eye,
   FilePlus2,
   FilterX,
   Pencil,
@@ -135,7 +134,7 @@ export default function LeadsTable({
 
   // Reset to page 1 when filters change
   useEffect(() => {
-    setCurrentPage(1);
+    setCurrentPage(1); // eslint-disable-line react-hooks/set-state-in-effect
   }, [searchTerm, statusFilter, itemsPerPage]);
   // Pagination Calculations
   const totalPages = Math.ceil(processedLeads.length / itemsPerPage);
@@ -291,7 +290,8 @@ export default function LeadsTable({
               paginatedLeads.map((lead, index) => (
                 <TableRow
                   key={lead.id}
-                  className="group hover:bg-theme-muted/10 transition-colors"
+                  className="group hover:bg-theme-muted/10 transition-colors cursor-pointer"
+                  onClick={() => router.push(`./leads/${lead.id}`)}
                 >
                   {/* S.No - Centered */}
                   <TableCell className="text-center font-medium text-slate-500">
@@ -299,8 +299,13 @@ export default function LeadsTable({
                   </TableCell>
 
                   {/* Name - Left Aligned */}
-                  <TableCell className="text-left font-semibold text-slate-900">
-                    {lead.name}
+                  <TableCell className="text-left">
+                    <span className="font-semibold text-slate-900">{lead.name}</span>
+                    {lead.source && (
+                      <span className="ml-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                        {lead.source}
+                      </span>
+                    )}
                   </TableCell>
 
                   {/* Destination - Left Aligned */}
@@ -328,7 +333,7 @@ export default function LeadsTable({
                   </TableCell>
 
                   {/* Status - Original Editing UI */}
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-2">
                       {editingStatusId !== lead.id ? (
                         <>
@@ -338,7 +343,7 @@ export default function LeadsTable({
                             className="w-full justify-center px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
                           />
                           <button
-                            onClick={() => setEditingStatusId(lead.id)}
+                            onClick={(e) => { e.stopPropagation(); setEditingStatusId(lead.id); }}
                             className="text-slate-400 hover:text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -376,7 +381,7 @@ export default function LeadsTable({
                   </TableCell>
 
                   {/* Actions - Right Aligned */}
-                  <TableCell className="text-right pr-6">
+                  <TableCell className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-center gap-1.5">
                       <Button
                         size="sm"
@@ -393,16 +398,8 @@ export default function LeadsTable({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-slate-400 hover:text-theme-primary"
-                        onClick={() => router.push(`./leads/${lead.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
                         title="Clone lead"
-                        className="h-8 w-8 text-slate-400 hover:text-theme-primary"
+                        className="h-8 w-8 text-slate-700 hover:text-theme-primary"
                         onClick={() => onCloneLead?.(lead.id)}
                       >
                         <Copy className="h-4 w-4" />
@@ -410,7 +407,7 @@ export default function LeadsTable({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                        className="h-8 w-8 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
                         onClick={() => onDeleteLead(lead.id)}
                       >
                         <Trash2 className="h-4 w-4" />
