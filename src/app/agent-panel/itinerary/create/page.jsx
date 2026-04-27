@@ -374,7 +374,7 @@ export default function ItineraryForm() {
   const [availableActivities, setAvailableActivities] = useState([]);
   const [cityInput, setCityInput] = useState("");
   const { user } = useSelector((state) => state.auth);
-
+  const isValidCityName = (value) => /^[A-Za-z\s]+$/.test(value.trim());
   // ── Form state ─────────────────────────────────────────────────────────────
   const [form, setForm] = useState({
     title: "",
@@ -554,11 +554,21 @@ export default function ItineraryForm() {
   const handleAddCity = (e) => {
     if (e.key === "Enter" && cityInput.trim()) {
       e.preventDefault();
-      if (!form.cities.includes(cityInput.trim()))
+
+      const value = cityInput.trim();
+
+      if (!isValidCityName(value)) {
+        toast.error("City name should only contain letters and spaces.");
+        return;
+      }
+
+      if (!form.cities.includes(value)) {
         setForm((prev) => ({
           ...prev,
-          cities: [...prev.cities, cityInput.trim()],
+          cities: [...prev.cities, value],
         }));
+      }
+
       setCityInput("");
     }
   };
@@ -793,6 +803,17 @@ export default function ItineraryForm() {
       return toast.error("Number of Days must be at least 1.");
     if (!user?.uid || !user?.role)
       return toast.error("User should be logged in");
+    if (!isValidCityName(form.startCity)) {
+      return toast.error("Starting city must contain only letters.");
+    }
+
+    if (!isValidCityName(form.endCity)) {
+      return toast.error("Ending city must contain only letters.");
+    }
+
+    if (form.cities.some((city) => !isValidCityName(city))) {
+      return toast.error("All cities must contain only letters.");
+    }
 
     const payload = {
       title: form.title,
@@ -978,9 +999,14 @@ export default function ItineraryForm() {
                     <Label>Starting City *</Label>
                     <Input
                       value={form.startCity}
-                      onChange={(e) =>
-                        setForm({ ...form, startCity: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+
+                        // Allow only valid characters while typing
+                        if (/^[A-Za-z\s]*$/.test(value)) {
+                          setForm({ ...form, startCity: value });
+                        }
+                      }}
                       placeholder="e.g. Jaipur"
                     />
                     <p className="text-[11px] text-slate-400">
@@ -991,9 +1017,13 @@ export default function ItineraryForm() {
                     <Label>Ending City *</Label>
                     <Input
                       value={form.endCity}
-                      onChange={(e) =>
-                        setForm({ ...form, endCity: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+
+                        if (/^[A-Za-z\s]*$/.test(value)) {
+                          setForm({ ...form, endCity: value });
+                        }
+                      }}
                       placeholder="e.g. Udaipur"
                     />
                     <p className="text-[11px] text-slate-400">

@@ -7,7 +7,7 @@
  *
  * Redesigned with modern blue theme + shadcn-style components.
  * All functionality preserved from original.
- * 
+ *
  * UPDATED: Added 2-step confirmation dialog for Accept/Reject actions
  *          + Success state display after response submission
  */
@@ -141,13 +141,7 @@ function InfoChip({ label, value, sub }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Confirmation Dialog Component (2-step)
 // ─────────────────────────────────────────────────────────────────────────────
-function ConfirmationDialog({
-  isOpen,
-  onClose,
-  onConfirm,
-  action,
-  isLoading,
-}) {
+function ConfirmationDialog({ isOpen, onClose, onConfirm, action, isLoading }) {
   const [step, setStep] = useState(1);
 
   useEffect(() => {
@@ -316,9 +310,7 @@ function ResponseSuccessBanner({ status }) {
               isAccepted ? "text-green-800" : "text-red-800"
             }`}
           >
-            {isAccepted
-              ? "Quotation Accepted! 🎉"
-              : "Quotation Rejected"}
+            {isAccepted ? "Quotation Accepted! 🎉" : "Quotation Rejected"}
           </p>
           <p
             className={`text-xs ${
@@ -568,17 +560,19 @@ export default function PreviewPage() {
 
       const res = await response.json();
       if (!response.ok) {
-        throw new Error(res.error || "Failed to process your response. Please try again.");
+        throw new Error(
+          res.error || "Failed to process your response. Please try again.",
+        );
       }
 
       setResponseDone(res.status);
       // Update local quotation status to reflect the change
-      setQuotation((prev) =>
-        prev ? { ...prev, status: res.status } : prev
-      );
+      setQuotation((prev) => (prev ? { ...prev, status: res.status } : prev));
     } catch (err) {
       console.error(err);
-      alert(err.message || "Failed to process your response. Please try again.");
+      alert(
+        err.message || "Failed to process your response. Please try again.",
+      );
     } finally {
       setResponding(false);
       setConfirmDialog({ isOpen: false, action: null });
@@ -633,7 +627,8 @@ export default function PreviewPage() {
   const tnc = itinerary?.tnc?.filter((i) => i.selected) || [];
   const cancellation = itinerary?.cancellation?.filter((i) => i.selected) || [];
   const impInfo = itinerary?.impInfo?.filter((i) => i.selected) || [];
-
+  const hasItinerary = Array.isArray(itinerary?.days) && itinerary.days.length > 0;
+  // console.log(itinerary?.days)
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -734,7 +729,7 @@ export default function PreviewPage() {
       {/* ── MAIN CONTENT ── */}
       <div className="max-w-2xl mx-auto px-4 pb-20 space-y-8 pt-7">
         {/* ── Day-wise plan ── */}
-        {itinerary?.days?.length > 0 && (
+        {hasItinerary && (
           <section>
             <SectionHeading
               icon={Calendar}
@@ -795,7 +790,6 @@ export default function PreviewPage() {
                   )}
                 </div>
               </div>
-            
             </Card>
           </section>
         )}
@@ -824,7 +818,6 @@ export default function PreviewPage() {
                       {act.participants > 1 && ` · ${act.participants} persons`}
                     </p>
                   </div>
-                 
                 </div>
               ))}
             </Card>
@@ -1035,9 +1028,7 @@ export default function PreviewPage() {
         )}
 
       {/* Show success banner after response */}
-      {responseDone && (
-        <ResponseSuccessBanner status={responseDone} />
-      )}
+      {responseDone && <ResponseSuccessBanner status={responseDone} />}
 
       {/* Confirmation Dialog */}
       <ConfirmationDialog

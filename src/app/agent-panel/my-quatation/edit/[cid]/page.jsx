@@ -65,6 +65,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getLeadsByAgent } from "@/firebase/leadsService";
+import { updateQuotation } from "@/firebase/quotations";
+import QuotationRejectionDialog from "@/components/QuotationRejectionDialog";
 
 const EditQuotationPage = () => {
   const params = useParams();
@@ -98,6 +100,9 @@ const EditQuotationPage = () => {
   const [saveAsLeadId, setSaveAsLeadId] = useState("");
   const [agentLeads, setAgentLeads] = useState([]);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+  const [originalQuotationStatus, setOriginalQuotationStatus] = useState("");
+  const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
+  const [isRejectingQuotation, setIsRejectingQuotation] = useState(false);
 
   // ────────────────────────────────────────────────
   // Helper Functions
@@ -271,6 +276,7 @@ const EditQuotationPage = () => {
             ...snapshot.docs[0].data(),
           };
           setEditingQuotation(quotationData);
+          setOriginalQuotationStatus(quotationData.status || "Draft");
 
           if (quotationData.hotelSummary?.length > 0) {
             setSelectedDestination(quotationData.hotelSummary[0].state);
@@ -741,25 +747,67 @@ setToggleValue(prev => !prev)
     });
   };
 
+  const persistQuotationUpdate = async (quotationData) => {
+    const agentId = user?.uid;
+    if (!agentId) {
+      toast.error("Not logged in.");
+      throw new Error("Not logged in.");
+    }
+
+    await updateQuotation(agentId, quotationData.id, quotationData, {
+      agentName: user?.displayName || user?.email || "Agent",
+    });
+    setEditingQuotation(quotationData);
+    setOriginalQuotationStatus(quotationData.status || "Draft");
+  };
+
   const handleUpdateQuotation = async () => {
     if (!editingQuotation) return toast.error("No quotation to update.");
 
-    const agentId = user?.uid;
-    if (!agentId) return toast.error("Not logged in.");
+    if (
+      editingQuotation.status === "Rejected" &&
+      originalQuotationStatus !== "Rejected" &&
+      !editingQuotation.rejectionDetails
+    ) {
+      setIsRejectionDialogOpen(true);
+      return;
+    }
 
     try {
-      const ref = doc(
-        db,
-        "saved_packages_by_agents",
-        agentId,
-        "packages",
-        editingQuotation.id,
-      );
-      await updateDoc(ref, editingQuotation);
+      await persistQuotationUpdate(editingQuotation);
       toast.success("Quotation updated!");
     } catch (err) {
       console.error(err);
       toast.error("Update failed.");
+    }
+  };
+
+  const handleConfirmRejection = async (rejection) => {
+    if (!editingQuotation) return;
+
+    const updatedQuotation = {
+      ...editingQuotation,
+      status: "Rejected",
+      rejectionReason: rejection.reason || "",
+      rejectionComment: rejection.comment || "",
+      rejectionDetails: rejection.details || "",
+      rejectedAt: new Date().toISOString(),
+    };
+
+    setIsRejectingQuotation(true);
+    try {
+      await persistQuotationUpdate(updatedQuotation);
+      setIsRejectionDialogOpen(false);
+      toast.success(
+        updatedQuotation.leadId
+          ? "Quotation rejected and lead note added."
+          : "Quotation rejected.",
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Update failed.");
+    } finally {
+      setIsRejectingQuotation(false);
     }
   };
 
@@ -1583,6 +1631,16 @@ setToggleValue(prev => !prev)
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <QuotationRejectionDialog
+          open={isRejectionDialogOpen}
+          quotation={editingQuotation}
+          isSubmitting={isRejectingQuotation}
+          onOpenChange={(open) => {
+            if (!open && !isRejectingQuotation) setIsRejectionDialogOpen(false);
+          }}
+          onConfirm={handleConfirmRejection}
+        />
       </div>
     </div>
   );

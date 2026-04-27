@@ -4,7 +4,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import "jspdf-autotable";
-
+import { resolveOptionMarkup } from "@/lib/copyPackageSummary";
+import { getQuotationDuration } from "@/lib/quotationDuration";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BRAND = "#0D47A1";
 const BRAND_DARK = "#0A3880";
@@ -378,6 +379,7 @@ const drawCoverPage = async (
   selectedTransport,
   selectedActivities,
   refNumber = null,
+  durationLabel = null,
 ) => {
   const overlayY = PAGE_H * 0.45;
 
@@ -439,11 +441,7 @@ const drawCoverPage = async (
   });
 
   // 5. Trip Metadata (Nights/Days & Date)
-  const totalNights = hotelEntries.reduce(
-    (s, e) => s + (parseInt(e.nights) || 0),
-    0,
-  );
-  const tripLabel = `${totalNights} Nights / ${totalNights + 1} Days`;
+  const tripLabel = durationLabel || "0 Nights / 1 Day";
 
   // Aligned perfectly below the card
   let currentY = cardY + cardH + 12;
@@ -556,11 +554,12 @@ export const exportPackagePDF = async ({
   transportTotalPrice = 0,
   activityTotalPrice = 0,
   confirmedMarkup = 0,
+  markupType = "lumpsum", // Add this parameter
+  markupAmount = 0,
   // legacy single-option (kept for compat)
   hotelEntries,
   selectedTransport,
   selectedActivities,
-  grandTotal,
   customerName,
   packageName,
   itineraryData = null,
@@ -568,7 +567,8 @@ export const exportPackagePDF = async ({
 }) => {
   const allHotelEntries = packageOptions?.length
     ? packageOptions.flatMap((o) => o.hotelEntries || [])
-    : hotelEntries;
+    : hotelEntries || [];
+  const duration = getQuotationDuration({ packageOptions, hotelEntries });
 
   if (!allHotelEntries.length) {
     alert("Add at least one hotel before exporting.");
@@ -607,6 +607,7 @@ export const exportPackagePDF = async ({
     selectedTransport,
     selectedActivities,
     refNumber,
+    duration.label,
   );
 
   addFooter(pdfdoc);
@@ -620,20 +621,11 @@ export const exportPackagePDF = async ({
   // ── Render each package option ──
   const options = packageOptions?.length
     ? packageOptions
-    : [{ id: 1, name: "Package", hotelEntries }];
+    : [{ id: 1, name: "Package", hotelEntries: hotelEntries || [] }];
 
   for (let optIdx = 0; optIdx < options.length; optIdx++) {
     const opt = options[optIdx];
     const optHotels = opt.hotelEntries || [];
-    const optHotelTotal = optHotels.reduce(
-      (s, e) => s + Number(e.hotelTotal || 0),
-      0,
-    );
-    const optGrandTotal =
-      optHotelTotal +
-      (transportTotalPrice || 0) +
-      (activityTotalPrice || 0) +
-      (confirmedMarkup || 0);
 
     y = ensureSpace(pdfdoc, logoImg, y, 30);
 
@@ -734,11 +726,29 @@ export const exportPackagePDF = async ({
     // ── Cost breakdown rows for this option ──
     const breakdownRows = [];
 
-  
+    // Calculate option-specific totals
+    const optionHotelTotal = optHotels.reduce(
+      (s, e) => s + Number(e.hotelTotal || 0),
+      0,
+    );
+    // Use resolved markup for this specific option
+    const optionMarkup = resolveOptionMarkup(
+      opt,
+      transportTotalPrice || 0,
+      activityTotalPrice || 0,
+      confirmedMarkup || 0,
+      markupType,
+      markupAmount,
+    );
 
-    
+    // Calculate option grand total using option-specific values
+    const optionGrandTotal =
+      optionHotelTotal +
+      (transportTotalPrice || 0) +
+      (activityTotalPrice || 0) +
+      optionMarkup;
 
-    // Grand total row
+    // Grand total row - use option-specific total
     breakdownRows.push([
       {
         content: `${opt.name} — Total Tour Cost`,
@@ -750,7 +760,7 @@ export const exportPackagePDF = async ({
         },
       },
       {
-        content: `Rs. ${optGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+        content: `Rs. ${optionGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
         styles: {
           halign: "right",
           fontStyle: "bold",
@@ -776,16 +786,39 @@ export const exportPackagePDF = async ({
     y = pdfdoc.lastAutoTable.finalY + 14;
   }
   // ── MOVED: INCLUSIONS & EXCLUSIONS ──
-  const { totalBreakfasts, totalLunches, totalDinners } =
-    calculateTotalMeals(hotelEntries);
+  // ✅ Detect multi option
+  const isMultiOption = packageOptions?.length > 1;
 
-  const legacyIncluded = ["Hotel accommodation as specified."];
-  if (totalBreakfasts > 0)
-    legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
-  if (totalLunches > 0) legacyIncluded.push(`${totalLunches} Lunch(es)`);
-  if (totalDinners > 0) legacyIncluded.push(`${totalDinners} Dinner(s)`);
-  if (!totalBreakfasts && !totalLunches && !totalDinners)
-    legacyIncluded.push("No meals included (EP Plan)");
+  // ✅ Get ALL hotel entries (same as summary logic)
+  const allEntries = packageOptions?.length
+    ? packageOptions.flatMap((o) => o.hotelEntries || [])
+    : hotelEntries;
+
+  // ✅ Calculate meals (only used for single option)
+  const { totalBreakfasts, totalLunches, totalDinners } =
+    calculateTotalMeals(allEntries);
+
+  // ✅ Build INCLUDED dynamically
+  const legacyIncluded = [];
+
+  if (isMultiOption) {
+    // 🔥 MULTI OPTION LOGIC
+    legacyIncluded.push("Accommodation as per package selection");
+
+    legacyIncluded.push(`Meal Plan as per package selection`);
+  } else {
+    // 🔥 SINGLE OPTION LOGIC
+    legacyIncluded.push("Accommodation as specified.");
+
+    if (totalBreakfasts > 0)
+      legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
+    if (totalLunches > 0) legacyIncluded.push(`${totalLunches} Lunch(es)`);
+    if (totalDinners > 0) legacyIncluded.push(`${totalDinners} Dinner(s)`);
+
+    if (!totalBreakfasts && !totalLunches && !totalDinners) {
+      legacyIncluded.push("No meals included (EP Plan)");
+    }
+  }
 
   if (selectedTransport?.selectedVehicle) {
     const v = selectedTransport.selectedVehicle;

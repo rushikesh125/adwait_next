@@ -12,6 +12,7 @@ import {
   addDoc
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { validateHotelData } from "@/firebase/accomodation";
 import { 
   X, MapPin, Hotel, Calendar, BedDouble, Plus, Check, ChevronRight, Star,
   ExternalLink, AlertTriangle, Loader2
@@ -346,6 +347,18 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         }
       }))
     };
+
+    const validation = validateHotelData({
+      name: hotelName.trim(),
+      city: selectedCity?.name || cityInput || "",
+      state: selectedState,
+      rooms: [...roomCategories, newRoom],
+    });
+    if (!validation.isValid) {
+      validation.errors.forEach((error) => toast.error(error));
+      return;
+    }
+
     setIsSavingRoom(true);
     try {
       await updateDoc(doc(db, "hotels", createdHotelId), { rooms: arrayUnion(newRoom) });

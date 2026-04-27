@@ -4,7 +4,6 @@ import "@/app/globals.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import QuotationsTable from "./QuotationsTable";
-
 import { useQuotationState } from "@/app/hooks/useQuotationState";
 import {
   Dialog,
@@ -37,6 +36,10 @@ import { getQuotationById } from "@/firebase/quotations";
 import { getBookingById } from "@/firebase/bookingsService";
 import toast from "react-hot-toast";
 import { updateLeadStatus } from "@/firebase/leadsService";
+import FollowUpForm from "@/components/followups/FollowUpForm";
+import QuotationSentFollowUpPrompt from "@/components/followups/QuotationSentFollowUpPrompt";
+import { addFollowUp } from "@/firebase/followUpService";
+import QuotationRejectionDialog from "@/components/QuotationRejectionDialog";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -53,6 +56,11 @@ const MyQuotations = () => {
   // Add this state near your other useState declarations
   const [optionSelectQuotation, setOptionSelectQuotation] = useState(null);
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
+  const [sentFollowUpQuotation, setSentFollowUpQuotation] = useState(null);
+  const [showSentFollowUpPrompt, setShowSentFollowUpPrompt] = useState(false);
+  const [showSentFollowUpForm, setShowSentFollowUpForm] = useState(false);
+  const [rejectionQuotation, setRejectionQuotation] = useState(null);
+  const [isRejectingQuotation, setIsRejectingQuotation] = useState(false);
 
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
@@ -236,25 +244,111 @@ const MyQuotations = () => {
     nextStatus,
   ) => {
     const quotation = state.quotations.find((q) => q.id === quotationId);
-
-    await state.handleQuotationStatusChange(quotationId, nextStatus);
-
-    if (quotation?.leadId) {
-      if (nextStatus === "Sent") {
-        await updateLeadStatus(quotation.leadId, "Quotation Sent");
-      }
-      if (nextStatus === "Accepted") {
-        await updateLeadStatus(quotation.leadId, "Closed Won");
-      }
+    if (!quotation) {
+      toast.error("Quotation not found.");
+      return;
     }
 
-    // Prompt to create booking when accepted (existing behaviour, unchanged)
+    if (nextStatus === "Rejected") {
+      if (quotation.status === "Rejected") return;
+      setRejectionQuotation(quotation);
+      return;
+    }
+
+    const didUpdate = await state.handleQuotationStatusChange(
+      quotationId,
+      nextStatus,
+    );
+    if (!didUpdate) return;
+    if (quotation?.leadId) {
+      if (nextStatus === "Sent")
+        await updateLeadStatus(quotation.leadId, "Quotation Sent");
+      if (nextStatus === "Accepted")
+        await updateLeadStatus(quotation.leadId, "Closed Won");
+    }
+
+    // ── NEW: trigger follow-up prompt when marked Sent ──────────────────────
+    if (nextStatus === "Sent" && quotation) {
+      setSentFollowUpQuotation({ ...quotation, status: "Sent" });
+      setShowSentFollowUpPrompt(true);
+    }
+
     if (nextStatus !== "Accepted" || !quotation || quotation.convertedToBooking)
       return;
-
     setBookingConfirmQuotation(quotation);
   };
 
+  const handleQuotationRejectConfirm = async (rejection) => {
+    if (!rejectionQuotation) return;
+
+    setIsRejectingQuotation(true);
+    try {
+      const didUpdate = await state.handleQuotationStatusChange(
+        rejectionQuotation.id,
+        "Rejected",
+        {
+          rejectionReason: rejection.reason || "",
+          rejectionComment: rejection.comment || "",
+          rejectionDetails: rejection.details || "",
+          rejectedAt: new Date().toISOString(),
+        },
+        {
+          agentName: state.user?.displayName || state.user?.email || "Agent",
+        },
+      );
+
+      if (!didUpdate) return;
+      toast.success(
+        rejectionQuotation.leadId
+          ? "Quotation rejected and lead note added."
+          : "Quotation rejected.",
+      );
+      setRejectionQuotation(null);
+    } finally {
+      setIsRejectingQuotation(false);
+    }
+  };
+
+  const handleSentFollowUpSchedule = () => {
+    setShowSentFollowUpPrompt(false);
+    setShowSentFollowUpForm(true);
+  };
+
+  const handleSentFollowUpSkip = () => {
+    setShowSentFollowUpPrompt(false);
+    setSentFollowUpQuotation(null);
+  };
+
+  const handleSentFollowUpSubmit = async (formData) => {
+    if (!sentFollowUpQuotation?.leadId) {
+      toast.error(
+        "No lead linked to this quotation — follow-up cannot be saved.",
+      );
+      setShowSentFollowUpForm(false);
+      setSentFollowUpQuotation(null);
+      return;
+    }
+    await addFollowUp(sentFollowUpQuotation.leadId, {
+      ...formData,
+      agentId: state.user?.uid || "",
+      agentName: state.user?.displayName || "Agent",
+      quotationIds: [
+        ...new Set([
+          ...(formData.quotationIds || []),
+          sentFollowUpQuotation.id,
+        ]),
+      ],
+      quotationNames: [
+        ...new Set([
+          ...(formData.quotationNames || []),
+          sentFollowUpQuotation.packageName || "",
+        ]),
+      ],
+    });
+    toast.success("Follow-up scheduled");
+    setShowSentFollowUpForm(false);
+    setSentFollowUpQuotation(null);
+  };
   const handleEditRedirect = (quotation) => {
     dispatch(setEditingQuotation(quotation));
 
@@ -311,6 +405,8 @@ const MyQuotations = () => {
     );
 
     const confirmedMarkup = quotation.markup || 0;
+    const markupType = quotation.markupType || "lumpsum";
+    const markupAmount = quotation.markupAmount || quotation.markup || 0;
 
     exportPackagePDF({
       packageOptions,
@@ -319,6 +415,8 @@ const MyQuotations = () => {
       transportTotalPrice,
       activityTotalPrice,
       confirmedMarkup,
+      markupType, // ✅ ADD THIS
+      markupAmount, // ✅ ADD THIS
       customerName: quotation.customerName || quotation.leadName || "",
       packageName: quotation.packageName || "",
       itineraryData: quotation.itinerarySummary || null,
@@ -326,11 +424,57 @@ const MyQuotations = () => {
     });
   };
 
-  const handleCopyToClipboard = (quotation) => {
-    copyPackageSummary({
-      ...normaliseQuotation(quotation),
+  const buildQuotationSummaryPayload = (quotation) => {
+    const packageOptions =
+      quotation.packageOptions?.length > 0
+        ? quotation.packageOptions
+        : [
+            {
+              name: "Option 1",
+              hotelEntries: quotation.hotelSummary || [],
+            },
+          ];
+
+    const selectedTransport = quotation.transportSummary
+      ? {
+          selectedVehicle: {
+            type: quotation.transportSummary.vehicleName || "",
+            perKmprice: quotation.transportSummary.perKmprice || 0,
+            price: quotation.transportSummary.vehicleCost || 0,
+            ac: quotation.transportSummary.ac || false,
+            driverAllowance: quotation.transportSummary.driverAllowance || 0,
+          },
+          pricingType: quotation.transportSummary.pricingType || "fixed",
+          isCustom: quotation.transportSummary.isCustom || false,
+        }
+      : null;
+
+    const selectedActivities = quotation.activitySummary || [];
+    const transportTotalPrice =
+      quotation.transportSummary?.totalTransportCost || 0;
+    const activityTotalPrice = selectedActivities.reduce(
+      (sum, activity) => sum + (activity.totalPrice || 0),
+      0,
+    );
+    const confirmedMarkup = quotation.markup || 0;
+    const markupType = quotation.markupType || "lumpsum";
+    const markupAmount = quotation.markupAmount || quotation.markup || 0;
+
+    return {
+      packageOptions,
+      selectedTransport,
+      selectedActivities,
+      transportTotalPrice,
+      activityTotalPrice,
+      confirmedMarkup,
+      markupType,
+      markupAmount,
       hotels: state.allHotels,
-    });
+    };
+  };
+
+  const handleCopyToClipboard = (quotation) => {
+    copyPackageSummary(buildQuotationSummaryPayload(quotation));
   };
 
   const handleShareOnWhatsApp = async (quotation) => {
@@ -364,10 +508,7 @@ const MyQuotations = () => {
     }
 
     sharePackageSummaryOnWhatsApp(
-      {
-        ...normaliseQuotation(quotation),
-        hotels: state.allHotels,
-      },
+      buildQuotationSummaryPayload(quotation),
       guestPhone,
     );
   };
@@ -740,6 +881,46 @@ const MyQuotations = () => {
           </div>
         </div>
       )}
+      {/* Quotation-Sent Follow-Up Prompt */}
+      <QuotationSentFollowUpPrompt
+        open={showSentFollowUpPrompt}
+        quotation={sentFollowUpQuotation}
+        onSchedule={handleSentFollowUpSchedule}
+        onSkip={handleSentFollowUpSkip}
+      />
+
+      {/* Follow-Up Form */}
+      <FollowUpForm
+        open={showSentFollowUpForm}
+        onClose={() => {
+          setShowSentFollowUpForm(false);
+          setSentFollowUpQuotation(null);
+        }}
+        onSubmit={handleSentFollowUpSubmit}
+        leadQuotations={sentFollowUpQuotation ? [sentFollowUpQuotation] : []}
+        initialData={
+          sentFollowUpQuotation
+            ? {
+                dateTime: "",
+                mode: "Call",
+                notes: `Follow-up for ${sentFollowUpQuotation.packageName || "quotation"} – awaiting customer response.`,
+                quotationIds: [sentFollowUpQuotation.id],
+                quotationNames: [sentFollowUpQuotation.packageName || ""],
+              }
+            : null
+        }
+        isEdit={false}
+      />
+
+      <QuotationRejectionDialog
+        open={!!rejectionQuotation}
+        quotation={rejectionQuotation}
+        isSubmitting={isRejectingQuotation}
+        onOpenChange={(open) => {
+          if (!open && !isRejectingQuotation) setRejectionQuotation(null);
+        }}
+        onConfirm={handleQuotationRejectConfirm}
+      />
     </div>
   );
 };
