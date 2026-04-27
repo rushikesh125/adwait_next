@@ -5,7 +5,6 @@ import {
   Search,
   MapPin,
   Calendar,
-  Eye,
   FilePlus2,
   FilterX,
   Pencil,
@@ -291,7 +290,8 @@ export default function LeadsTable({
               paginatedLeads.map((lead, index) => (
                 <TableRow
                   key={lead.id}
-                  className="group hover:bg-theme-muted/10 transition-colors"
+                  className="group hover:bg-theme-muted/10 transition-colors cursor-pointer"
+                  onClick={() => router.push(`./leads/${lead.id}`)}
                 >
                   {/* S.No - Centered */}
                   <TableCell className="text-center font-medium text-slate-500">
@@ -328,7 +328,7 @@ export default function LeadsTable({
                   </TableCell>
 
                   {/* Status - Original Editing UI */}
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-2">
                       {editingStatusId !== lead.id ? (
                         <>
@@ -338,7 +338,7 @@ export default function LeadsTable({
                             className="w-full justify-center px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
                           />
                           <button
-                            onClick={() => setEditingStatusId(lead.id)}
+                            onClick={(e) => { e.stopPropagation(); setEditingStatusId(lead.id); }}
                             className="text-slate-400 hover:text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -376,7 +376,7 @@ export default function LeadsTable({
                   </TableCell>
 
                   {/* Actions - Right Aligned */}
-                  <TableCell className="text-right pr-6">
+                  <TableCell className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-center gap-1.5">
                       <Button
                         size="sm"
@@ -389,14 +389,6 @@ export default function LeadsTable({
                       >
                         <FilePlus2 className="h-3.5 w-3.5 mr-1.5" />
                         <span className="text-xs">Quotation</span>
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-slate-400 hover:text-theme-primary"
-                        onClick={() => router.push(`./leads/${lead.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
                       </Button>
                       <Button
                         size="icon"

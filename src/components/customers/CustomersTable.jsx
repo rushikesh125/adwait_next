@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   FilePlus2,
-  Eye,
   Pencil,
   MapPin,
   Mail,
@@ -146,7 +145,8 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
               {sortedCustomers.map((c, i) => (
                 <TableRow
                   key={c.id || i}
-                  className="group transition-colors hover:bg-theme-muted/20"
+                  className="group transition-colors hover:bg-theme-muted/20 cursor-pointer"
+                  onClick={() => router.push(`./customers/${c.id}`)}
                 >
                   {/* Name: Left Aligned with Avatar */}
                   <TableCell className="py-4">
@@ -190,7 +190,7 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                   </TableCell>
 
                   {/* Actions: Right Aligned */}
-                  <TableCell className="text-center pr-4">
+                  <TableCell className="text-center pr-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1">
                       <TooltipProvider>
                         <Button
@@ -202,15 +202,6 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                         >
                           <FilePlus2 className="h-3.5 w-3.5 mr-1.5" />
                           <span className="text-xs">Quotation</span>
-                        </Button>
-
-                        <Button
-                          onClick={() => router.push(`./customers/${c.id}`)}
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-slate-400 hover:text-theme-primary"
-                        >
-                          <Eye className="h-4 w-4" />
                         </Button>
 
                         <Button

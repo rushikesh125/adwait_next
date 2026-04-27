@@ -25,7 +25,6 @@ import {
   Globe,
   FileText,
   Loader2,
-  Eye,
   Pencil,
   ChevronLeft,
   ChevronRight,
@@ -291,7 +290,8 @@ export default function AgentDashboard() {
                 pagedData.map((trip) => (
                   <TableRow
                     key={trip.id}
-                    className="group hover:bg-slate-50/30 transition-colors"
+                    className="group hover:bg-slate-50/30 transition-colors cursor-pointer"
+                    onClick={() => router.push(`./bookingform/view/${trip.id}`)}
                   >
                     <TableCell className="py-4 pl-6 text-left font-semibold text-slate-900">
                       <span className="text-sm block truncate">
@@ -303,13 +303,13 @@ export default function AgentDashboard() {
                       {trip.createdAt?.toDate().toLocaleDateString("en-GB")}
                     </TableCell>
 
-                    <TableCell className="py-4 text-center">
+                    <TableCell className="py-4 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
                         {editingStatusId !== trip.id ? (
                           <>
                             <StatusBadge status={trip.status} />
                             <button
-                              onClick={() => setEditingStatusId(trip.id)}
+                              onClick={(e) => { e.stopPropagation(); setEditingStatusId(trip.id); }}
                               className="text-slate-400 hover:text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -350,7 +350,7 @@ export default function AgentDashboard() {
                       </div>
                     </TableCell>
 
-                    <TableCell className="py-4 text-center pr-6">
+                    <TableCell className="py-4 text-center pr-6" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1.5">
                         {/* COPY LINK WITH FEEDBACK */}
                         <Button
@@ -370,16 +370,6 @@ export default function AgentDashboard() {
                         <div className="h-4 w-[1px] bg-slate-200 mx-1" />
 
                         {/* ICON ACTIONS */}
-                        <Link href={`./bookingform/view/${trip.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </Link>
-
                         <Link href={`./bookingform/create?id=${trip.id}`}>
                           <Button
                             variant="ghost"

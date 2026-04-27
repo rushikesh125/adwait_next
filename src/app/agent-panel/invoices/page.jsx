@@ -9,7 +9,6 @@ import {
   FileText,
   Loader2,
   Trash2,
-  Eye,
   Download,
   Filter,
 } from "lucide-react";
@@ -227,13 +226,14 @@ export default function InvoicesPage() {
                     {filtered.map((inv, i) => (
                       <tr
                         key={inv.id}
-                        className={`border-b border-slate-50 hover:bg-blue-50/30 transition-colors ${
+                        className={`border-b border-slate-50 hover:bg-blue-50/30 transition-colors cursor-pointer ${
                           i % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                         }`}
+                        onClick={() => router.push(`/agent-panel/invoices/${inv.id}`)}
                       >
                         <td className="px-5 py-3.5">
                           <button
-                            onClick={() => router.push(`/agent-panel/invoices/${inv.id}`)}
+                            onClick={(e) => { e.stopPropagation(); router.push(`/agent-panel/invoices/${inv.id}`); }}
                             className="font-bold text-theme-primary hover:underline text-sm"
                           >
                             {inv.invoiceNumber || "—"}
@@ -269,17 +269,8 @@ export default function InvoicesPage() {
                             className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
                           />
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-theme-primary"
-                              onClick={() => router.push(`/agent-panel/invoices/${inv.id}`)}
-                              title="View"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"

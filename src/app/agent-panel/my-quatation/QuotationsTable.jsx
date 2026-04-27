@@ -36,13 +36,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  MoreVertical,
   Search,
   Download,
   Edit,
   Trash2,
   Copy,
-  Eye,
   Pencil,
   ChevronLeft,
   ChevronRight,
@@ -425,17 +423,6 @@ const QuotationsTable = ({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="flex items-center justify-end gap-1">
-                            {/* View */}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleViewClick(q)}
-                              title="View Quotation"
-                              className="h-8 w-8"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-
                             {/* Edit */}
                             <Button
                               variant="ghost"

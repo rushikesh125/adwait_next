@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
-  Eye,
   Edit,
   Pencil,
   Trash2,
@@ -547,7 +546,8 @@ export default function ItineraryListPage() {
                 return (
                   <TableRow
                     key={item.id}
-                    className="hover:bg-slate-50/60 transition-colors"
+                    className="hover:bg-slate-50/60 transition-colors cursor-pointer"
+                    onClick={() => setSelectedView(item)}
                   >
                     <TableCell>
                       <div className="font-semibold text-slate-900">
@@ -661,17 +661,8 @@ export default function ItineraryListPage() {
                       </div>
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-500 hover:text-theme-primary"
-                          onClick={() => setSelectedView(item)}
-                          title="Quick View"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"

@@ -14,7 +14,7 @@ import {
   Hotel,
   Trash2,
   ChevronDown,
-  Eye,
+
   MessageCircle,
   ChevronLeft,
   ChevronRight,
@@ -649,7 +649,8 @@ const VoucherDashboard = () => {
                       {pagedData.map((item, index) => (
                         <TableRow
                           key={item.id}
-                          className="hover:bg-slate-50/50 transition-colors"
+                          className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                          onClick={() => setViewingVoucher(item)}
                         >
                           <TableCell className="text-center text-slate-500">
                             {(currentPage - 1) * pageSize + index + 1}
@@ -695,7 +696,7 @@ const VoucherDashboard = () => {
                             </div>
                           </TableCell>
 
-                          <TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -736,19 +737,8 @@ const VoucherDashboard = () => {
                             </DropdownMenu>
                           </TableCell>
 
-                          <TableCell className="text-right">
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-center gap-1">
-                              {/* View */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title="View Voucher"
-                                onClick={() => setViewingVoucher(item)}
-                              >
-                                <Eye className="h-4 w-4 text-slate-500" />
-                              </Button>
-
                               {/* Download PDF */}
                               <Button
                                 variant="ghost"
