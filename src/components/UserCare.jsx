@@ -86,7 +86,11 @@ export default function UserCard({ user, type, onChange, onDelete }) {
           </div>
           <div className="flex items-center text-sm text-slate-500 group-hover:text-slate-700 transition-colors">
             <Phone className="w-4 h-4 mr-2.5 text-slate-300" />
-            <span className="font-medium">{user.phone || "No phone listed"}</span>
+            {user.phone ? (
+              <a href={`tel:${user.phone}`} className="font-medium hover:text-theme-primary hover:underline">{user.phone}</a>
+            ) : (
+              <span className="font-medium">No phone listed</span>
+            )}
           </div>
         </div>
 

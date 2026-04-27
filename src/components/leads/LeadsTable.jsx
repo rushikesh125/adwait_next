@@ -134,7 +134,7 @@ export default function LeadsTable({
 
   // Reset to page 1 when filters change
   useEffect(() => {
-    setCurrentPage(1);
+    setCurrentPage(1); // eslint-disable-line react-hooks/set-state-in-effect
   }, [searchTerm, statusFilter, itemsPerPage]);
   // Pagination Calculations
   const totalPages = Math.ceil(processedLeads.length / itemsPerPage);
@@ -299,8 +299,13 @@ export default function LeadsTable({
                   </TableCell>
 
                   {/* Name - Left Aligned */}
-                  <TableCell className="text-left font-semibold text-slate-900">
-                    {lead.name}
+                  <TableCell className="text-left">
+                    <span className="font-semibold text-slate-900">{lead.name}</span>
+                    {lead.source && (
+                      <span className="ml-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                        {lead.source}
+                      </span>
+                    )}
                   </TableCell>
 
                   {/* Destination - Left Aligned */}
@@ -394,7 +399,7 @@ export default function LeadsTable({
                         size="icon"
                         variant="ghost"
                         title="Clone lead"
-                        className="h-8 w-8 text-slate-400 hover:text-theme-primary"
+                        className="h-8 w-8 text-slate-700 hover:text-theme-primary"
                         onClick={() => onCloneLead?.(lead.id)}
                       >
                         <Copy className="h-4 w-4" />
@@ -402,7 +407,7 @@ export default function LeadsTable({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                        className="h-8 w-8 text-slate-700 hover:text-rose-600 hover:bg-rose-50"
                         onClick={() => onDeleteLead(lead.id)}
                       >
                         <Trash2 className="h-4 w-4" />

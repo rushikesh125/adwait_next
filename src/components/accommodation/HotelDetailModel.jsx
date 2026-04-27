@@ -288,7 +288,7 @@ const HotelDetailModal = ({ hotel, onClose, onEdit }) => {
                     <Phone className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Contact</p>
-                      <p className="text-sm text-slate-700">{hotel.phone}</p>
+                      <a href={`tel:${hotel.phone}`} className="text-sm text-slate-700 hover:text-theme-primary hover:underline">{hotel.phone}</a>
                     </div>
                   </div>
                 )}

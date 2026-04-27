@@ -671,7 +671,7 @@ export default function ItineraryListPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-500 hover:text-blue-600"
+                          className="h-8 w-8 text-slate-700 hover:text-blue-600"
                           onClick={() => handleEdit(item.id)}
                           title="Edit"
                         >
@@ -680,7 +680,7 @@ export default function ItineraryListPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                          className="h-8 w-8 text-slate-700 hover:bg-red-50 hover:text-red-600"
                           onClick={() => handleDelete(item.id)}
                           title="Delete"
                         >

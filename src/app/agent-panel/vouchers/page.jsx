@@ -263,7 +263,7 @@ const VoucherViewModal = ({ voucher, onClose }) => {
             {voucher.phone && (
               <p>
                 <span className="font-semibold">Hotel Phone:</span>{" "}
-                {voucher.phone}
+                <a href={`tel:${voucher.phone}`} className="hover:text-theme-primary hover:underline">{voucher.phone}</a>
               </p>
             )}
             {voucher.customerEmail && (

@@ -161,10 +161,12 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                   </TableCell>
 
                   {/* Phone: Left Aligned */}
-                  <TableCell className="text-slate-600 text-sm">
+                  <TableCell className="text-slate-600 text-sm" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <Phone className="h-3.5 w-3.5 text-slate-400" />
-                      {c.mobile}
+                      {c.mobile ? (
+                        <a href={`tel:${c.mobile}`} className="hover:text-theme-primary hover:underline">{c.mobile}</a>
+                      ) : "—"}
                     </div>
                   </TableCell>
 
@@ -208,7 +210,7 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                           onClick={() => onEdit(c)}
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8 text-slate-400 hover:text-theme-primary"
+                          className="h-8 w-8 text-slate-700 hover:text-theme-primary"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -217,7 +219,7 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                           onClick={() => onDelete(c.id)}
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8 text-slate-400 hover:text-red-600"
+                          className="h-8 w-8 text-slate-700 hover:text-red-600"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

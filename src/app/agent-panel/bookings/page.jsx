@@ -604,7 +604,7 @@ export default function BookingsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                          className="h-8 w-8 text-slate-700 hover:text-slate-900"
                           onClick={() => router.push(`/agent-panel/bookings/create?id=${booking.id}`)}
                         >
                           <Edit3 className="w-4 h-4" />
@@ -620,7 +620,7 @@ export default function BookingsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                              className="h-8 w-8 text-slate-700 hover:text-slate-900"
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>

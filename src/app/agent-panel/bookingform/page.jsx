@@ -374,7 +374,7 @@ export default function AgentDashboard() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 text-slate-400 hover:text-slate-900 hover:bg-slate-100"
+                            className="h-9 w-9 text-slate-700 hover:text-slate-900 hover:bg-slate-100"
                           >
                             <Edit3 className="w-4 h-4" />
                           </Button>
@@ -384,7 +384,7 @@ export default function AgentDashboard() {
                           onClick={() => handleDelete(trip.id)}
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 text-slate-300 hover:text-red-600 hover:bg-red-50"
+                          className="h-9 w-9 text-slate-700 hover:text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

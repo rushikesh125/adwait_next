@@ -19,6 +19,7 @@ export const enquiryInitialValues = {
   childAges: [],
   sightseeingVehicle: "",
   ticketHelp: [],
+  source: "",
 };
 
 export const enquiryRequiredFields = [

@@ -247,7 +247,7 @@ export default function InvoicesPage() {
                         <td className="px-4 py-3.5">
                           <p className="font-semibold text-slate-800">{inv.customerName || "—"}</p>
                           {inv.customerMobile && (
-                            <p className="text-[11px] text-slate-400">{inv.customerMobile}</p>
+                            <a href={`tel:${inv.customerMobile}`} className="text-[11px] text-slate-400 hover:text-theme-primary hover:underline" onClick={(e) => e.stopPropagation()}>{inv.customerMobile}</a>
                           )}
                         </td>
                         <td className="px-4 py-3.5 text-slate-500 text-xs">
@@ -274,7 +274,7 @@ export default function InvoicesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-theme-primary"
+                              className="h-7 w-7 text-slate-700 hover:text-theme-primary"
                               onClick={() => handleDownload(inv)}
                               disabled={downloadingId === inv.id}
                               title="Download PDF"
@@ -288,7 +288,7 @@ export default function InvoicesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-red-500"
+                              className="h-7 w-7 text-slate-700 hover:text-red-500"
                               onClick={() => handleDelete(inv.id)}
                               disabled={deletingId === inv.id}
                               title="Delete"

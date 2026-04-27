@@ -256,7 +256,7 @@ export default function CustomerProfilePage({ params }) {
                 <div className="space-y-4 pt-2">
                   {[
                     { icon: Mail, label: "Email", value: customer?.email },
-                    { icon: Phone, label: "Mobile", value: customer?.mobile },
+                    { icon: Phone, label: "Mobile", value: customer?.mobile, href: customer?.mobile ? `tel:${customer.mobile}` : null },
                     {
                       icon: MapPin,
                       label: "Location",
@@ -270,7 +270,9 @@ export default function CustomerProfilePage({ params }) {
                           {item.label}
                         </span>
                         <span className="text-sm font-medium text-slate-700">
-                          {item.value}
+                          {item.href ? (
+                            <a href={item.href} className="hover:text-theme-primary hover:underline">{item.value}</a>
+                          ) : item.value}
                         </span>
                       </div>
                     </div>

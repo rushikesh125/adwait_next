@@ -26,6 +26,68 @@ import { auth } from "@/firebase/config";
 import { signOut } from "firebase/auth";
 import toast from "react-hot-toast";
 import UserDropdown from "@/components/UserDropdown";
+import NotificationCenter from "@/components/NotificationCenter";
+
+const agentNavItems = [
+  { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
+  { name: "Lead", href: "/agent-panel/leads", icon: Briefcase },
+  { name: "Quotation", href: "/agent-panel/my-quatation", icon: Map },
+  { name: "Booking", href: "/agent-panel/bookings", icon: CalendarCheck },
+  { name: "Invoices", href: "/agent-panel/invoices", icon: FileText },
+  { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
+  { name: "Customer", href: "/agent-panel/customers", icon: Users },
+  { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon },
+  { name: "Railway Booking", href: "/agent-panel/bookingform", icon: Component },
+];
+
+const AgentSidebarContent = ({ mobile = false, isSidebarOpen, pathname, router, onCloseMobile, onLogout }) => (
+  <div className="flex flex-col h-full bg-white">
+    <div className="h-20 flex items-center justify-between px-6 border-b border-slate-50 flex-shrink-0">
+      <div className="flex items-center gap-3">
+        <div className="relative min-w-[42px] h-10 w-10 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <Image src="/adwait-logo.jpg" alt="Adwait Tours" fill className="object-contain p-1" priority />
+        </div>
+        {(isSidebarOpen || mobile) && (
+          <span className="font-black text-lg tracking-tighter text-theme-dark uppercase italic">
+            Adwait <span className="text-theme-primary">Tours</span>
+          </span>
+        )}
+      </div>
+      {mobile && (
+        <Button variant="ghost" size="icon" onClick={onCloseMobile}>
+          <X className="w-5 h-5 text-slate-500" />
+        </Button>
+      )}
+    </div>
+
+    <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+      {agentNavItems.map((item) => {
+        const isActive = pathname === item.href;
+        return (
+          <button
+            key={item.name}
+            onClick={() => router.push(item.href)}
+            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group
+              ${isActive ? "bg-theme-muted/50 text-theme-primary font-bold" : "text-slate-500 hover:bg-slate-50"}`}
+          >
+            <item.icon className={`w-5 h-5 ${isActive ? "text-theme-primary" : "group-hover:text-theme-primary"}`} />
+            {(isSidebarOpen || mobile) && <span className="text-sm font-medium">{item.name}</span>}
+          </button>
+        );
+      })}
+    </nav>
+
+    <div className="p-4 border-t border-slate-50 flex-shrink-0">
+      <button
+        onClick={onLogout}
+        className="w-full flex items-center gap-3 p-3 text-red-500 hover:bg-red-50 rounded-xl font-semibold transition-all"
+      >
+        <LogOut className="w-5 h-5" />
+        {(isSidebarOpen || mobile) && <span className="text-sm">Logout</span>}
+      </button>
+    </div>
+  </div>
+);
 
 const AgentPanelLayout = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
@@ -35,7 +97,7 @@ const AgentPanelLayout = ({ children }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    setIsMobileOpen(false);
+    setIsMobileOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
   }, [pathname]);
 
   const handleLogout = async () => {
@@ -48,81 +110,6 @@ const AgentPanelLayout = ({ children }) => {
     }
   };
 
-  const navItems = [
-    { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
-    { name: "Lead", href: "/agent-panel/leads", icon: Briefcase },
-    { name: "Quotation", href: "/agent-panel/my-quatation", icon: Map },
-    { name: "Booking", href: "/agent-panel/bookings", icon: CalendarCheck },
-    { name: "Invoices", href: "/agent-panel/invoices", icon: FileText },
-    { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
-    { name: "Customer", href: "/agent-panel/customers", icon: Users },
-    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon},
-    { name: "Railway Booking", href: "/agent-panel/bookingform", icon: Component },
-  ];
-
-  const SidebarContent = ({ mobile = false }) => (
-    <div className="flex flex-col h-full bg-white">
-      <div className="h-20 flex items-center justify-between px-6 border-b border-slate-50 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="relative min-w-[42px] h-10 w-10 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <Image
-              src="/adwait-logo.jpg"
-              alt="Adwait Tours"
-              fill
-              className="object-contain p-1"
-              priority
-            />
-          </div>
-          {(isSidebarOpen || mobile) && (
-            <span className="font-black text-lg tracking-tighter text-theme-dark uppercase italic">
-              Adwait <span className="text-theme-primary">Tours</span>
-            </span>
-          )}
-        </div>
-        {mobile && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMobileOpen(false)}
-          >
-            <X className="w-5 h-5 text-slate-500" />
-          </Button>
-        )}
-      </div>
-
-      <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <button
-              key={item.name}
-              onClick={() => router.push(item.href)}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group
-                ${isActive ? "bg-theme-muted/50 text-theme-primary font-bold" : "text-slate-500 hover:bg-slate-50"}`}
-            >
-              <item.icon
-                className={`w-5 h-5 ${isActive ? "text-theme-primary" : "group-hover:text-theme-primary"}`}
-              />
-              {(isSidebarOpen || mobile) && (
-                <span className="text-sm font-medium">{item.name}</span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className="p-4 border-t border-slate-50 flex-shrink-0">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 p-3 text-red-500 hover:bg-red-50 rounded-xl font-semibold transition-all"
-        >
-          <LogOut className="w-5 h-5" />
-          {(isSidebarOpen || mobile) && <span className="text-sm">Logout</span>}
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <RequireAuth allowedRoles={["agent"]}>
       <div className="h-screen bg-[#FDFCFE] flex overflow-hidden">
@@ -130,45 +117,29 @@ const AgentPanelLayout = ({ children }) => {
       <div
         className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
       >
-        <div
-          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-          onClick={() => setIsMobileOpen(false)}
-        />
-        <div
-          className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}
-        >
-          <SidebarContent mobile={true} />
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileOpen(false)} />
+        <div className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+          <AgentSidebarContent mobile={true} isSidebarOpen={isSidebarOpen} pathname={pathname} router={router} onCloseMobile={() => setIsMobileOpen(false)} onLogout={handleLogout} />
         </div>
       </div>
 
-      <aside
-        className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}
-      >
-        <SidebarContent />
+      <aside className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}>
+        <AgentSidebarContent isSidebarOpen={isSidebarOpen} pathname={pathname} router={router} onCloseMobile={() => setIsMobileOpen(false)} onLogout={handleLogout} />
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setIsMobileOpen(true)}
-            >
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
               <Menu className="w-6 h-6 text-slate-600" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden lg:flex text-slate-500"
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            >
+            <Button variant="ghost" size="icon" className="hidden lg:flex text-slate-500" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
               <Menu className="w-6 h-6" />
             </Button>
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
+            <NotificationCenter userId={user?.uid} />
             <UserDropdown user={user} />
           </div>
         </header>

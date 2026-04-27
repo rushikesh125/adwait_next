@@ -18,6 +18,7 @@ getDoc,
 import { db } from "./config";
 import { updateLeadStatus } from "./leadsService";
 import { buildQuotationRejectionNote } from "@/lib/quotationRejection";
+import { createNotification } from "./notificationsService";
 
 /* ──────────────────────────────────────────────
    QUOTATIONS CRUD
@@ -109,6 +110,34 @@ export async function updateQuotation(agentId, quotationId, data, options = {}) 
     // Check if status is being set to Accepted
     if (data.status === "Accepted" && leadId) {
       await updateLeadStatus(leadId, "Closed Won");
+    }
+
+    // Create notifications on meaningful status transitions
+    const label = quotation.packageName || quotation.customerName || "Quotation";
+    if (data.status === "Accepted" && previousStatus !== "Accepted") {
+      await createNotification({
+        userId: agentId,
+        type: "quotation_accepted",
+        title: "Quotation Accepted",
+        message: `"${label}" has been accepted.`,
+        link: "/agent-panel/my-quatation",
+      });
+    } else if (data.status === "Rejected" && previousStatus !== "Rejected") {
+      await createNotification({
+        userId: agentId,
+        type: "quotation_rejected",
+        title: "Quotation Rejected",
+        message: `"${label}" has been rejected.`,
+        link: "/agent-panel/my-quatation",
+      });
+    } else if (data.status === "Sent" && previousStatus !== "Sent") {
+      await createNotification({
+        userId: agentId,
+        type: "quotation_sent",
+        title: "Quotation Sent",
+        message: `"${label}" has been sent to the customer.`,
+        link: "/agent-panel/my-quatation",
+      });
     }
 
     // After update, check if status is being set to Sent
