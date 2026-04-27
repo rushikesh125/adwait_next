@@ -21,7 +21,7 @@ import {
   findExistingCustomerByEmailOrMobile,
 } from "@/firebase/customersService";
 import { createAssignedLead } from "@/firebase/leadsService";
-import { getAgentByEnquiryIdentifier } from "@/firebase/users";
+import { getEnquiryOwner } from "@/firebase/users";
 import {
   enquiryInitialValues,
   normalizeEmail,
@@ -39,6 +39,7 @@ export default function PublicEnquiryPage() {
   const agentId = params?.agentId;
 
   const [agent, setAgent] = useState(null);
+  const [ownerType, setOwnerType] = useState("agent"); // "agent" | "admin"
   const [loadingAgent, setLoadingAgent] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(enquiryInitialValues);
@@ -53,21 +54,22 @@ export default function PublicEnquiryPage() {
       setFatalError("");
 
       try {
-        const record = await getAgentByEnquiryIdentifier(agentId);
-        if (!record) {
+        const result = await getEnquiryOwner(agentId);
+        if (!result) {
           setFatalError("This enquiry link is not valid.");
           setAgent(null);
           return;
         }
 
-        const data = record;
-        if (data.approved && data.approved !== "accepted") {
+        const { owner, ownerType: type } = result;
+        if (owner.approved && owner.approved !== "accepted") {
           setFatalError("This enquiry link is not active right now.");
           setAgent(null);
           return;
         }
 
-        setAgent(data);
+        setAgent(owner);
+        setOwnerType(type);
       } catch (error) {
         console.error(error);
         setFatalError("We could not open this enquiry form right now.");
@@ -139,14 +141,17 @@ export default function PublicEnquiryPage() {
         }
       }
 
+      const isAdmin = ownerType === "admin";
       const leadId = await createAssignedLead({
         ...form,
         name: form.name.trim(),
         email: cleanEmail,
         mobile: cleanMobile,
         customerId: customer.id,
-        agentId: agent.id,
-        agentName: agent.name || "",
+        // Agent links: assign directly. Admin links: leave unassigned for admin to route.
+        agentId: isAdmin ? null : agent.id,
+        agentName: isAdmin ? "" : agent.name || "",
+        adminId: isAdmin ? agent.id : (agent.adminId || null),
         source: "Public Enquiry Form",
       });
       console.log("leadId:", leadId, typeof leadId);

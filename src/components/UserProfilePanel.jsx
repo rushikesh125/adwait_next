@@ -23,6 +23,7 @@ import { auth } from "@/firebase/config";
 import {
   normalizeEnquirySlug,
   updateAgentEnquirySlug,
+  updateAdminEnquirySlug,
   updateUserAuthMetadata,
 } from "@/firebase/users";
 import { Button } from "@/components/ui/button";
@@ -71,10 +72,12 @@ export default function UserProfilePanel({ user }) {
     confirmPassword: "",
   });
 
+  const isEnquiryRole = user?.role === "agent" || user?.role === "admin";
+
   const enquiryLink = useMemo(() => {
-    if (typeof window === "undefined" || user?.role !== "agent") return "";
+    if (typeof window === "undefined" || !isEnquiryRole) return "";
     return `${window.location.origin}/enquiry/${activeEnquirySlug || user.uid}`;
-  }, [activeEnquirySlug, user?.role, user?.uid]);
+  }, [activeEnquirySlug, isEnquiryRole, user?.uid]);
 
   const effectiveProvider =
     user?.authProvider ||
@@ -115,7 +118,8 @@ export default function UserProfilePanel({ user }) {
 
     setSavingEnquirySlug(true);
     try {
-      const savedSlug = await updateAgentEnquirySlug(user.uid, enquirySlugInput);
+      const updateFn = user.role === "admin" ? updateAdminEnquirySlug : updateAgentEnquirySlug;
+      const savedSlug = await updateFn(user.uid, enquirySlugInput);
       setActiveEnquirySlug(savedSlug);
       setEnquirySlugInput(savedSlug);
       toast.success(
@@ -324,7 +328,7 @@ export default function UserProfilePanel({ user }) {
             </Card>
 
             <div className="space-y-6">
-              {user?.role === "agent" && (
+              {isEnquiryRole && (
                 <Card className="rounded-[28px] border-0 shadow-lg shadow-slate-200/80">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-xl font-black text-slate-900">

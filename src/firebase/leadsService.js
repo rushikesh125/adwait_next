@@ -40,19 +40,20 @@ export const getLeadsByAgent = async (agentId) => {
     .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 };
 
-export const createAssignedLead = async ({ agentId, customerId, agentName, ...data }) => {
+export const createAssignedLead = async ({ agentId, customerId, agentName, adminId, ...data }) => {
   const docRef = await addDoc(leadsRef, {
     ...data,
-    agentId,
-    assignedAgentId: agentId,
+    agentId: agentId || null,
+    assignedAgentId: agentId || null,
     assignedAgentName: agentName || "",
     customerId: customerId || null,
+    adminId: adminId || null,
     createdAt: serverTimestamp(),
     status: "New",
     source: data.source || "Enquiry Form",
   });
 
-  return docRef.id; // ✅ FIXED
+  return docRef.id;
 };
 
 export const getQuotationsForLead = async (leadId) => {

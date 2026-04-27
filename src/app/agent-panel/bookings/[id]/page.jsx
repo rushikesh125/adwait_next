@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { getBookingById, deleteBooking, updateBooking, computePaymentStatus } from "@/firebase/bookingsService";
 import { getInvoicesByBooking, updatePaymentInInvoice } from "@/firebase/invoicesService";
 import { updateQuotation } from "@/firebase/quotations";
@@ -136,6 +136,8 @@ export function buildBookingRequestMessage(booking) {
 export default function BookingDetailPage() {
   const router = useRouter();
   const { id } = useParams();
+  const pathname = usePathname();
+  const panelBase = pathname.startsWith("/admin") ? "/admin-panel" : "/agent-panel";
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -242,7 +244,7 @@ export default function BookingDetailPage() {
         }
       }
       toast.success("Booking deleted");
-      router.push("/agent-panel/bookings");
+      router.push(`${panelBase}/bookings`);
     } catch (err) {
       console.error("[BookingDetail] Delete failed:", err);
       toast.error("Delete failed");
@@ -410,7 +412,7 @@ export default function BookingDetailPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-400">
         <CalendarCheck className="w-12 h-12 mb-3 text-slate-200" />
         <p className="font-medium">Booking not found.</p>
-        <Button variant="ghost" className="mt-4" onClick={() => router.push("/agent-panel/bookings")}>
+        <Button variant="ghost" className="mt-4" onClick={() => router.push(`${panelBase}/bookings`)}>
           Back to Bookings
         </Button>
       </div>
@@ -441,7 +443,7 @@ export default function BookingDetailPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push("/agent-panel/bookings")}
+              onClick={() => router.push(`${panelBase}/bookings`)}
               className="rounded-xl"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -474,7 +476,7 @@ export default function BookingDetailPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => router.push(`/agent-panel/invoices/create?bookingId=${id}`)}
+              onClick={() => router.push(`${panelBase}/invoices/create?bookingId=${id}`)}
               className="rounded-xl font-bold h-9 text-theme-primary border-blue-200 hover:bg-blue-50"
               title="Create invoice from this booking"
             >
@@ -483,7 +485,7 @@ export default function BookingDetailPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => router.push(`/agent-panel/bookings/create?id=${id}`)}
+              onClick={() => router.push(`${panelBase}/bookings/create?id=${id}`)}
               className="rounded-xl font-bold h-9"
             >
               <Edit3 className="w-4 h-4 mr-2" /> Edit

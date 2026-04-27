@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import {
   getInvoiceById,
@@ -76,6 +76,8 @@ const PAYMENT_MODES = ["Cash", "Bank Transfer", "UPI", "Card", "Cheque", "Online
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const { id } = useParams();
+  const pathname = usePathname();
+  const panelBase = pathname.startsWith("/admin") ? "/admin-panel" : "/agent-panel";
   const { user } = useSelector((state) => state.auth);
   const agentId = user?.uid;
 
@@ -98,7 +100,7 @@ export default function InvoiceDetailPage() {
           getInvoiceById(id),
           agentId ? getPaymentAccountsByAgent(agentId) : Promise.resolve([]),
         ]);
-        if (!inv) { toast.error("Invoice not found"); router.push("/agent-panel/invoices"); return; }
+        if (!inv) { toast.error("Invoice not found"); router.push(`${panelBase}/invoices`); return; }
         setInvoice(inv);
         setPaymentAccounts(accounts);
       } catch (err) {
@@ -115,7 +117,7 @@ export default function InvoiceDetailPage() {
     try {
       await deleteInvoice(id);
       toast.success("Invoice deleted");
-      router.push("/agent-panel/invoices");
+      router.push(`${panelBase}/invoices`);
     } catch {
       toast.error("Delete failed");
       setDeleting(false);
@@ -315,7 +317,7 @@ export default function InvoiceDetailPage() {
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/agent-panel/invoices")} className="rounded-xl">
+            <Button variant="ghost" size="icon" onClick={() => router.push(`${panelBase}/invoices`)} className="rounded-xl">
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
@@ -355,7 +357,7 @@ export default function InvoiceDetailPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => router.push(`/agent-panel/invoices/create?id=${id}`)}
+              onClick={() => router.push(`${panelBase}/invoices/create?id=${id}`)}
               className="rounded-xl font-bold h-9 text-xs"
             >
               <Edit3 className="w-4 h-4 mr-1.5" /> Edit
@@ -611,7 +613,7 @@ export default function InvoiceDetailPage() {
                     variant="ghost"
                     size="sm"
                     className="w-full rounded-xl mt-1 text-xs font-semibold text-theme-primary hover:bg-blue-50"
-                    onClick={() => router.push(`/agent-panel/bookings/${invoice.bookingId}`)}
+                    onClick={() => router.push(`${panelBase}/bookings/${invoice.bookingId}`)}
                   >
                     <CalendarCheck className="w-3.5 h-3.5 mr-1.5" />
                     View Booking

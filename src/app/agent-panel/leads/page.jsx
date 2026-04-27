@@ -272,6 +272,7 @@ const handleSubmit = async (e) => {
       agentId: user?.uid || null,
       assignedAgentId: user?.uid || null,
       assignedAgentName: user?.name || "",
+      adminId: user?.adminId || null,
       status: "New",
       createdAt: new Date().toISOString(),
     });

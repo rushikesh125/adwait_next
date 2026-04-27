@@ -29,7 +29,9 @@ import {
   Filter,
   XCircle,
   KeyRound,
+  Link2,
 } from "lucide-react";
+import { assignAgentToAdmin } from "@/firebase/adminService";
 
 import {
   Card,
@@ -88,6 +90,8 @@ const UserRow = ({
   onSuspend,
   onDelete,
   onResetPassword,
+  onAssignAdmin,
+  admins,
 }) => {
   return (
     <tr
@@ -111,6 +115,11 @@ const UserRow = ({
             </p>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               {type.slice(0, -1)}
+              {type === "agents" && user.adminId && admins && (
+                <span className="ml-1.5 text-violet-500 normal-case font-semibold">
+                  → {admins.find((a) => a.id === user.adminId)?.name || "Admin"}
+                </span>
+              )}
             </p>
             <div className="flex flex-col mt-1 space-y-0.5 md:hidden">
               <span className="text-[11px] text-slate-500 flex items-center gap-1 truncate">
@@ -183,6 +192,14 @@ const UserRow = ({
             >
               <KeyRound className="mr-2.5 w-4 h-4" /> Reset Password
             </DropdownMenuItem>
+            {type === "agents" && (
+              <DropdownMenuItem
+                onClick={() => onAssignAdmin(user)}
+                className="rounded-xl text-violet-600 font-semibold cursor-pointer"
+              >
+                <Link2 className="mr-2.5 w-4 h-4" /> Assign to Admin
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem
               onClick={() => onDelete(type, user.id)}
@@ -206,6 +223,8 @@ const UserTable = ({
   onSuspend,
   onDelete,
   onResetPassword,
+  onAssignAdmin,
+  admins,
 }) => (
   <div className="overflow-x-auto">
     <table className="w-full text-left min-w-[480px]">
@@ -241,6 +260,8 @@ const UserTable = ({
               onSuspend={onSuspend}
               onDelete={onDelete}
               onResetPassword={onResetPassword}
+              onAssignAdmin={onAssignAdmin}
+              admins={admins}
             />
           ))
         ) : (
@@ -281,6 +302,10 @@ export default function Dashboard() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
+
+  // Assign agent → admin
+  const [assignAdminAgent, setAssignAdminAgent] = useState(null);
+  const [assignAdminId, setAssignAdminId] = useState("");
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -484,12 +509,36 @@ export default function Dashboard() {
     },
   ];
 
+  const handleOpenAssignAdmin = (agent) => {
+    setAssignAdminAgent(agent);
+    // Pre-select by matching against the uid-preferred key used in SelectItem values
+    const currentAdminId = agent.adminId || "";
+    const matchedAdmin = admins.find(
+      (a) => (a.uid || a.id) === currentAdminId || a.id === currentAdminId
+    );
+    setAssignAdminId(matchedAdmin ? (matchedAdmin.uid || matchedAdmin.id) : "");
+  };
+
+  const handleConfirmAssignAdmin = async () => {
+    if (!assignAdminAgent) return;
+    try {
+      await assignAgentToAdmin(assignAdminAgent.id, assignAdminId && assignAdminId !== "__none__" ? assignAdminId : null);
+      toast.success(`${assignAdminAgent.name} assigned successfully`);
+      setAssignAdminAgent(null);
+      fetchUsers();
+    } catch {
+      toast.error("Assignment failed");
+    }
+  };
+
   const rowHandlers = {
     onApprove: handleApprove,
     onOpenReject: handleOpenReject,
     onSuspend: handleSuspend,
     onDelete: handleDelete,
     onResetPassword: handleOpenResetPassword,
+    onAssignAdmin: handleOpenAssignAdmin,
+    admins,
   };
 
   return (
@@ -790,6 +839,37 @@ export default function Dashboard() {
                 className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-8 font-black w-full sm:w-auto transition-colors"
               >
                 Reject &amp; Notify
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Assign Agent → Admin Dialog */}
+        <Dialog open={!!assignAdminAgent} onOpenChange={(open) => { if (!open) setAssignAdminAgent(null); }}>
+          <DialogContent className="rounded-2xl max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-black text-slate-900">Assign to Admin</DialogTitle>
+              <DialogDescription className="text-slate-500 text-sm">
+                Select which admin <strong>{assignAdminAgent?.name}</strong> should report to.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-3">
+              <Select value={assignAdminId} onValueChange={setAssignAdminId}>
+                <SelectTrigger className="rounded-xl h-10">
+                  <SelectValue placeholder="Select an admin…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Unassigned —</SelectItem>
+                  {admins.filter((a) => a.approved === "accepted").map((a) => (
+                    <SelectItem key={a.id} value={a.uid || a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" className="rounded-xl" onClick={() => setAssignAdminAgent(null)}>Cancel</Button>
+              <Button className="rounded-xl bg-theme-primary hover:bg-theme-secondary text-white" onClick={handleConfirmAssignAdmin}>
+                Confirm
               </Button>
             </DialogFooter>
           </DialogContent>

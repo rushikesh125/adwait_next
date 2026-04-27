@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(npx eslint *)",
+      "Bash(npm install *)",
+      "Bash(sed -n '38,50p' /Users/peeyoosht/Documents/GitHub/AdwaitNext/src/components/UserCard.jsx)",
+      "Bash(sed -n '83,96p' /Users/peeyoosht/Documents/GitHub/AdwaitNext/src/components/UserCare.jsx)",
+      "Bash(mkdir -p /Users/peeyoosht/Documents/GitHub/AdwaitNext/src/app/admin-panel/leads/\\\\[lid\\\\])",
+      "Bash(mkdir -p /Users/peeyoosht/Documents/GitHub/AdwaitNext/src/app/admin-panel/bookings/\\\\[id\\\\])",
+      "Bash(mkdir -p /Users/peeyoosht/Documents/GitHub/AdwaitNext/src/app/admin-panel/invoices/\\\\[id\\\\])",
+      "Bash(grep -v \"^commit\\\\|^Author\\\\|^Date\\\\|^Merge\\\\|^\\\\s\\\\|^$\")"
+    ]
+  }
+}

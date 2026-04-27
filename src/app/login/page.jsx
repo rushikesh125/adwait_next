@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
@@ -8,6 +8,7 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
 
 // Shadcn Components
@@ -51,67 +52,87 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // State for toggle
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  const [pendingRedirect, setPendingRedirect] = useState(false);
   const router = useRouter();
+  const { user: reduxUser } = useSelector((state) => state.auth);
+
+  // Once Firebase resolves the signed-in user into Redux, redirect to the right panel
+  useEffect(() => {
+    if (!pendingRedirect || !reduxUser) return;
+    if (reduxUser.role === "superadmin") {
+      router.replace("/superadmin");
+    } else if (reduxUser.role === "admin") {
+      router.replace("/admin-panel");
+    } else if (reduxUser.role === "agent") {
+      router.replace("/agent-panel");
+    } else {
+      router.replace("/");
+    }
+  }, [reduxUser, pendingRedirect]);
 
   // Handle Email/Password Login
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setLoginError("");
 
     try {
-      // 🔍 Check user in your DB first
       const userRecord = await getUserRecordByEmail(email);
 
       if (!userRecord) {
-        toast.error("You are not registered. Please sign up.");
-        setLoading(false);
+        setLoginError("No account found with this email. Please sign up.");
         return;
       }
 
-      // 🔐 Check if user is Google-only account
       if (userRecord.authProvider === "google" && !userRecord.hasPassword) {
-        toast.error(
-          "Please log in using Google or set a password from your profile.",
-        );
-        setLoading(false);
+        setLoginError("This account uses Google sign-in. Please use the Google button below.");
         return;
       }
 
-      // 🔑 Firebase login
+      if (userRecord.approved === "pending") {
+        setLoginError("Your account is pending admin approval. Please wait.");
+        return;
+      }
+      if (userRecord.approved === "rejected") {
+        setLoginError("Your account application was rejected. Contact support.");
+        return;
+      }
+      if (userRecord.approved === "suspended") {
+        setLoginError("Your account has been suspended. Contact support.");
+        return;
+      }
+
       await signInWithEmailAndPassword(auth, email, password);
-
-      toast.success("Welcome back!")
-
-      router.replace("/");
+      toast.success("Welcome back!");
+      setPendingRedirect(true);
     } catch (error) {
       let message = "Login failed. Please try again.";
 
       switch (error.code) {
-        case "auth/user-not-found":
-          message = "You are not registered. Please sign up.";
-          break;
-
+        case "auth/invalid-credential":
         case "auth/wrong-password":
-          message = "Incorrect password. Please try again.";
+        case "auth/user-not-found":
+          message = "Incorrect email or password.";
           break;
-
         case "auth/invalid-email":
-          message = "Invalid email format.";
+          message = "Invalid email address.";
           break;
-
         case "auth/too-many-requests":
-          message = "Too many attempts. Try again later.";
+          message = "Too many failed attempts. Please try again later.";
           break;
-
+        case "auth/network-request-failed":
+          message = "Network error. Check your connection.";
+          break;
         default:
-          message = error.message;
+          message = "Login failed. Please try again.";
       }
 
-      toast.error(message);
+      setLoginError(message);
     } finally {
       setLoading(false);
     }
@@ -162,10 +183,19 @@ export default function LoginPage() {
         return;
       }
 
-      // ✅ If user exists → allow login
-      toast.success("Signed in successfully!")
+      if (userRecord.approved === "pending") {
+        toast.error("Your account is pending admin approval.");
+        await auth.signOut();
+        return;
+      }
+      if (userRecord.approved === "suspended") {
+        toast.error("Your account has been suspended. Contact support.");
+        await auth.signOut();
+        return;
+      }
 
-      router.replace("/");
+      toast.success("Signed in successfully!");
+      setPendingRedirect(true);
     } catch (error) {
       let message = "Google sign-in failed";
 
@@ -252,7 +282,7 @@ export default function LoginPage() {
                   className="pl-10 h-11 border-slate-200 focus-visible:ring-theme-primary transition-all rounded-lg"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setLoginError(""); }}
                 />
               </div>
             </div>
@@ -285,7 +315,7 @@ export default function LoginPage() {
                   className="pl-10 pr-10 h-11 border-slate-200 focus-visible:ring-theme-primary transition-all rounded-lg"
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setLoginError(""); }}
                 />
                 {/* Toggle Button */}
                 <button
@@ -301,6 +331,13 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {loginError && (
+              <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium">
+                <span className="mt-0.5 text-red-500">⚠</span>
+                {loginError}
+              </div>
+            )}
 
             <Button
               type="submit"

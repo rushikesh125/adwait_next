@@ -5,13 +5,12 @@ import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 
 // Icons
-import { 
-  LayoutDashboard, ShieldCheck, UserCog, Database, 
-  BarChart3, Settings, LogOut, Menu, X, Bell, Lock, Globe, 
-  TruckElectric,
-  ActivityIcon,
-  HardDriveUpload,
-  BookPlus
+import {
+  LayoutDashboard, ShieldCheck, UserCog, Database,
+  BarChart3, Settings, LogOut, Menu, X, Bell, Lock, Globe,
+  TruckElectric, ActivityIcon, HardDriveUpload, BookPlus,
+  Users, Briefcase, FileText, CalendarCheck, UserCircle,
+  Inbox, Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -41,13 +40,25 @@ const AdminPanelLayout = ({ children }) => {
     }
   };
 
-  const adminNav = [
+  const contentNav = [
     { name: "Overview", href: "/admin-panel", icon: LayoutDashboard },
     { name: "Accommodations", href: "/admin-panel/accommodations", icon: ShieldCheck },
     { name: "Transports", href: "/admin-panel/transports", icon: TruckElectric },
     { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
     { name: "Itinerary", href: "/admin-panel/itinerary", icon: BookPlus },
-    // { name: "Settings", href: "/admin-panel/settings", icon: Settings },
+  ];
+
+  const workNav = [
+    { name: "Leads", href: "/admin-panel/leads", icon: Briefcase },
+    { name: "Quotations", href: "/admin-panel/quotations", icon: FileText },
+    { name: "Bookings", href: "/admin-panel/bookings", icon: CalendarCheck },
+    { name: "Invoices", href: "/admin-panel/invoices", icon: Receipt },
+  ];
+
+  const teamNav = [
+    { name: "Team", href: "/admin-panel/team", icon: Users },
+    { name: "Unassigned", href: "/admin-panel/team/unassigned", icon: Inbox },
+    { name: "Customers", href: "/admin-panel/team/customers", icon: UserCircle },
   ];
 
   const SidebarContent = ({ mobile = false }) => (
@@ -70,8 +81,8 @@ const AdminPanelLayout = ({ children }) => {
         )}
       </div>
 
-      <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
-        {adminNav.map((item) => {
+      <nav className="flex-1 px-4 py-6 overflow-y-auto space-y-1">
+        {contentNav.map((item) => {
           const isActive = pathname === item.href;
           return (
             <button
@@ -80,7 +91,47 @@ const AdminPanelLayout = ({ children }) => {
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group
                 ${isActive ? "bg-theme-primary text-white shadow-lg" : "hover:bg-slate-800 hover:text-white"}`}
             >
-              <item.icon className={`w-5 h-5 ${isActive ? "text-white" : "group-hover:text-theme-primary"}`} />
+              <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-white" : "group-hover:text-theme-primary"}`} />
+              {(isSidebarOpen || mobile) && <span className="text-sm font-semibold">{item.name}</span>}
+            </button>
+          );
+        })}
+
+        {(isSidebarOpen || mobile) && (
+          <p className="px-3 pt-5 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Operations</p>
+        )}
+        {!isSidebarOpen && !mobile && <div className="my-3 border-t border-slate-700" />}
+
+        {workNav.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          return (
+            <button
+              key={item.name}
+              onClick={() => router.push(item.href)}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group
+                ${isActive ? "bg-theme-primary text-white shadow-lg" : "hover:bg-slate-800 hover:text-white"}`}
+            >
+              <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-white" : "group-hover:text-theme-primary"}`} />
+              {(isSidebarOpen || mobile) && <span className="text-sm font-semibold">{item.name}</span>}
+            </button>
+          );
+        })}
+
+        {(isSidebarOpen || mobile) && (
+          <p className="px-3 pt-5 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Team</p>
+        )}
+        {!isSidebarOpen && !mobile && <div className="my-3 border-t border-slate-700" />}
+
+        {teamNav.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <button
+              key={item.name}
+              onClick={() => router.push(item.href)}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group
+                ${isActive ? "bg-theme-primary text-white shadow-lg" : "hover:bg-slate-800 hover:text-white"}`}
+            >
+              <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-white" : "group-hover:text-theme-primary"}`} />
               {(isSidebarOpen || mobile) && <span className="text-sm font-semibold">{item.name}</span>}
             </button>
           );

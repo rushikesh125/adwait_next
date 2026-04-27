@@ -4,7 +4,6 @@ import { useSelector } from "react-redux";
 import Loading from "./loading";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import NotLoggedIn from "@/components/NotLoggedIn";
 import toast from "react-hot-toast";
 
 export default function Home() {
@@ -12,22 +11,21 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user && user.role === "admin" && user?.approved == "accepted") {
+    if (!initialized || loading) return;
+
+    if (user?.role === "superadmin") {
+      router.replace("/superadmin");
+    } else if (user?.role === "admin" && user.approved === "accepted") {
       router.replace("/admin-panel");
-    } else if (user && user.role === "agent" && user?.approved =="accepted" ) {
+    } else if (user?.role === "agent" && user.approved === "accepted") {
       router.replace("/agent-panel");
-    }else if(user && user.role === "superadmin"){
-      router.replace("/superadmin")
-    }else if(user && user.approved == "pending"){
-      toast.error("Wait for Admin Approval")
-      router.replace("/login")
+    } else if (user?.approved === "pending") {
+      toast.error("Your account is pending admin approval.");
+      router.replace("/login");
+    } else if (!user) {
+      router.replace("/login");
     }
-  }, [user,initialized]);
-  if (loading) {
-    return <Loading />;
-  }
-  if (initialized && !user) {
-    return <NotLoggedIn/>
-  }
+  }, [user, initialized, loading]);
+
   return <Loading />;
 }

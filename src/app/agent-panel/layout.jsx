@@ -26,6 +26,7 @@ import { auth } from "@/firebase/config";
 import { signOut } from "firebase/auth";
 import toast from "react-hot-toast";
 import UserDropdown from "@/components/UserDropdown";
+import NotificationCenter from "@/components/NotificationCenter";
 
 const AgentPanelLayout = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
@@ -169,6 +170,7 @@ const AgentPanelLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
+            <NotificationCenter userId={user?.uid} />
             <UserDropdown user={user} />
           </div>
         </header>
