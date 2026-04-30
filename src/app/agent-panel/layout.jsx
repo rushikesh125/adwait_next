@@ -69,9 +69,10 @@ const AgentPanelLayout = ({ children }) => {
             <Image
               src="/adwait-logo.jpg"
               alt="Adwait Tours"
-              fill
               className="object-contain p-1"
               priority
+              width={40}
+              height={40}
             />
           </div>
           {(isSidebarOpen || mobile) && (
