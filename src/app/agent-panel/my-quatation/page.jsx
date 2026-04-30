@@ -23,10 +23,10 @@ import {
 
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import {
+  buildQuotationSummaryPayload,
   copyPackageSummary,
   sharePackageSummaryOnWhatsApp,
 } from "@/lib/copyPackageSummary";
-import { normaliseQuotation } from "@/lib/quotationAdapter";
 import { setEditingQuotation } from "@/store/packageSlice";
 import { useDispatch } from "react-redux";
 import QuotationPreviewModal from "./QuotationPreviewModal";
@@ -368,8 +368,6 @@ const MyQuotations = () => {
     }
   }, [editId, state.quotations, state.handleEditClick]);
   const handleDownloadPDF = (quotation) => {
-    const normalized = normaliseQuotation(quotation);
-
     const packageOptions =
       quotation.packageOptions?.length > 0
         ? quotation.packageOptions
@@ -424,57 +422,10 @@ const MyQuotations = () => {
     });
   };
 
-  const buildQuotationSummaryPayload = (quotation) => {
-    const packageOptions =
-      quotation.packageOptions?.length > 0
-        ? quotation.packageOptions
-        : [
-            {
-              name: "Option 1",
-              hotelEntries: quotation.hotelSummary || [],
-            },
-          ];
-
-    const selectedTransport = quotation.transportSummary
-      ? {
-          selectedVehicle: {
-            type: quotation.transportSummary.vehicleName || "",
-            perKmprice: quotation.transportSummary.perKmprice || 0,
-            price: quotation.transportSummary.vehicleCost || 0,
-            ac: quotation.transportSummary.ac || false,
-            driverAllowance: quotation.transportSummary.driverAllowance || 0,
-          },
-          pricingType: quotation.transportSummary.pricingType || "fixed",
-          isCustom: quotation.transportSummary.isCustom || false,
-        }
-      : null;
-
-    const selectedActivities = quotation.activitySummary || [];
-    const transportTotalPrice =
-      quotation.transportSummary?.totalTransportCost || 0;
-    const activityTotalPrice = selectedActivities.reduce(
-      (sum, activity) => sum + (activity.totalPrice || 0),
-      0,
-    );
-    const confirmedMarkup = quotation.markup || 0;
-    const markupType = quotation.markupType || "lumpsum";
-    const markupAmount = quotation.markupAmount || quotation.markup || 0;
-
-    return {
-      packageOptions,
-      selectedTransport,
-      selectedActivities,
-      transportTotalPrice,
-      activityTotalPrice,
-      confirmedMarkup,
-      markupType,
-      markupAmount,
-      hotels: state.allHotels,
-    };
-  };
-
   const handleCopyToClipboard = (quotation) => {
-    copyPackageSummary(buildQuotationSummaryPayload(quotation));
+    copyPackageSummary(
+      buildQuotationSummaryPayload(quotation, state.allHotels),
+    );
   };
 
   const handleShareOnWhatsApp = async (quotation) => {
@@ -508,7 +459,7 @@ const MyQuotations = () => {
     }
 
     sharePackageSummaryOnWhatsApp(
-      buildQuotationSummaryPayload(quotation),
+      buildQuotationSummaryPayload(quotation, state.allHotels),
       guestPhone,
     );
   };

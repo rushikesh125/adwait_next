@@ -254,6 +254,56 @@ export const buildPackageSummary = ({
   return s;
 };
 
+// Saved quotation -> package summary payload
+export const buildQuotationSummaryPayload = (quotation = {}, hotels = []) => {
+  const packageOptions =
+    Array.isArray(quotation.packageOptions) &&
+    quotation.packageOptions.length > 0
+      ? quotation.packageOptions
+      : [
+          {
+            name: "Option 1",
+            hotelEntries: quotation.hotelSummary || [],
+          },
+        ];
+
+  const selectedTransport = quotation.transportSummary
+    ? {
+        selectedVehicle: {
+          type: quotation.transportSummary.vehicleName || "",
+          perKmprice: quotation.transportSummary.perKmprice || 0,
+          price: quotation.transportSummary.vehicleCost || 0,
+          ac: quotation.transportSummary.ac || false,
+          driverAllowance: quotation.transportSummary.driverAllowance || 0,
+        },
+        pricingType: quotation.transportSummary.pricingType || "fixed",
+        isCustom: quotation.transportSummary.isCustom || false,
+      }
+    : null;
+
+  const selectedActivities = quotation.activitySummary || [];
+  const transportTotalPrice = quotation.transportSummary?.totalTransportCost || 0;
+  const activityTotalPrice = selectedActivities.reduce(
+    (sum, activity) => sum + (activity.totalPrice || 0),
+    0,
+  );
+  const confirmedMarkup = quotation.markup || 0;
+  const markupType = quotation.markupType || "lumpsum";
+  const markupAmount = quotation.markupAmount || quotation.markup || 0;
+
+  return {
+    packageOptions,
+    selectedTransport,
+    selectedActivities,
+    transportTotalPrice,
+    activityTotalPrice,
+    confirmedMarkup,
+    markupType,
+    markupAmount,
+    hotels,
+  };
+};
+
 // ─── Copy to Clipboard ───────────────────────────────────────────────────────
 export const copyPackageSummary = (params) => {
   const summary = buildPackageSummary(params);

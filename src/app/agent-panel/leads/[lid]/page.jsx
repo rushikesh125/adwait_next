@@ -58,7 +58,11 @@ import {
   updateFollowUp,
   deleteFollowUp,
 } from "@/firebase/followUpService";
-import { updateQuotation } from "@/firebase/quotations"; // ← PATCH 1
+import {
+  deleteQuotation,
+  fetchAllHotels,
+  updateQuotation,
+} from "@/firebase/quotations"; // ← PATCH 1
 import toast, { Toaster } from "react-hot-toast";
 import {
   Tooltip,
@@ -69,9 +73,10 @@ import {
 import StatusBadge from "@/components/StatusBadge";
 import { setEditingQuotation } from "@/store/packageSlice";
 import QuotationPreviewModal from "@/app/agent-panel/my-quatation/QuotationPreviewModal";
-import { deleteQuotation } from "@/firebase/quotations";
-import { sharePackageSummaryOnWhatsApp } from "@/lib/copyPackageSummary";
-import { normaliseQuotation } from "@/lib/quotationAdapter";
+import {
+  buildQuotationSummaryPayload,
+  sharePackageSummaryOnWhatsApp,
+} from "@/lib/copyPackageSummary";
 
 // ── Follow-up components ──────────────────────────────────────────────────────
 import FollowUpSection from "@/components/followups/FollowUpSection";
@@ -160,6 +165,7 @@ export default function LeadProfilePage({ params }) {
   // ── Data state ────────────────────────────────────────────────────────────
   const [lead, setLead] = useState(null);
   const [quotations, setQuotations] = useState([]);
+  const [allHotels, setAllHotels] = useState([]);
   const [notes, setNotes] = useState([]);
   const [followUps, setFollowUps] = useState([]);
   const [newNote, setNewNote] = useState("");
@@ -210,14 +216,20 @@ export default function LeadProfilePage({ params }) {
   const loadAll = async () => {
     try {
       setLoading(true);
-      const [leadData, quotesData, notesData, fuData] = await Promise.all([
-        getLeadById(lid),
-        getQuotationsForLead(lid),
-        getLeadNotes(lid),
-        getFollowUpsForLead(lid),
-      ]);
+      const [leadData, quotesData, notesData, fuData, hotelsData] =
+        await Promise.all([
+          getLeadById(lid),
+          getQuotationsForLead(lid),
+          getLeadNotes(lid),
+          getFollowUpsForLead(lid),
+          fetchAllHotels().catch((error) => {
+            console.error("[LeadProfilePage] fetchAllHotels error:", error);
+            return [];
+          }),
+        ]);
       setLead(leadData);
       setQuotations(quotesData);
+      setAllHotels(hotelsData);
       setNotes(notesData);
       setFollowUps(fuData);
       console.log("[LeadProfilePage] Loaded — lead:", leadData?.name, "| quotations:", quotesData.length, "| followUps:", fuData.length);
@@ -304,7 +316,7 @@ export default function LeadProfilePage({ params }) {
 
   const handleShareQuotationOnWhatsApp = (quote) => {
     sharePackageSummaryOnWhatsApp(
-      { ...normaliseQuotation(quote), hotels: [] },
+      buildQuotationSummaryPayload(quote, allHotels),
       lead?.mobile || quote?.customerMobile || quote?.mobile || "",
     );
   };
