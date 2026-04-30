@@ -11,7 +11,6 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/firebase/config";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
-import emailjs from "@emailjs/browser";
 
 // Shadcn Components
 import { Button } from "@/components/ui/button";
@@ -62,49 +61,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Helper function to send email via EmailJS
-  const sendAdminEmail = async (
-    userDisplayName,
-    userEmail,
-    userRole,
-    userPhone,
-  ) => {
-    try {
-      console.log("ENV CHECK:", {
-        service: process.env.NEXT_PUBLIC_EMAIL_SERVICE_ID,
-        template: process.env.NEXT_PUBLIC_EMAIL_TEMPLATE_ID,
-        key: process.env.NEXT_PUBLIC_EMAIL_PUBLIC_KEY,
-      });
-      // ✅ Collect env variables FIRST
-      const SERVICE_ID = process.env.NEXT_PUBLIC_EMAIL_SERVICE_ID;
-      const TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAIL_TEMPLATE_ID;
-      const PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAIL_PUBLIC_KEY;
-      const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
-      // Optional safety check
-      if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) {
-        console.error("Missing EmailJS environment variables");
-        return;
-      }
-
-      await emailjs.send(
-        SERVICE_ID,
-        TEMPLATE_ID,
-        {
-          user_name: userDisplayName,
-          user_email: userEmail,
-          user_role: userRole,
-          user_phone: userPhone,
-          admin_email: ADMIN_EMAIL,
-        },
-        PUBLIC_KEY,
-      );
-
-      console.log("Admin notified via EmailJS");
-    } catch (error) {
-      console.error("EmailJS Error:", error);
-    }
-  };
 
   const checkPasswordStrength = (pwd) => {
     const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
@@ -170,12 +127,7 @@ export default function SignupPage() {
       const fullPhone = `${formData.countryCode}${formData.phone}`;
 
       await saveUserToDb(user, formData.role, formData.name, fullPhone);
-      await sendAdminEmail(
-        formData.name,
-        formData.email,
-        formData.role,
-        fullPhone,
-      );
+
 
       toast.success("Signup successful! Waiting for admin approval.");
       await signOut(auth);
@@ -201,12 +153,7 @@ export default function SignupPage() {
       if (!docSnap.exists()) {
         const phone = user.phoneNumber || "Not provided";
         await saveUserToDb(user, formData.role, user.displayName, phone);
-        await sendAdminEmail(
-          user.displayName,
-          user.email,
-          formData.role,
-          phone,
-        );
+       
 
         toast.success(`Registered as ${formData.role}. Awaiting approval.`);
         await signOut(auth);
