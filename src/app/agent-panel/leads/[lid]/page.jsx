@@ -522,7 +522,7 @@ export default function LeadProfilePage({ params }) {
       <Toaster position="top-right" />
 
       {/* ── HEADER ───────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b px-6 lg:px-8 py-5">
+      {/* <div className="bg-white border-b px-6 lg:px-8 py-5">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <Button
@@ -577,7 +577,102 @@ export default function LeadProfilePage({ params }) {
             </Button>
           </div>
         </div>
+      </div> */}
+      <div className="bg-white border-b px-4 sm:px-6 lg:px-8 py-4">
+  <div className="max-w-[1600px] mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+    {/* LEFT SIDE */}
+    <div className="flex items-start gap-3 w-full">
+      
+      {/* BACK BUTTON */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => router.back()}
+        className="rounded-xl border-slate-200 shrink-0"
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </Button>
+
+      <div className="min-w-0 w-full">
+
+        {/* NAME */}
+        <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 capitalize truncate">
+          {lead?.name || "—"}
+        </h1>
+
+        {/* DETAILS */}
+        <div className="mt-2 flex flex-col sm:flex-row sm:flex-wrap gap-2 text-xs sm:text-sm">
+
+          {/* STATUS */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 font-semibold">Status:</span>
+            <StatusBadge
+              status={lead?.status || "New"}
+              fallback="New"
+              className="border-none text-xs"
+            />
+          </div>
+
+          {/* CREATED */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 font-semibold">Created:</span>
+            <span className="text-slate-700 font-medium">
+              {formatDate(lead?.createdAt)}
+            </span>
+          </div>
+
+          {/* MOBILE */}
+          {lead?.mobile && (
+            <a
+              href={`tel:${lead.mobile}`}
+              className="flex items-center gap-1.5 text-slate-700 font-medium hover:text-theme-primary"
+            >
+              <Phone className="h-3.5 w-3.5 text-slate-400" />
+              <span className="truncate">{lead.mobile}</span>
+            </a>
+          )}
+
+          {/* EMAIL */}
+          {lead?.email && (
+            <div className="flex items-center gap-1.5 text-slate-700 font-medium min-w-0">
+              <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <span className="truncate max-w-[180px] sm:max-w-[220px]">
+                {lead.email}
+              </span>
+            </div>
+          )}
+
+        </div>
       </div>
+    </div>
+
+    {/* RIGHT SIDE BUTTONS */}
+    <div className="flex w-full sm:w-auto gap-2">
+      
+      <Button
+        variant="outline"
+        onClick={() => setIsLeadEditOpen(true)}
+        className="flex-1 sm:flex-none text-xs sm:text-sm h-9 flex items-center justify-center"
+      >
+        <Edit3 className="h-4 w-4 mr-1.5" />
+        Edit Lead
+      </Button>
+
+      <Button
+        onClick={() =>
+          router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)
+        }
+        className="flex-1 sm:flex-none bg-theme-primary text-white text-xs sm:text-sm h-9 flex items-center justify-center"
+      >
+        <Plus className="h-4 w-4 mr-1.5" />
+        Create Quotation
+      </Button>
+
+    </div>
+
+  </div>
+</div>
 
       {/* ── MAIN ─────────────────────────────────────────────────────────── */}
       <main className="max-w-[1600px] mx-auto px-6 lg:px-8 py-6">

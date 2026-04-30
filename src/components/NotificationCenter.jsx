@@ -186,8 +186,17 @@ export default function NotificationCenter({ userId }) {
       </Button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-96 rounded-2xl border border-slate-200 bg-white shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+<div
+  className="
+    absolute top-11 z-50
+    /* Mobile: Center using fixed positioning or simplified absolute logic */
+    fixed left-4 right-4 sm:absolute sm:left-auto sm:right-0
+    /* Width logic */
+    w-auto sm:w-96 max-w-[calc(100vw-32px)] sm:max-w-[360px]
+    /* Styling */
+    rounded-2xl border border-slate-200 bg-white shadow-xl
+  "
+>  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <span className="text-sm font-semibold text-slate-800">Notifications</span>
             {unreadNotifications > 0 && (
               <button
