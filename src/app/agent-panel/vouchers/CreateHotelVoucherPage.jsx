@@ -309,53 +309,58 @@ const CreateHotelVoucherPage = () => {
   };
 
   // ── AI fetch — gated by hotel_fetch_ai permission ──────────────────────────
-  const handleAiFetch = async () => {
-    // ✅ Permission check: block call if agent lacks hotel_fetch_ai
-    if (!canUseHotelAi) {
-      // This case is already handled by disabling the button,
-      // but this is a safety net in case of race conditions.
+const handleAiFetch = async () => {
+  if (!canUseHotelAi) return;
+  if (!hotelFields.hotelName || hotelFields.hotelName.length < 3) return;
+
+  setAiLoading(true);
+  setAiStatus(null);
+
+  try {
+    // ✅ Get the Firebase ID token
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setAiStatus("error");
+      return;
+    }
+    const token = await currentUser.getIdToken(true);
+
+    const response = await fetch(`/api/ai/hotel-details`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,  // ✅ Send token
+      },
+      body: JSON.stringify({ hotelName: hotelFields.hotelName }),
+    });
+
+    if (!response.ok) {
+      setAiStatus("error");
       return;
     }
 
-    if (!hotelFields.hotelName || hotelFields.hotelName.length < 3) return;
-
-    setAiLoading(true);
-    setAiStatus(null);
-
-    try {
-      const response = await fetch(`/api/ai/hotel-details`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hotelName: hotelFields.hotelName }),
-      });
-
-      if (!response.ok) {
-        setAiStatus("error");
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.address || data.phone || data.mapsLink) {
-        setForm((prev) => ({
-          ...prev,
-          address: data.address || prev.address,
-          phone: data.phone || prev.phone,
-          googleMapsLink: data.mapsLink || prev.googleMapsLink,
-        }));
-        setAiStatus("success");
-        setShowAiBanner(true);
-        setTimeout(() => setShowAiBanner(false), 5000);
-      } else {
-        setAiStatus("error");
-      }
-    } catch (err) {
-      console.error("AI Fetch Error:", err);
+    const data = await response.json();
+    if (data.address || data.phone || data.mapsLink) {
+      setForm((prev) => ({
+        ...prev,
+        address: data.address || prev.address,
+        phone: data.phone || prev.phone,
+        googleMapsLink: data.mapsLink || prev.googleMapsLink,
+      }));
+      setAiStatus("success");
+      setShowAiBanner(true);
+      setTimeout(() => setShowAiBanner(false), 5000);
+    } else {
       setAiStatus("error");
-    } finally {
-      setAiLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("AI Fetch Error:", err);
+    setAiStatus("error");
+  } finally {
+    setAiLoading(false);
+  }
+};
 
   const handleClearQuotation = () => {
     setLinkedQuotation(null);

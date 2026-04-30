@@ -13,11 +13,12 @@ if (!admin.apps.length) {
     );
   }
 
-  admin.initializeApp({
+admin.initializeApp({
     credential: admin.credential.cert({
       projectId: FIREBASE_ADMIN_PROJECT_ID,
       clientEmail: FIREBASE_ADMIN_CLIENT_EMAIL,
-      privateKey: FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      
+      privateKey: FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/gm, "\n"),
     }),
   });
 }
