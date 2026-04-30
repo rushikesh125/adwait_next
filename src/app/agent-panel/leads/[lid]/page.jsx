@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, use } from "react";
+import React, { useEffect, useState, use, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
 import {
@@ -165,11 +165,12 @@ export default function LeadProfilePage({ params }) {
   // ── Data state ────────────────────────────────────────────────────────────
   const [lead, setLead] = useState(null);
   const [quotations, setQuotations] = useState([]);
-  const [allHotels, setAllHotels] = useState([]);
   const [notes, setNotes] = useState([]);
   const [followUps, setFollowUps] = useState([]);
   const [newNote, setNewNote] = useState("");
   const [loading, setLoading] = useState(true);
+  const hotelLookupRef = useRef(null);
+  const hotelLookupPromiseRef = useRef(null);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isLeadEditOpen, setIsLeadEditOpen] = useState(false);
@@ -216,20 +217,14 @@ export default function LeadProfilePage({ params }) {
   const loadAll = async () => {
     try {
       setLoading(true);
-      const [leadData, quotesData, notesData, fuData, hotelsData] =
-        await Promise.all([
-          getLeadById(lid),
-          getQuotationsForLead(lid),
-          getLeadNotes(lid),
-          getFollowUpsForLead(lid),
-          fetchAllHotels().catch((error) => {
-            console.error("[LeadProfilePage] fetchAllHotels error:", error);
-            return [];
-          }),
-        ]);
+      const [leadData, quotesData, notesData, fuData] = await Promise.all([
+        getLeadById(lid),
+        getQuotationsForLead(lid),
+        getLeadNotes(lid),
+        getFollowUpsForLead(lid),
+      ]);
       setLead(leadData);
       setQuotations(quotesData);
-      setAllHotels(hotelsData);
       setNotes(notesData);
       setFollowUps(fuData);
       console.log("[LeadProfilePage] Loaded — lead:", leadData?.name, "| quotations:", quotesData.length, "| followUps:", fuData.length);
@@ -314,9 +309,31 @@ export default function LeadProfilePage({ params }) {
     }
   };
 
-  const handleShareQuotationOnWhatsApp = (quote) => {
+  const getHotelLookup = async () => {
+    if (hotelLookupRef.current) return hotelLookupRef.current;
+
+    if (!hotelLookupPromiseRef.current) {
+      hotelLookupPromiseRef.current = fetchAllHotels()
+        .then((hotels) => {
+          hotelLookupRef.current = hotels;
+          return hotels;
+        })
+        .catch((error) => {
+          console.error("[LeadProfilePage] fetchAllHotels error:", error);
+          return [];
+        })
+        .finally(() => {
+          hotelLookupPromiseRef.current = null;
+        });
+    }
+
+    return hotelLookupPromiseRef.current;
+  };
+
+  const handleShareQuotationOnWhatsApp = async (quote) => {
+    const hotels = await getHotelLookup();
     sharePackageSummaryOnWhatsApp(
-      buildQuotationSummaryPayload(quote, allHotels),
+      buildQuotationSummaryPayload(quote, hotels),
       lead?.mobile || quote?.customerMobile || quote?.mobile || "",
     );
   };

@@ -7,6 +7,28 @@ function generateBookingRef() {
   return `BK-${year}-${rand}`;
 }
 
+async function createQuotationResponseNotification({
+  agentId,
+  quotation,
+  status,
+}) {
+  if (!agentId || !["Accepted", "Rejected"].includes(status)) return;
+
+  const label =
+    quotation.packageName || quotation.customerName || "Quotation";
+  const isAccepted = status === "Accepted";
+
+  await adminDb.collection("notifications").add({
+    userId: agentId,
+    type: isAccepted ? "quotation_accepted" : "quotation_rejected",
+    title: isAccepted ? "Quotation Accepted" : "Quotation Rejected",
+    message: `"${label}" has been ${isAccepted ? "accepted" : "rejected"} by the customer.`,
+    link: "/agent-panel/my-quatation",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
 export async function respondToQuotationByTokenServer(token, action) {
   if (!token || !["accept", "reject"].includes(action)) {
     const error = new Error("Invalid request");
@@ -68,12 +90,24 @@ export async function respondToQuotationByTokenServer(token, action) {
       bookingId: bookingRef.id,
     });
 
+    await createQuotationResponseNotification({
+      agentId,
+      quotation: data,
+      status: "Accepted",
+    });
+
     return { status: "Accepted", bookingId: bookingRef.id };
   }
 
   await ref.update({
     status: "Rejected",
     respondedAt: Date.now(),
+  });
+
+  await createQuotationResponseNotification({
+    agentId,
+    quotation: data,
+    status: "Rejected",
   });
 
   return { status: "Rejected" };
