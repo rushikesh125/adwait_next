@@ -27,6 +27,8 @@ import { signOut } from "firebase/auth";
 import toast from "react-hot-toast";
 import UserDropdown from "@/components/UserDropdown";
 import NotificationCenter from "@/components/NotificationCenter";
+import { requestNotificationPermission } from "@/firebase/notificationsService";
+import { listenForForegroundMessages, registerFCMToken } from "@/firebase/fcmService";
 
 const AgentPanelLayout = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
@@ -38,6 +40,29 @@ const AgentPanelLayout = ({ children }) => {
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
+  
+
+  useEffect(() => {
+  if (!user?.uid) return;
+ 
+  let unsubForeground = () => {};
+ 
+  async function initPushNotifications() {
+    // 1. Request permission (if not already granted)
+    const permission = await requestNotificationPermission();
+    if (permission !== "granted") return;
+ 
+    // 2. Register this device's FCM token → saves to Firestore
+    await registerFCMToken(user.uid);
+ 
+    // 3. Listen for messages when app is in foreground
+    unsubForeground = listenForForegroundMessages();
+  }
+ 
+  initPushNotifications();
+ 
+  return () => unsubForeground();
+}, [user?.uid]);
 
   const handleLogout = async () => {
     try {
