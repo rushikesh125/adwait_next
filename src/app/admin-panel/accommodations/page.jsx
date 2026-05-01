@@ -21,6 +21,7 @@ import { db } from "@/firebase/config";
 // import HotelDetailModal from "@/components/accommodation/HotelDetailModal";
 import HotelDetailModal from "@/components/accommodation/HotelDetailModel";
 import { searchHotelsByName } from "@/firebase/hotels";
+import { deleteHotel } from "@/firebase/accomodation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,6 +56,8 @@ import {
   ArrowUp,
   ArrowDown,
   UploadCloud,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -103,6 +106,7 @@ const Accommodation = () => {
 
   // ── Detail modal ─────────────────────────────────────────────────────────
   const [selectedHotel, setSelectedHotel] = useState(null);
+  const [deletingHotelId, setDeletingHotelId] = useState(null);
 
   // ── Fetch all hotels once ────────────────────────────────────────────────
   const fetchHotels = useCallback(async () => {
@@ -211,6 +215,37 @@ const Accommodation = () => {
   const handleEditClick = (e, hotelId) => {
     e.stopPropagation();
     router.push(`./accommodations/create?id=${hotelId}`);
+  };
+
+  const handleDeleteClick = async (e, hotel) => {
+    e.stopPropagation();
+
+    if (deletingHotelId) return;
+
+    const hotelName = toTitleCase(hotel.name) || "this hotel";
+    if (
+      !window.confirm(
+        `Are you sure you want to delete "${hotelName}"? This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingHotelId(hotel.id);
+    try {
+      const success = await deleteHotel(hotel.id);
+
+      if (success) {
+        setAllHotels((prev) => prev.filter((h) => h.id !== hotel.id));
+        setSelectedHotel((prev) => (prev?.id === hotel.id ? null : prev));
+
+        if (pagedHotels.length === 1 && currentPage > 1) {
+          setCurrentPage((page) => Math.max(1, page - 1));
+        }
+      }
+    } finally {
+      setDeletingHotelId(null);
+    }
   };
 
   return (
@@ -344,7 +379,7 @@ const Accommodation = () => {
             {loading ? (
               [...Array(pageSize)].map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={4} className="p-4">
+                  <TableCell colSpan={7} className="p-4">
                     <Skeleton className="h-14 w-full rounded-lg" />
                   </TableCell>
                 </TableRow>
@@ -359,7 +394,7 @@ const Accommodation = () => {
                   <React.Fragment key={hotel.id}>
                     {showLocationHeader && (
                       <TableRow className="bg-slate-50/80 hover:bg-slate-50/80 border-y border-slate-100">
-                        <TableCell colSpan={4} className="py-2.5 px-6">
+                        <TableCell colSpan={7} className="py-2.5 px-6">
                           <div className="flex items-center gap-2 text-theme-primary font-bold text-xs uppercase tracking-widest">
                             <MapPin className="h-3.5 w-3.5" />
                             {hotel.city}, {hotel.state}
@@ -441,6 +476,20 @@ const Accommodation = () => {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleDeleteClick(e, hotel)}
+                            disabled={Boolean(deletingHotelId)}
+                            className="group-hover:opacity-100 transition-all h-8 w-8 p-0 border border-red-200 bg-white text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300 disabled:opacity-60"
+                            title="Delete property"
+                          >
+                            {deletingHotelId === hotel.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -449,7 +498,7 @@ const Accommodation = () => {
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-64 text-center">
+                <TableCell colSpan={7} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="p-4 bg-slate-50 rounded-full">
                       <Search className="h-8 w-8 text-slate-300" />
