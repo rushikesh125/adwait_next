@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/admin/hotel-season-cleanup",
-      "schedule": "0 1 * * *"
+      "schedule": "45 6 * * *"
     }
   ]
 }

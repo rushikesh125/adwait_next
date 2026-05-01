@@ -1,11 +1,16 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { MEAL_PLANS, MEAL_PLAN_LABELS, MEAL_PLAN_ICONS } from "@/lib/utils";
+import { MEAL_PLAN_ICONS } from "@/lib/utils";
+import {
+  calculateHotelStayPrice,
+  getAvailableRoomsForStay,
+} from "@/lib/hotelRateAvailability";
 import { Label } from "@/components/ui/label";
 import { BedDouble, Utensils, Users } from "lucide-react";
 
 const HotelRoomSelector = ({
   hotel,
   checkInDate,
+  checkOutDate,
   nights,
   onTotalChange,
   onRoomCategoryChange,
@@ -24,62 +29,62 @@ const HotelRoomSelector = ({
   const [numExtraChild, setNumExtraChild] = useState(initial.numExtraChild ?? 0);
   const [numCNB, setNumCNB] = useState(initial.numCNB ?? 0);
 
-  const getApplicableSeason = useCallback(
-    (roomData) => {
-      if (!roomData?.seasons || !checkInDate) return null;
-      const d = new Date(checkInDate);
-      d.setHours(0, 0, 0, 0);
-      const matching = roomData.seasons.filter((s) => {
-        const start = new Date(s.start);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(s.end);
-        end.setHours(23, 59, 59, 999);
-        return d >= start && d <= end;
-      });
-      if (!matching.length) return null;
-      return matching.sort(
-        (a, b) => (Number(a.priority) || 99) - (Number(b.priority) || 99)
-      )[0];
-    },
-    [checkInDate]
+  const availableRooms = useMemo(
+    () =>
+      getAvailableRoomsForStay(hotel, {
+        checkInDate,
+        checkOutDate,
+        nights,
+      }),
+    [hotel, checkInDate, checkOutDate, nights],
   );
 
-  const roomData = hotel?.rooms?.find(
+  const roomData = availableRooms.find(
     (r) => r.categoryName === selectedRoomCategory
   );
-  const season = getApplicableSeason(roomData);
 
   const availableMealPlans = useMemo(() => {
-    if (!season?.pricing) return MEAL_PLANS;
-    return MEAL_PLANS.filter((p) => {
-      const pr = season.pricing[p.toLowerCase()];
-      return pr && Object.values(pr).some((v) => v > 0);
-    });
-  }, [season]);
+    return roomData?.availableMealPlans || [];
+  }, [roomData]);
 
   useEffect(() => {
     if (availableMealPlans.length && !availableMealPlans.includes(selectedMealPlan)) {
       setSelectedMealPlan(availableMealPlans[0]);
+    } else if (!availableMealPlans.length && selectedMealPlan) {
+      setSelectedMealPlan("");
     }
   }, [availableMealPlans, selectedMealPlan]);
 
   useEffect(() => {
-    if (!selectedRoomCategory && hotel?.rooms?.length) {
-      setSelectedRoomCategory(hotel.rooms[0].categoryName);
+    if (!availableRooms.length) {
+      if (selectedRoomCategory) setSelectedRoomCategory("");
+      return;
     }
-  }, [hotel, selectedRoomCategory]);
+
+    if (
+      !selectedRoomCategory ||
+      !availableRooms.some((room) => room.categoryName === selectedRoomCategory)
+    ) {
+      setSelectedRoomCategory(availableRooms[0].categoryName);
+    }
+  }, [availableRooms, selectedRoomCategory]);
 
   const calculateTotal = useCallback(() => {
-    if (!season?.pricing || !selectedMealPlan) return 0;
-    const pr = season.pricing[selectedMealPlan.toLowerCase()];
-    if (!pr) return 0;
-    const perNight =
-      (pr.double || 0) * numDouble +
-      (pr.extraAdult || 0) * numExtraAdult +
-      (pr.extraChild || 0) * numExtraChild +
-      (pr.cnb || 0) * numCNB;
-    return perNight * (parseInt(nights) || 1);
-  }, [season, selectedMealPlan, numDouble, numExtraAdult, numExtraChild, numCNB, nights]);
+    return calculateHotelStayPrice(
+      {
+        checkInDate,
+        checkOutDate,
+        nights,
+        selectedRoomCategory,
+        selectedMealPlan,
+        numDouble,
+        numExtraAdult,
+        numExtraChild,
+        numCNB,
+      },
+      hotel,
+    );
+  }, [hotel, checkInDate, checkOutDate, nights, selectedRoomCategory, selectedMealPlan, numDouble, numExtraAdult, numExtraChild, numCNB]);
 
   const total = calculateTotal();
   const pricePerNight = total / (parseInt(nights) || 1);
@@ -91,6 +96,14 @@ const HotelRoomSelector = ({
 
   // console.log(JSON.stringify(hotel))
   if (!hotel) return null;
+  if (!availableRooms.length) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
+        No room rates are available for the full selected stay.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Room categories + Meal plan side by side */}
@@ -101,7 +114,7 @@ const HotelRoomSelector = ({
             <BedDouble className="h-3 w-3" /> Room Category
           </Label>
           <div className="flex flex-wrap gap-1.5">
-            {hotel.rooms?.map((r) => (
+            {availableRooms.map((r) => (
               <button
                 key={r.categoryName}
                 onClick={() => setSelectedRoomCategory(r.categoryName)}
@@ -185,7 +198,7 @@ const HotelRoomSelector = ({
       <div className="flex items-center justify-between bg-theme-primary/5 border border-theme-primary/15 rounded-xl px-4 py-2.5">
         <div>
           <p className="text-[10px] text-slate-500">
-            {season ? `${season.name || "Current"} season` : "Pricing"}
+            Full-stay pricing
           </p>
           <p className="text-xs text-slate-600 mt-0.5">
             ₹{pricePerNight.toLocaleString("en-IN", { maximumFractionDigits: 0 })} / night × {nights} night{nights !== 1 ? "s" : ""}
