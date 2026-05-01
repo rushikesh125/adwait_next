@@ -55,6 +55,10 @@ import {
   UserRound,
 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
+import {
+  getAvailableRoomsForStay,
+  hotelHasRatesForStay,
+} from "@/lib/hotelRateAvailability";
 
 // ── Import HotelVoucherDrawer for Documents tab ───────────────────────────────
 import HotelVoucherDrawer from "../vouchers/hotelVoucher";// ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -473,9 +477,24 @@ const QuotationModals = ({
   const [hotelVoucherOpen, setHotelVoucherOpen] = useState(false);
   const [voucherHotelData, setVoucherHotelData] = useState(null);
 
+  const nextHotelStay = useMemo(() => {
+    const hotels = editingQuotation?.hotelSummary || [];
+    const lastHotel = hotels[hotels.length - 1];
+    const checkInDate =
+      lastHotel?.checkOutDate ||
+      hotels[0]?.checkInDate ||
+      new Date().toISOString().split("T")[0];
+    return { checkInDate, nights: 1 };
+  }, [editingQuotation?.hotelSummary]);
+
   const hotelsForSelectedState = useMemo(
-    () => allHotels.filter((h) => h.state === SelectedDestination),
-    [allHotels, SelectedDestination],
+    () =>
+      allHotels.filter(
+        (h) =>
+          h.state === SelectedDestination &&
+          hotelHasRatesForStay(h, nextHotelStay),
+      ),
+    [allHotels, SelectedDestination, nextHotelStay],
   );
 
   const activitiesForSelectedState = useMemo(
@@ -485,6 +504,10 @@ const QuotationModals = ({
 
   const noHotelsFound = SelectedDestination && hotelsForSelectedState.length === 0;
   const noActivitiesFound = SelectedDestination && !isFetchingActivities && activitiesForSelectedState.length === 0;
+  const getHotelsAvailableForEntry = (entry) =>
+    allHotels.filter(
+      (h) => h.state === entry.state && hotelHasRatesForStay(h, entry),
+    );
 
   const baseTotal = useMemo(() => {
     if (!editingQuotation) return 0;
@@ -887,7 +910,7 @@ const QuotationModals = ({
                           <Label className="text-sm">Select Hotel</Label>
                           {noHotelsFound ? (
                             <div className="flex items-center gap-2">
-                              <p className="text-sm text-muted-foreground flex-1">No hotels found for this state.</p>
+                              <p className="text-sm text-muted-foreground flex-1">No hotels with rates found for this stay.</p>
                               {!showCustomHotelForm && (
                                 <Button size="sm" onClick={() => setShowCustomHotelForm(true)} className="bg-theme-primary hover:bg-theme-secondary text-xs whitespace-nowrap">
                                   <PenLine className="h-3 w-3 mr-1" />Add Custom
@@ -938,6 +961,9 @@ const QuotationModals = ({
                           <TableBody>
                             {editingQuotation.hotelSummary.map((hotel, index) => {
                               const currentHotelData = allHotels.find((h) => h.name === hotel.hotel && h.state === hotel.state);
+                              const availableRooms = currentHotelData
+                                ? getAvailableRoomsForStay(currentHotelData, hotel)
+                                : [];
                               return (
                                 <TableRow key={index} className={hotel.isCustom ? "bg-theme-muted/10" : ""}>
                                   <TableCell className="font-medium">
@@ -953,7 +979,7 @@ const QuotationModals = ({
                                     ) : (
                                       <Select value={allHotels.find((h) => h.name === hotel.hotel && h.state === hotel.state)?.id || ""} onValueChange={(val) => handleHotelChange(index, val)}>
                                         <SelectTrigger className="w-[190px]"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{allHotels.filter((h) => h.state === hotel.state).map((h) => (<SelectItem key={h.id} value={h.id}>{h.name} ({h.city})</SelectItem>))}</SelectContent>
+                                        <SelectContent>{getHotelsAvailableForEntry(hotel).map((h) => (<SelectItem key={h.id} value={h.id}>{h.name} ({h.city})</SelectItem>))}</SelectContent>
                                       </Select>
                                     )}
                                   </TableCell>
@@ -963,7 +989,7 @@ const QuotationModals = ({
                                     ) : (
                                       <Select value={hotel.selectedRoomCategory || ""} onValueChange={(val) => handleHotelSummaryChange(index, "selectedRoomCategory", val)}>
                                         <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{currentHotelData?.rooms?.map((room) => (<SelectItem key={room.categoryName} value={room.categoryName}>{room.categoryName}</SelectItem>))}</SelectContent>
+                                        <SelectContent>{availableRooms.map((room) => (<SelectItem key={room.categoryName} value={room.categoryName}>{room.categoryName}</SelectItem>))}</SelectContent>
                                       </Select>
                                     )}
                                   </TableCell>
@@ -1003,6 +1029,9 @@ const QuotationModals = ({
                       <div className="lg:hidden space-y-4">
                         {editingQuotation.hotelSummary.map((hotel, index) => {
                           const currentHotelData = allHotels.find((h) => h.name === hotel.hotel && h.state === hotel.state);
+                          const availableRooms = currentHotelData
+                            ? getAvailableRoomsForStay(currentHotelData, hotel)
+                            : [];
                           return (
                             <Card key={index} className={`border-theme-muted ${hotel.isCustom ? "bg-theme-muted/10" : ""}`}>
                               <CardContent className="p-4 space-y-3">
@@ -1022,7 +1051,7 @@ const QuotationModals = ({
                                         <Label className="text-xs">Hotel</Label>
                                         <Select value={allHotels.find((h) => h.name === hotel.hotel && h.state === hotel.state)?.id || ""} onValueChange={(val) => handleHotelChange(index, val)}>
                                           <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                                          <SelectContent>{allHotels.filter((h) => h.state === hotel.state).map((h) => (<SelectItem key={h.id} value={h.id}>{h.name} ({h.city})</SelectItem>))}</SelectContent>
+                                          <SelectContent>{getHotelsAvailableForEntry(hotel).map((h) => (<SelectItem key={h.id} value={h.id}>{h.name} ({h.city})</SelectItem>))}</SelectContent>
                                         </Select>
                                       </>
                                     )}
@@ -1039,7 +1068,7 @@ const QuotationModals = ({
                                     ) : (
                                       <Select value={hotel.selectedRoomCategory || ""} onValueChange={(val) => handleHotelSummaryChange(index, "selectedRoomCategory", val)}>
                                         <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{currentHotelData?.rooms?.map((room) => (<SelectItem key={room.categoryName} value={room.categoryName}>{room.categoryName}</SelectItem>))}</SelectContent>
+                                        <SelectContent>{availableRooms.map((room) => (<SelectItem key={room.categoryName} value={room.categoryName}>{room.categoryName}</SelectItem>))}</SelectContent>
                                       </Select>
                                     )}
                                   </div>

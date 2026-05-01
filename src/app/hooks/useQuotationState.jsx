@@ -15,6 +15,11 @@ import {
 import { useSelector } from "react-redux";
 import { updateQuotation } from "@/firebase/quotations";
 import { getLeadsByAgent } from "@/firebase/leadsService";
+import {
+  calculateHotelStayPrice,
+  getAvailableHotelMealPlans,
+  getFirstAvailableHotelRate,
+} from "@/lib/hotelRateAvailability";
 
 export function useQuotationState() {
   // `loading` here is the auth loading state — managed automatically by Redux/auth slice.
@@ -153,46 +158,7 @@ export function useQuotationState() {
 
   // ─── Price calculations ───────────────────────────────────────────────────
   const calculateHotelPrice = useCallback((hotelEntry, fullHotelData) => {
-    if (!hotelEntry || !fullHotelData) return 0;
-    const {
-      checkInDate,
-      selectedRoomCategory,
-      selectedMealPlan,
-      numDouble,
-      numExtraAdult,
-      numExtraChild,
-      numCNB,
-      nights = 1,
-    } = hotelEntry;
-
-    const roomData = fullHotelData.rooms?.find(
-      (r) => r.categoryName === selectedRoomCategory,
-    );
-    if (!roomData || !Array.isArray(roomData.seasons)) return 0;
-
-    const checkInDateObj = checkInDate?.seconds
-      ? new Date(checkInDate.seconds * 1000)
-      : new Date(checkInDate);
-    if (isNaN(checkInDateObj.getTime())) return 0;
-    checkInDateObj.setHours(0, 0, 0, 0);
-
-    const applicableSeason = roomData.seasons.find((season) => {
-      const start = new Date(season.start);
-      const end = new Date(season.end);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      return checkInDateObj >= start && checkInDateObj <= end;
-    });
-
-    if (!applicableSeason?.pricing || !selectedMealPlan) return 0;
-    const pricing = applicableSeason.pricing[selectedMealPlan.toLowerCase()];
-    if (!pricing) return 0;
-
-    const doublePrice = (pricing.double || 0) * (numDouble || 0);
-    const adultPrice = (pricing.extraAdult || 0) * (numExtraAdult || 0);
-    const childPrice = (pricing.extraChild || 0) * (numExtraChild || 0);
-    const cnbPrice = (pricing.cnb || 0) * (numCNB || 0);
-    return (doublePrice + adultPrice + childPrice + cnbPrice) * nights;
+    return calculateHotelStayPrice(hotelEntry, fullHotelData);
   }, []);
 
   const recalculateGrandTotal = useCallback((data) => {
@@ -222,45 +188,13 @@ export function useQuotationState() {
 
   const getAvailableMealPlans = useCallback(
     (hotelSummaryEntry) => {
-      if (!allHotels.length) return ["EP", "CP", "MAP", "AP"];
       const fullHotelData = allHotels.find(
         (h) =>
           h.name === hotelSummaryEntry.hotel &&
           h.city === hotelSummaryEntry.city &&
           h.state === hotelSummaryEntry.state,
       );
-      if (!fullHotelData || !Array.isArray(fullHotelData.rooms)) return ["EP", "CP", "MAP", "AP"];
-      const roomCategoryData = fullHotelData.rooms.find(
-        (r) => r.categoryName === hotelSummaryEntry.selectedRoomCategory,
-      );
-      if (!roomCategoryData || !Array.isArray(roomCategoryData.seasons))
-        return ["EP", "CP", "MAP", "AP"];
-      const checkInDateStr = hotelSummaryEntry.checkInDate;
-      if (!checkInDateStr) return ["EP", "CP", "MAP", "AP"];
-      const checkInDateObj = checkInDateStr.seconds
-        ? new Date(checkInDateStr.seconds * 1000)
-        : new Date(checkInDateStr);
-      if (isNaN(checkInDateObj.getTime())) return ["EP", "CP", "MAP", "AP"];
-      checkInDateObj.setHours(0, 0, 0, 0);
-      const applicableSeason = roomCategoryData.seasons.find((season) => {
-        const start = new Date(season.start);
-        const end = new Date(season.end);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        return checkInDateObj >= start && checkInDateObj <= end;
-      });
-      if (!applicableSeason?.pricing) return ["EP", "CP", "MAP", "AP"];
-      const mealPlanOptions = [];
-      ["EP", "CP", "MAP", "AP"].forEach((plan) => {
-        const pricing = applicableSeason.pricing[plan.toLowerCase()];
-        if (
-          pricing &&
-          (pricing.double > 0 || pricing.extraAdult > 0 || pricing.extraChild > 0 || pricing.cnb > 0)
-        ) {
-          mealPlanOptions.push(plan);
-        }
-      });
-      return mealPlanOptions.length > 0 ? mealPlanOptions : ["EP"];
+      return getAvailableHotelMealPlans(hotelSummaryEntry, fullHotelData);
     },
     [allHotels],
   );
@@ -558,6 +492,25 @@ const handleTransportSummaryChange = (field, value) => {
     const isAlreadyAdded = editingQuotation.hotelSummary.some((h) => h.hotel === newHotelData.name);
     if (isAlreadyAdded) { alert(`${newHotelData.name} is already in the quotation.`); return; }
 
+    const currentHotels = editingQuotation.hotelSummary || [];
+    const lastHotel = currentHotels[currentHotels.length - 1];
+    const checkInDate =
+      lastHotel?.checkOutDate ||
+      currentHotels[0]?.checkInDate ||
+      new Date().toISOString().split("T")[0];
+    const checkOutDate = new Date(checkInDate);
+    checkOutDate.setDate(checkOutDate.getDate() + 1);
+    const checkOutDateValue = checkOutDate.toISOString().split("T")[0];
+    const availableRate = getFirstAvailableHotelRate(newHotelData, {
+      checkInDate,
+      checkOutDate: checkOutDateValue,
+      nights: 1,
+    });
+    if (!availableRate) {
+      alert("No valid hotel rate is available for the selected stay dates.");
+      return;
+    }
+
     const newHotelEntry = {
       hotel: newHotelData.name,
       city: newHotelData.city,
@@ -567,9 +520,10 @@ const handleTransportSummaryChange = (field, value) => {
       numExtraAdult: 0,
       numExtraChild: 0,
       numCNB: 0,
-      checkInDate: new Date().toISOString().split("T")[0],
-      selectedRoomCategory: newHotelData.rooms[0]?.categoryName || "",
-      selectedMealPlan: "EP",
+      checkInDate,
+      checkOutDate: checkOutDateValue,
+      selectedRoomCategory: availableRate.roomCategory,
+      selectedMealPlan: availableRate.mealPlan,
       hotelTotal: 0,
       isCustom: false,
     };
@@ -647,13 +601,18 @@ const handleTransportSummaryChange = (field, value) => {
     setEditingQuotation((prev) => {
       const updatedSummary = [...prev.hotelSummary];
       const oldEntry = updatedSummary[indexToUpdate];
+      const availableRate = getFirstAvailableHotelRate(newHotelData, oldEntry);
+      if (!availableRate) {
+        alert("No valid hotel rate is available for this stay.");
+        return prev;
+      }
       const newEntry = {
         ...oldEntry,
         hotel: newHotelData.name,
         city: newHotelData.city,
         state: newHotelData.state,
-        selectedRoomCategory: newHotelData.rooms[0]?.categoryName || "",
-        selectedMealPlan: "EP",
+        selectedRoomCategory: availableRate.roomCategory,
+        selectedMealPlan: availableRate.mealPlan,
         numDouble: 1,
         numExtraAdult: 0,
         numExtraChild: 0,
@@ -703,7 +662,7 @@ const handleTransportSummaryChange = (field, value) => {
         if (currentHotelData) {
           const availablePlans = getAvailableMealPlans(entry);
           if (!availablePlans.includes(entry.selectedMealPlan)) {
-            entry.selectedMealPlan = availablePlans[0] || "EP";
+            entry.selectedMealPlan = availablePlans[0] || "";
           }
         }
       }

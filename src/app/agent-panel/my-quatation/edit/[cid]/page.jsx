@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/firebase/config";
 import {
@@ -67,6 +67,13 @@ import toast from "react-hot-toast";
 import { getLeadsByAgent } from "@/firebase/leadsService";
 import { updateQuotation } from "@/firebase/quotations";
 import QuotationRejectionDialog from "@/components/QuotationRejectionDialog";
+import {
+  calculateHotelStayPrice,
+  getAvailableHotelMealPlans,
+  getAvailableRoomsForStay,
+  getFirstAvailableHotelRate,
+  hotelHasRatesForStay,
+} from "@/lib/hotelRateAvailability";
 
 const EditQuotationPage = () => {
   const params = useParams();
@@ -120,8 +127,6 @@ const EditQuotationPage = () => {
 
   const getAvailableMealPlans = useCallback(
     (hotelSummaryEntry) => {
-      if (!allHotels.length) return ["EP", "CP", "MAP", "AP"];
-
       const fullHotelData = allHotels.find(
         (h) =>
           h.name === hotelSummaryEntry.hotel &&
@@ -129,103 +134,13 @@ const EditQuotationPage = () => {
           h.state === hotelSummaryEntry.state,
       );
 
-      if (!fullHotelData || !Array.isArray(fullHotelData.rooms))
-        return ["EP", "CP", "MAP", "AP"];
-
-      const roomCategoryData = fullHotelData.rooms.find(
-        (r) => r.categoryName === hotelSummaryEntry.selectedRoomCategory,
-      );
-
-      if (!roomCategoryData || !Array.isArray(roomCategoryData.seasons))
-        return ["EP", "CP", "MAP", "AP"];
-
-      const checkInDateStr = hotelSummaryEntry.checkInDate;
-      if (!checkInDateStr) return ["EP", "CP", "MAP", "AP"];
-
-      const checkInDateObj = checkInDateStr.seconds
-        ? new Date(checkInDateStr.seconds * 1000)
-        : new Date(checkInDateStr);
-
-      if (isNaN(checkInDateObj.getTime())) return ["EP", "CP", "MAP", "AP"];
-
-      checkInDateObj.setHours(0, 0, 0, 0);
-
-      const applicableSeason = roomCategoryData.seasons.find((season) => {
-        const start = new Date(season.start);
-        const end = new Date(season.end);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        return checkInDateObj >= start && checkInDateObj <= end;
-      });
-
-      if (!applicableSeason || !applicableSeason.pricing)
-        return ["EP", "CP", "MAP", "AP"];
-
-      const mealPlanOptions = [];
-      ["EP", "CP", "MAP", "AP"].forEach((plan) => {
-        const planKey = plan.toLowerCase();
-        const pricing = applicableSeason.pricing[planKey];
-        if (
-          pricing &&
-          (pricing.double > 0 ||
-            pricing.extraAdult > 0 ||
-            pricing.extraChild > 0 ||
-            pricing.cnb > 0)
-        ) {
-          mealPlanOptions.push(plan);
-        }
-      });
-      return mealPlanOptions.length > 0 ? mealPlanOptions : ["EP"];
+      return getAvailableHotelMealPlans(hotelSummaryEntry, fullHotelData);
     },
     [allHotels],
   );
 
   const calculateHotelPrice = useCallback((hotelEntry, fullHotelData) => {
-    if (!hotelEntry || !fullHotelData) return 0;
-
-    const {
-      checkInDate,
-      selectedRoomCategory,
-      selectedMealPlan,
-      numDouble = 0,
-      numExtraAdult = 0,
-      numExtraChild = 0,
-      numCNB = 0,
-      nights = 1,
-    } = hotelEntry;
-
-    const roomData = fullHotelData.rooms.find(
-      (r) => r.categoryName === selectedRoomCategory,
-    );
-    if (!roomData || !Array.isArray(roomData.seasons)) return 0;
-
-    const checkInDateObj = checkInDate?.seconds
-      ? new Date(checkInDate.seconds * 1000)
-      : new Date(checkInDate);
-    if (isNaN(checkInDateObj.getTime())) return 0;
-
-    checkInDateObj.setHours(0, 0, 0, 0);
-
-    const applicableSeason = roomData.seasons.find((season) => {
-      const start = new Date(season.start);
-      const end = new Date(season.end);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      return checkInDateObj >= start && checkInDateObj <= end;
-    });
-
-    if (!applicableSeason || !applicableSeason.pricing || !selectedMealPlan)
-      return 0;
-
-    const pricing = applicableSeason.pricing[selectedMealPlan.toLowerCase()];
-    if (!pricing) return 0;
-
-    const doublePrice = (pricing.double || 0) * numDouble;
-    const adultPrice = (pricing.extraAdult || 0) * numExtraAdult;
-    const childPrice = (pricing.extraChild || 0) * numExtraChild;
-    const cnbPrice   = (pricing.cnb   || 0) * numCNB;
-
-    return (doublePrice + adultPrice + childPrice + cnbPrice) * nights;
+    return calculateHotelStayPrice(hotelEntry, fullHotelData);
   }, []);
 
  const recalculateGrandTotal = useCallback((data) => {
@@ -370,6 +285,35 @@ useEffect(() => {
 
 }, [editingQuotation, SelectedDestination, selectedTransportStateId, isFirstEdit]);
 
+  const nextHotelStay = useMemo(() => {
+    const hotels = editingQuotation?.hotelSummary || [];
+    const lastHotel = hotels[hotels.length - 1];
+    const checkInDate =
+      lastHotel?.checkOutDate ||
+      hotels[0]?.checkInDate ||
+      new Date().toISOString().split("T")[0];
+
+    return { checkInDate, nights: 1 };
+  }, [editingQuotation?.hotelSummary]);
+
+  const hotelsForSelectedDestination = useMemo(
+    () =>
+      allHotels.filter(
+        (h) =>
+          h.state === SelectedDestination &&
+          hotelHasRatesForStay(h, nextHotelStay),
+      ),
+    [allHotels, SelectedDestination, nextHotelStay],
+  );
+
+  const getHotelsAvailableForEntry = useCallback(
+    (entry) =>
+      allHotels.filter(
+        (h) => h.state === entry.state && hotelHasRatesForStay(h, entry),
+      ),
+    [allHotels],
+  );
+
   // ────────────────────────────────────────────────
   // Handlers
   // ────────────────────────────────────────────────
@@ -400,6 +344,20 @@ setToggleValue(prev => !prev)
       return;
     }
 
+    const checkInDate = nextHotelStay.checkInDate;
+    const checkOutDate = new Date(checkInDate);
+    checkOutDate.setDate(checkOutDate.getDate() + 1);
+    const checkOutDateValue = checkOutDate.toISOString().split("T")[0];
+    const availableRate = getFirstAvailableHotelRate(newHotel, {
+      checkInDate,
+      checkOutDate: checkOutDateValue,
+      nights: 1,
+    });
+    if (!availableRate) {
+      toast.error("No valid hotel rate is available for the selected stay dates.");
+      return;
+    }
+
     const entry = {
       hotel: newHotel.name,
       city: newHotel.city,
@@ -409,9 +367,10 @@ setToggleValue(prev => !prev)
       numExtraAdult: 0,
       numExtraChild: 0,
       numCNB: 0,
-      checkInDate: new Date().toISOString().split("T")[0],
-      selectedRoomCategory: newHotel.rooms?.[0]?.categoryName || "",
-      selectedMealPlan: "EP",
+      checkInDate,
+      checkOutDate: checkOutDateValue,
+      selectedRoomCategory: availableRate.roomCategory,
+      selectedMealPlan: availableRate.mealPlan,
       hotelTotal: 0,
     };
 
@@ -452,14 +411,19 @@ setToggleValue(prev => !prev)
     setEditingQuotation((prev) => {
       const hotels = [...prev.hotelSummary];
       const old = hotels[index];
+      const availableRate = getFirstAvailableHotelRate(hotel, old);
+      if (!availableRate) {
+        toast.error("No valid hotel rate is available for this stay.");
+        return prev;
+      }
 
       const updatedEntry = {
         ...old,
         hotel: hotel.name,
         city: hotel.city,
         state: hotel.state,
-        selectedRoomCategory: hotel.rooms?.[0]?.categoryName || "",
-        selectedMealPlan: "EP",
+        selectedRoomCategory: availableRate.roomCategory,
+        selectedMealPlan: availableRate.mealPlan,
         numDouble: 1,
         numExtraAdult: 0,
         numExtraChild: 0,
@@ -523,7 +487,7 @@ setToggleValue(prev => !prev)
         if (hData) {
           const plans = getAvailableMealPlans(entry);
           if (!plans.includes(entry.selectedMealPlan)) {
-            entry.selectedMealPlan = plans[0] || "EP";
+            entry.selectedMealPlan = plans[0] || "";
           }
         }
       }
@@ -1040,14 +1004,23 @@ setToggleValue(prev => !prev)
                             <Select
                               value={selectedHotelToAdd}
                               onValueChange={setSelectedHotelToAdd}
-                              disabled={!SelectedDestination}
+                              disabled={
+                                !SelectedDestination ||
+                                hotelsForSelectedDestination.length === 0
+                              }
                             >
                               <SelectTrigger className="flex-1">
-                                <SelectValue placeholder="Select hotel" />
+                                <SelectValue
+                                  placeholder={
+                                    SelectedDestination &&
+                                    hotelsForSelectedDestination.length === 0
+                                      ? "No hotels with rates"
+                                      : "Select hotel"
+                                  }
+                                />
                               </SelectTrigger>
                               <SelectContent>
-                                {allHotels
-                                  .filter((h) => h.state === SelectedDestination)
+                                {hotelsForSelectedDestination
                                   .map((h) => (
                                     <SelectItem key={h.id} value={h.id}>
                                       {h.name} ({h.city})
@@ -1092,6 +1065,9 @@ setToggleValue(prev => !prev)
                           const data = allHotels.find(
                             (h) => h.name === hotel.hotel && h.state === hotel.state,
                           );
+                          const availableRooms = data
+                            ? getAvailableRoomsForStay(data, hotel)
+                            : [];
                           return (
                             <TableRow key={idx}>
                               <TableCell className="pl-6">
@@ -1103,8 +1079,7 @@ setToggleValue(prev => !prev)
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {allHotels
-                                      .filter((h) => h.state === hotel.state)
+                                    {getHotelsAvailableForEntry(hotel)
                                       .map((h) => (
                                         <SelectItem key={h.id} value={h.id}>
                                           {h.name}
@@ -1124,7 +1099,7 @@ setToggleValue(prev => !prev)
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {data?.rooms?.map((r) => (
+                                    {availableRooms.map((r) => (
                                       <SelectItem key={r.categoryName} value={r.categoryName}>
                                         {r.categoryName}
                                       </SelectItem>

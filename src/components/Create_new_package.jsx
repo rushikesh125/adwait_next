@@ -97,6 +97,7 @@ import ActivitySelector from "@/components/package/ActivitySelector";
 import TransportSummaryCard from "@/components/package/TransportSummaryCard";
 import ActivitySummaryCard from "@/components/package/ActivitySummaryCard";
 import HotelItineraryCard from "@/components/package/HotelItineraryCard";
+import { hotelHasRatesForStay } from "@/lib/hotelRateAvailability";
 import {
   MEAL_PLANS,
   calcCustomHotelNightPrice,
@@ -625,9 +626,11 @@ const Create_new_package = ({
   const filteredHotels = useMemo(
     () =>
       hotels.filter(
-        (h) => h.state?.toLowerCase() === selectedState.toLowerCase(),
+        (h) =>
+          h.state?.toLowerCase() === selectedState.toLowerCase() &&
+          hotelHasRatesForStay(h, { checkInDate, checkOutDate, nights }),
       ),
-    [hotels, selectedState],
+    [hotels, selectedState, checkInDate, checkOutDate, nights],
   );
   const groupedHotels = useMemo(
     () =>
@@ -640,7 +643,20 @@ const Create_new_package = ({
     [filteredHotels],
   );
 
-  const selectedHotelData = hotels.find((h) => h.id === selectedHotelId);
+  const selectedHotelData = filteredHotels.find((h) => h.id === selectedHotelId);
+
+  useEffect(() => {
+    if (!selectedHotelId || filteredHotels.some((h) => h.id === selectedHotelId)) {
+      return;
+    }
+
+    updateActiveOption({
+      selectedHotelId: null,
+      roomCategory: "",
+      mealPlan: "",
+      currentHotelTotal: 0,
+    });
+  }, [selectedHotelId, filteredHotels, activeOptionId]);
 
   // ── Per-option hotel totals ───────────────────────────────────────────────
   const getOptionHotelTotal = (opt) =>
@@ -806,6 +822,10 @@ const Create_new_package = ({
     }
     if (!mealPlan) {
       alert("Please select a meal plan.");
+      return;
+    }
+    if (!currentHotelTotal || Number(currentHotelTotal) <= 0) {
+      alert("No valid hotel rate is available for the selected stay dates.");
       return;
     }
     const entry = {
@@ -1305,7 +1325,8 @@ const Create_new_package = ({
                         <Hotel className="h-5 w-5 text-slate-400" />
                       </div>
                       <p className="text-slate-500 text-xs">
-                        No hotels found in {selectedState}.
+                        No hotels with rates found for the selected stay in{" "}
+                        {selectedState}.
                       </p>
                       <Button
                         onClick={() => setShowCustomHotelForm(true)}
@@ -1392,6 +1413,7 @@ const Create_new_package = ({
                             <HotelRoomSelector
                               hotel={selectedHotelData}
                               checkInDate={checkInDate}
+                              checkOutDate={checkOutDate}
                               nights={nights}
                               onTotalChange={setCurrentHotelTotal}
                               onRoomCategoryChange={setRoomCategory}
