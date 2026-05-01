@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { addFollowUp } from "@/firebase/followUpService";
+import { sendLeadNotificationToAgent } from "@/utils/email";
 
 export default function PublicEnquiryPage() {
   const params = useParams();
@@ -92,126 +93,107 @@ export default function PublicEnquiryPage() {
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
 
-    const nextErrors = validateEnquiry(form);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || !agent) return;
 
-    setSubmitting(true);
-    setFatalError("");
+const handleSubmit = async (event) => {
+  event.preventDefault();
 
-    try {
-      const cleanEmail = normalizeEmail(form.email);
-      const cleanMobile = normalizeMobile(form.mobile);
+  const nextErrors = validateEnquiry(form);
+  setErrors(nextErrors);
+  if (Object.keys(nextErrors).length > 0 || !agent) return;
 
-      let customer = await findExistingCustomerByEmailOrMobile({
-        email: cleanEmail,
-        mobile: cleanMobile,
-      });
+  setSubmitting(true);
+  setFatalError("");
 
-      if (!customer) {
-        const customerRef = await addCustomer({
-          name: form.name.trim(),
-          email: cleanEmail,
-          mobile: cleanMobile,
-          city: form.departureCity.trim(),
-          state: form.destination.trim(),
-          status: "New",
-          source: "Public Enquiry Form",
-          assignedAgentId: agent.id,
-          assignedAgentName: agent.name || "",
-        });
+  try {
+    const cleanEmail = normalizeEmail(form.email);
+    const cleanMobile = normalizeMobile(form.mobile);
 
-        customer = {
-          id: customerRef.id,
-          name: form.name.trim(),
-          email: cleanEmail,
-          mobile: cleanMobile,
-        };
-      } else {
-        const updates = {};
-        if (!customer.assignedAgentId) updates.assignedAgentId = agent.id;
-        if (!customer.assignedAgentName && agent.name) {
-          updates.assignedAgentName = agent.name;
-        }
-        if (Object.keys(updates).length > 0) {
-          await updateDoc(doc(db, "customers", customer.id), updates);
-        }
-      }
+    // ✅ Find or create customer
+    let customer = await findExistingCustomerByEmailOrMobile({
+      email: cleanEmail,
+      mobile: cleanMobile,
+    });
 
-      const isAdmin = ownerType === "admin";
-      const leadId = await createAssignedLead({
-        ...form,
+    if (!customer) {
+      const customerRef = await addCustomer({
         name: form.name.trim(),
         email: cleanEmail,
         mobile: cleanMobile,
-        customerId: customer.id,
-        // Agent links: assign directly. Admin links: leave unassigned for admin to route.
-        agentId: isAdmin ? null : agent.id,
-        agentName: isAdmin ? "" : agent.name || "",
-        adminId: isAdmin ? agent.id : (agent.adminId || null),
+        city: form.departureCity.trim(),
+        state: form.destination.trim(),
+        status: "New",
         source: "Public Enquiry Form",
+        assignedAgentId: agent.id,
+        assignedAgentName: agent.name || "",
       });
-      console.log("leadId:", leadId, typeof leadId);
-      try {
-        await addFollowUp(leadId, {
-          dateTime: new Date(Date.now() + 16 * 60 * 60 * 1000).toISOString(),
-          mode: "Call",
-          notes: "Initial follow-up for public enquiry",
-          quotationIds: [],
-        });
 
-        console.log("[Public Enquiry] Auto follow-up created");
-      } catch (followErr) {
-        console.error("[Public Enquiry] Auto follow-up failed:", followErr);
+      customer = {
+        id: customerRef.id,
+        name: form.name.trim(),
+        email: cleanEmail,
+        mobile: cleanMobile,
+      };
+    } else {
+      const updates = {};
+      if (!customer.assignedAgentId) updates.assignedAgentId = agent.id;
+      if (!customer.assignedAgentName && agent.name) {
+        updates.assignedAgentName = agent.name;
       }
-      // Notify agent about the new lead via email
-      console.log("[Lead Email] agent.email:", agent.email);
-      if (agent.email) {
-        try {
-          await emailjs.send(
-            "service_gmfmqbu",
-            process.env.NEXT_PUBLIC_EMAILJS_LEAD_TEMPLATE_ID,
-            {
-              agent_name: agent.name || "Agent",
-              to_email: agent.email,
-              customer_name: form.name.trim(),
-              customer_email: cleanEmail,
-              customer_mobile: cleanMobile,
-              destination: form.destination,
-              departure_city: form.departureCity,
-              travel_date: form.travelDate,
-              days: form.days,
-              trip_type: form.tripType,
-              adults: form.adults,
-              children: form.children || "0",
-              rooms: form.rooms,
-              meal_plan: form.mealPlan,
-              budget: form.budget || "Not specified",
-              notes: form.notes || "None",
-            },
-            "yTtNjop0pU1m6XnE0",
-          );
-        } catch (emailError) {
-          // Don't block submission if email fails
-          console.error("Lead notification email failed:", emailError);
-        }
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(doc(db, "customers", customer.id), updates);
       }
-
-      setSubmitted(true);
-      setForm(enquiryInitialValues);
-      setErrors({});
-    } catch (error) {
-      console.error(error);
-      setFatalError(
-        "We could not submit your enquiry right now. Please try again.",
-      );
-    } finally {
-      setSubmitting(false);
     }
-  };
+
+    // ✅ Create lead
+    const isAdmin = ownerType === "admin";
+    const leadId = await createAssignedLead({
+      ...form,
+      name: form.name.trim(),
+      email: cleanEmail,
+      mobile: cleanMobile,
+      customerId: customer.id,
+      agentId: isAdmin ? null : agent.id,
+      agentName: isAdmin ? "" : agent.name || "",
+      adminId: isAdmin ? agent.id : (agent.adminId || null),
+      source: "Public Enquiry Form",
+    });
+
+    console.log("leadId:", leadId);
+
+    // ✅ Auto follow-up
+    try {
+      await addFollowUp(leadId, {
+        dateTime: new Date(Date.now() + 16 * 60 * 60 * 1000).toISOString(),
+        mode: "Call",
+        notes: "Initial follow-up for public enquiry",
+        quotationIds: [],
+      });
+    } catch (followErr) {
+      console.error("Follow-up failed:", followErr);
+    }
+
+    // ✅ Clean email trigger (THIS is all you need now)
+    await sendLeadNotificationToAgent({
+      agent,
+      form,
+      cleanEmail,
+      cleanMobile,
+    });
+
+    // ✅ Success
+    setSubmitted(true);
+    setForm(enquiryInitialValues);
+    setErrors({});
+  } catch (error) {
+    console.error(error);
+    setFatalError(
+      "We could not submit your enquiry right now. Please try again."
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const renderFieldLabel = (label, required = false) => (
     <Label className="text-slate-700">

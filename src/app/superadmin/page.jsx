@@ -9,7 +9,6 @@ import {
   doc,
   deleteDoc,
 } from "firebase/firestore";
-import emailjs from "@emailjs/browser";
 import {
   Shield,
   Loader2,
@@ -352,39 +351,19 @@ export default function Dashboard() {
   );
 
   /* ── Handlers ── */
- const handleApprove = async (type, id) => {
-    const userToApprove = [...admins, ...agents].find(u => u.id === id);
-    if (!userToApprove) return;
+const handleApprove = async (type, id) => {
+  const loadingToast = toast.loading("Approving user...");
 
-    const loadingToast = toast.loading("Approving and notifying...");
+  try {
+    await updateDoc(doc(db, type, id), { approved: "accepted" });
 
-    try {
-      // 1. Update Firestore
-      await updateDoc(doc(db, type, id), { approved: "accepted" });
-
-      // 2. Send via EmailJS
-      const emailParams = {
-        to_name: userToApprove.name,
-        to_email: userToApprove.email,
-        user_role: type === "admins" ? "Administrator" : "Agent",
-        status: "Approved", // Dynamic status
-        admin_message: "Your application has been reviewed and approved. You now have full access to the platform.",
-      };
-
-      await emailjs.send(
-        "service_gmfmqbu",
-        process.env.NEXT_PUBLIC_EMAILJS_APPROVAL_TEMPLATE_ID,
-        emailParams,
-        "GjevhIIhLITokCOAK"
-      );
-
-      toast.success("User approved and notified", { id: loadingToast });
-      fetchUsers();
-    } catch (error) {
-      console.error("Approval Error:", error);
-      toast.error("Status updated, but notification failed.", { id: loadingToast });
-    }
-  };
+    toast.success("User approved successfully", { id: loadingToast });
+    fetchUsers();
+  } catch (error) {
+    console.error("Approval Error:", error);
+    toast.error("Failed to approve user", { id: loadingToast });
+  }
+};
 
   const handleSuspend = async (type, id) => {
     try {
@@ -396,42 +375,26 @@ export default function Dashboard() {
     }
   };
 
- const handleRejectConfirm = async () => {
-    if (!rejectReason.trim()) return toast.error("Please provide a reason");
+const handleRejectConfirm = async () => {
+  if (!rejectReason.trim()) return toast.error("Please provide a reason");
 
-    const loadingToast = toast.loading("Processing rejection...");
+  const loadingToast = toast.loading("Rejecting user...");
 
-    try {
-      // 1. Update Firestore
-      await updateDoc(doc(db, selectedUser.type, selectedUser.id), {
-        approved: "rejected",
-      });
+  try {
+    await updateDoc(doc(db, selectedUser.type, selectedUser.id), {
+      approved: "rejected",
+    });
 
-      // 2. Send via EmailJS
-      const emailParams = {
-        to_name: selectedUser.name,
-        to_email: selectedUser.email,
-        user_role: selectedUser.type === "admins" ? "Administrator" : "Agent",
-        status: "Rejected", // Dynamic status
-        admin_message: rejectReason,
-      };
+    toast.success(`User rejected`, { id: loadingToast });
+    setIsRejectModalOpen(false);
+    setRejectReason("");
+    fetchUsers();
+  } catch (error) {
+    console.error("Reject Error:", error);
+    toast.error("Failed to reject user", { id: loadingToast });
+  }
+};
 
-      await emailjs.send(
-        "service_gmfmqbu",
-        process.env.NEXT_PUBLIC_EMAILJS_APPROVAL_TEMPLATE_ID,
-        emailParams,
-        "GjevhIIhLITokCOAK"
-      );
-
-      toast.success(`Notification sent to ${selectedUser.name}`, { id: loadingToast });
-      setIsRejectModalOpen(false);
-      setRejectReason("");
-      fetchUsers();
-    } catch (error) {
-      console.error("Email Error:", error);
-      toast.error("Status updated, but notification failed.", { id: loadingToast });
-    }
-  };
   const handleDelete = async (type, id) => {
     if (!confirm("Permanently delete this user?")) return;
     try {
@@ -813,7 +776,7 @@ export default function Dashboard() {
               </DialogTitle>
               <DialogDescription className="pt-1.5 text-sm">
                 <strong className="text-slate-700">{selectedUser?.name}</strong>{" "}
-                will be notified by email with the reason below.
+                will be rejected with the reason below.
               </DialogDescription>
             </DialogHeader>
             <div className="py-5">
@@ -839,7 +802,7 @@ export default function Dashboard() {
                 onClick={handleRejectConfirm}
                 className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-8 font-black w-full sm:w-auto transition-colors"
               >
-                Reject &amp; Notify
+                Reject User
               </Button>
             </DialogFooter>
           </DialogContent>
