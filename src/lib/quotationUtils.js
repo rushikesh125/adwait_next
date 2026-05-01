@@ -1,4 +1,8 @@
 // src/lib/quotationUtils.js
+import {
+  calculateHotelStayPrice,
+  getAvailableHotelMealPlans,
+} from "@/lib/hotelRateAvailability";
 
 // Format Firebase timestamp or ISO string to readable date (used in PDF & display)
 export const formatPdfDate = (dateData) => {
@@ -72,96 +76,12 @@ export const getDestinationOfpkg = (quote) => {
 
 // Get available meal plans for a hotel entry based on season & pricing
 export const getAvailableMealPlans = (hotelEntry, fullHotelData) => {
-  if (!fullHotelData || !Array.isArray(fullHotelData.rooms)) {
-    return ["EP", "CP", "MAP", "AP"];
-  }
-
-  const room = fullHotelData.rooms.find(
-    (r) => r.categoryName === hotelEntry.selectedRoomCategory
-  );
-
-  if (!room || !Array.isArray(room.seasons)) {
-    return ["EP", "CP", "MAP", "AP"];
-  }
-
-  let checkIn;
-  if (hotelEntry.checkInDate?.seconds) {
-    checkIn = new Date(hotelEntry.checkInDate.seconds * 1000);
-  } else {
-    checkIn = new Date(hotelEntry.checkInDate);
-  }
-
-  if (isNaN(checkIn.getTime())) return ["EP", "CP", "MAP", "AP"];
-
-  checkIn.setHours(0, 0, 0, 0);
-
-  const season = room.seasons.find((s) => {
-    const start = new Date(s.start);
-    const end = new Date(s.end);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    return checkIn >= start && checkIn <= end;
-  });
-
-  if (!season || !season.pricing) return ["EP", "CP", "MAP", "AP"];
-
-  const plans = [];
-  ["EP", "CP", "MAP", "AP"].forEach((plan) => {
-    const key = plan.toLowerCase();
-    const p = season.pricing[key];
-    if (p && (p.double > 0 || p.extraAdult > 0 || p.extraChild > 0)) {
-      plans.push(plan);
-    }
-  });
-
-  return plans.length > 0 ? plans : ["EP"];
+  return getAvailableHotelMealPlans(hotelEntry, fullHotelData);
 };
 
 // Calculate price for one hotel entry
 export const calculateHotelPrice = (entry, fullHotelData) => {
-  if (!entry || !fullHotelData) return 0;
-
-  const {
-    checkInDate,
-    selectedRoomCategory,
-    selectedMealPlan,
-    numDouble = 0,
-    numExtraAdult = 0,
-    numExtraChild = 0,
-    nights = 1,
-  } = entry;
-
-  const room = fullHotelData.rooms?.find((r) => r.categoryName === selectedRoomCategory);
-  if (!room || !room.seasons) return 0;
-
-  let checkIn;
-  if (checkInDate?.seconds) {
-    checkIn = new Date(checkInDate.seconds * 1000);
-  } else {
-    checkIn = new Date(checkInDate);
-  }
-
-  if (isNaN(checkIn.getTime())) return 0;
-  checkIn.setHours(0, 0, 0, 0);
-
-  const season = room.seasons.find((s) => {
-    const start = new Date(s.start);
-    const end = new Date(s.end);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    return checkIn >= start && checkIn <= end;
-  });
-
-  if (!season || !season.pricing || !selectedMealPlan) return 0;
-
-  const pricing = season.pricing[selectedMealPlan.toLowerCase()];
-  if (!pricing) return 0;
-
-  const double = (pricing.double || 0) * numDouble;
-  const extraAdult = (pricing.extraAdult || 0) * numExtraAdult;
-  const extraChild = (pricing.extraChild || 0) * numExtraChild;
-
-  return (double + extraAdult + extraChild) * nights;
+  return calculateHotelStayPrice(entry, fullHotelData);
 };
 
 // Calculate grand total of entire quotation
