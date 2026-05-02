@@ -134,7 +134,7 @@ const AgentPanelLayout = ({ children }) => {
       <div className="h-screen bg-[#FDFCFE] flex overflow-hidden">
 
         {/* Mobile sidebar overlay — z-[100] so it's above header but below notification sheet */}
-        <div className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300
+        <div className={`fixed inset-0 z-30 lg:hidden transition-opacity duration-300
           ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         >
           <div
@@ -157,7 +157,7 @@ const AgentPanelLayout = ({ children }) => {
 
         <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
           {/* Header — z-[90] so notification sheet (z-[120]) slides over it on mobile */}
-          <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-[90]">
+          <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-30">
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
