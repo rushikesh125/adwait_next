@@ -27,8 +27,11 @@ import { signOut } from "firebase/auth";
 import toast from "react-hot-toast";
 import UserDropdown from "@/components/UserDropdown";
 import NotificationCenter from "@/components/NotificationCenter";
-import { requestNotificationPermission } from "@/firebase/notificationsService";
-import { listenForForegroundMessages, registerFCMToken } from "@/firebase/fcmService";
+import {
+  registerServiceWorker,
+  requestNotificationPermission,
+  subscribeToPush,
+} from "@/firebase/notificationsService";
 
 const AgentPanelLayout = ({ children }) => {
   const { user } = useSelector((state) => state.auth);
@@ -40,29 +43,30 @@ const AgentPanelLayout = ({ children }) => {
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
-  
+
+  // In your AgentPanelLayout or wherever the user logs in:
 
   useEffect(() => {
-  if (!user?.uid) return;
- 
-  let unsubForeground = () => {};
- 
-  async function initPushNotifications() {
-    // 1. Request permission (if not already granted)
-    const permission = await requestNotificationPermission();
-    if (permission !== "granted") return;
- 
-    // 2. Register this device's FCM token → saves to Firestore
-    await registerFCMToken(user.uid);
- 
-    // 3. Listen for messages when app is in foreground
-    unsubForeground = listenForForegroundMessages();
-  }
- 
-  initPushNotifications();
- 
-  return () => unsubForeground();
-}, [user?.uid]);
+    async function setup() {
+      try {
+        const reg = await registerServiceWorker();
+        if (!reg) return; // SW failed, skip silently
+
+        const permission = await requestNotificationPermission();
+        if (permission !== "granted") return;
+
+        const sub = await subscribeToPush(user?.uid);
+        if (sub) {
+          console.log("[Push] Setup complete");
+        } else {
+          console.warn("[Push] Subscription skipped (localhost limitation)");
+        }
+      } catch (err) {
+        console.warn("[Push] Setup failed silently:", err.message);
+      }
+    }
+    if (user?.uid) setup();
+  }, [user?.uid]);
 
   const handleLogout = async () => {
     try {
@@ -82,8 +86,12 @@ const AgentPanelLayout = ({ children }) => {
     { name: "Invoices", href: "/agent-panel/invoices", icon: FileText },
     { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
     { name: "Customer", href: "/agent-panel/customers", icon: Users },
-    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon},
-    { name: "Railway Booking", href: "/agent-panel/bookingform", icon: Component },
+    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon },
+    {
+      name: "Railway Booking",
+      href: "/agent-panel/bookingform",
+      icon: Component,
+    },
   ];
 
   const SidebarContent = ({ mobile = false }) => (
@@ -153,59 +161,59 @@ const AgentPanelLayout = ({ children }) => {
   return (
     <RequireAuth allowedRoles={["agent"]}>
       <div className="h-screen bg-[#FDFCFE] flex overflow-hidden">
-      <div
-        className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-      >
         <div
-          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-          onClick={() => setIsMobileOpen(false)}
-        />
-        <div
-          className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         >
-          <SidebarContent mobile={true} />
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setIsMobileOpen(false)}
+          />
+          <div
+            className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+          >
+            <SidebarContent mobile={true} />
+          </div>
         </div>
-      </div>
 
-      <aside
-        className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}
-      >
-        <SidebarContent />
-      </aside>
+        <aside
+          className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}
+        >
+          <SidebarContent />
+        </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setIsMobileOpen(true)}
-            >
-              <Menu className="w-6 h-6 text-slate-600" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden lg:flex text-slate-500"
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            >
-              <Menu className="w-6 h-6" />
-            </Button>
-          </div>
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+          <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setIsMobileOpen(true)}
+              >
+                <Menu className="w-6 h-6 text-slate-600" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden lg:flex text-slate-500"
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              >
+                <Menu className="w-6 h-6" />
+              </Button>
+            </div>
 
-          <div className="flex items-center gap-2 lg:gap-4">
-            <NotificationCenter userId={user?.uid} />
-            <UserDropdown user={user} />
-          </div>
-        </header>
+            <div className="flex items-center gap-2 lg:gap-4">
+              <NotificationCenter userId={user?.uid} />
+              <UserDropdown user={user} />
+            </div>
+          </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-100">
-          <div className="mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
-            {children}
-          </div>
-        </main>
-      </div>
+          <main className="flex-1 overflow-y-auto bg-slate-100">
+            <div className="mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
     </RequireAuth>
   );
