@@ -5,21 +5,9 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 
-import Vouchers from "@/app/agent-panel/vouchers/page.jsx";
 import {
-  LayoutDashboard,
-  Map,
-  Users,
-  LogOut,
-  Menu,
-  X,
-  Bell,
-  Briefcase,
-  Component,
-  Tickets,
-  BookAIcon,
-  CalendarCheck,
-  FileText,
+  LayoutDashboard, Map, Users, LogOut, Menu, X, Bell,
+  Briefcase, Component, Tickets, BookAIcon, CalendarCheck, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -44,23 +32,16 @@ const AgentPanelLayout = ({ children }) => {
     setIsMobileOpen(false);
   }, [pathname]);
 
-  // In your AgentPanelLayout or wherever the user logs in:
-
   useEffect(() => {
     async function setup() {
       try {
         const reg = await registerServiceWorker();
-        if (!reg) return; // SW failed, skip silently
-
+        if (!reg) return;
         const permission = await requestNotificationPermission();
         if (permission !== "granted") return;
-
         const sub = await subscribeToPush(user?.uid);
-        if (sub) {
-          console.log("[Push] Setup complete");
-        } else {
-          console.warn("[Push] Subscription skipped (localhost limitation)");
-        }
+        if (sub) console.log("[Push] Setup complete");
+        else console.warn("[Push] Subscription skipped (localhost limitation)");
       } catch (err) {
         console.warn("[Push] Setup failed silently:", err.message);
       }
@@ -79,19 +60,15 @@ const AgentPanelLayout = ({ children }) => {
   };
 
   const navItems = [
-    { name: "Dashboard", href: "/agent-panel", icon: LayoutDashboard },
-    { name: "Lead", href: "/agent-panel/leads", icon: Briefcase },
-    { name: "Quotation", href: "/agent-panel/my-quatation", icon: Map },
-    { name: "Booking", href: "/agent-panel/bookings", icon: CalendarCheck },
-    { name: "Invoices", href: "/agent-panel/invoices", icon: FileText },
-    { name: "Vouchers", href: "/agent-panel/vouchers", icon: Tickets },
-    { name: "Customer", href: "/agent-panel/customers", icon: Users },
-    { name: "Itinerary", href: "/agent-panel/itinerary", icon: BookAIcon },
-    {
-      name: "Railway Booking",
-      href: "/agent-panel/bookingform",
-      icon: Component,
-    },
+    { name: "Dashboard",      href: "/agent-panel",               icon: LayoutDashboard },
+    { name: "Lead",           href: "/agent-panel/leads",          icon: Briefcase       },
+    { name: "Quotation",      href: "/agent-panel/my-quatation",   icon: Map             },
+    { name: "Booking",        href: "/agent-panel/bookings",       icon: CalendarCheck   },
+    { name: "Invoices",       href: "/agent-panel/invoices",       icon: FileText        },
+    { name: "Vouchers",       href: "/agent-panel/vouchers",       icon: Tickets         },
+    { name: "Customer",       href: "/agent-panel/customers",      icon: Users           },
+    { name: "Itinerary",      href: "/agent-panel/itinerary",      icon: BookAIcon       },
+    { name: "Railway Booking",href: "/agent-panel/bookingform",    icon: Component       },
   ];
 
   const SidebarContent = ({ mobile = false }) => (
@@ -115,11 +92,7 @@ const AgentPanelLayout = ({ children }) => {
           )}
         </div>
         {mobile && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMobileOpen(false)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(false)}>
             <X className="w-5 h-5 text-slate-500" />
           </Button>
         )}
@@ -135,9 +108,7 @@ const AgentPanelLayout = ({ children }) => {
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group
                 ${isActive ? "bg-theme-muted/50 text-theme-primary font-bold" : "text-slate-500 hover:bg-slate-50"}`}
             >
-              <item.icon
-                className={`w-5 h-5 ${isActive ? "text-theme-primary" : "group-hover:text-theme-primary"}`}
-              />
+              <item.icon className={`w-5 h-5 ${isActive ? "text-theme-primary" : "group-hover:text-theme-primary"}`} />
               {(isSidebarOpen || mobile) && (
                 <span className="text-sm font-medium">{item.name}</span>
               )}
@@ -161,28 +132,32 @@ const AgentPanelLayout = ({ children }) => {
   return (
     <RequireAuth allowedRoles={["agent"]}>
       <div className="h-screen bg-[#FDFCFE] flex overflow-hidden">
-        <div
-          className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+
+        {/* Mobile sidebar overlay — z-[100] so it's above header but below notification sheet */}
+        <div className={`fixed inset-0 z-[100] lg:hidden transition-opacity duration-300
+          ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         >
           <div
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => setIsMobileOpen(false)}
           />
-          <div
-            className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+          <div className={`absolute inset-y-0 left-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform
+            ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}
           >
             <SidebarContent mobile={true} />
           </div>
         </div>
 
-        <aside
-          className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}
+        {/* Desktop sidebar */}
+        <aside className={`hidden lg:flex flex-col border-r shadow-md border-slate-200 transition-all duration-300
+          ${isSidebarOpen ? "w-64" : "w-20"} h-screen flex-shrink-0`}
         >
           <SidebarContent />
         </aside>
 
         <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-          <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
+          {/* Header — z-[90] so notification sheet (z-[120]) slides over it on mobile */}
+          <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-[90]">
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
