@@ -16,6 +16,7 @@ import {
   requestNotificationPermission,
   registerServiceWorker,
 } from "@/firebase/notificationsService";
+import { useInstallmentAlerts } from "./useInstallmentAlerts";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FOLLOWUP_POLL_INTERVAL = 5 * 60 * 1000; // 5 min
@@ -76,6 +77,7 @@ async function fetchDueFollowUps(userId) {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export function useNotifications(userId) {
+  useInstallmentAlerts(userId);
   const [notifications, setNotifications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
   const [permissionState, setPermissionState] = useState("default"); // "granted"|"denied"|"default"|"unsupported"

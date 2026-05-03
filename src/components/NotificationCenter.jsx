@@ -29,6 +29,11 @@ import {
 import { useNotifications } from "@/hooks/useNotifications";
 
 const TYPE_META = {
+  vendor_payment_due: {        // ← add this entry
+    icon: AlertCircle,
+    color: "text-rose-600",
+    bg: "bg-rose-50",
+  },
   quotation_accepted: {
     icon: TrendingUp,
     color: "text-emerald-600",

@@ -3,6 +3,10 @@
     {
       "path": "/api/admin/hotel-season-cleanup",
       "schedule": "45 6 * * *"
+    },
+    {
+      "path": "/api/cron/check-installments",
+      "schedule": "0 21 * * *"
     }
   ]
 }
