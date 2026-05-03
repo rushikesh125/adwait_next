@@ -20,6 +20,7 @@ import {
   getAvailableHotelMealPlans,
   getFirstAvailableHotelRate,
 } from "@/lib/hotelRateAvailability";
+import { createNotification } from "@/firebase/notificationsService";
 
 export function useQuotationState() {
   // `loading` here is the auth loading state — managed automatically by Redux/auth slice.
@@ -93,7 +94,8 @@ export function useQuotationState() {
     messageBox.textContent = message;
     document.body.appendChild(messageBox);
     setTimeout(() => {
-      if (document.body.contains(messageBox)) document.body.removeChild(messageBox);
+      if (document.body.contains(messageBox))
+        document.body.removeChild(messageBox);
     }, 3000);
   };
 
@@ -120,7 +122,10 @@ export function useQuotationState() {
       if (Quote?.transportSummary?.state) {
         return `${Quote.transportSummary.state} (Transport) \n`;
       }
-      if (Array.isArray(Quote?.activitySummary) && Quote.activitySummary.length > 0) {
+      if (
+        Array.isArray(Quote?.activitySummary) &&
+        Quote.activitySummary.length > 0
+      ) {
         const activityStatesCitiesMap = new Map();
         Quote.activitySummary.forEach((activity) => {
           const state = activity.state;
@@ -145,7 +150,8 @@ export function useQuotationState() {
       const stateName = hotel.state;
       const cityName = hotel.city;
       if (stateName && cityName) {
-        if (!stateCityMap.has(stateName)) stateCityMap.set(stateName, new Set());
+        if (!stateCityMap.has(stateName))
+          stateCityMap.set(stateName, new Set());
         stateCityMap.get(stateName).add(cityName);
       }
     });
@@ -162,29 +168,36 @@ export function useQuotationState() {
   }, []);
 
   const recalculateGrandTotal = useCallback((data) => {
-  const hotelTotal = data.hotelSummary?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0) || 0;
-  let transportTotal = 0;
-  if (data.transportSummary) {
-    const t = data.transportSummary;
-    const hasBreakdown =
-      t.vehicleCost || t.driverAllowance || t.tollCharges || t.permitCharges || t.otherCharges;
-    if (hasBreakdown) {
-      transportTotal =
-        (Number(t.vehicleCost) || 0) +
-        (Number(t.driverAllowance) || 0) +
-        (Number(t.tollCharges) || 0) +
-        (Number(t.permitCharges) || 0) +
-        (Number(t.otherCharges) || 0);
-    } else if (t.pricingType === "perKm") {
-      transportTotal = (t.kms || 0) * (t.perKmprice || 0);
-    } else {
-      transportTotal = t.price || 0;
+    const hotelTotal =
+      data.hotelSummary?.reduce((sum, h) => sum + (h.hotelTotal || 0), 0) || 0;
+    let transportTotal = 0;
+    if (data.transportSummary) {
+      const t = data.transportSummary;
+      const hasBreakdown =
+        t.vehicleCost ||
+        t.driverAllowance ||
+        t.tollCharges ||
+        t.permitCharges ||
+        t.otherCharges;
+      if (hasBreakdown) {
+        transportTotal =
+          (Number(t.vehicleCost) || 0) +
+          (Number(t.driverAllowance) || 0) +
+          (Number(t.tollCharges) || 0) +
+          (Number(t.permitCharges) || 0) +
+          (Number(t.otherCharges) || 0);
+      } else if (t.pricingType === "perKm") {
+        transportTotal = (t.kms || 0) * (t.perKmprice || 0);
+      } else {
+        transportTotal = t.price || 0;
+      }
     }
-  }
-  const activityTotal = data.activitySummary?.reduce((sum, a) => sum + (a.totalPrice || 0), 0) || 0;
-  const markup = data.markup || 0;
-  return hotelTotal + transportTotal + activityTotal + markup;
-}, []);
+    const activityTotal =
+      data.activitySummary?.reduce((sum, a) => sum + (a.totalPrice || 0), 0) ||
+      0;
+    const markup = data.markup || 0;
+    return hotelTotal + transportTotal + activityTotal + markup;
+  }, []);
 
   const getAvailableMealPlans = useCallback(
     (hotelSummaryEntry) => {
@@ -205,7 +218,12 @@ export function useQuotationState() {
     if (!agentId) return;
     setIsFetchingQuotations(true);
     try {
-      const packagesRef = collection(db, "saved_packages_by_agents", agentId, "packages");
+      const packagesRef = collection(
+        db,
+        "saved_packages_by_agents",
+        agentId,
+        "packages",
+      );
       const q = query(packagesRef, orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
       const total = snapshot.docs.length;
@@ -225,26 +243,34 @@ export function useQuotationState() {
       try {
         const snap = await getDocs(collection(db, "hotels"));
         setAllHotels(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+      }
     };
     const fetchAllTransportStates = async () => {
       try {
         const snap = await getDocs(collection(db, "transport"));
         setTransportStates(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+      }
     };
     const fetchAllDestinations = async () => {
       try {
         const snap = await getDocs(collection(db, "locations"));
         setAllDestinations(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+      }
     };
     fetchAllHotels();
     fetchAllTransportStates();
     fetchAllDestinations();
   }, []);
 
-  useEffect(() => { fetchQuotations(); }, [fetchQuotations]);
+  useEffect(() => {
+    fetchQuotations();
+  }, [fetchQuotations]);
 
   // Activities & transport packages based on edit modal context
   useEffect(() => {
@@ -269,11 +295,19 @@ export function useQuotationState() {
       const fetchActivities = async () => {
         setIsFetchingActivities(true);
         try {
-          const q = query(collection(db, "activities"), where("state", "==", currentActivityState));
+          const q = query(
+            collection(db, "activities"),
+            where("state", "==", currentActivityState),
+          );
           const snap = await getDocs(q);
-          setAvailableActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        } catch (err) { console.error(err); }
-        finally { setIsFetchingActivities(false); }
+          setAvailableActivities(
+            snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+          );
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setIsFetchingActivities(false);
+        }
       };
       fetchActivities();
     } else {
@@ -282,7 +316,12 @@ export function useQuotationState() {
     if (selectedTransportStateId) {
       const fetchTransportPackages = async () => {
         try {
-          const ref = collection(db, "transport", selectedTransportStateId, "packages");
+          const ref = collection(
+            db,
+            "transport",
+            selectedTransportStateId,
+            "packages",
+          );
           const snap = await getDocs(ref);
           setAvailableTransportPackagesForSelectedState(
             snap.docs.map((d) => ({ id: d.id, ...d.data() })),
@@ -296,12 +335,20 @@ export function useQuotationState() {
     } else {
       setAvailableTransportPackagesForSelectedState([]);
     }
-  }, [isEditModalOpen, editingQuotation, SelectedDestination, selectedTransportStateId, isFirstEdit]);
+  }, [
+    isEditModalOpen,
+    editingQuotation,
+    SelectedDestination,
+    selectedTransportStateId,
+    isFirstEdit,
+  ]);
 
   // ─── Filtered list ────────────────────────────────────────────────────────
   const filteredQuotations = useMemo(() => {
     return quotations.filter((q) => {
-      const quotationDate = q.createdAt?.seconds ? new Date(q.createdAt.seconds * 1000) : null;
+      const quotationDate = q.createdAt?.seconds
+        ? new Date(q.createdAt.seconds * 1000)
+        : null;
       const packageDestination = getDestinationOfpkg(q);
       const matchesSearch =
         searchTerm.toLowerCase() === "" ||
@@ -309,12 +356,23 @@ export function useQuotationState() {
         `quote ${q.quoteNumber}`.includes(searchTerm.toLowerCase()) ||
         q.packageName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         packageDestination.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStartDate = !startDate || (quotationDate && quotationDate >= new Date(startDate));
-      const matchesEndDate = !endDate || (quotationDate && quotationDate <= new Date(endDate));
+      const matchesStartDate =
+        !startDate || (quotationDate && quotationDate >= new Date(startDate));
+      const matchesEndDate =
+        !endDate || (quotationDate && quotationDate <= new Date(endDate));
       const matchesStatus = !filterStatus || q.status === filterStatus;
-      return matchesSearch && matchesStartDate && matchesEndDate && matchesStatus;
+      return (
+        matchesSearch && matchesStartDate && matchesEndDate && matchesStatus
+      );
     });
-  }, [quotations, searchTerm, startDate, endDate, filterStatus, getDestinationOfpkg]);
+  }, [
+    quotations,
+    searchTerm,
+    startDate,
+    endDate,
+    filterStatus,
+    getDestinationOfpkg,
+  ]);
 
   // ─── Event handlers ───────────────────────────────────────────────────────
   const handleViewClick = (quotation) => {
@@ -352,8 +410,15 @@ export function useQuotationState() {
       } else {
         newMarkup = parseFloat(value) || 0;
       }
-      const updatedQuotation = { ...prev, markup: newMarkup, markupValue: parseFloat(value) || 0 };
-      return { ...updatedQuotation, grandTotal: recalculateGrandTotal(updatedQuotation) };
+      const updatedQuotation = {
+        ...prev,
+        markup: newMarkup,
+        markupValue: parseFloat(value) || 0,
+      };
+      return {
+        ...updatedQuotation,
+        grandTotal: recalculateGrandTotal(updatedQuotation),
+      };
     });
   };
 
@@ -382,46 +447,48 @@ export function useQuotationState() {
       return newToggleValue;
     });
   };
-const handleTransportSummaryChange = (field, value) => {
-  setEditingQuotation((prev) => {
-    const updatedTransport = {
-      ...prev.transportSummary,
-      [field]: value,
-    };
+  const handleTransportSummaryChange = (field, value) => {
+    setEditingQuotation((prev) => {
+      const updatedTransport = {
+        ...prev.transportSummary,
+        [field]: value,
+      };
 
-    const isPerKmPricing = updatedTransport.pricingType === "perKm";
-    const total = isPerKmPricing
-      ? (updatedTransport.vehicleCost || 0) +
-        (updatedTransport.driverAllowance || 0) +
-        (updatedTransport.tollCharges || 0) +
-        (updatedTransport.permitCharges || 0) +
-        (updatedTransport.otherCharges || 0)
-      : (updatedTransport.vehicleCost || 0);
+      const isPerKmPricing = updatedTransport.pricingType === "perKm";
+      const total = isPerKmPricing
+        ? (updatedTransport.vehicleCost || 0) +
+          (updatedTransport.driverAllowance || 0) +
+          (updatedTransport.tollCharges || 0) +
+          (updatedTransport.permitCharges || 0) +
+          (updatedTransport.otherCharges || 0)
+        : updatedTransport.vehicleCost || 0;
 
-    if (!isPerKmPricing) {
-      updatedTransport.driverAllowance = 0;
-      updatedTransport.tollCharges = 0;
-      updatedTransport.permitCharges = 0;
-      updatedTransport.otherCharges = 0;
-    }
+      if (!isPerKmPricing) {
+        updatedTransport.driverAllowance = 0;
+        updatedTransport.tollCharges = 0;
+        updatedTransport.permitCharges = 0;
+        updatedTransport.otherCharges = 0;
+      }
 
-    updatedTransport.totalTransportCost = total;
+      updatedTransport.totalTransportCost = total;
 
-    const updated = {
-      ...prev,
-      transportSummary: updatedTransport,
-    };
+      const updated = {
+        ...prev,
+        transportSummary: updatedTransport,
+      };
 
-    return {
-      ...updated,
-      grandTotal: recalculateGrandTotal(updated),
-    };
-  });
-};
+      return {
+        ...updated,
+        grandTotal: recalculateGrandTotal(updated),
+      };
+    });
+  };
 
   const handlePackageChange = (e) => {
     const newPackageId = e.target.value;
-    const newPackage = availableTransportPackagesForSelectedState.find((p) => p.id === newPackageId);
+    const newPackage = availableTransportPackagesForSelectedState.find(
+      (p) => p.id === newPackageId,
+    );
     if (!newPackage?.vehicles?.length) {
       alert("Selected package is invalid or has no vehicles.");
       return;
@@ -486,11 +553,19 @@ const handleTransportSummaryChange = (field, value) => {
 
   // Hotels
   const handleAddHotel = () => {
-    if (!selectedHotelToAdd) { alert("Please select a hotel to add."); return; }
+    if (!selectedHotelToAdd) {
+      alert("Please select a hotel to add.");
+      return;
+    }
     const newHotelData = allHotels.find((h) => h.id === selectedHotelToAdd);
     if (!newHotelData) return;
-    const isAlreadyAdded = editingQuotation.hotelSummary.some((h) => h.hotel === newHotelData.name);
-    if (isAlreadyAdded) { alert(`${newHotelData.name} is already in the quotation.`); return; }
+    const isAlreadyAdded = editingQuotation.hotelSummary.some(
+      (h) => h.hotel === newHotelData.name,
+    );
+    if (isAlreadyAdded) {
+      alert(`${newHotelData.name} is already in the quotation.`);
+      return;
+    }
 
     const currentHotels = editingQuotation.hotelSummary || [];
     const lastHotel = currentHotels[currentHotels.length - 1];
@@ -585,7 +660,9 @@ const handleTransportSummaryChange = (field, value) => {
       return;
     }
     setEditingQuotation((prev) => {
-      const updatedSummary = prev.hotelSummary.filter((_, i) => i !== indexToRemove);
+      const updatedSummary = prev.hotelSummary.filter(
+        (_, i) => i !== indexToRemove,
+      );
       const updated = {
         ...prev,
         hotelSummary: updatedSummary,
@@ -633,7 +710,14 @@ const handleTransportSummaryChange = (field, value) => {
   const handleHotelSummaryChange = (index, name, value) => {
     setEditingQuotation((prev) => {
       const updatedSummary = JSON.parse(JSON.stringify(prev.hotelSummary));
-      const isNumeric = ["nights", "numDouble", "numExtraAdult", "numExtraChild", "numCNB", "pricePerNight"].includes(name);
+      const isNumeric = [
+        "nights",
+        "numDouble",
+        "numExtraAdult",
+        "numExtraChild",
+        "numCNB",
+        "pricePerNight",
+      ].includes(name);
       updatedSummary[index][name] = isNumeric ? parseFloat(value) || 0 : value;
 
       if (name === "nights" || name === "checkInDate") {
@@ -642,15 +726,21 @@ const handleTransportSummaryChange = (field, value) => {
           let checkInDate;
           if (i === index) {
             const raw = current.checkInDate;
-            checkInDate = raw?.seconds ? new Date(raw.seconds * 1000) : new Date(raw);
+            checkInDate = raw?.seconds
+              ? new Date(raw.seconds * 1000)
+              : new Date(raw);
           } else {
             checkInDate = new Date(updatedSummary[i - 1].checkOutDate);
-            updatedSummary[i].checkInDate = checkInDate.toISOString().split("T")[0];
+            updatedSummary[i].checkInDate = checkInDate
+              .toISOString()
+              .split("T")[0];
           }
           const nights = parseInt(current.nights, 10) || 1;
           const checkOutDate = new Date(checkInDate);
           checkOutDate.setDate(checkOutDate.getDate() + nights);
-          updatedSummary[i].checkOutDate = checkOutDate.toISOString().split("T")[0];
+          updatedSummary[i].checkOutDate = checkOutDate
+            .toISOString()
+            .split("T")[0];
         }
       }
 
@@ -683,11 +773,16 @@ const handleTransportSummaryChange = (field, value) => {
           };
         }
         const fullHotelData = allHotels.find(
-          (h) => h.name === entry.hotel && h.city === entry.city && h.state === entry.state,
+          (h) =>
+            h.name === entry.hotel &&
+            h.city === entry.city &&
+            h.state === entry.state,
         );
         return {
           ...entry,
-          hotelTotal: fullHotelData ? calculateHotelPrice(entry, fullHotelData) : 0,
+          hotelTotal: fullHotelData
+            ? calculateHotelPrice(entry, fullHotelData)
+            : 0,
         };
       });
 
@@ -698,10 +793,12 @@ const handleTransportSummaryChange = (field, value) => {
 
   // Activities
   const getPriceForParticipants = (pricingTiers, pax) => {
-    if (!pricingTiers || pricingTiers.length === 0) return { pricePerPerson: 0, tier: null };
+    if (!pricingTiers || pricingTiers.length === 0)
+      return { pricePerPerson: 0, tier: null };
 
-    const applicableTier = pricingTiers.find(tier =>
-      pax >= tier.minPax && (tier.maxPax === null || pax <= tier.maxPax)
+    const applicableTier = pricingTiers.find(
+      (tier) =>
+        pax >= tier.minPax && (tier.maxPax === null || pax <= tier.maxPax),
     );
 
     if (!applicableTier) return { pricePerPerson: 0, tier: null };
@@ -716,39 +813,61 @@ const handleTransportSummaryChange = (field, value) => {
         pricePerPerson: applicableTier.pricePerPerson,
         tier: applicableTier,
         totalPrice: applicableTier.pricePerPerson, // Flat fee doesn't multiply by pax
-        isFlat: true
+        isFlat: true,
       };
     } else {
       // For per_person, multiply normally
       return {
         pricePerPerson,
         tier: applicableTier,
-        isFlat: false
+        isFlat: false,
       };
     }
   };
 
   const handleAddActivity = () => {
-    if (!selectedActivityToAdd) { alert("Please select an activity to add."); return; }
+    if (!selectedActivityToAdd) {
+      alert("Please select an activity to add.");
+      return;
+    }
     let isAlreadyAdded = false;
     try {
       isAlreadyAdded = editingQuotation.activitySummary?.some(
         (a) => a.name === selectedActivityToAdd,
       );
-    } catch { isAlreadyAdded = false; }
-    if (isAlreadyAdded) { alert("This activity is already in the quotation."); return; }
+    } catch {
+      isAlreadyAdded = false;
+    }
+    if (isAlreadyAdded) {
+      alert("This activity is already in the quotation.");
+      return;
+    }
 
-    const activityData = availableActivities.find((a) => a.name === selectedActivityToAdd);
+    const activityData = availableActivities.find(
+      (a) => a.name === selectedActivityToAdd,
+    );
     if (!activityData) return;
 
     // Use tier-based pricing
     const pricingTiers = activityData.pricingTiers || [
-      { minPax: 1, maxPax: 10, pricePerPerson: activityData.fitRatePerPerson || 0, pricingType: "per_person" },
-      { minPax: 11, maxPax: null, pricePerPerson: activityData.groupRatePerPerson || 0, pricingType: "per_person" }
+      {
+        minPax: 1,
+        maxPax: 10,
+        pricePerPerson: activityData.fitRatePerPerson || 0,
+        pricingType: "per_person",
+      },
+      {
+        minPax: 11,
+        maxPax: null,
+        pricePerPerson: activityData.groupRatePerPerson || 0,
+        pricingType: "per_person",
+      },
     ];
 
     const priceInfo = getPriceForParticipants(pricingTiers, 1);
-    const totalPrice = priceInfo.isFlat ? priceInfo.totalPrice : priceInfo.pricePerPerson * 1;
+    const totalPrice = priceInfo.isFlat
+      ? priceInfo.totalPrice
+      : priceInfo.pricePerPerson * 1;
 
     const newActivity = {
       name: activityData.name,
@@ -764,7 +883,10 @@ const handleTransportSummaryChange = (field, value) => {
       const updated = {
         ...prev,
         activitySummary: updatedSummary,
-        activityTotal: updatedSummary.reduce((s, a) => s + (a.totalPrice || 0), 0),
+        activityTotal: updatedSummary.reduce(
+          (s, a) => s + (a.totalPrice || 0),
+          0,
+        ),
       };
       return { ...updated, grandTotal: recalculateGrandTotal(updated) };
     });
@@ -784,7 +906,10 @@ const handleTransportSummaryChange = (field, value) => {
       const updated = {
         ...prev,
         activitySummary: updatedSummary,
-        activityTotal: updatedSummary.reduce((s, a) => s + (a.totalPrice || 0), 0),
+        activityTotal: updatedSummary.reduce(
+          (s, a) => s + (a.totalPrice || 0),
+          0,
+        ),
       };
       return { ...updated, grandTotal: recalculateGrandTotal(updated) };
     });
@@ -792,11 +917,16 @@ const handleTransportSummaryChange = (field, value) => {
 
   const handleRemoveActivity = (indexToRemove) => {
     setEditingQuotation((prev) => {
-      const updatedSummary = prev.activitySummary.filter((_, i) => i !== indexToRemove);
+      const updatedSummary = prev.activitySummary.filter(
+        (_, i) => i !== indexToRemove,
+      );
       const updated = {
         ...prev,
         activitySummary: updatedSummary,
-        activityTotal: updatedSummary.reduce((s, a) => s + (a.totalPrice || 0), 0),
+        activityTotal: updatedSummary.reduce(
+          (s, a) => s + (a.totalPrice || 0),
+          0,
+        ),
       };
       return { ...updated, grandTotal: recalculateGrandTotal(updated) };
     });
@@ -816,11 +946,23 @@ const handleTransportSummaryChange = (field, value) => {
         } else {
           // For database activities, use tier-based pricing
           const pricingTiers = act.pricingTiers || [
-            { minPax: 1, maxPax: 10, pricePerPerson: act.fitRatePerPerson || 0, pricingType: "per_person" },
-            { minPax: 11, maxPax: null, pricePerPerson: act.groupRatePerPerson || 0, pricingType: "per_person" }
+            {
+              minPax: 1,
+              maxPax: 10,
+              pricePerPerson: act.fitRatePerPerson || 0,
+              pricingType: "per_person",
+            },
+            {
+              minPax: 11,
+              maxPax: null,
+              pricePerPerson: act.groupRatePerPerson || 0,
+              pricingType: "per_person",
+            },
           ];
           const priceInfo = getPriceForParticipants(pricingTiers, participants);
-          act.totalPrice = priceInfo.isFlat ? priceInfo.totalPrice : priceInfo.pricePerPerson * participants;
+          act.totalPrice = priceInfo.isFlat
+            ? priceInfo.totalPrice
+            : priceInfo.pricePerPerson * participants;
           act.pricingTiers = pricingTiers; // Ensure pricingTiers is stored
         }
       } else if (name === "pricePerPerson") {
@@ -833,7 +975,10 @@ const handleTransportSummaryChange = (field, value) => {
       const updated = {
         ...prev,
         activitySummary: updatedSummary,
-        activityTotal: updatedSummary.reduce((s, a) => s + (a.totalPrice || 0), 0),
+        activityTotal: updatedSummary.reduce(
+          (s, a) => s + (a.totalPrice || 0),
+          0,
+        ),
       };
       return { ...updated, grandTotal: recalculateGrandTotal(updated) };
     });
@@ -841,10 +986,22 @@ const handleTransportSummaryChange = (field, value) => {
 
   // CRUD
   const handleUpdateQuotation = async () => {
-    if (!editingQuotation) { alert("No quotation selected."); return; }
+    if (!editingQuotation) {
+      alert("No quotation selected.");
+      return;
+    }
     const agentId = user?.uid;
-    if (!agentId) { alert("Must be logged in."); return; }
-    const ref = doc(db, "saved_packages_by_agents", agentId, "packages", editingQuotation.id);
+    if (!agentId) {
+      alert("Must be logged in.");
+      return;
+    }
+    const ref = doc(
+      db,
+      "saved_packages_by_agents",
+      agentId,
+      "packages",
+      editingQuotation.id,
+    );
     try {
       await updateDoc(ref, editingQuotation);
       alert("Quotation updated successfully! ✅");
@@ -856,51 +1013,99 @@ const handleTransportSummaryChange = (field, value) => {
     }
   };
 
-  const handleQuotationStatusChange = async (
-    quotationId,
-    nextStatus,
-    extraData = {},
-    options = {},
-  ) => {
-    const agentId = user?.uid;
-    if (!agentId) {
-      alert("Must be logged in.");
-      return;
+ const handleQuotationStatusChange = async (
+  quotationId,
+  nextStatus,
+  extraData = {},
+  options = {},
+) => {
+  const agentId = user?.uid;
+  if (!agentId) {
+    alert("Must be logged in.");
+    return;
+  }
+
+  // Look up quotation for notification context
+  const quotation = quotations.find((q) => q.id === quotationId);
+
+  try {
+    const updateData = { status: nextStatus, ...extraData };
+    await updateQuotation(agentId, quotationId, updateData, options);
+
+    setQuotations((prev) =>
+      prev.map((q) =>
+        q.id === quotationId ? { ...q, ...updateData } : q,
+      ),
+    );
+
+    setViewingQuotation((prev) =>
+      prev?.id === quotationId ? { ...prev, ...updateData } : prev,
+    );
+
+    setEditingQuotation((prev) =>
+      prev?.id === quotationId ? { ...prev, ...updateData } : prev,
+    );
+
+    // ── Fire notification based on new status ──────────────────────────
+    const customerName =
+      quotation?.customerName || quotation?.leadName || "Customer";
+    const packageName = quotation?.packageName || "your package";
+    const quotationLink = `/agent-panel/my-quatation?quoteId=${quotationId}`;
+
+    const notifMap = {
+      Sent: {
+        type: "quotation_sent",
+        title: "Quotation sent",
+        message: `Quotation for ${customerName} has been marked as sent.`,
+        priority: "normal",
+      },
+      Accepted: {
+        type: "quotation_accepted",
+        title: "Quotation accepted! 🎉",
+        message: `${customerName} accepted the quotation for ${packageName}.`,
+        priority: "high",
+      },
+      Rejected: {
+        type: "quotation_rejected",
+        title: "Quotation rejected",
+        message: `${customerName} rejected the quotation for ${packageName}.`,
+        priority: "normal",
+      },
+    };
+
+    const notifData = notifMap[nextStatus];
+    if (notifData) {
+      createNotification({
+        userId: agentId,
+        type: notifData.type,
+        title: notifData.title,
+        message: notifData.message,
+        link: quotationLink,
+        priority: notifData.priority,
+      }).catch((err) =>
+        console.error("[Notification] Failed to create notification:", err),
+      );
     }
 
-    try {
-      const updateData = { status: nextStatus, ...extraData };
-      await updateQuotation(agentId, quotationId, updateData, options);
-
-      setQuotations((prev) =>
-        prev.map((quotation) =>
-          quotation.id === quotationId
-            ? { ...quotation, ...updateData }
-            : quotation,
-        ),
-      );
-
-      setViewingQuotation((prev) =>
-        prev?.id === quotationId ? { ...prev, ...updateData } : prev,
-      );
-
-      setEditingQuotation((prev) =>
-        prev?.id === quotationId ? { ...prev, ...updateData } : prev,
-      );
-      return true;
-    } catch (err) {
-      console.error("Failed to update quotation status:", err);
-      alert("Failed to update quotation status.");
-      return false;
-    }
-  };
+    return true;
+  } catch (err) {
+    console.error("Failed to update quotation status:", err);
+    alert("Failed to update quotation status.");
+    return false;
+  }
+};
 
   const handleDeleteQuotation = async (quotationId) => {
     const agentId = user?.uid;
-    if (!agentId) { alert("Not authenticated."); return; }
+    if (!agentId) {
+      alert("Not authenticated.");
+      return;
+    }
     if (window.confirm("Are you sure you want to delete this quotation?")) {
       try {
-        await deleteDoc(doc(db, "saved_packages_by_agents", agentId, "packages", quotationId));
+        await deleteDoc(
+          doc(db, "saved_packages_by_agents", agentId, "packages", quotationId),
+        );
         alert("Quotation deleted successfully!");
         fetchQuotations();
       } catch (err) {
@@ -911,12 +1116,19 @@ const handleTransportSummaryChange = (field, value) => {
   };
 
   const handleSaveAs = () => {
-    if (!editingQuotation) { alert("No active quotation."); return; }
+    if (!editingQuotation) {
+      alert("No active quotation.");
+      return;
+    }
     setNewPackageName(`Copy of ${editingQuotation.packageName}`);
-    setNewCustomerName(editingQuotation.customerName || editingQuotation.leadName || "");
+    setNewCustomerName(
+      editingQuotation.customerName || editingQuotation.leadName || "",
+    );
     setSaveAsLeadId(editingQuotation.leadId || "");
     if (user?.uid) {
-      getLeadsByAgent(user.uid).then(setAgentLeads).catch(() => {});
+      getLeadsByAgent(user.uid)
+        .then(setAgentLeads)
+        .catch(() => {});
     }
     setShowSaveAsModal(true);
     setIsEditModalOpen(false);
@@ -924,10 +1136,19 @@ const handleTransportSummaryChange = (field, value) => {
   };
 
   const handleConfirmSaveAs = async () => {
-    if (!newPackageName.trim()) { alert("Quotation name is required."); return; }
-    if (!newCustomerName.trim()) { alert("Customer name is required."); return; }
+    if (!newPackageName.trim()) {
+      alert("Quotation name is required.");
+      return;
+    }
+    if (!newCustomerName.trim()) {
+      alert("Customer name is required.");
+      return;
+    }
     const agentId = user?.uid;
-    if (!agentId) { alert("Must be logged in."); return; }
+    if (!agentId) {
+      alert("Must be logged in.");
+      return;
+    }
     const newData = { ...editingQuotation };
     delete newData.id;
     newData.packageName = newPackageName.trim();
@@ -943,7 +1164,12 @@ const handleTransportSummaryChange = (field, value) => {
       delete newData.leadName;
     }
     try {
-      const ref = collection(db, "saved_packages_by_agents", agentId, "packages");
+      const ref = collection(
+        db,
+        "saved_packages_by_agents",
+        agentId,
+        "packages",
+      );
       await addDoc(ref, newData);
       alert("New quotation saved! ✅");
       setIsEditModalOpen(false);
@@ -957,11 +1183,18 @@ const handleTransportSummaryChange = (field, value) => {
 
   const generatePackageSummary = useCallback(
     (quotationData) => {
-      if (!quotationData.hotelSummary?.length) return "Hotel details not available.";
+      if (!quotationData.hotelSummary?.length)
+        return "Hotel details not available.";
       const firstEntry = quotationData.hotelSummary[0];
       const formatDate = (dateData) => {
-        const date = dateData?.seconds ? new Date(dateData.seconds * 1000) : new Date(dateData);
-        return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        const date = dateData?.seconds
+          ? new Date(dateData.seconds * 1000)
+          : new Date(dateData);
+        return date.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
       };
       const startDate = formatDate(firstEntry.checkInDate);
       let summary = `Dear Guests,\n\nGreetings from Adwait Tours!!\n`;
@@ -969,11 +1202,15 @@ const handleTransportSummaryChange = (field, value) => {
       summary += `${firstEntry.numDouble || 0} Couple\n`;
       summary += `${firstEntry.numExtraChild || 0} Extra Child With Matress\n`;
       summary += `${firstEntry.numExtraAdult || 0} Extra Adult With Matress\n`;
-      if (Number(firstEntry.numCNB) > 0) summary += `${firstEntry.numCNB || 0} Child No Bed\n`;
+      if (Number(firstEntry.numCNB) > 0)
+        summary += `${firstEntry.numCNB || 0} Child No Bed\n`;
       summary += `\n *HOTELS*\n`;
       quotationData.hotelSummary.forEach((entry, index) => {
         const hotelFullDetails = allHotels.find(
-          (h) => h.name === entry.hotel && h.city === entry.city && h.state === entry.state,
+          (h) =>
+            h.name === entry.hotel &&
+            h.city === entry.city &&
+            h.state === entry.state,
         );
         const hotelCheckIn = formatDate(entry.checkInDate);
         const hotelCheckOut = formatDate(entry.checkOutDate);
@@ -984,7 +1221,9 @@ const handleTransportSummaryChange = (field, value) => {
           MAP: "Breakfast and Dinner",
           AP: "Breakfast, Lunch and Dinner",
         };
-        const roomCategory = entry.selectedRoomCategory?.toUpperCase() || "ROOM CATEGORY NOT SELECTED";
+        const roomCategory =
+          entry.selectedRoomCategory?.toUpperCase() ||
+          "ROOM CATEGORY NOT SELECTED";
         summary += `${index + 1}. ${entry.hotel.toUpperCase()} ${hotelFullDetails?.GoogleListingURL || ""}\n`;
         summary += ` ⇒ ${entry.city}, ${entry.state}\n`;
         summary += ` ⇒ Hotel Room Count: ${entry.numDouble || 0} Hotel Room Category: ${roomCategory}\n`;
@@ -992,15 +1231,27 @@ const handleTransportSummaryChange = (field, value) => {
       });
       summary += `*TOTAL TOUR COST = ₹${quotationData.grandTotal?.toFixed()}/-*\n\n`;
       summary += `*INCLUDED*\n`;
-      let totalBreakfasts = 0, totalLunches = 0, totalDinners = 0;
+      let totalBreakfasts = 0,
+        totalLunches = 0,
+        totalDinners = 0;
       quotationData.hotelSummary.forEach((hotel) => {
         switch (hotel.selectedMealPlan) {
-          case "CP": totalBreakfasts += hotel.nights; break;
-          case "MAP": totalBreakfasts += hotel.nights; totalDinners += hotel.nights; break;
-          case "AP": totalBreakfasts += hotel.nights; totalLunches += hotel.nights; totalDinners += hotel.nights; break;
+          case "CP":
+            totalBreakfasts += hotel.nights;
+            break;
+          case "MAP":
+            totalBreakfasts += hotel.nights;
+            totalDinners += hotel.nights;
+            break;
+          case "AP":
+            totalBreakfasts += hotel.nights;
+            totalLunches += hotel.nights;
+            totalDinners += hotel.nights;
+            break;
         }
       });
-      if (totalBreakfasts > 0) summary += `✅ ${totalBreakfasts} Breakfast(s)\n`;
+      if (totalBreakfasts > 0)
+        summary += `✅ ${totalBreakfasts} Breakfast(s)\n`;
       if (totalLunches > 0) summary += `✅ ${totalLunches} Lunch(es)\n`;
       if (totalDinners > 0) summary += `✅ ${totalDinners} Dinner(s)\n`;
       if (!totalBreakfasts && !totalLunches && !totalDinners)
@@ -1024,7 +1275,10 @@ const handleTransportSummaryChange = (field, value) => {
   );
 
   const handleCopyToClipboard = (quotationToCopy) => {
-    if (!quotationToCopy) { displayMessageBox("No quotation data provided.", "error"); return; }
+    if (!quotationToCopy) {
+      displayMessageBox("No quotation data provided.", "error");
+      return;
+    }
     const summary = generatePackageSummary(quotationToCopy);
     const textarea = document.createElement("textarea");
     textarea.value = summary;
@@ -1035,12 +1289,19 @@ const handleTransportSummaryChange = (field, value) => {
       textarea.setSelectionRange(0, textarea.value.length);
       const ok = document.execCommand("copy");
       if (!ok && navigator.clipboard) {
-        navigator.clipboard.writeText(summary)
-          .then(() => displayMessageBox("Package summary copied to clipboard!", "success"))
+        navigator.clipboard
+          .writeText(summary)
+          .then(() =>
+            displayMessageBox(
+              "Package summary copied to clipboard!",
+              "success",
+            ),
+          )
           .catch((err) => displayMessageBox("Failed to copy: " + err, "error"));
         return;
       }
-      if (ok) displayMessageBox("Package summary copied to clipboard!", "success");
+      if (ok)
+        displayMessageBox("Package summary copied to clipboard!", "success");
       else displayMessageBox("Failed to copy to clipboard.", "error");
     } catch (err) {
       displayMessageBox("Error copying: " + err, "error");
@@ -1051,30 +1312,63 @@ const handleTransportSummaryChange = (field, value) => {
 
   return {
     // Data
-    user, quotations, allHotels, AllDestinations, transportStates, filteredQuotations,
+    user,
+    quotations,
+    allHotels,
+    AllDestinations,
+    transportStates,
+    filteredQuotations,
     // Loading — `loading` is auth-only (read-only, managed by Firebase/Redux auth slice).
     // `isFetchingQuotations` is the local data-fetch indicator for this hook.
-    loading, isFetchingQuotations,
+    loading,
+    isFetchingQuotations,
     // Filter state
-    searchTerm, setSearchTerm, filterDestination, setFilterDestination,
-    filterStatus, setFilterStatus,
-    startDate, setStartDate, endDate, setEndDate,
+    searchTerm,
+    setSearchTerm,
+    filterDestination,
+    setFilterDestination,
+    filterStatus,
+    setFilterStatus,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
     // View modal
-    isViewModalOpen, setIsViewModalOpen, viewingQuotation,
+    isViewModalOpen,
+    setIsViewModalOpen,
+    viewingQuotation,
     // Edit modal
-    isEditModalOpen, setIsEditModalOpen, editingQuotation,
+    isEditModalOpen,
+    setIsEditModalOpen,
+    editingQuotation,
     // Hotel
-    selectedHotelToAdd, setSelectedHotelToAdd, SelectedDestination, setSelectedDestination,
+    selectedHotelToAdd,
+    setSelectedHotelToAdd,
+    SelectedDestination,
+    setSelectedDestination,
     // Transport
-    toggleValue, selectedTransportStateId, setSelectedTransportStateId,
+    toggleValue,
+    selectedTransportStateId,
+    setSelectedTransportStateId,
     availableTransportPackagesForSelectedState,
     // Activities
-    availableActivities, isFetchingActivities, selectedActivityToAdd, setSelectedActivityToAdd,
+    availableActivities,
+    isFetchingActivities,
+    selectedActivityToAdd,
+    setSelectedActivityToAdd,
     // Save-as
-    showSaveAsModal, setShowSaveAsModal, newPackageName, setNewPackageName,
-    newCustomerName, setNewCustomerName, saveAsLeadId, setSaveAsLeadId, agentLeads,
+    showSaveAsModal,
+    setShowSaveAsModal,
+    newPackageName,
+    setNewPackageName,
+    newCustomerName,
+    setNewCustomerName,
+    saveAsLeadId,
+    setSaveAsLeadId,
+    agentLeads,
     // Markup
-    markupMode, setMarkupMode,
+    markupMode,
+    setMarkupMode,
     // Computed
     recalculateGrandTotal,
     getAvailableMealPlans,
@@ -1082,12 +1376,28 @@ const handleTransportSummaryChange = (field, value) => {
     toTitleCase,
     calcCustomHotelNightPrice,
     // Handlers
-    handleViewClick, handleEditClick, handleEditChange, handleMarkupInputChange,
-    handleToggle, handleTransportSummaryChange, handlePackageChange, handleVehicleChange,
-    handleAddHotel, handleAddCustomHotel, handleRemoveHotel, handleHotelChange, handleHotelSummaryChange,
-    handleAddActivity, handleAddCustomActivity, handleRemoveActivity, handleActivitySummaryChange,
-    handleUpdateQuotation, handleQuotationStatusChange, handleDeleteQuotation,
-    handleSaveAs, handleConfirmSaveAs,
+    handleViewClick,
+    handleEditClick,
+    handleEditChange,
+    handleMarkupInputChange,
+    handleToggle,
+    handleTransportSummaryChange,
+    handlePackageChange,
+    handleVehicleChange,
+    handleAddHotel,
+    handleAddCustomHotel,
+    handleRemoveHotel,
+    handleHotelChange,
+    handleHotelSummaryChange,
+    handleAddActivity,
+    handleAddCustomActivity,
+    handleRemoveActivity,
+    handleActivitySummaryChange,
+    handleUpdateQuotation,
+    handleQuotationStatusChange,
+    handleDeleteQuotation,
+    handleSaveAs,
+    handleConfirmSaveAs,
     handleCopyToClipboard,
   };
 }
