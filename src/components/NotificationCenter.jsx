@@ -251,7 +251,7 @@ export default function NotificationCenter({ userId }) {
       {open && (
         <div
           className="
-          fixed left-0 right-0 bottom-0 z-[120] rounded-t-2xl
+          fixed left-0 right-0 bottom-0 z-120 rounded-t-2xl
           sm:absolute sm:left-auto sm:right-0 sm:bottom-auto sm:top-11 sm:rounded-2xl sm:w-96 sm:z-50
           max-w-full sm:max-w-[calc(100vw-1rem)]
           border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5
