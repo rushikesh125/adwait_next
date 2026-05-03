@@ -45,6 +45,7 @@ const MyQuotations = () => {
   const state = useQuotationState();
   const searchParams = useSearchParams();
   const editId = searchParams.get("editId");
+  const quoteId = searchParams.get("quoteId");
   const router = useRouter();
   const dispatch = useDispatch();
 
@@ -61,6 +62,7 @@ const MyQuotations = () => {
   const [showSentFollowUpForm, setShowSentFollowUpForm] = useState(false);
   const [rejectionQuotation, setRejectionQuotation] = useState(null);
   const [isRejectingQuotation, setIsRejectingQuotation] = useState(false);
+
 
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
@@ -367,6 +369,33 @@ const MyQuotations = () => {
       if (quoteToEdit) state.handleEditClick(quoteToEdit);
     }
   }, [editId, state.quotations, state.handleEditClick]);
+  // ✅ Auto-open preview modal when quoteId is in URL
+useEffect(() => {
+  if (!quoteId || !state.user?.uid) return;
+
+  const openQuotation = async () => {
+    // Try from already loaded list
+    let quotation = state.quotations.find((q) => q.id === quoteId);
+
+    // If not found → fetch from Firestore
+    if (!quotation) {
+      try {
+        const fresh = await getQuotationById(state.user.uid, quoteId);
+        if (fresh) quotation = { ...fresh, id: quoteId };
+      } catch (err) {
+        console.error("Failed to fetch quotation:", err);
+      }
+    }
+
+    if (quotation) {
+      setPreviewQuotation(quotation); // 👈 THIS opens modal
+    }
+  };
+
+  openQuotation();
+}, [quoteId, state.quotations, state.user]);
+
+
   const handleDownloadPDF = (quotation) => {
     const packageOptions =
       quotation.packageOptions?.length > 0

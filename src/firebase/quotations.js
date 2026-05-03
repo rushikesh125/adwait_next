@@ -1,10 +1,9 @@
 // src/firebase/quotations/quotations.firebase.js
 
-
 import {
   collection,
   getDocs,
-getDoc,
+  getDoc,
   query,
   where,
   orderBy,
@@ -31,12 +30,7 @@ export async function fetchQuotationsByAgent(agentId) {
   if (!agentId) return [];
 
   try {
-    const ref = collection(
-      db,
-      "saved_packages_by_agents",
-      agentId,
-      "packages"
-    );
+    const ref = collection(db, "saved_packages_by_agents", agentId, "packages");
 
     const q = query(ref, orderBy("createdAt", "desc"));
     const snapshot = await getDocs(q);
@@ -55,17 +49,27 @@ export async function fetchQuotationsByAgent(agentId) {
   }
 }
 
-
 export async function getQuotationById(agentId, quotationId) {
   if (!agentId || !quotationId) return null;
-  const ref = doc(db, "saved_packages_by_agents", agentId, "packages", quotationId);
+  const ref = doc(
+    db,
+    "saved_packages_by_agents",
+    agentId,
+    "packages",
+    quotationId,
+  );
   const snap = await getDoc(ref);
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 /**
  * Update existing quotation
  */
-export async function updateQuotation(agentId, quotationId, data, options = {}) {
+export async function updateQuotation(
+  agentId,
+  quotationId,
+  data,
+  options = {},
+) {
   if (!agentId || !quotationId) {
     throw new Error("Missing agentId or quotationId");
   }
@@ -75,7 +79,7 @@ export async function updateQuotation(agentId, quotationId, data, options = {}) 
     "saved_packages_by_agents",
     agentId,
     "packages",
-    quotationId
+    quotationId,
   );
 
   const snap = await getDoc(ref);
@@ -113,14 +117,18 @@ export async function updateQuotation(agentId, quotationId, data, options = {}) 
     }
 
     // Create notifications on meaningful status transitions
-    const label = quotation.packageName || quotation.customerName || "Quotation";
+    const label =
+      quotation.packageName || quotation.customerName || "Quotation";
     if (data.status === "Accepted" && previousStatus !== "Accepted") {
       await createNotification({
         userId: agentId,
-        type: "quotation_accepted",
-        title: "Quotation Accepted",
-        message: `"${label}" has been accepted.`,
-        link: "/agent-panel/my-quatation",
+        type: "quotation_sent",
+        title: "Quotation Sent",
+        message: `"${label}" has been sent to the customer.`,
+        link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
+        metadata: {
+          quotationId: quotationId,
+        },
       });
     } else if (data.status === "Rejected" && previousStatus !== "Rejected") {
       await createNotification({
@@ -128,7 +136,10 @@ export async function updateQuotation(agentId, quotationId, data, options = {}) 
         type: "quotation_rejected",
         title: "Quotation Rejected",
         message: `"${label}" has been rejected.`,
-        link: "/agent-panel/my-quatation",
+        link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
+        metadata: {
+          quotationId: quotationId,
+        },
       });
     } else if (data.status === "Sent" && previousStatus !== "Sent") {
       await createNotification({
@@ -136,7 +147,7 @@ export async function updateQuotation(agentId, quotationId, data, options = {}) 
         type: "quotation_sent",
         title: "Quotation Sent",
         message: `"${label}" has been sent to the customer.`,
-        link: "/agent-panel/my-quatation",
+        link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
       });
     }
 
@@ -145,26 +156,32 @@ export async function updateQuotation(agentId, quotationId, data, options = {}) 
       // Get the lead to find its agent
       const leadRef = doc(db, "leads", leadId);
       const leadSnap = await getDoc(leadRef);
-      
+
       if (leadSnap.exists()) {
         const leadData = leadSnap.data();
         const leadAgentId = leadData.agentId;
-        
+
         if (leadAgentId) {
           // Query quotations only from this specific agent
-          const packagesRef = collection(db, "saved_packages_by_agents", leadAgentId, "packages");
+          const packagesRef = collection(
+            db,
+            "saved_packages_by_agents",
+            leadAgentId,
+            "packages",
+          );
           const q = query(packagesRef, where("leadId", "==", leadId));
           const packageSnap = await getDocs(q);
-          const leadQuotations = packageSnap.docs.map(doc => ({
+          const leadQuotations = packageSnap.docs.map((doc) => ({
             id: doc.id,
             agentId: leadAgentId,
-            ...doc.data()
+            ...doc.data(),
           }));
-          
+
           if (leadQuotations.length > 0) {
             // Sort by createdAt descending to find the absolute latest quotation
             const sortedByDate = leadQuotations.sort(
-              (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+              (a, b) =>
+                (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0),
             );
 
             const latestQuotationId = sortedByDate[0].id;
@@ -192,7 +209,7 @@ export async function deleteQuotation(agentId, quotationId) {
   }
 
   await deleteDoc(
-    doc(db, "saved_packages_by_agents", agentId, "packages", quotationId)
+    doc(db, "saved_packages_by_agents", agentId, "packages", quotationId),
   );
 }
 
@@ -204,12 +221,7 @@ export async function saveQuotationAs(agentId, quotationData) {
     throw new Error("Agent not authenticated");
   }
 
-  const ref = collection(
-    db,
-    "saved_packages_by_agents",
-    agentId,
-    "packages"
-  );
+  const ref = collection(db, "saved_packages_by_agents", agentId, "packages");
 
   return await addDoc(ref, {
     ...quotationData,
@@ -252,7 +264,7 @@ export async function fetchTransportPackagesByState(stateId) {
   if (!stateId) return [];
 
   const snapshot = await getDocs(
-    collection(db, "transport", stateId, "packages")
+    collection(db, "transport", stateId, "packages"),
   );
 
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -268,7 +280,7 @@ export async function deleteVoucherFromQuotation(agentId, quotationId) {
     "saved_packages_by_agents",
     agentId,
     "packages",
-    quotationId
+    quotationId,
   );
 
   await updateDoc(ref, {
@@ -284,10 +296,7 @@ export async function deleteVoucherFromQuotation(agentId, quotationId) {
 export async function fetchActivitiesByState(state) {
   if (!state) return [];
 
-  const q = query(
-    collection(db, "activities"),
-    where("state", "==", state)
-  );
+  const q = query(collection(db, "activities"), where("state", "==", state));
 
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
