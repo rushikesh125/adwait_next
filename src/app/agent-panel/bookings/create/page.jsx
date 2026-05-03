@@ -51,6 +51,7 @@ const SERVICE_TYPES = ["Flight", "Hotel", "Rail", "Transfer", "Sightseeing", "Vi
 const PAYMENT_MODES = ["Cash", "Bank Transfer", "UPI", "Card", "Cheque", "Online"];
 const BOOKING_STATUSES = ["Pending", "Confirmed", "Completed", "Cancelled"];
 const VENDOR_PAYMENT_TYPES = ["Advance", "Installment"];
+const VENDOR_PAYMENT_STATUSES = ["Paid", "Pending"];
 
 const SERVICE_ICONS = {
   Flight: PlaneTakeoff,
@@ -67,7 +68,8 @@ const SERVICE_ICONS = {
 
 const newVendorPayment = (type = "Installment") => ({
   _key: Math.random().toString(36).slice(2),
-  type,           // "Advance" | "Installment"
+  type,
+  status: "Paid",            // <-- NEW: default status
   amount: "",
   date: new Date().toISOString().slice(0, 10),
   mode: "Cash",
@@ -80,10 +82,10 @@ const newService = () => ({
   description: "",
   supplier: "",
   confirmationRef: "",
-  amount: "",          // Total cost
-  vendorPayments: [],  // replaces flat `advance` field
+  amount: "",
+  vendorPayments: [],
   status: "Pending",
-  _showPayments: false, // UI toggle – stripped before save
+  _showPayments: false,
 });
 
 const newCustomerPayment = () => ({
@@ -106,17 +108,31 @@ const emptyForm = () => ({
   totalAmount: "",
   notes: "",
   services: [],
-  payments: [],     // customer payments
+  payments: [],
   quotationId: "",
 });
 
-// ─── Service financial helpers ────────────────────────────────────────────────
+// ─── Service financial helpers (status‑aware) ─────────────────────────────────
 
-/** Sum of all vendor payments on a service */
+/** Sum of vendor payments with status "Paid" */
 const serviceTotalPaid = (svc) =>
+  (svc.vendorPayments || []).reduce(
+    (s, p) => s + (p.status === "Paid" ? Number(p.amount) || 0 : 0),
+    0
+  );
+
+/** Sum of vendor payments with status "Pending" */
+const serviceTotalPending = (svc) =>
+  (svc.vendorPayments || []).reduce(
+    (s, p) => s + (p.status === "Pending" ? Number(p.amount) || 0 : 0),
+    0
+  );
+
+/** Sum of all vendor payments (paid + pending) */
+const serviceTotalAllPayments = (svc) =>
   (svc.vendorPayments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-/** Remaining balance on a service */
+/** Remaining balance based on actual paid amount */
 const serviceBalance = (svc) =>
   Math.max(0, (Number(svc.amount) || 0) - serviceTotalPaid(svc));
 
@@ -124,7 +140,7 @@ const serviceBalance = (svc) =>
 
 /**
  * Validates a new/edited vendor payment against the service.
- * Returns an error string or null if valid.
+ * Checks that the total of ALL payments (paid + pending) does not exceed the service cost.
  */
 const validateVendorPayment = (svc, paymentAmount, excludeKey = null) => {
   const amt = Number(paymentAmount);
@@ -135,13 +151,12 @@ const validateVendorPayment = (svc, paymentAmount, excludeKey = null) => {
   if (totalCost <= 0) {
     return "Set a Total Cost before adding payments.";
   }
-  // Already paid excluding this payment (for edit scenario)
-  const alreadyPaid = (svc.vendorPayments || [])
+  const alreadyAllocated = (svc.vendorPayments || [])
     .filter((p) => p._key !== excludeKey)
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  if (alreadyPaid + amt > totalCost) {
-    const remaining = totalCost - alreadyPaid;
-    return `Payment (₹${amt.toLocaleString("en-IN")}) exceeds remaining balance (₹${remaining.toLocaleString("en-IN")}).`;
+  if (alreadyAllocated + amt > totalCost) {
+    const remaining = totalCost - alreadyAllocated;
+    return `Total payments (₹${(alreadyAllocated + amt).toLocaleString("en-IN")}) would exceed cost (₹${totalCost.toLocaleString("en-IN")}). Remaining: ₹${remaining.toLocaleString("en-IN")}.`;
   }
   return null;
 };
@@ -178,6 +193,19 @@ function VendorPaymentForm({ svc, onAdd, onCancel }) {
             <SelectContent className="rounded-xl">
               {VENDOR_PAYMENT_TYPES.map((t) => (
                 <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</Label>
+          <Select value={draft.status} onValueChange={(v) => handle("status", v)}>
+            <SelectTrigger className="h-8 rounded-lg text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              {VENDOR_PAYMENT_STATUSES.map((s) => (
+                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -283,6 +311,15 @@ function VendorPaymentRow({ svc, payment, onUpdate, onDelete }) {
             </Select>
           </div>
           <div className="space-y-1">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</Label>
+            <Select value={draft.status} onValueChange={(v) => handleField("status", v)}>
+              <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {VENDOR_PAYMENT_STATUSES.map((s) => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
             <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Amount (₹)</Label>
             <Input type="number" min={0.01} step={0.01} value={draft.amount}
               onChange={(e) => handleField("amount", e.target.value)} className="h-8 rounded-lg text-xs" />
@@ -325,16 +362,24 @@ function VendorPaymentRow({ svc, payment, onUpdate, onDelete }) {
     );
   }
 
-  // View row
+  // View row with status pill
   const typeBadge =
     payment.type === "Advance"
       ? "bg-violet-50 border-violet-200 text-violet-700"
       : "bg-sky-50 border-sky-200 text-sky-700";
 
+  const statusBadge =
+    payment.status === "Paid"
+      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+      : "bg-amber-50 border-amber-200 text-amber-700";
+
   return (
     <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-100/60 transition-colors group text-xs">
       <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${typeBadge}`}>
         {payment.type}
+      </span>
+      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBadge}`}>
+        {payment.status}
       </span>
       <span className="text-slate-500 w-[90px] shrink-0">
         {payment.date
@@ -343,8 +388,9 @@ function VendorPaymentRow({ svc, payment, onUpdate, onDelete }) {
       </span>
       <span className="text-slate-500">{payment.mode}</span>
       {payment.notes && <span className="text-slate-400 truncate flex-1">· {payment.notes}</span>}
-      <span className="ml-auto font-bold text-slate-800 shrink-0">
+      <span className={`ml-auto font-bold shrink-0 ${payment.status === "Pending" ? "text-amber-700" : "text-slate-800"}`}>
         ₹{(Number(payment.amount) || 0).toLocaleString("en-IN")}
+        {payment.status === "Pending" && <span className="ml-0.5 text-[10px] font-medium">(planned)</span>}
       </span>
       <button
         onClick={() => setEditing(true)}
@@ -364,22 +410,29 @@ function VendorPaymentRow({ svc, payment, onUpdate, onDelete }) {
   );
 }
 
-// ─── Sub-component: Service Card ─────────────────────────────────────────────
+// ─── Sub-component: Service Card (updated with status segments) ───────────────
 
 function ServiceCard({ svc, idx, onRemove, onUpdateField, onAddVendorPayment, onUpdateVendorPayment, onDeleteVendorPayment, onTogglePayments }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const Icon = SERVICE_ICONS[svc.type] || MoreHorizontal;
-  const totalPaid = serviceTotalPaid(svc);
-  const totalCost = Number(svc.amount) || 0;
-  const balance = Math.max(0, totalCost - totalPaid);
-  const payPct = totalCost > 0 ? Math.min(100, Math.round((totalPaid / totalCost) * 100)) : 0;
 
-  const progressColor =
-    balance === 0 && totalCost > 0
-      ? "bg-emerald-500"
-      : payPct > 0
-      ? "bg-amber-500"
-      : "bg-slate-200";
+  // Financials
+  const totalCost = Number(svc.amount) || 0;
+  const paid = serviceTotalPaid(svc);
+  const pending = serviceTotalPending(svc);
+  const balance = Math.max(0, totalCost - paid);
+  const totalAllocated = paid + pending;
+
+  // Progress bar segments
+  const paidPct = totalCost > 0 ? Math.min(100, (paid / totalCost) * 100) : 0;
+  const pendingPct = totalCost > 0 ? Math.min(100 - paidPct, (pending / totalCost) * 100) : 0;
+  const leftPct = Math.max(0, 100 - paidPct - pendingPct);
+
+  // Overall status label
+  const statusLabel =
+    totalCost <= 0 ? "No Cost Set" :
+    balance === 0 ? "Fully Paid" :
+    paid > 0 ? "Partial" : "Unpaid";
 
   return (
     <div className="border border-slate-200 rounded-2xl bg-white shadow-sm overflow-hidden">
@@ -461,28 +514,32 @@ function ServiceCard({ svc, idx, onRemove, onUpdateField, onAddVendorPayment, on
           </div>
         </div>
 
-        {/* ── Financial Summary Bar ─────────────────────────────────────── */}
+        {/* ── Financial Summary Bar (now with 4 columns + segmented progress) ── */}
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2 mt-1">
           <div className="flex items-center justify-between text-xs">
             <span className="font-black text-slate-600 uppercase tracking-wider text-[10px]">Vendor Payment Summary</span>
             {totalCost > 0 && (
               <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                balance === 0 ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                  : totalPaid > 0 ? "bg-amber-50 border-amber-200 text-amber-700"
-                  : "bg-slate-100 border-slate-200 text-slate-500"
+                statusLabel === "Fully Paid" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
+                paid > 0 ? "bg-amber-50 border-amber-200 text-amber-700" :
+                "bg-slate-100 border-slate-200 text-slate-500"
               }`}>
-                {balance === 0 && totalCost > 0 ? "Fully Paid" : totalPaid > 0 ? "Partial" : "Unpaid"}
+                {statusLabel}
               </span>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             <div>
               <p className="text-slate-400 text-[10px]">Total Cost</p>
               <p className="font-bold text-slate-800">₹{totalCost.toLocaleString("en-IN")}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-[10px]">Total Paid</p>
-              <p className="font-bold text-emerald-600">₹{totalPaid.toLocaleString("en-IN")}</p>
+              <p className="text-slate-400 text-[10px]">Paid</p>
+              <p className="font-bold text-emerald-600">₹{paid.toLocaleString("en-IN")}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-[10px]">Pending</p>
+              <p className="font-bold text-amber-600">₹{pending.toLocaleString("en-IN")}</p>
             </div>
             <div>
               <p className="text-slate-400 text-[10px]">Balance</p>
@@ -491,13 +548,27 @@ function ServiceCard({ svc, idx, onRemove, onUpdateField, onAddVendorPayment, on
               </p>
             </div>
           </div>
-          {/* Progress bar */}
+          {/* Segmented progress bar */}
           {totalCost > 0 && (
             <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
-                style={{ width: `${payPct}%` }}
-              />
+              {paidPct > 0 && (
+                <div
+                  className="h-full bg-emerald-500 float-left"
+                  style={{ width: `${paidPct}%` }}
+                />
+              )}
+              {pendingPct > 0 && (
+                <div
+                  className="h-full bg-amber-400 float-left"
+                  style={{ width: `${pendingPct}%` }}
+                />
+              )}
+              {leftPct > 0 && (
+                <div
+                  className="h-full bg-slate-200 float-left"
+                  style={{ width: `${leftPct}%` }}
+                />
+              )}
             </div>
           )}
         </div>
@@ -544,11 +615,11 @@ function ServiceCard({ svc, idx, onRemove, onUpdateField, onAddVendorPayment, on
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowAddForm(true)}
-                  disabled={balance <= 0 && totalCost > 0}
+                  disabled={totalCost <= 0}   // Only disable when no cost is set
                   className="w-full h-8 text-xs rounded-lg border border-dashed border-slate-300 hover:border-blue-400 hover:text-blue-600 mt-1"
                 >
                   <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  {balance <= 0 && totalCost > 0 ? "Fully Paid" : "Add Payment"}
+                  {totalCost <= 0 ? "Set Total Cost First" : "Add Payment"}
                 </Button>
               )}
             </div>
@@ -589,6 +660,7 @@ function CreateBookingInner() {
           vendorPayments: (s.vendorPayments || []).map((p) => ({
             ...p,
             _key: Math.random().toString(36).slice(2),
+            status: p.status || "Paid",   // backward compatibility
           })),
           _showPayments: false,
         })),
@@ -621,6 +693,7 @@ function CreateBookingInner() {
               vendorPayments: (s.vendorPayments || []).map((p) => ({
                 ...p,
                 _key: Math.random().toString(36).slice(2),
+                status: p.status || "Paid",   // backward compatibility
               })),
               _showPayments: false,
             })),
@@ -718,9 +791,10 @@ function CreateBookingInner() {
   const customerBalance = totalAmount - customerPaidAmount;
   const paymentStatus = computePaymentStatus(totalAmount, customerPaidAmount);
 
-  // Vendor / service side aggregates
+  // Vendor / service side aggregates (status‑aware)
   const totalVendorCost = form.services.reduce((s, svc) => s + (Number(svc.amount) || 0), 0);
   const totalVendorPaid = form.services.reduce((s, svc) => s + serviceTotalPaid(svc), 0);
+  const totalVendorPending = form.services.reduce((s, svc) => s + serviceTotalPending(svc), 0);
   const totalVendorBalance = totalVendorCost - totalVendorPaid;
 
   // ── Save ─────────────────────────────────────────────────────────────────
@@ -730,13 +804,13 @@ function CreateBookingInner() {
     if (!form.destination.trim()) return toast.error("Destination is required");
     if (!auth.currentUser) return toast.error("Not authenticated");
 
-    // Validate all vendor payments
+    // Validate all vendor payments (total allocated cannot exceed cost)
     for (const svc of form.services) {
       const cost = Number(svc.amount) || 0;
-      const paid = serviceTotalPaid(svc);
-      if (paid > cost) {
+      const totalAll = serviceTotalAllPayments(svc);
+      if (totalAll > cost) {
         toast.error(
-          `Service "${svc.description || svc.type}": total payments (₹${paid.toLocaleString("en-IN")}) exceed cost (₹${cost.toLocaleString("en-IN")}).`
+          `Service "${svc.description || svc.type}": total payments (₹${totalAll.toLocaleString("en-IN")}) exceed cost (₹${cost.toLocaleString("en-IN")}).`
         );
         return;
       }
@@ -1035,7 +1109,7 @@ function CreateBookingInner() {
             </CardContent>
           </Card>
 
-          {/* Vendor Financial Summary */}
+          {/* Vendor Financial Summary – now with pending line */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-5">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">Vendor Summary</CardTitle>
@@ -1049,6 +1123,10 @@ function CreateBookingInner() {
                 <div className="flex justify-between">
                   <span className="text-slate-500">Total Paid</span>
                   <span className="font-bold text-emerald-600">₹{totalVendorPaid.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Pending Installments</span>
+                  <span className="font-bold text-amber-600">₹{totalVendorPending.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Outstanding</span>

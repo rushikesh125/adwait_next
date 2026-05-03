@@ -81,18 +81,37 @@ const formatDate = (d) =>
 const formatCurrency = (n) =>
   n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
 
-/** Sum of all vendor payments (new schema) on a service */
-const serviceTotalPaid = (svc) =>
+// ─── Status‑aware vendor payment helpers ─────────────────────────────────────
+
+/** Sum of vendor payments with status "Paid" */
+const servicePaid = (svc) =>
+  (svc.vendorPayments || []).reduce(
+    (s, p) => s + (p.status === "Paid" ? Number(p.amount) || 0 : 0),
+    0
+  );
+
+/** Sum of vendor payments with status "Pending" */
+const servicePending = (svc) =>
+  (svc.vendorPayments || []).reduce(
+    (s, p) => s + (p.status === "Pending" ? Number(p.amount) || 0 : 0),
+    0
+  );
+
+/** Sum of all vendor payments (paid + pending) */
+const serviceTotalAll = (svc) =>
   (svc.vendorPayments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-/** For backwards compat — old bookings may still use flat `advance` field */
-const serviceAdvance = (svc) =>
-  svc.vendorPayments ? serviceTotalPaid(svc) : (Number(svc.advance) || 0);
+/**
+ * For backwards compatibility – old bookings may still use flat `advance` field.
+ * If vendorPayments array is present, we use the status‑aware `servicePaid`.
+ */
+const serviceAdvanceOld = (svc) =>
+  svc.vendorPayments ? servicePaid(svc) : (Number(svc.advance) || 0);
 
 const serviceBalance = (svc) =>
-  Math.max(0, (Number(svc.amount) || 0) - serviceAdvance(svc));
+  Math.max(0, (Number(svc.amount) || 0) - serviceAdvanceOld(svc));
 
-// ─── Exported helpers (unchanged API) ────────────────────────────────────────
+// ─── Exported helpers (unchanged API, but now status‑aware) ──────────────────
 
 export function extractHotelsFromBooking(booking) {
   if (booking.hotelSummary?.length) {
@@ -151,38 +170,47 @@ export function buildBookingRequestMessage(booking) {
   ].join("\n");
 }
 
-// ─── Sub-component: Vendor Payment History ────────────────────────────────────
+// ─── Sub-component: Vendor Payment History (status‑aware) ───────────────────
 
 function VendorPaymentHistory({ svc }) {
   const [open, setOpen] = useState(false);
   const payments = svc.vendorPayments || [];
-  const totalPaid = serviceTotalPaid(svc);
   const totalCost = Number(svc.amount) || 0;
-  const balance = Math.max(0, totalCost - totalPaid);
-  const payPct = totalCost > 0 ? Math.min(100, Math.round((totalPaid / totalCost) * 100)) : 0;
 
-  if (!totalCost && payments.length === 0) {
-    // Old schema with flat `advance`
-    if (svc.advance) {
-      return (
-        <div className="mt-2 flex flex-wrap gap-4 text-[11px]">
-          <span className="text-slate-500">
-            Total: <span className="font-bold text-slate-700">{formatCurrency(svc.amount)}</span>
+  // If no vendorPayments array, fall back to old advance field
+  if (!svc.vendorPayments && svc.advance != null) {
+    return (
+      <div className="mt-2 flex flex-wrap gap-4 text-[11px]">
+        <span className="text-slate-500">
+          Total: <span className="font-bold text-slate-700">{formatCurrency(svc.amount)}</span>
+        </span>
+        <span className="text-slate-500">
+          Advance: <span className="font-bold text-emerald-600">{formatCurrency(svc.advance)}</span>
+        </span>
+        <span className="text-slate-500">
+          Balance:{" "}
+          <span className={`font-bold ${(Number(svc.amount) || 0) - (Number(svc.advance) || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+            {formatCurrency((Number(svc.amount) || 0) - (Number(svc.advance) || 0))}
           </span>
-          <span className="text-slate-500">
-            Advance: <span className="font-bold text-emerald-600">{formatCurrency(svc.advance)}</span>
-          </span>
-          <span className="text-slate-500">
-            Balance:{" "}
-            <span className={`font-bold ${(Number(svc.amount) || 0) - (Number(svc.advance) || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-              {formatCurrency((Number(svc.amount) || 0) - (Number(svc.advance) || 0))}
-            </span>
-          </span>
-        </div>
-      );
-    }
-    return null;
+        </span>
+      </div>
+    );
   }
+
+  if (!totalCost && payments.length === 0) return null;
+
+  const paid = servicePaid(svc);
+  const pending = servicePending(svc);
+  const balance = Math.max(0, totalCost - paid);
+
+  const paidPct = totalCost > 0 ? Math.min(100, (paid / totalCost) * 100) : 0;
+  const pendingPct = totalCost > 0 ? Math.min(100 - paidPct, (pending / totalCost) * 100) : 0;
+  const leftPct = Math.max(0, 100 - paidPct - pendingPct);
+
+  const statusLabel =
+    totalCost <= 0 ? "No Cost Set" :
+    balance === 0 ? "Fully Paid" :
+    paid > 0 ? "Partial" : "Unpaid";
 
   return (
     <div className="mt-2 space-y-2">
@@ -192,8 +220,13 @@ function VendorPaymentHistory({ svc }) {
           Total: <span className="font-bold text-slate-700">{formatCurrency(totalCost)}</span>
         </span>
         <span className="text-slate-500">
-          Paid: <span className="font-bold text-emerald-600">{formatCurrency(totalPaid)}</span>
+          Paid: <span className="font-bold text-emerald-600">{formatCurrency(paid)}</span>
         </span>
+        {pending > 0 && (
+          <span className="text-slate-500">
+            Pending: <span className="font-bold text-amber-600">{formatCurrency(pending)}</span>
+          </span>
+        )}
         <span className="text-slate-500">
           Balance:{" "}
           <span className={`font-bold ${balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
@@ -212,27 +245,47 @@ function VendorPaymentHistory({ svc }) {
         )}
       </div>
 
-      {/* Progress bar */}
+      {/* Segmented progress bar */}
       {totalCost > 0 && (
         <div className="h-1 bg-slate-200 rounded-full overflow-hidden w-full max-w-[240px]">
-          <div
-            className={`h-full rounded-full ${balance === 0 ? "bg-emerald-500" : payPct > 0 ? "bg-amber-500" : "bg-slate-300"}`}
-            style={{ width: `${payPct}%` }}
-          />
+          {paidPct > 0 && (
+            <div
+              className="h-full bg-emerald-500 float-left"
+              style={{ width: `${paidPct}%` }}
+            />
+          )}
+          {pendingPct > 0 && (
+            <div
+              className="h-full bg-amber-400 float-left"
+              style={{ width: `${pendingPct}%` }}
+            />
+          )}
+          {leftPct > 0 && (
+            <div
+              className="h-full bg-slate-200 float-left"
+              style={{ width: `${leftPct}%` }}
+            />
+          )}
         </div>
       )}
 
-      {/* Expanded history */}
+      {/* Expanded history with status pills */}
       {open && payments.length > 0 && (
         <div className="border border-slate-200 rounded-xl overflow-hidden mt-1">
           <div className="bg-slate-50 px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">
             Payment History
           </div>
           {payments.map((p, i) => {
+            // Backward compat: default to "Paid" if no status
+            const status = p.status || "Paid";
             const typeBadge =
               p.type === "Advance"
                 ? "bg-violet-50 border-violet-200 text-violet-700"
                 : "bg-sky-50 border-sky-200 text-sky-700";
+            const statusBadge =
+              status === "Paid"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-amber-50 border-amber-200 text-amber-700";
             return (
               <div
                 key={p._key || i}
@@ -241,13 +294,17 @@ function VendorPaymentHistory({ svc }) {
                 <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${typeBadge}`}>
                   {p.type || "Payment"}
                 </span>
+                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBadge}`}>
+                  {status}
+                </span>
                 <span className="text-slate-500 shrink-0">
                   {p.date ? new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—"}
                 </span>
                 <span className="text-slate-500">{p.mode || ""}</span>
                 {p.notes && <span className="text-slate-400 truncate flex-1">· {p.notes}</span>}
-                <span className="ml-auto font-bold text-slate-800 shrink-0">
+                <span className={`ml-auto font-bold shrink-0 ${status === "Pending" ? "text-amber-700" : "text-slate-800"}`}>
                   {formatCurrency(p.amount)}
+                  {status === "Pending" && <span className="ml-0.5 text-[10px] font-medium">(planned)</span>}
                 </span>
               </div>
             );
@@ -497,15 +554,16 @@ export default function BookingDetailPage() {
     );
   }
 
-  // ── Derived financials ────────────────────────────────────────────────────
+  // ── Derived financials (status‑aware) ──────────────────────────────────────
 
   const paidAmount = Number(booking.paidAmount) || 0;
   const totalAmount = Number(booking.totalAmount) || 0;
   const customerBalance = totalAmount - paidAmount;
 
-  // Vendor aggregates (new schema; fall back to old flat advance)
+  // Vendor aggregates (new schema with status; fall back to old flat advance)
   const totalVendorCost = (booking.services || []).reduce((s, svc) => s + (Number(svc.amount) || 0), 0);
-  const totalVendorPaid = (booking.services || []).reduce((s, svc) => s + serviceAdvance(svc), 0);
+  const totalVendorPaid = (booking.services || []).reduce((s, svc) => s + serviceAdvanceOld(svc), 0);
+  const totalVendorPending = (booking.services || []).reduce((s, svc) => s + servicePending(svc), 0);
   const totalVendorBalance = totalVendorCost - totalVendorPaid;
   const estMargin = totalAmount - totalVendorCost;
 
@@ -522,7 +580,7 @@ export default function BookingDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
-      {/* ── Sticky Header ──────────────────────────────────────────────── */}
+      {/* ── Sticky Header (unchanged) ──────────────────────────────────── */}
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -562,7 +620,7 @@ export default function BookingDetailPage() {
         {/* ── LEFT COLUMN ──────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Trip Info */}
+          {/* Trip Info (unchanged) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-6">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">Trip Information</CardTitle>
@@ -588,7 +646,7 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Vouchers */}
+          {/* Vouchers (unchanged) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
@@ -654,7 +712,7 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Services — updated to show vendor payment history */}
+          {/* Services (updated with status‑aware history) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
@@ -693,7 +751,7 @@ export default function BookingDetailPage() {
                                   <span>Ref: <span className="text-slate-600 font-mono font-bold">{svc.confirmationRef}</span></span>
                                 )}
                               </div>
-                              {/* Vendor payment history — handles both old and new schema */}
+                              {/* Updated vendor payment history */}
                               <VendorPaymentHistory svc={svc} />
                             </div>
                           </div>
@@ -706,7 +764,7 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Customer Payments */}
+          {/* Customer Payments (unchanged) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-6">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
@@ -745,10 +803,9 @@ export default function BookingDetailPage() {
           </Card>
         </div>
 
-        {/* ── RIGHT COLUMN ─────────────────────────────────────────────── */}
+        {/* ── RIGHT COLUMN (updated financials) ─────────────────────────── */}
         <div className="space-y-5">
-
-          {/* Customer Financial Summary */}
+          {/* Customer Financial Summary (unchanged) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-5">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
@@ -767,7 +824,7 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Vendor Financial Summary — new card */}
+          {/* Vendor Financial Summary (updated with Pending line) */}
           {booking.services?.length > 0 && (
             <Card className="rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="pb-3 pt-5 px-5">
@@ -778,6 +835,9 @@ export default function BookingDetailPage() {
               <CardContent className="px-5 pb-5 space-y-3">
                 <SummaryRow label="Total Vendor Cost" value={formatCurrency(totalVendorCost)} bold />
                 <SummaryRow label="Total Paid" value={formatCurrency(totalVendorPaid)} color="text-emerald-600" />
+                {totalVendorPending > 0 && (
+                  <SummaryRow label="Pending Installments" value={formatCurrency(totalVendorPending)} color="text-amber-600" />
+                )}
                 <SummaryRow label="Outstanding" value={formatCurrency(totalVendorBalance)} color={totalVendorBalance > 0 ? "text-rose-600" : "text-slate-500"} />
                 {totalAmount > 0 && (
                   <>
@@ -796,7 +856,7 @@ export default function BookingDetailPage() {
             </Card>
           )}
 
-          {/* Services Breakdown sidebar */}
+          {/* Services Breakdown sidebar (updated) */}
           {booking.services?.length > 0 && (
             <Card className="rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="pb-2 pt-4 px-5">
@@ -806,7 +866,7 @@ export default function BookingDetailPage() {
                 {booking.services.map((svc, i) => {
                   const Icon = SERVICE_ICONS[svc.type] || MoreHorizontal;
                   const svcTotal = Number(svc.amount) || 0;
-                  const svcPaid = serviceAdvance(svc);
+                  const svcPaid = serviceAdvanceOld(svc);
                   const svcBal = Math.max(0, svcTotal - svcPaid);
                   return (
                     <div key={i} className="space-y-0.5">
@@ -841,6 +901,12 @@ export default function BookingDetailPage() {
                     <span className="text-emerald-600">Total Paid</span>
                     <span className="font-bold text-emerald-600">{formatCurrency(totalVendorPaid)}</span>
                   </div>
+                  {totalVendorPending > 0 && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-amber-600">Total Pending</span>
+                      <span className="font-bold text-amber-600">{formatCurrency(totalVendorPending)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-[10px]">
                     <span className="text-rose-500">Total Balance</span>
                     <span className="font-bold text-rose-500">{formatCurrency(totalVendorBalance)}</span>
@@ -852,7 +918,7 @@ export default function BookingDetailPage() {
         </div>
       </div>
 
-      {/* ── Hotel Voucher Drawer ─────────────────────────────────────────── */}
+      {/* ── Hotel Voucher Drawer (unchanged) ────────────────────────────── */}
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
         onClose={() => { setVoucherDrawerOpen(false); setSelectedHotelForVoucher(null); }}
@@ -862,7 +928,7 @@ export default function BookingDetailPage() {
         onSaved={handleVoucherSaved}
       />
 
-      {/* ── Edit Customer Payment Dialog ─────────────────────────────────── */}
+      {/* ── Edit Customer Payment Dialog (unchanged) ────────────────────── */}
       <Dialog open={editingPaymentIdx !== null} onOpenChange={(open) => { if (!open) setEditingPaymentIdx(null); }}>
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
@@ -915,7 +981,7 @@ export default function BookingDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Multi-hotel selection dialog ─────────────────────────────────── */}
+      {/* ── Multi-hotel selection dialog (unchanged) ────────────────────── */}
       <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -960,7 +1026,7 @@ export default function BookingDetailPage() {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers (unchanged) ──────────────────────────────────────────────────────
 
 function InfoItem({ icon: Icon, label, value }) {
   return (
