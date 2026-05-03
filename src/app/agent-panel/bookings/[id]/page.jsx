@@ -27,6 +27,13 @@ import {
   MessageCircle,
   AlertTriangle,
   FileText,
+  Receipt,
+  ChevronDown,
+  ChevronUp,
+  TrendingUp,
+  Wallet,
+  BadgeCheck,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +58,8 @@ import {
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const SERVICE_ICONS = {
   Flight: PlaneTakeoff,
   Hotel,
@@ -62,17 +71,28 @@ const SERVICE_ICONS = {
   Other: MoreHorizontal,
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const formatDate = (d) =>
   d
-    ? new Date(d).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+    ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
     : "—";
 
 const formatCurrency = (n) =>
   n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
+
+/** Sum of all vendor payments (new schema) on a service */
+const serviceTotalPaid = (svc) =>
+  (svc.vendorPayments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+/** For backwards compat — old bookings may still use flat `advance` field */
+const serviceAdvance = (svc) =>
+  svc.vendorPayments ? serviceTotalPaid(svc) : (Number(svc.advance) || 0);
+
+const serviceBalance = (svc) =>
+  Math.max(0, (Number(svc.amount) || 0) - serviceAdvance(svc));
+
+// ─── Exported helpers (unchanged API) ────────────────────────────────────────
 
 export function extractHotelsFromBooking(booking) {
   if (booking.hotelSummary?.length) {
@@ -87,7 +107,6 @@ export function extractHotelsFromBooking(booking) {
       mealPlan: h.selectedMealPlan || "-",
     }));
   }
-
   return (booking.services || [])
     .filter((s) => s.type === "Hotel")
     .map((s) => ({
@@ -117,7 +136,6 @@ export function buildBookingRequestMessage(booking) {
   const amount = booking.totalAmount
     ? `\nTotal Amount: *₹${Number(booking.totalAmount).toLocaleString("en-IN")}*`
     : "";
-
   return [
     `Hi ${name} 👋`,
     ``,
@@ -133,11 +151,121 @@ export function buildBookingRequestMessage(booking) {
   ].join("\n");
 }
 
+// ─── Sub-component: Vendor Payment History ────────────────────────────────────
+
+function VendorPaymentHistory({ svc }) {
+  const [open, setOpen] = useState(false);
+  const payments = svc.vendorPayments || [];
+  const totalPaid = serviceTotalPaid(svc);
+  const totalCost = Number(svc.amount) || 0;
+  const balance = Math.max(0, totalCost - totalPaid);
+  const payPct = totalCost > 0 ? Math.min(100, Math.round((totalPaid / totalCost) * 100)) : 0;
+
+  if (!totalCost && payments.length === 0) {
+    // Old schema with flat `advance`
+    if (svc.advance) {
+      return (
+        <div className="mt-2 flex flex-wrap gap-4 text-[11px]">
+          <span className="text-slate-500">
+            Total: <span className="font-bold text-slate-700">{formatCurrency(svc.amount)}</span>
+          </span>
+          <span className="text-slate-500">
+            Advance: <span className="font-bold text-emerald-600">{formatCurrency(svc.advance)}</span>
+          </span>
+          <span className="text-slate-500">
+            Balance:{" "}
+            <span className={`font-bold ${(Number(svc.amount) || 0) - (Number(svc.advance) || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+              {formatCurrency((Number(svc.amount) || 0) - (Number(svc.advance) || 0))}
+            </span>
+          </span>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      {/* Summary row */}
+      <div className="flex flex-wrap gap-4 text-[11px]">
+        <span className="text-slate-500">
+          Total: <span className="font-bold text-slate-700">{formatCurrency(totalCost)}</span>
+        </span>
+        <span className="text-slate-500">
+          Paid: <span className="font-bold text-emerald-600">{formatCurrency(totalPaid)}</span>
+        </span>
+        <span className="text-slate-500">
+          Balance:{" "}
+          <span className={`font-bold ${balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+            {formatCurrency(balance)}
+          </span>
+        </span>
+        {payments.length > 0 && (
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-1 text-theme-primary font-bold hover:underline"
+          >
+            <Receipt className="w-3 h-3" />
+            {payments.length} payment{payments.length > 1 ? "s" : ""}
+            {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      {totalCost > 0 && (
+        <div className="h-1 bg-slate-200 rounded-full overflow-hidden w-full max-w-[240px]">
+          <div
+            className={`h-full rounded-full ${balance === 0 ? "bg-emerald-500" : payPct > 0 ? "bg-amber-500" : "bg-slate-300"}`}
+            style={{ width: `${payPct}%` }}
+          />
+        </div>
+      )}
+
+      {/* Expanded history */}
+      {open && payments.length > 0 && (
+        <div className="border border-slate-200 rounded-xl overflow-hidden mt-1">
+          <div className="bg-slate-50 px-3 py-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+            Payment History
+          </div>
+          {payments.map((p, i) => {
+            const typeBadge =
+              p.type === "Advance"
+                ? "bg-violet-50 border-violet-200 text-violet-700"
+                : "bg-sky-50 border-sky-200 text-sky-700";
+            return (
+              <div
+                key={p._key || i}
+                className="flex items-center gap-3 px-3 py-2 text-xs border-t border-slate-100 first:border-0"
+              >
+                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${typeBadge}`}>
+                  {p.type || "Payment"}
+                </span>
+                <span className="text-slate-500 shrink-0">
+                  {p.date ? new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—"}
+                </span>
+                <span className="text-slate-500">{p.mode || ""}</span>
+                {p.notes && <span className="text-slate-400 truncate flex-1">· {p.notes}</span>}
+                <span className="ml-auto font-bold text-slate-800 shrink-0">
+                  {formatCurrency(p.amount)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function BookingDetailPage() {
   const router = useRouter();
   const { id } = useParams();
   const pathname = usePathname();
   const panelBase = pathname.startsWith("/admin") ? "/admin-panel" : "/agent-panel";
+
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -196,7 +324,6 @@ export default function BookingDetailPage() {
       await updateBooking(id, { payments: updatedPayments, paidAmount, paymentStatus });
       setBooking((prev) => ({ ...prev, payments: updatedPayments, paidAmount, paymentStatus }));
 
-      // Sync to linked invoice if this payment has an invoicePaymentId
       const editedPayment = booking.payments[editingPaymentIdx];
       if (editedPayment?.invoicePaymentId) {
         try {
@@ -235,10 +362,7 @@ export default function BookingDetailPage() {
       await deleteBooking(id);
       if (booking?.quotationId && booking?.agentId) {
         try {
-          await updateQuotation(booking.agentId, booking.quotationId, {
-            convertedToBooking: false,
-            bookingId: null,
-          });
+          await updateQuotation(booking.agentId, booking.quotationId, { convertedToBooking: false, bookingId: null });
         } catch (e) {
           console.warn("[BookingDetail] Could not un-mark quotation (non-critical):", e);
         }
@@ -252,29 +376,14 @@ export default function BookingDetailPage() {
   };
 
   const handleGenerateVoucher = (type) => {
-    if (type !== "hotel") {
-      toast("Flight voucher coming soon", { icon: "✈️" });
-      return;
-    }
-
+    if (type !== "hotel") { toast("Flight voucher coming soon", { icon: "✈️" }); return; }
     const hotels = extractHotelsFromBooking(booking);
-    if (hotels.length === 0) {
-      toast.error("No hotel data found in this booking.");
-      return;
-    }
-
+    if (hotels.length === 0) { toast.error("No hotel data found in this booking."); return; }
     if (hotels.length === 1) {
       const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
       const key = hotelVoucherKey(hotels[0].hotelName, hotels[0].checkIn);
-      const alreadyExists = activeVouchers.some(
-        (v) => hotelVoucherKey(v.hotelName, v.checkIn) === key
-      );
-      if (alreadyExists) {
-        toast.error(
-          `A voucher for "${hotels[0].hotelName}" already exists. Delete it first to create a new one.`
-        );
-        return;
-      }
+      const alreadyExists = activeVouchers.some((v) => hotelVoucherKey(v.hotelName, v.checkIn) === key);
+      if (alreadyExists) { toast.error(`A voucher for "${hotels[0].hotelName}" already exists. Delete it first to create a new one.`); return; }
       setSelectedHotelForVoucher(hotels[0]);
       setVoucherDrawerOpen(true);
     } else {
@@ -287,16 +396,8 @@ export default function BookingDetailPage() {
   const handleSelectHotelForVoucher = (hotel) => {
     const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
     const key = hotelVoucherKey(hotel.hotelName, hotel.checkIn);
-    const alreadyExists = activeVouchers.some(
-      (v) => hotelVoucherKey(v.hotelName, v.checkIn) === key
-    );
-    if (alreadyExists) {
-      toast.error(
-        `A voucher for "${hotel.hotelName}" already exists. Delete it first to create a new one.`
-      );
-      setHotelSelectionOpen(false);
-      return;
-    }
+    const alreadyExists = activeVouchers.some((v) => hotelVoucherKey(v.hotelName, v.checkIn) === key);
+    if (alreadyExists) { toast.error(`A voucher for "${hotel.hotelName}" already exists. Delete it first.`); setHotelSelectionOpen(false); return; }
     setSelectedHotelForVoucher(hotel);
     setHotelSelectionOpen(false);
     setVoucherDrawerOpen(true);
@@ -307,12 +408,8 @@ export default function BookingDetailPage() {
       const fresh = await getBookingById(id);
       const hotel = selectedHotelForVoucher;
       const existing = fresh?.vouchers || [];
-
       const key = hotelVoucherKey(hotel?.hotelName, hotel?.checkIn);
-      const alreadyTracked = existing.some(
-        (v) => !v.deleted && hotelVoucherKey(v.hotelName, v.checkIn) === key
-      );
-
+      const alreadyTracked = existing.some((v) => !v.deleted && hotelVoucherKey(v.hotelName, v.checkIn) === key);
       if (!alreadyTracked && hotel) {
         const entry = {
           id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -341,15 +438,12 @@ export default function BookingDetailPage() {
     setDeletingVoucherId(voucherId);
     try {
       const updated = (booking.vouchers || []).map((v) =>
-        v.id === voucherId
-          ? { ...v, deleted: true, deletedAt: new Date().toISOString() }
-          : v
+        v.id === voucherId ? { ...v, deleted: true, deletedAt: new Date().toISOString() } : v
       );
       await updateBooking(id, { vouchers: updated });
       setBooking((prev) => ({ ...prev, vouchers: updated }));
       toast.success("Voucher record removed. You can now create a new one.");
     } catch (err) {
-      console.error("[BookingDetail] Failed to delete voucher entry:", err);
       toast.error("Could not remove voucher record: " + err.message);
     } finally {
       setDeletingVoucherId(null);
@@ -359,26 +453,13 @@ export default function BookingDetailPage() {
   const handleHotelBookingRequestForHotel = async (hotel) => {
     setHotelSelectionOpen(false);
     const { phone } = await sendHotelBookingRequestOnWhatsApp(booking, hotel);
-    if (!phone) {
-      toast("Opening WhatsApp. Hotel number not found; please select the hotel manually.", {
-        icon: "📱",
-      });
-    }
+    if (!phone) toast("Opening WhatsApp. Hotel number not found; please select the hotel manually.", { icon: "📱" });
   };
 
   const handleHotelBookingRequest = () => {
     const hotels = extractHotelsFromBooking(booking);
-
-    if (hotels.length === 0) {
-      toast.error("No hotel data found in this booking.");
-      return;
-    }
-
-    if (hotels.length === 1) {
-      handleHotelBookingRequestForHotel(hotels[0]);
-      return;
-    }
-
+    if (hotels.length === 0) { toast.error("No hotel data found in this booking."); return; }
+    if (hotels.length === 1) { handleHotelBookingRequestForHotel(hotels[0]); return; }
     setHotelSelectionMode("bookingRequest");
     setHotelListForSelection(hotels);
     setHotelSelectionOpen(true);
@@ -392,11 +473,8 @@ export default function BookingDetailPage() {
     const url = formattedPhone
       ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
-
     window.open(url, "_blank", "noopener,noreferrer");
-    if (!formattedPhone) {
-      toast("Opening WhatsApp. Please select the guest manually.", { icon: "📱" });
-    }
+    if (!formattedPhone) toast("Opening WhatsApp. Please select the guest manually.", { icon: "📱" });
   };
 
   if (loading) {
@@ -419,9 +497,17 @@ export default function BookingDetailPage() {
     );
   }
 
+  // ── Derived financials ────────────────────────────────────────────────────
+
   const paidAmount = Number(booking.paidAmount) || 0;
   const totalAmount = Number(booking.totalAmount) || 0;
-  const balance = totalAmount - paidAmount;
+  const customerBalance = totalAmount - paidAmount;
+
+  // Vendor aggregates (new schema; fall back to old flat advance)
+  const totalVendorCost = (booking.services || []).reduce((s, svc) => s + (Number(svc.amount) || 0), 0);
+  const totalVendorPaid = (booking.services || []).reduce((s, svc) => s + serviceAdvance(svc), 0);
+  const totalVendorBalance = totalVendorCost - totalVendorPaid;
+  const estMargin = totalAmount - totalVendorCost;
 
   const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
   const deletedVouchers = (booking.vouchers || []).filter((v) => v.deleted);
@@ -436,65 +522,36 @@ export default function BookingDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
-      {/* Header */}
+      {/* ── Sticky Header ──────────────────────────────────────────────── */}
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push(`${panelBase}/bookings`)}
-              className="rounded-xl"
-            >
+            <Button variant="ghost" size="icon" onClick={() => router.push(`${panelBase}/bookings`)} className="rounded-xl">
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-lg text-slate-900 tracking-tight">
-                  {booking.bookingRef}
-                </span>
-                <StatusBadge
-                  status={booking.status || "Pending"}
-                  fallback="Pending"
-                  className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                />
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-lg text-slate-900 tracking-tight">{booking.bookingRef}</span>
+                <StatusBadge status={booking.status || "Pending"} fallback="Pending" className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider" />
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
                 Created {booking.createdAt?.toDate?.()?.toLocaleDateString("en-GB") || "—"}
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleHotelBookingRequest}
-              className="rounded-xl font-bold h-9 text-green-600 border-green-300 hover:bg-green-50"
-              title="Send hotel booking request via WhatsApp"
-            >
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Send Request
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Button variant="outline" onClick={handleHotelBookingRequest}
+              className="rounded-xl font-bold h-9 text-green-600 border-green-300 hover:bg-green-50" title="Send hotel booking request via WhatsApp">
+              <MessageCircle className="w-4 h-4 mr-2" /> Send Request
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => router.push(`${panelBase}/invoices/create?bookingId=${id}`)}
-              className="rounded-xl font-bold h-9 text-theme-primary border-blue-200 hover:bg-blue-50"
-              title="Create invoice from this booking"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Create Invoice
+            <Button variant="outline" onClick={() => router.push(`${panelBase}/invoices/create?bookingId=${id}`)}
+              className="rounded-xl font-bold h-9 text-theme-primary border-blue-200 hover:bg-blue-50" title="Create invoice from this booking">
+              <FileText className="w-4 h-4 mr-2" /> Create Invoice
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => router.push(`${panelBase}/bookings/create?id=${id}`)}
-              className="rounded-xl font-bold h-9"
-            >
+            <Button variant="outline" onClick={() => router.push(`${panelBase}/bookings/create?id=${id}`)} className="rounded-xl font-bold h-9">
               <Edit3 className="w-4 h-4 mr-2" /> Edit
             </Button>
-            <Button
-              variant="ghost"
-              onClick={handleDelete}
-              className="rounded-xl h-9 text-red-500 hover:bg-red-50 hover:text-red-600"
-            >
+            <Button variant="ghost" onClick={handleDelete} className="rounded-xl h-9 text-red-500 hover:bg-red-50 hover:text-red-600">
               <Trash2 className="w-4 h-4" />
             </Button>
           </div>
@@ -502,25 +559,20 @@ export default function BookingDetailPage() {
       </div>
 
       <div className="max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT — Details */}
+        {/* ── LEFT COLUMN ──────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
 
           {/* Trip Info */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-6">
-              <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
-                Trip Information
-              </CardTitle>
+              <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">Trip Information</CardTitle>
             </CardHeader>
             <CardContent className="px-6 pb-6">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-5 gap-x-6">
                 <InfoItem icon={Users} label="Customer" value={booking.customerName || "—"} />
                 <InfoItem icon={MapPin} label="Destination" value={booking.destination || "—"} />
-                <InfoItem
-                  icon={Hash}
-                  label="Pax"
-                  value={`${booking.adults || 1} Adults${booking.children ? `, ${booking.children} Children` : ""}`}
-                />
+                <InfoItem icon={Hash} label="Pax"
+                  value={`${booking.adults || 1} Adults${booking.children ? `, ${booking.children} Children` : ""}`} />
                 <InfoItem icon={Calendar} label="Start Date" value={formatDate(booking.startDate)} />
                 <InfoItem icon={Calendar} label="End Date" value={formatDate(booking.endDate)} />
               </div>
@@ -528,9 +580,7 @@ export default function BookingDetailPage() {
                 <>
                   <Separator className="my-4" />
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Notes
-                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Notes</p>
                     <p className="text-sm text-slate-600 leading-relaxed">{booking.notes}</p>
                   </div>
                 </>
@@ -538,99 +588,61 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Vouchers Card */}
+          {/* Vouchers */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                <FileCheck2 className="w-4 h-4 text-theme-primary" />
-                Vouchers
+                <FileCheck2 className="w-4 h-4 text-theme-primary" /> Vouchers
               </CardTitle>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl text-xs font-bold h-8 gap-1.5"
-                  onClick={() => handleGenerateVoucher("hotel")}
-                >
-                  <Hotel className="w-3.5 h-3.5" />
-                  Hotel Voucher
+                <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8 gap-1.5" onClick={() => handleGenerateVoucher("hotel")}>
+                  <Hotel className="w-3.5 h-3.5" /> Hotel Voucher
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl text-xs font-bold h-8 gap-1.5"
-                  onClick={() => handleGenerateVoucher("flight")}
-                >
-                  <PlaneTakeoff className="w-3.5 h-3.5" />
-                  Flight Voucher
+                <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8 gap-1.5" onClick={() => handleGenerateVoucher("flight")}>
+                  <PlaneTakeoff className="w-3.5 h-3.5" /> Flight Voucher
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="px-6 pb-6">
               {activeVouchers.length === 0 && deletedVouchers.length === 0 ? (
-                <p className="text-slate-400 text-sm text-center py-4">
-                  No vouchers created yet. Use the buttons above to generate one.
-                </p>
+                <p className="text-slate-400 text-sm text-center py-4">No vouchers created yet. Use the buttons above to generate one.</p>
               ) : (
                 <div className="space-y-3">
                   {activeVouchers.map((v) => (
-                    <div
-                      key={v.id}
-                      className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100"
-                    >
+                    <div key={v.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-white border border-slate-200">
                           <Hotel className="w-4 h-4 text-theme-primary" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-slate-800">
-                            {v.hotelName || "Hotel Voucher"}
-                          </p>
+                          <p className="text-sm font-semibold text-slate-800">{v.hotelName || "Hotel Voucher"}</p>
                           <p className="text-xs text-slate-400 mt-0.5">
-                            {v.checkIn && v.checkOut
-                              ? `${formatDate(v.checkIn)} → ${formatDate(v.checkOut)}`
-                              : v.city || ""}
+                            {v.checkIn && v.checkOut ? `${formatDate(v.checkIn)} → ${formatDate(v.checkOut)}` : v.city || ""}
                             {v.createdAt ? ` · Created ${formatDate(v.createdAt)}` : ""}
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
+                      <Button variant="ghost" size="icon"
                         className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50"
-                        title="Remove voucher record (allows creating a new one)"
+                        title="Remove voucher record"
                         disabled={deletingVoucherId === v.id}
-                        onClick={() => handleDeleteVoucherEntry(v.id)}
-                      >
-                        {deletingVoucherId === v.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <XCircle className="w-4 h-4" />
-                        )}
+                        onClick={() => handleDeleteVoucherEntry(v.id)}>
+                        {deletingVoucherId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                       </Button>
                     </div>
                   ))}
-
                   {deletedVouchers.length > 0 && (
                     <details className="mt-2">
                       <summary className="text-xs text-slate-400 cursor-pointer select-none hover:text-slate-600">
-                        {deletedVouchers.length} deleted voucher
-                        {deletedVouchers.length > 1 ? "s" : ""} (history)
+                        {deletedVouchers.length} deleted voucher{deletedVouchers.length > 1 ? "s" : ""} (history)
                       </summary>
                       <div className="space-y-2 mt-2">
                         {deletedVouchers.map((v) => (
-                          <div
-                            key={v.id}
-                            className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 opacity-50"
-                          >
+                          <div key={v.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 opacity-50">
                             <Hotel className="w-4 h-4 text-slate-400" />
                             <div>
-                              <p className="text-xs text-slate-500 line-through">
-                                {v.hotelName || "Hotel Voucher"}
-                              </p>
-                              <p className="text-[10px] text-slate-400">
-                                Deleted {v.deletedAt ? formatDate(v.deletedAt) : ""}
-                              </p>
+                              <p className="text-xs text-slate-500 line-through">{v.hotelName || "Hotel Voucher"}</p>
+                              <p className="text-[10px] text-slate-400">Deleted {v.deletedAt ? formatDate(v.deletedAt) : ""}</p>
                             </div>
                           </div>
                         ))}
@@ -642,12 +654,16 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Services */}
+          {/* Services — updated to show vendor payment history */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardHeader className="pb-3 pt-5 px-6">
+            <CardHeader className="pb-3 pt-5 px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
                 Services ({booking.services?.length || 0})
               </CardTitle>
+              <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8"
+                onClick={() => router.push(`${panelBase}/bookings/create?id=${id}`)}>
+                <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Services
+              </Button>
             </CardHeader>
             <CardContent className="px-6 pb-6">
               {!booking.services?.length ? (
@@ -657,72 +673,29 @@ export default function BookingDetailPage() {
                   {booking.services.map((svc, i) => {
                     const Icon = SERVICE_ICONS[svc.type] || MoreHorizontal;
                     return (
-                      <div
-                        key={i}
-                        className="flex items-start justify-between p-4 rounded-xl bg-slate-50 border border-slate-100"
-                      >
-                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                          <div className="p-2 rounded-lg bg-white border border-slate-200 mt-0.5 shrink-0">
-                            <Icon className="w-4 h-4 text-theme-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm text-slate-800">{svc.type}</span>
-                              <StatusBadge
-                                status={svc.status || "Pending"}
-                                fallback="Pending"
-                                className="px-2 py-0.5 text-[9px] font-bold uppercase"
-                              />
+                      <div key={i} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className="p-2 rounded-lg bg-white border border-slate-200 mt-0.5 shrink-0">
+                              <Icon className="w-4 h-4 text-theme-primary" />
                             </div>
-                            {svc.description && (
-                              <p className="text-xs text-slate-600 mt-0.5">{svc.description}</p>
-                            )}
-                            <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-slate-400">
-                              {svc.supplier && (
-                                <span>
-                                  Supplier:{" "}
-                                  <span className="text-slate-600 font-medium">{svc.supplier}</span>
-                                </span>
-                              )}
-                              {svc.confirmationRef && (
-                                <span>
-                                  Ref:{" "}
-                                  <span className="text-slate-600 font-mono font-bold">
-                                    {svc.confirmationRef}
-                                  </span>
-                                </span>
-                              )}
-                            </div>
-                            {(svc.amount || svc.advance) && (
-                              <div className="flex flex-wrap gap-4 mt-2 text-[11px]">
-                                <span className="text-slate-500">
-                                  Total:{" "}
-                                  <span className="font-bold text-slate-700">
-                                    {svc.amount ? formatCurrency(svc.amount) : "—"}
-                                  </span>
-                                </span>
-                                <span className="text-slate-500">
-                                  Advance:{" "}
-                                  <span className="font-bold text-emerald-600">
-                                    {svc.advance ? formatCurrency(svc.advance) : "₹0"}
-                                  </span>
-                                </span>
-                                <span className="text-slate-500">
-                                  Balance:{" "}
-                                  <span
-                                    className={`font-bold ${
-                                      (Number(svc.amount) || 0) - (Number(svc.advance) || 0) > 0
-                                        ? "text-rose-600"
-                                        : "text-emerald-600"
-                                    }`}
-                                  >
-                                    {formatCurrency(
-                                      (Number(svc.amount) || 0) - (Number(svc.advance) || 0)
-                                    )}
-                                  </span>
-                                </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-sm text-slate-800">{svc.type}</span>
+                                <StatusBadge status={svc.status || "Pending"} fallback="Pending" className="px-2 py-0.5 text-[9px] font-bold uppercase" />
                               </div>
-                            )}
+                              {svc.description && <p className="text-xs text-slate-600 mt-0.5">{svc.description}</p>}
+                              <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-slate-400">
+                                {svc.supplier && (
+                                  <span>Supplier: <span className="text-slate-600 font-medium">{svc.supplier}</span></span>
+                                )}
+                                {svc.confirmationRef && (
+                                  <span>Ref: <span className="text-slate-600 font-mono font-bold">{svc.confirmationRef}</span></span>
+                                )}
+                              </div>
+                              {/* Vendor payment history — handles both old and new schema */}
+                              <VendorPaymentHistory svc={svc} />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -733,47 +706,34 @@ export default function BookingDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Payments */}
+          {/* Customer Payments */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-6">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
-                Payment History ({booking.payments?.length || 0})
+                Customer Payment History ({booking.payments?.length || 0})
               </CardTitle>
             </CardHeader>
             <CardContent className="px-6 pb-6">
               {!booking.payments?.length ? (
                 <p className="text-slate-400 text-sm text-center py-4">No payments recorded.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {booking.payments.map((pay, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100"
-                    >
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 group">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-bold text-slate-700">{pay.mode}</span>
-                          {pay.reference && (
-                            <span className="text-[11px] font-mono text-slate-400">
-                              {pay.reference}
-                            </span>
-                          )}
+                          {pay.reference && <span className="text-[11px] font-mono text-slate-400">{pay.reference}</span>}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {formatDate(pay.date)}
-                          {pay.notes && ` · ${pay.notes}`}
+                          {formatDate(pay.date)}{pay.notes && ` · ${pay.notes}`}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-black text-emerald-600">
-                          {formatCurrency(pay.amount)}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-slate-300 hover:text-blue-500 hover:bg-blue-50"
-                          onClick={() => handleOpenEditPayment(i)}
-                        >
+                        <span className="font-black text-emerald-600">{formatCurrency(pay.amount)}</span>
+                        <Button variant="ghost" size="icon"
+                          className="h-7 w-7 text-slate-300 hover:text-blue-500 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleOpenEditPayment(i)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -785,74 +745,86 @@ export default function BookingDetailPage() {
           </Card>
         </div>
 
-        {/* RIGHT — Summary */}
+        {/* ── RIGHT COLUMN ─────────────────────────────────────────────── */}
         <div className="space-y-5">
+
+          {/* Customer Financial Summary */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-5">
-              <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
-                Financial Summary
+              <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-theme-primary" /> Customer Summary
               </CardTitle>
             </CardHeader>
             <CardContent className="px-5 pb-5 space-y-3">
               <SummaryRow label="Total Amount" value={formatCurrency(totalAmount)} bold />
-              <SummaryRow
-                label="Amount Paid"
-                value={formatCurrency(paidAmount)}
-                color="text-emerald-600"
-              />
-              <SummaryRow
-                label="Balance Due"
-                value={formatCurrency(balance)}
-                color={balance > 0 ? "text-rose-600" : "text-slate-700"}
-              />
+              <SummaryRow label="Amount Paid" value={formatCurrency(paidAmount)} color="text-emerald-600" />
+              <SummaryRow label="Balance Due" value={formatCurrency(customerBalance)} color={customerBalance > 0 ? "text-rose-600" : "text-slate-700"} />
               <Separator />
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-500">Payment Status</span>
-                <StatusBadge
-                  status={booking.paymentStatus || "Unpaid"}
-                  fallback="Unpaid"
-                  className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                />
+                <StatusBadge status={booking.paymentStatus || "Unpaid"} fallback="Unpaid" className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider" />
               </div>
             </CardContent>
           </Card>
 
+          {/* Vendor Financial Summary — new card */}
+          {booking.services?.length > 0 && (
+            <Card className="rounded-2xl border-slate-200 shadow-sm">
+              <CardHeader className="pb-3 pt-5 px-5">
+                <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-theme-primary" /> Vendor Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 space-y-3">
+                <SummaryRow label="Total Vendor Cost" value={formatCurrency(totalVendorCost)} bold />
+                <SummaryRow label="Total Paid" value={formatCurrency(totalVendorPaid)} color="text-emerald-600" />
+                <SummaryRow label="Outstanding" value={formatCurrency(totalVendorBalance)} color={totalVendorBalance > 0 ? "text-rose-600" : "text-slate-500"} />
+                {totalAmount > 0 && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500 flex items-center gap-1">
+                        <TrendingUp className="w-3.5 h-3.5" /> Est. Margin
+                      </span>
+                      <span className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                        {formatCurrency(estMargin)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Services Breakdown sidebar */}
           {booking.services?.length > 0 && (
             <Card className="rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
-                  Services Breakdown
-                </CardTitle>
+                <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">Services Breakdown</CardTitle>
               </CardHeader>
               <CardContent className="px-5 pb-4 space-y-3">
                 {booking.services.map((svc, i) => {
                   const Icon = SERVICE_ICONS[svc.type] || MoreHorizontal;
                   const svcTotal = Number(svc.amount) || 0;
-                  const svcAdvance = Number(svc.advance) || 0;
-                  const svcBalance = svcTotal - svcAdvance;
+                  const svcPaid = serviceAdvance(svc);
+                  const svcBal = Math.max(0, svcTotal - svcPaid);
                   return (
-                    <div key={i} className="space-y-1">
+                    <div key={i} className="space-y-0.5">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1.5 text-slate-600 font-medium">
                           <Icon className="w-3.5 h-3.5 text-theme-primary" />
                           <span>
                             {svc.type}
-                            {svc.description
-                              ? ` · ${svc.description.slice(0, 20)}${svc.description.length > 20 ? "…" : ""}`
-                              : ""}
+                            {svc.description ? ` · ${svc.description.slice(0, 20)}${svc.description.length > 20 ? "…" : ""}` : ""}
                           </span>
                         </div>
-                        <span className="font-bold">
-                          {svcTotal ? formatCurrency(svcTotal) : "—"}
-                        </span>
+                        <span className="font-bold">{svcTotal ? formatCurrency(svcTotal) : "—"}</span>
                       </div>
-                      {(svcAdvance > 0 || svcTotal > 0) && (
+                      {(svcPaid > 0 || svcTotal > 0) && (
                         <div className="flex justify-between text-[10px] pl-5">
-                          <span className="text-emerald-600">
-                            Adv: {formatCurrency(svcAdvance)}
-                          </span>
-                          <span className={svcBalance > 0 ? "text-rose-500" : "text-emerald-600"}>
-                            Bal: {formatCurrency(svcBalance)}
+                          <span className="text-emerald-600">Paid {formatCurrency(svcPaid)}</span>
+                          <span className={svcBal > 0 ? "text-rose-500" : "text-slate-400"}>
+                            Bal {formatCurrency(svcBal)}
                           </span>
                         </div>
                       )}
@@ -863,30 +835,15 @@ export default function BookingDetailPage() {
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs font-bold">
                     <span>Total Cost</span>
-                    <span>
-                      {formatCurrency(
-                        booking.services.reduce((s, v) => s + (Number(v.amount) || 0), 0)
-                      )}
-                    </span>
+                    <span>{formatCurrency(totalVendorCost)}</span>
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-emerald-600">Total Advance</span>
-                    <span className="font-bold text-emerald-600">
-                      {formatCurrency(
-                        booking.services.reduce((s, v) => s + (Number(v.advance) || 0), 0)
-                      )}
-                    </span>
+                    <span className="text-emerald-600">Total Paid</span>
+                    <span className="font-bold text-emerald-600">{formatCurrency(totalVendorPaid)}</span>
                   </div>
                   <div className="flex justify-between text-[10px]">
                     <span className="text-rose-500">Total Balance</span>
-                    <span className="font-bold text-rose-500">
-                      {formatCurrency(
-                        booking.services.reduce(
-                          (s, v) => s + ((Number(v.amount) || 0) - (Number(v.advance) || 0)),
-                          0
-                        )
-                      )}
-                    </span>
+                    <span className="font-bold text-rose-500">{formatCurrency(totalVendorBalance)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -895,20 +852,17 @@ export default function BookingDetailPage() {
         </div>
       </div>
 
-      {/* Hotel Voucher Drawer */}
+      {/* ── Hotel Voucher Drawer ─────────────────────────────────────────── */}
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
-        onClose={() => {
-          setVoucherDrawerOpen(false);
-          setSelectedHotelForVoucher(null);
-        }}
+        onClose={() => { setVoucherDrawerOpen(false); setSelectedHotelForVoucher(null); }}
         hotelData={selectedHotelForVoucher}
         quotation={bookingAsQuotation}
         agentId={booking.agentId || ""}
         onSaved={handleVoucherSaved}
       />
 
-      {/* Edit Payment Dialog */}
+      {/* ── Edit Customer Payment Dialog ─────────────────────────────────── */}
       <Dialog open={editingPaymentIdx !== null} onOpenChange={(open) => { if (!open) setEditingPaymentIdx(null); }}>
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
@@ -917,23 +871,15 @@ export default function BookingDetailPage() {
           <div className="space-y-4 mt-2">
             <div>
               <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Amount (₹) *</Label>
-              <Input
-                type="number"
-                value={editPaymentForm.amount}
+              <Input type="number" value={editPaymentForm.amount}
                 onChange={(e) => setEditPaymentForm((p) => ({ ...p, amount: e.target.value }))}
-                className="rounded-xl"
-                placeholder="0.00"
-                autoFocus
-              />
+                className="rounded-xl" placeholder="0.00" autoFocus />
             </div>
             <div>
               <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Date *</Label>
-              <Input
-                type="date"
-                value={editPaymentForm.date}
+              <Input type="date" value={editPaymentForm.date}
                 onChange={(e) => setEditPaymentForm((p) => ({ ...p, date: e.target.value }))}
-                className="rounded-xl"
-              />
+                className="rounded-xl" />
             </div>
             <div>
               <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Mode</Label>
@@ -948,31 +894,20 @@ export default function BookingDetailPage() {
             </div>
             <div>
               <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Reference</Label>
-              <Input
-                value={editPaymentForm.reference}
+              <Input value={editPaymentForm.reference}
                 onChange={(e) => setEditPaymentForm((p) => ({ ...p, reference: e.target.value }))}
-                className="rounded-xl"
-                placeholder="UTR, Cheque number, etc."
-              />
+                className="rounded-xl" placeholder="UTR, Cheque number, etc." />
             </div>
             <div>
               <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Notes</Label>
-              <Input
-                value={editPaymentForm.notes}
+              <Input value={editPaymentForm.notes}
                 onChange={(e) => setEditPaymentForm((p) => ({ ...p, notes: e.target.value }))}
-                className="rounded-xl"
-                placeholder="Optional"
-              />
+                className="rounded-xl" placeholder="Optional" />
             </div>
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditingPaymentIdx(null)}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                onClick={handleSaveBookingPayment}
-                disabled={savingBookingPayment}
-              >
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditingPaymentIdx(null)}>Cancel</Button>
+              <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={handleSaveBookingPayment} disabled={savingBookingPayment}>
                 {savingBookingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Payment"}
               </Button>
             </div>
@@ -980,14 +915,12 @@ export default function BookingDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Multi-hotel selection dialog */}
+      {/* ── Multi-hotel selection dialog ─────────────────────────────────── */}
       <Dialog open={hotelSelectionOpen} onOpenChange={setHotelSelectionOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {hotelSelectionMode === "bookingRequest"
-                ? "Select Hotel for Booking Request"
-                : "Select Hotel for Voucher"}
+              {hotelSelectionMode === "bookingRequest" ? "Select Hotel for Booking Request" : "Select Hotel for Voucher"}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-500 -mt-1">
@@ -997,40 +930,24 @@ export default function BookingDetailPage() {
           </p>
           <div className="grid grid-cols-2 gap-4 mt-2">
             {hotelListForSelection.map((h, i) => {
-              const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
               const key = hotelVoucherKey(h.hotelName, h.checkIn);
-              const hasVoucher = activeVouchers.some(
-                (v) => hotelVoucherKey(v.hotelName, v.checkIn) === key
-              );
+              const hasVoucher = activeVouchers.some((v) => hotelVoucherKey(v.hotelName, v.checkIn) === key);
               const isVoucherMode = hotelSelectionMode === "voucher";
               return (
-                <div
-                  key={i}
-                  onClick={() =>
-                    isVoucherMode
-                      ? !hasVoucher && handleSelectHotelForVoucher(h)
-                      : handleHotelBookingRequestForHotel(h)
-                  }
+                <div key={i}
+                  onClick={() => isVoucherMode ? !hasVoucher && handleSelectHotelForVoucher(h) : handleHotelBookingRequestForHotel(h)}
                   className={`border rounded-xl p-4 transition ${
                     isVoucherMode && hasVoucher
                       ? "opacity-50 cursor-not-allowed bg-slate-50"
                       : "cursor-pointer hover:bg-blue-50 hover:border-blue-300"
-                  }`}
-                >
-                  <p className="font-semibold text-base text-slate-800">
-                    {h.hotelName || "Hotel"}
-                  </p>
+                  }`}>
+                  <p className="font-semibold text-base text-slate-800">{h.hotelName || "Hotel"}</p>
                   {h.city && <p className="text-sm text-slate-500 mt-0.5">{h.city}</p>}
-                  <p className="text-sm mt-2 text-slate-600">
-                    {h.checkIn} → {h.checkOut}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {h.roomCategory || "-"} · {h.mealPlan || "-"}
-                  </p>
+                  <p className="text-sm mt-2 text-slate-600">{h.checkIn} → {h.checkOut}</p>
+                  <p className="text-sm text-slate-500">{h.roomCategory || "-"} · {h.mealPlan || "-"}</p>
                   {isVoucherMode && hasVoucher && (
                     <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      Voucher already created
+                      <AlertTriangle className="w-3 h-3" /> Voucher already created
                     </p>
                   )}
                 </div>
@@ -1043,14 +960,14 @@ export default function BookingDetailPage() {
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function InfoItem({ icon: Icon, label, value }) {
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1">
         <Icon className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-          {label}
-        </span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
       </div>
       <p className="text-sm font-semibold text-slate-800">{value}</p>
     </div>
