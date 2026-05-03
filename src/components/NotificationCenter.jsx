@@ -291,16 +291,7 @@ export default function NotificationCenter({ userId }) {
                   <span className="sm:hidden">Clear all</span>
                 </button>
               )}
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  router.push("/agent-panel/notifications");
-                }}
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 hover:underline"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">View all</span>
-              </button>
+           
               <button onClick={() => setOpen(false)} className="sm:hidden p-1">
                 <X className="h-4 w-4 text-slate-400" />
               </button>
@@ -474,26 +465,7 @@ export default function NotificationCenter({ userId }) {
             )}
           </div>
 
-          {/* Footer — View all link */}
-          {!isEmpty && (
-            <div className="border-t border-slate-100 px-4 py-3">
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  router.push("/agent-panel/notifications");
-                }}
-                className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-theme-primary hover:underline py-1"
-              >
-                <Inbox className="h-3.5 w-3.5" />
-                View all notifications
-                {totalBadge > 0 && (
-                  <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
-                    {totalBadge} unread
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
+
         </div>
       )}
     </div>
