@@ -422,7 +422,7 @@ export default function BookingsPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
-      <nav className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-30">
+      <nav className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-[1400px] mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-theme-primary p-2 rounded-lg text-white">

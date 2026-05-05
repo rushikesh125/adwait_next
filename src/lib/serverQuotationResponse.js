@@ -7,28 +7,47 @@ function generateBookingRef() {
   return `BK-${year}-${rand}`;
 }
 
-async function createQuotationResponseNotification({
-  agentId,
-  quotation,
-  status,
-}) {
+async function createQuotationResponseNotification({ agentId, quotation, status,quotationId  }) {
   if (!agentId || !["Accepted", "Rejected"].includes(status)) return;
 
-  const label =
-    quotation.packageName || quotation.customerName || "Quotation";
+  const label = quotation.packageName || quotation.customerName || "Quotation";
   const isAccepted = status === "Accepted";
 
-  await adminDb.collection("notifications").add({
+  // Write notification doc
+  const notifRef = await adminDb.collection("notifications").add({
     userId: agentId,
     type: isAccepted ? "quotation_accepted" : "quotation_rejected",
-    title: isAccepted ? "Quotation Accepted" : "Quotation Rejected",
+    title: isAccepted ? "Quotation Accepted 🎉" : "Quotation Rejected",
     message: `"${label}" has been ${isAccepted ? "accepted" : "rejected"} by the customer.`,
-    link: "/agent-panel/my-quatation",
+    link: `/agent-panel/my-quatation?quoteId=${quotationId || ""}`,
     read: false,
+    priority: isAccepted ? "high" : "normal",
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
-}
 
+  // ── ADD THIS — trigger push to device ──────────────────────────────────
+  try {
+    const pushPayload = {
+      userId: agentId,
+      title: isAccepted ? "Quotation Accepted 🎉" : "Quotation Rejected",
+      message: `"${label}" has been ${isAccepted ? "accepted" : "rejected"} by the customer.`,
+      type: isAccepted ? "quotation_accepted" : "quotation_rejected",
+      link: "/agent-panel/my-quatation",
+      priority: isAccepted ? "high" : "normal",
+    };
+
+    // Use absolute URL — this runs server-side so relative URLs don't work
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    await fetch(`${baseUrl}/api/send-push`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json","x-push-secret": process.env.NEXT_PUBLIC_PUSH_SECRET ?? "",  },
+      body: JSON.stringify(pushPayload),
+    });
+  } catch (err) {
+    // Non-fatal — notification doc already written, push is best-effort
+    console.warn("[serverQuotationResponse] Push failed:", err.message);
+  }
+}
 export async function respondToQuotationByTokenServer(token, action) {
   if (!token || !["accept", "reject"].includes(action)) {
     const error = new Error("Invalid request");
@@ -94,6 +113,7 @@ export async function respondToQuotationByTokenServer(token, action) {
       agentId,
       quotation: data,
       status: "Accepted",
+      quotationId: docSnap.id,  // ← ADD
     });
 
     return { status: "Accepted", bookingId: bookingRef.id };
@@ -102,12 +122,14 @@ export async function respondToQuotationByTokenServer(token, action) {
   await ref.update({
     status: "Rejected",
     respondedAt: Date.now(),
+    
   });
 
   await createQuotationResponseNotification({
     agentId,
     quotation: data,
     status: "Rejected",
+    quotationId: docSnap.id,  // ← ADDNEXT_PUBLIC_APP_URL
   });
 
   return { status: "Rejected" };

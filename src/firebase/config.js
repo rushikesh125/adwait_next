@@ -30,4 +30,4 @@ const signInWithGoogle = async () => {
     return { user, isNew: false }; // Existing user
 };
 
-export { auth, db, signInWithGoogle };
+export { auth, db,app, signInWithGoogle };

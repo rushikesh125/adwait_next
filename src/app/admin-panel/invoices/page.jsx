@@ -98,12 +98,19 @@ export default function AdminInvoicesPage() {
     finally { setDeletingId(null); }
   };
 
-  const handleDownload = async (invoice) => {
-    setDownloadingId(invoice.id);
-    try { await generateInvoicePDF(invoice); }
-    catch { toast.error("PDF generation failed"); }
-    finally { setDownloadingId(null); }
-  };
+const handleDownload = async (invoice) => {
+  console.log("[AdminInvoicesPage handleDownload] Invoice:", invoice);
+  setDownloadingId(invoice.id);
+  try {
+    await generateInvoicePDF(invoice);
+  } catch (err) {
+    console.error("[AdminInvoicesPage handleDownload] Full error:", err);
+    console.error("[AdminInvoicesPage handleDownload] Stack:", err?.stack);
+    toast.error(`PDF generation failed: ${err?.message || "Unknown error"}`);
+  } finally {
+    setDownloadingId(null);
+  }
+};
 
   const totalInvoiced = invoices.reduce((s, i) => s + (Number(i.grandTotal) || 0), 0);
   const totalReceived = invoices.reduce((s, i) => s + (Number(i.amountReceived) || 0), 0);
