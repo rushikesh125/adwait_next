@@ -29,7 +29,8 @@ import {
 import { useNotifications } from "@/hooks/useNotifications";
 
 const TYPE_META = {
-  vendor_payment_due: {        // ← add this entry
+  vendor_payment_due: {
+    // ← add this entry
     icon: AlertCircle,
     color: "text-rose-600",
     bg: "bg-rose-50",
@@ -44,7 +45,6 @@ const TYPE_META = {
     color: "text-rose-600",
     bg: "bg-rose-50",
   },
-  quotation_sent: { icon: Send, color: "text-blue-600", bg: "bg-blue-50" },
   follow_up_reminder: {
     icon: Clock,
     color: "text-amber-600",
@@ -197,11 +197,7 @@ export default function NotificationCenter({ userId }) {
   const handleNotificationClick = async (n) => {
     if (!n.read) await markNotificationRead(n.id);
     setOpen(false);
-    if (
-      n.type === "quotation_sent" ||
-      n.type === "quotation_accepted" ||
-      n.type === "quotation_rejected"
-    ) {
+    if (n.type === "quotation_accepted" || n.type === "quotation_rejected") {
       if (n.quotationId) {
         router.push(`/agent-panel/my-quatation?quoteId=${n.quotationId}`);
         return;
@@ -291,7 +287,7 @@ export default function NotificationCenter({ userId }) {
                   <span className="sm:hidden">Clear all</span>
                 </button>
               )}
-           
+
               <button onClick={() => setOpen(false)} className="sm:hidden p-1">
                 <X className="h-4 w-4 text-slate-400" />
               </button>
@@ -464,8 +460,6 @@ export default function NotificationCenter({ userId }) {
               </div>
             )}
           </div>
-
-
         </div>
       )}
     </div>
