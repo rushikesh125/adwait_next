@@ -83,16 +83,25 @@ export async function createNotification({ userId, type, title, message, link = 
 }
 
 // This stays exactly as you have it — no changes needed
+// REPLACE the existing triggerPush function with this:
 function triggerPush({ userId, title, message, type, link, priority }) {
-  if (typeof window === "undefined") return;
-  fetch("/api/send-push", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-push-secret": process.env.NEXT_PUBLIC_PUSH_SECRET ?? "",
-    },
-    body: JSON.stringify({ userId, title, message, type, link, priority }),
-  }).catch((err) => console.warn("[Push] Failed:", err));
+  const payload = JSON.stringify({ userId, title, message, type, link, priority });
+  const headers = {
+    "Content-Type": "application/json",
+    "x-push-secret": process.env.NEXT_PUBLIC_PUSH_SECRET ?? "",
+  };
+
+  // Server-side (cron, API routes) — window is undefined, need absolute URL
+  if (typeof window === "undefined") {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    fetch(`${baseUrl}/api/send-push`, { method: "POST", headers, body: payload })
+      .catch((err) => console.warn("[Push] Server-side trigger failed:", err));
+    return;
+  }
+
+  // Client-side — relative URL works fine
+  fetch("/api/send-push", { method: "POST", headers, body: payload })
+    .catch((err) => console.warn("[Push] Client-side trigger failed:", err));
 }
 
 export function subscribeToNotifications(userId, onList, onNew) {

@@ -1053,12 +1053,6 @@ export function useQuotationState() {
     const quotationLink = `/agent-panel/my-quatation?quoteId=${quotationId}`;
 
     const notifMap = {
-      Sent: {
-        type: "quotation_sent",
-        title: "Quotation sent",
-        message: `Quotation for ${customerName} has been marked as sent.`,
-        priority: "normal",
-      },
       Accepted: {
         type: "quotation_accepted",
         title: "Quotation accepted! 🎉",
