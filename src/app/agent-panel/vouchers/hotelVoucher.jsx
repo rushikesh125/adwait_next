@@ -24,7 +24,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Download, CheckCircle2, IndianRupee } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Download,
+  CheckCircle2,
+  IndianRupee,
+  Search,
+  Hotel,
+} from "lucide-react";
 import {
   getNextVoucherNumber,
   saveVoucherToFirestore,
@@ -68,7 +76,6 @@ export default function HotelVoucherDrawer({
   const [quotationSuggestions, setQuotationSuggestions] = useState([]);
   const [linkedQuotation, setLinkedQuotation] = useState(null);
   const suggestionsRef = useRef(null);
-
   const [hotelFields, setHotelFields] = useState({
     hotelName: "",
     checkIn: "",
@@ -88,6 +95,7 @@ export default function HotelVoucherDrawer({
     paymentStatus: "Payment at hotel",
     amount: "",
     cancellation: "",
+    googleMapsLink: "",
   });
 
   const effectiveQuotation = linkedQuotation || quotation;
@@ -140,8 +148,65 @@ export default function HotelVoucherDrawer({
       paymentStatus: initialVoucher?.paymentStatus || "Payment at hotel",
       amount: initialVoucher?.amount || "",
       cancellation: initialVoucher?.cancellation || "",
+      googleMapsLink: initialVoucher?.googleMapsLink || hotelData?.googleMapsLink || "",
     });
   }, [hotelData, initialVoucher, isOpen, quotation]);
+
+  const handleAiFetch = async () => {
+    const name = hotelData?.hotelName || hotelFields.hotelName;
+    if (!name) return;
+
+    setAiLoading(true);
+    setAiStatus(null);
+
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+
+      if (!currentUser) {
+        setAiStatus("error");
+        return;
+      }
+
+      const token = await currentUser.getIdToken(); // ✅ correct place
+
+      const res = await fetch("/api/ai/hotel-details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ hotelName: name }),
+      });
+
+      if (!res.ok) {
+        console.error("API Error:", await res.json());
+        setAiStatus("error");
+        return;
+      }
+
+      const data = await res.json();
+
+      console.log("AI RESPONSE:", data); // 🔥 debug
+
+      if (data.address || data.phone || data.mapsLink) {
+        setForm((prev) => ({
+          ...prev,
+          address: data.address || prev.address,
+          phone: data.phone || prev.phone,
+          googleMapsLink: data.mapsLink || prev.googleMapsLink,
+        }));
+        setAiStatus("success");
+      } else {
+        setAiStatus("error");
+      }
+    } catch (err) {
+      console.error("AI Fetch Error:", err);
+      setAiStatus("error");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isDashboardFlow) return;
@@ -254,6 +319,7 @@ export default function HotelVoucherDrawer({
     contact: form.contact,
     address: form.address,
     phone: form.phone,
+    googleMapsLink: form.googleMapsLink,
     requests: form.requests,
     paymentStatus: form.paymentStatus,
     amount: form.amount,
@@ -341,7 +407,11 @@ export default function HotelVoucherDrawer({
       }
 
       onSaved?.();
-      alert(isEditMode ? "Voucher updated successfully" : "Voucher saved successfully");
+      alert(
+        isEditMode
+          ? "Voucher updated successfully"
+          : "Voucher saved successfully",
+      );
       onClose();
     } catch (error) {
       console.error(error);
@@ -537,7 +607,8 @@ export default function HotelVoucherDrawer({
 
               {linkedQuotation && (
                 <p className="text-xs font-medium text-green-600">
-                  Linked to quotation #{linkedQuotation.id.substring(0, 8).toUpperCase()}
+                  Linked to quotation #
+                  {linkedQuotation.id.substring(0, 8).toUpperCase()}
                 </p>
               )}
             </div>
@@ -601,47 +672,22 @@ export default function HotelVoucherDrawer({
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label>Hotel Address *</Label>
+              <Label className="flex items-center justify-between">
+                Hotel Address *
                 {canUseHotelAi && (
                   <button
                     type="button"
-                    disabled={aiLoading || !(hotelData?.hotelName || hotelFields.hotelName)}
-                    onClick={async () => {
-                      const name = hotelData?.hotelName || hotelFields.hotelName;
-                      if (!name) return;
-                      setAiLoading(true);
-                      setAiStatus(null);
-                      try {
-                        const res = await fetch("/api/ai/hotel-details", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ hotelName: name }),
-                        });
-                        if (!res.ok) { setAiStatus("error"); return; }
-                        const data = await res.json();
-                        if (data.address || data.phone || data.mapsLink) {
-                          setForm((prev) => ({
-                            ...prev,
-                            address: data.address || prev.address,
-                            phone: data.phone || prev.phone,
-                          }));
-                          setAiStatus("success");
-                        } else {
-                          setAiStatus("error");
-                        }
-                      } catch {
-                        setAiStatus("error");
-                      } finally {
-                        setAiLoading(false);
-                      }
-                    }}
+                    disabled={
+                      aiLoading ||
+                      !(hotelData?.hotelName || hotelFields.hotelName)
+                    }
+                    onClick={handleAiFetch}
                     className={`text-xs font-medium px-2 py-1 rounded border transition-all ${
                       aiStatus === "success"
                         ? "border-emerald-500 text-emerald-600 bg-emerald-50"
                         : aiStatus === "error"
-                        ? "border-amber-500 text-amber-600 bg-amber-50"
-                        : "border-theme-primary/30 text-theme-primary hover:bg-theme-muted"
+                          ? "border-amber-500 text-amber-600 bg-amber-50"
+                          : "border-theme-primary/30 text-theme-primary hover:bg-theme-muted"
                     } disabled:opacity-50`}
                   >
                     {aiLoading ? (
@@ -650,21 +696,56 @@ export default function HotelVoucherDrawer({
                         Searching...
                       </span>
                     ) : aiStatus === "success" ? (
-                      <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Fetched</span>
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Fetched
+                      </span>
                     ) : (
                       <span>✨ Fetch from AI</span>
                     )}
                   </button>
                 )}
-              </div>
+              </Label>
               {aiStatus === "error" && (
-                <p className="text-[10px] text-amber-600">⚠️ Could not fetch details. Enter manually.</p>
+                <p className="text-[10px] text-amber-600">
+                  ⚠️ Could not fetch details. Enter manually.
+                </p>
               )}
               <Textarea
                 value={form.address}
-                onChange={(e) => { setForm({ ...form, address: e.target.value }); setAiStatus(null); }}
+                onChange={(e) => {
+                  setForm({ ...form, address: e.target.value });
+                  setAiStatus(null);
+                }}
                 placeholder="Full hotel address"
               />
+            </div>
+
+            {/* Google Maps Link Field */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center justify-between">
+                Google Maps Link
+                {form.googleMapsLink && (
+                  <a
+                    href={form.googleMapsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-theme-primary flex items-center gap-1 hover:underline"
+                  >
+                    <Search className="h-3 w-3" /> Preview Location
+                  </a>
+                )}
+              </Label>
+              <div className="relative">
+                <Input
+                  value={form.googleMapsLink || ""}
+                  onChange={(e) => setForm({ ...form, googleMapsLink: e.target.value })}
+                  placeholder="https://maps.app.goo.gl/..."
+                  className="pr-10"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Hotel className="h-4 w-4 text-slate-300" />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -702,7 +783,10 @@ export default function HotelVoucherDrawer({
                 </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="Payment at hotel" id="pay-at-hotel" />
-                  <Label htmlFor="pay-at-hotel" className="cursor-pointer font-normal">
+                  <Label
+                    htmlFor="pay-at-hotel"
+                    className="cursor-pointer font-normal"
+                  >
                     Pay at Hotel
                   </Label>
                 </div>
@@ -723,12 +807,15 @@ export default function HotelVoucherDrawer({
                     type="number"
                     placeholder="Enter balance amount due at hotel"
                     value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, amount: e.target.value })
+                    }
                     className="border-amber-300 focus:ring-amber-400"
                   />
                   <p className="flex items-center gap-1.5 text-xs text-amber-600">
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    This amount will be shown in the voucher so the customer knows the balance due at check-in.
+                    This amount will be shown in the voucher so the customer
+                    knows the balance due at check-in.
                   </p>
                 </div>
               )}
@@ -782,7 +869,9 @@ export default function HotelVoucherDrawer({
               </p>
               <p>
                 <span className="font-semibold">Issue Date:</span>{" "}
-                {formatDate(initialVoucher?.issueDate || new Date().toISOString())}
+                {formatDate(
+                  initialVoucher?.issueDate || new Date().toISOString(),
+                )}
               </p>
               <p className="col-span-2">
                 <span className="font-semibold">Hotel:</span>{" "}
@@ -832,9 +921,23 @@ export default function HotelVoucherDrawer({
                   <span className="font-semibold">Address:</span> {form.address}
                 </p>
               )}
+              {form.googleMapsLink && (
+                <p>
+                  <span className="font-semibold">Map Link:</span>{" "}
+                  <a 
+                    href={form.googleMapsLink} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline break-all"
+                  >
+                    View Location
+                  </a>
+                </p>
+              )}
               {form.phone && (
                 <p>
-                  <span className="font-semibold">Hotel Phone:</span> {form.phone}
+                  <span className="font-semibold">Hotel Phone:</span>{" "}
+                  {form.phone}
                 </p>
               )}
               <p>
@@ -842,8 +945,8 @@ export default function HotelVoucherDrawer({
                 {form.paymentStatus === "Payment at hotel" && form.amount
                   ? `Pay at Hotel — Amount due at check-in: ₹${Number(form.amount).toLocaleString("en-IN")}`
                   : form.paymentStatus === "Amount paid to hotel"
-                  ? "Paid"
-                  : form.paymentStatus}
+                    ? "Paid"
+                    : form.paymentStatus}
               </p>
               {form.requests && (
                 <p>
