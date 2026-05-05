@@ -119,35 +119,15 @@ export async function updateQuotation(
     // Create notifications on meaningful status transitions
     const label =
       quotation.packageName || quotation.customerName || "Quotation";
-    if (data.status === "Accepted" && previousStatus !== "Accepted") {
-      await createNotification({
-        userId: agentId,
-        type: "quotation_sent",
-        title: "Quotation Sent",
-        message: `"${label}" has been sent to the customer.`,
-        link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
-        metadata: {
-          quotationId: quotationId,
-        },
-      });
-    } else if (data.status === "Rejected" && previousStatus !== "Rejected") {
+    if (data.status === "Rejected" && previousStatus !== "Rejected") {
       await createNotification({
         userId: agentId,
         type: "quotation_rejected",
         title: "Quotation Rejected",
-        message: `"${label}" has been rejected.`,
+        message: `"${label}" has been rejected by the customer.`,
         link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
-        metadata: {
-          quotationId: quotationId,
-        },
-      });
-    } else if (data.status === "Sent" && previousStatus !== "Sent") {
-      await createNotification({
-        userId: agentId,
-        type: "quotation_sent",
-        title: "Quotation Sent",
-        message: `"${label}" has been sent to the customer.`,
-        link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
+        metadata: { quotationId: quotationId },
+        priority: "normal",
       });
     }
 

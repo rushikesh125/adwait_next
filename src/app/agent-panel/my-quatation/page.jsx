@@ -40,6 +40,7 @@ import FollowUpForm from "@/components/followups/FollowUpForm";
 import QuotationSentFollowUpPrompt from "@/components/followups/QuotationSentFollowUpPrompt";
 import { addFollowUp } from "@/firebase/followUpService";
 import QuotationRejectionDialog from "@/components/QuotationRejectionDialog";
+import { createNotification } from "@/firebase/notificationsService";
 
 const MyQuotations = () => {
   const state = useQuotationState();
@@ -62,7 +63,6 @@ const MyQuotations = () => {
   const [showSentFollowUpForm, setShowSentFollowUpForm] = useState(false);
   const [rejectionQuotation, setRejectionQuotation] = useState(null);
   const [isRejectingQuotation, setIsRejectingQuotation] = useState(false);
-
 
   const sortedQuotations = useMemo(() => {
     return [...state.filteredQuotations].sort((a, b) => {
@@ -348,6 +348,23 @@ const MyQuotations = () => {
       ],
     });
     toast.success("Follow-up scheduled");
+    // Inside handleSentFollowUpSubmit, after addFollowUp succeeds:
+    const followUpDateTime = new Date(formData.dateTime);
+    const formattedTime = followUpDateTime.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    createNotification({
+      userId: state.user?.uid,
+      type: "follow_up_reminder",
+      title: `Follow-up reminder set`,
+      message: `${formData.mode} follow-up for ${sentFollowUpQuotation?.packageName || "quotation"} scheduled at ${formattedTime}.`,
+      link: `/agent-panel/leads/${sentFollowUpQuotation?.leadId}`,
+      priority: "normal",
+    }).catch(console.error);
     setShowSentFollowUpForm(false);
     setSentFollowUpQuotation(null);
   };
@@ -370,31 +387,30 @@ const MyQuotations = () => {
     }
   }, [editId, state.quotations, state.handleEditClick]);
   // ✅ Auto-open preview modal when quoteId is in URL
-useEffect(() => {
-  if (!quoteId || !state.user?.uid) return;
+  useEffect(() => {
+    if (!quoteId || !state.user?.uid) return;
 
-  const openQuotation = async () => {
-    // Try from already loaded list
-    let quotation = state.quotations.find((q) => q.id === quoteId);
+    const openQuotation = async () => {
+      // Try from already loaded list
+      let quotation = state.quotations.find((q) => q.id === quoteId);
 
-    // If not found → fetch from Firestore
-    if (!quotation) {
-      try {
-        const fresh = await getQuotationById(state.user.uid, quoteId);
-        if (fresh) quotation = { ...fresh, id: quoteId };
-      } catch (err) {
-        console.error("Failed to fetch quotation:", err);
+      // If not found → fetch from Firestore
+      if (!quotation) {
+        try {
+          const fresh = await getQuotationById(state.user.uid, quoteId);
+          if (fresh) quotation = { ...fresh, id: quoteId };
+        } catch (err) {
+          console.error("Failed to fetch quotation:", err);
+        }
       }
-    }
 
-    if (quotation) {
-      setPreviewQuotation(quotation); // 👈 THIS opens modal
-    }
-  };
+      if (quotation) {
+        setPreviewQuotation(quotation); // 👈 THIS opens modal
+      }
+    };
 
-  openQuotation();
-}, [quoteId, state.quotations, state.user]);
-
+    openQuotation();
+  }, [quoteId, state.quotations, state.user]);
 
   const handleDownloadPDF = (quotation) => {
     const packageOptions =
