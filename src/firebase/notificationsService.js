@@ -91,15 +91,15 @@ function triggerPush({ userId, title, message, type, link, priority }) {
     "x-push-secret": process.env.NEXT_PUBLIC_PUSH_SECRET ?? "",
   };
 
-  // Server-side (cron, API routes) — window is undefined, need absolute URL
   if (typeof window === "undefined") {
+    // Server-side (cron, API routes) — must use absolute URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     fetch(`${baseUrl}/api/send-push`, { method: "POST", headers, body: payload })
       .catch((err) => console.warn("[Push] Server-side trigger failed:", err));
     return;
   }
 
-  // Client-side — relative URL works fine
+  // Client-side
   fetch("/api/send-push", { method: "POST", headers, body: payload })
     .catch((err) => console.warn("[Push] Client-side trigger failed:", err));
 }
