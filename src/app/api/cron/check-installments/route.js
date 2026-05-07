@@ -1,19 +1,17 @@
 // app/api/cron/check-installments/route.js
 //
-// Vercel Cron fires this at 09:00 PM UTC daily (= 02:30 AM IST).
-// It also fires manually if you call it with the correct secret.
-//
-// Security: Vercel sets the "Authorization: Bearer <CRON_SECRET>" header
-// automatically. We validate it here. For manual test calls pass the same header.
+// Vercel Cron fires this once daily at 02:30 AM IST (= 21:00 UTC previous day).
+// Also fires manually with the correct secret.
 //
 // Flow:
 //   1. Auth check
-//   2. Load all bookings from Firestore (client SDK — same as rest of app)
-//   3. For each pending installment, decide if a notification should fire today
-//   4. Check the dedup store (installmentNotifSent collection) — skip if already sent
-//   5. createNotification() → writes to Firestore + triggers push via /api/send-push
-//   6. Write dedup record
-//   7. Return a JSON summary log
+//   2. Load all active bookings from Firestore
+//   3. For each booking:
+//      a. Check pending vendor payment installments → notify on due dates
+//      b. Check pending services → notify 7d, 2d, 1d, 0d before trip startDate
+//   4. Dedup via installmentNotifSent collection (shared with client hook)
+//   5. createNotification() → Firestore + push via /api/send-push
+//   6. Return JSON summary log
 
 import {
   collection,
@@ -24,7 +22,6 @@ import {
   getDoc,
   setDoc,
   serverTimestamp,
-  Timestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { createNotification } from "@/firebase/notificationsService";
@@ -34,23 +31,21 @@ import {
   dedupKey,
   buildNotifPayload,
   extractPendingInstallments,
+  getServiceTrigger,
+  serviceReminderDedupKey,
+  buildServiceReminderPayload,
 } from "@/lib/installmentChecker";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const LOG_PREFIX = "[cron/check-installments]";
-
-// Dedup TTL: records older than this are considered expired.
-// 90 days is generous — overdue keys include the date so they self-rotate anyway.
 const DEDUP_TTL_DAYS = 90;
 
-// ─── Auth helper ─────────────────────────────────────────────────────────────
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
 function isAuthorized(request) {
-  // Vercel Cron sends: Authorization: Bearer <CRON_SECRET>
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    // If no secret is configured, only allow in development
     if (process.env.NODE_ENV === "development") return true;
     console.error(`${LOG_PREFIX} CRON_SECRET env var is not set`);
     return false;
@@ -61,16 +56,11 @@ function isAuthorized(request) {
 
 // ─── Dedup helpers ────────────────────────────────────────────────────────────
 
-/**
- * Check if a notification has already been sent for this key.
- * Returns true if already sent (should skip), false if fresh (should send).
- */
 async function isAlreadySent(key) {
   try {
     const snap = await getDoc(doc(db, "installmentNotifSent", key));
     if (!snap.exists()) return false;
 
-    // Sanity-check TTL: treat ancient records as expired
     const sentAt = snap.data()?.sentAt;
     if (sentAt) {
       const sentDate = toDate(sentAt);
@@ -84,15 +74,11 @@ async function isAlreadySent(key) {
     }
     return true;
   } catch (err) {
-    // On read error, err on the side of NOT sending (avoid spam)
     console.error(`${LOG_PREFIX} isAlreadySent check failed for key "${key}":`, err.message);
-    return true;
+    return true; // conservative — avoid spam on error
   }
 }
 
-/**
- * Mark a key as sent. Non-blocking — failures are logged but don't abort the run.
- */
 async function markSent(key, metadata = {}) {
   try {
     await setDoc(doc(db, "installmentNotifSent", key), {
@@ -106,10 +92,6 @@ async function markSent(key, metadata = {}) {
 
 // ─── Booking loader ───────────────────────────────────────────────────────────
 
-/**
- * Load all bookings that are not cancelled and have at least one service.
- * We filter broadly here; precise filtering happens per-payment in the checker.
- */
 async function loadActiveBookings() {
   const snap = await getDocs(
     query(
@@ -122,11 +104,7 @@ async function loadActiveBookings() {
 
 // ─── Notification sender ──────────────────────────────────────────────────────
 
-/**
- * Send one notification via the existing createNotification() helper.
- * Returns true on success, false on failure.
- */
-async function sendInstallmentNotif({ userId, payload, key }) {
+async function sendNotif({ userId, payload, key }) {
   try {
     await createNotification({
       userId,
@@ -149,7 +127,7 @@ async function sendInstallmentNotif({ userId, payload, key }) {
 export async function GET(request) {
   const runStart = Date.now();
 
-  // ── 1. Auth ──────────────────────────────────────────────────────────────
+  // ── 1. Auth ───────────────────────────────────────────────────────────────
   if (!isAuthorized(request)) {
     console.warn(`${LOG_PREFIX} Unauthorized request`);
     return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -158,17 +136,17 @@ export async function GET(request) {
   const nowUtc = new Date();
   console.log(`${LOG_PREFIX} Run started at ${nowUtc.toISOString()}`);
 
-  // Summary counters for the response log
   const summary = {
     bookingsScanned: 0,
     installmentsChecked: 0,
+    servicesChecked: 0,
     notificationsSent: 0,
-    notificationsSkipped: 0,   // already sent (dedup)
+    notificationsSkipped: 0,
     notificationsFailed: 0,
     errors: [],
   };
 
-  // ── 2. Load bookings ─────────────────────────────────────────────────────
+  // ── 2. Load bookings ──────────────────────────────────────────────────────
   let bookings = [];
   try {
     bookings = await loadActiveBookings();
@@ -192,7 +170,7 @@ export async function GET(request) {
       continue;
     }
 
-    // Extract all pending installments from this booking
+    // ── 3a. Vendor payment installments ────────────────────────────────────
     let installments;
     try {
       installments = extractPendingInstallments(bookingId, booking);
@@ -200,19 +178,15 @@ export async function GET(request) {
       const msg = `Booking ${bookingId}: extractPendingInstallments threw — ${err.message}`;
       console.error(`${LOG_PREFIX}`, msg);
       summary.errors.push(msg);
-      continue;
+      installments = [];
     }
 
-    if (installments.length === 0) continue;
-
-    // ── 4. Check each installment ────────────────────────────────────────
     for (const inst of installments) {
       summary.installmentsChecked++;
 
       const { service, serviceIdx, payment, paymentKey } = inst;
       const dueDate = payment._resolvedDate;
 
-      // Determine which trigger fires today (if any)
       let trigger;
       try {
         trigger = getTrigger(dueDate, nowUtc);
@@ -223,23 +197,17 @@ export async function GET(request) {
         continue;
       }
 
-      if (!trigger) {
-        // Nothing to do for this installment today
-        continue;
-      }
+      if (!trigger) continue;
 
-      // Build dedup key
       const key = dedupKey(bookingId, serviceIdx, paymentKey, trigger, nowUtc);
 
-      // ── 5. Dedup check ─────────────────────────────────────────────────
       const alreadySent = await isAlreadySent(key);
       if (alreadySent) {
         summary.notificationsSkipped++;
-        console.log(`${LOG_PREFIX} Skipping (already sent): ${key}`);
+        console.log(`${LOG_PREFIX} Skipping installment (already sent): ${key}`);
         continue;
       }
 
-      // ── 6. Build payload and send ──────────────────────────────────────
       let payload;
       try {
         payload = buildNotifPayload({ booking, service, payment, trigger, bookingId });
@@ -250,15 +218,11 @@ export async function GET(request) {
         continue;
       }
 
-      console.log(
-        `${LOG_PREFIX} Sending [${trigger}] → agent ${agentId} | ${payload.title}`
-      );
+      console.log(`${LOG_PREFIX} Installment [${trigger}] → agent ${agentId} | ${payload.title}`);
 
-      const sent = await sendInstallmentNotif({ userId: agentId, payload, key });
-
+      const sent = await sendNotif({ userId: agentId, payload, key });
       if (sent) {
         summary.notificationsSent++;
-        // ── 7. Write dedup record ────────────────────────────────────────
         await markSent(key, {
           bookingId,
           agentId,
@@ -271,13 +235,70 @@ export async function GET(request) {
       } else {
         summary.notificationsFailed++;
         summary.errors.push(
-          `Failed to send [${trigger}] for booking ${bookingId} svc${serviceIdx} ${paymentKey}`
+          `Failed to send installment [${trigger}] for booking ${bookingId} svc${serviceIdx} ${paymentKey}`
+        );
+      }
+    }
+
+    // ── 3b. Pending service reminders (7d, 2d, 1d, 0d before startDate) ────
+    const startDate = booking.startDate;
+    if (!startDate) continue;
+
+    const services = booking.services || [];
+
+    for (let svcIdx = 0; svcIdx < services.length; svcIdx++) {
+      const service = services[svcIdx];
+
+      // Only alert on services still in Pending state
+      if (service.status !== "Pending") continue;
+
+      summary.servicesChecked++;
+
+      // Determine which trigger fires today relative to trip start
+      const trigger = getServiceTrigger(startDate, nowUtc);
+      if (!trigger) continue;
+
+      const key = serviceReminderDedupKey(bookingId, svcIdx, trigger, nowUtc);
+
+      const alreadySent = await isAlreadySent(key);
+      if (alreadySent) {
+        summary.notificationsSkipped++;
+        console.log(`${LOG_PREFIX} Skipping service reminder (already sent): ${key}`);
+        continue;
+      }
+
+      let payload;
+      try {
+        payload = buildServiceReminderPayload({ booking, service, trigger, bookingId });
+      } catch (err) {
+        const msg = `Booking ${bookingId} svc${svcIdx}: buildServiceReminderPayload threw — ${err.message}`;
+        console.error(`${LOG_PREFIX}`, msg);
+        summary.errors.push(msg);
+        continue;
+      }
+
+      console.log(`${LOG_PREFIX} Service reminder [${trigger}] → agent ${agentId} | ${payload.title}`);
+
+      const sent = await sendNotif({ userId: agentId, payload, key });
+      if (sent) {
+        summary.notificationsSent++;
+        await markSent(key, {
+          bookingId,
+          agentId,
+          trigger,
+          serviceType: service.type,
+          serviceDescription: service.description || "",
+        });
+      } else {
+        summary.notificationsFailed++;
+        summary.errors.push(
+          `Failed to send service reminder [${trigger}] for booking ${bookingId} svc${svcIdx}`
         );
       }
     }
   }
 
-  // ── 8. Final log & response ───────────────────────────────────────────────
+  // ── 4. Final log & response ───────────────────────────────────────────────
   const elapsed = Date.now() - runStart;
   console.log(
     `${LOG_PREFIX} Run complete in ${elapsed}ms |`,
@@ -291,7 +312,6 @@ export async function GET(request) {
   });
 }
 
-// Block every other HTTP method
 export async function POST() {
   return Response.json({ error: "Method not allowed" }, { status: 405 });
 }

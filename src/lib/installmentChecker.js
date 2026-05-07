@@ -172,3 +172,67 @@ export function extractPendingInstallments(bookingId, booking) {
 
   return results;
 }
+// ─── Service Reminder Helpers ─────────────────────────────────────────────────
+
+const SERVICE_TRIGGERS = [7, 2, 1, 0]; // days before startDate
+
+/**
+ * Returns which service trigger fires today for a given startDate.
+ * Returns null if no trigger applies today.
+ */
+export function getServiceTrigger(startDate, nowUtc) {
+  // Handle both string "YYYY-MM-DD" and Firestore Timestamp
+  let start;
+  if (startDate?.toDate) {
+    start = startDate.toDate(); // Firestore Timestamp
+  } else {
+    start = new Date(startDate); // plain string
+  }
+  if (!start || isNaN(start.getTime())) return null;
+
+  const startMidnight = new Date(Date.UTC(
+    start.getFullYear(), start.getMonth(), start.getDate()
+  ));
+  const nowMidnight = new Date(Date.UTC(
+    nowUtc.getFullYear(), nowUtc.getMonth(), nowUtc.getDate()
+  ));
+
+  const diffDays = Math.round(
+    (startMidnight - nowMidnight) / (1000 * 60 * 60 * 24)
+  );
+
+  if ([7, 2, 1, 0].includes(diffDays)) return `service_${diffDays}d`;
+  return null;
+}
+
+/**
+ * Dedup key for service reminders — one per service per trigger per day.
+ */
+export function serviceReminderDedupKey(bookingId, serviceIdx, trigger, nowUtc) {
+  const dateStr = nowUtc.toISOString().slice(0, 10);
+  return `svc_${bookingId}_${serviceIdx}_${trigger}_${dateStr}`;
+}
+
+/**
+ * Build the notification payload for a pending service reminder.
+ */
+export function buildServiceReminderPayload({ booking, service, trigger, bookingId }) {
+  const diffDays = parseInt(trigger.replace("service_", "").replace("d", ""));
+  const customerName = booking.customerName || "Customer";
+  const destination = booking.destination || "the trip";
+  const svcType = service.type || "Service";
+  const svcDesc = service.description || svcType;
+
+  const whenLabel =
+    diffDays === 0 ? "today" :
+    diffDays === 1 ? "tomorrow" :
+    `in ${diffDays} days`;
+
+  return {
+    type: "vendor_payment_due",
+    title: `⚠️ Pending Service ${whenLabel.charAt(0).toUpperCase() + whenLabel.slice(1)}`,
+    message: `${svcType} "${svcDesc}" for ${customerName}'s trip to ${destination} is still Pending — starts ${whenLabel}.`,
+    link: `/agent-panel/bookings`,
+    priority: diffDays <= 1 ? "high" : "normal",
+  };
+}
