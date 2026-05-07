@@ -6,10 +6,11 @@
 // nightly cron may have missed — e.g. a payment added after the cron ran,
 // or the cron's due_today window that happened before the agent opened the app.
 //
+// Also fires service-pending reminders for 1d and 0d before trip startDate
+// as an urgent client-side fallback (cron handles 7d and 2d).
+//
 // Uses the SAME dedup store (installmentNotifSent) and SAME createNotification()
 // as the cron, so notifications are never doubled regardless of which path fires first.
-//
-// Called from: your top-level layout or the useNotifications hook.
 
 import { useEffect, useRef } from "react";
 import {
@@ -30,28 +31,28 @@ import {
   buildNotifPayload,
   extractPendingInstallments,
   toISTDateStr,
+  getServiceTrigger,
+  serviceReminderDedupKey,
+  buildServiceReminderPayload,
 } from "@/lib/installmentChecker";
 
 const LOG = "[useInstallmentAlerts]";
 
 // Re-check at most once every 30 minutes within the same browser session.
-// Prevents hammering Firestore if the agent switches tabs frequently.
 const RECHECK_INTERVAL_MS = 30 * 60 * 1000;
 
-// Module-level timestamp so the throttle survives hook remounts
-// (e.g. React Strict Mode double-invoke in dev).
+// Module-level so throttle survives hook remounts (React Strict Mode, tab switches)
 let _lastCheckAt = 0;
 
-// ─── Dedup helpers (client-side mirror of the cron's helpers) ─────────────────
+// ─── Dedup helpers ────────────────────────────────────────────────────────────
 
 async function isAlreadySent(key) {
   try {
     const snap = await getDoc(doc(db, "installmentNotifSent", key));
     return snap.exists();
   } catch (err) {
-    // On read error be conservative — skip to avoid spam
     console.warn(`${LOG} isAlreadySent read failed for "${key}":`, err.message);
-    return true;
+    return true; // conservative — skip on error to avoid spam
   }
 }
 
@@ -67,7 +68,7 @@ async function markSent(key, metadata = {}) {
   }
 }
 
-// ─── Main checker (extracted so it can be called manually too) ────────────────
+// ─── Main checker ─────────────────────────────────────────────────────────────
 
 export async function checkInstallmentAlerts(userId) {
   if (!userId) return;
@@ -97,12 +98,13 @@ export async function checkInstallmentAlerts(userId) {
   let skipped = 0;
 
   for (const booking of bookings) {
+    // ── A. Vendor payment installments ──────────────────────────────────────
     let installments;
     try {
       installments = extractPendingInstallments(booking.id, booking);
     } catch (err) {
       console.error(`${LOG} extractPendingInstallments failed for ${booking.id}:`, err.message);
-      continue;
+      installments = [];
     }
 
     for (const inst of installments) {
@@ -111,8 +113,7 @@ export async function checkInstallmentAlerts(userId) {
 
       const trigger = getTrigger(dueDate, nowUtc);
 
-      // Client-side only fires due_today and overdue.
-      // day_before is not time-critical enough to need the client fallback.
+      // Client only fires urgent triggers — cron handles the rest
       if (trigger !== "due_today" && trigger !== "overdue") continue;
 
       const key = dedupKey(bookingId, serviceIdx, paymentKey, trigger, nowUtc);
@@ -123,7 +124,6 @@ export async function checkInstallmentAlerts(userId) {
         continue;
       }
 
-      // Build and send
       let payload;
       try {
         payload = buildNotifPayload({ booking, service, payment, trigger, bookingId });
@@ -132,7 +132,7 @@ export async function checkInstallmentAlerts(userId) {
         continue;
       }
 
-      console.log(`${LOG} Firing [${trigger}] → ${payload.title}`);
+      console.log(`${LOG} Installment [${trigger}] → ${payload.title}`);
 
       try {
         await createNotification({
@@ -152,16 +152,71 @@ export async function checkInstallmentAlerts(userId) {
             dueDate:            payment.date,
           },
         });
-
-        await markSent(key, {
-          bookingId,
-          agentId:  userId,
-          trigger,
-        });
-
+        await markSent(key, { bookingId, agentId: userId, trigger });
         fired++;
       } catch (err) {
         console.error(`${LOG} createNotification failed for key "${key}":`, err.message);
+      }
+    }
+
+    // ── B. Pending service reminders (client fires 1d and 0d only) ──────────
+    const startDate = booking.startDate;
+    if (!startDate) continue;
+
+    const services = booking.services || [];
+
+    for (let svcIdx = 0; svcIdx < services.length; svcIdx++) {
+      const service = services[svcIdx];
+      if (service.status !== "Pending") continue;
+
+      const trigger = getServiceTrigger(startDate, nowUtc);
+
+      // Client-side only handles urgent reminders — cron covers 7d and 2d
+      if (trigger !== "service_1d" && trigger !== "service_0d") continue;
+
+      const key = serviceReminderDedupKey(booking.id, svcIdx, trigger, nowUtc);
+
+      const alreadySent = await isAlreadySent(key);
+      if (alreadySent) {
+        skipped++;
+        continue;
+      }
+
+      let payload;
+      try {
+        payload = buildServiceReminderPayload({
+          booking,
+          service,
+          trigger,
+          bookingId: booking.id,
+        });
+      } catch (err) {
+        console.error(`${LOG} buildServiceReminderPayload failed:`, err.message);
+        continue;
+      }
+
+      console.log(`${LOG} Service reminder [${trigger}] → ${payload.title}`);
+
+      try {
+        await createNotification({
+          userId,
+          type:     payload.type,
+          title:    payload.title,
+          message:  payload.message,
+          link:     payload.link,
+          priority: payload.priority,
+          metadata: {
+            dedupKey:    key,
+            source:      "client/useInstallmentAlerts",
+            bookingId:   booking.id,
+            serviceType: service.type,
+            serviceDescription: service.description || "",
+          },
+        });
+        await markSent(key, { bookingId: booking.id, agentId: userId, trigger });
+        fired++;
+      } catch (err) {
+        console.error(`${LOG} Service reminder createNotification failed for key "${key}":`, err.message);
       }
     }
   }
@@ -192,4 +247,8 @@ export function useInstallmentAlerts(userId) {
       runningRef.current = false;
     });
   }, [userId]);
+}
+// Add this export
+export function resetInstallmentAlertThrottle() {
+  _lastCheckAt = 0;
 }
