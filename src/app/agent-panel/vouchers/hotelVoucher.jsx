@@ -63,7 +63,7 @@ export default function HotelVoucherDrawer({
   const isEditMode = Boolean(initialVoucher);
 
   const { user } = useSelector((state) => state.auth);
-  const { hasPermission } = useAgentPermissions(user?.uid);
+  const { hasPermission } = useAgentPermissions(user?.uid,user?.role);
   const canUseHotelAi = hasPermission("hotel_fetch_ai");
 
   const [aiLoading, setAiLoading] = useState(false);
