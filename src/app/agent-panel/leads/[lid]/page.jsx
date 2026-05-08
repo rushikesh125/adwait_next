@@ -51,6 +51,7 @@ import {
   deleteLeadNote,
   getQuotationsForLead,
   updateLeadDetails,
+  markLeadAsCold
 } from "@/firebase/leadsService";
 import {
   addFollowUp,
@@ -425,26 +426,77 @@ export default function LeadProfilePage({ params }) {
     }
   };
 
-  const handleFollowUpMarkComplete = async (followUp, completionNotes) => {
-    const tid = toast.loading("Marking as completed…");
-    try {
-      await updateFollowUp(lid, followUp.id, {
-        status: "Completed",
-        completionNotes,
-        completedAt: new Date().toISOString(),
-      });
-      const noteText = buildFollowUpNoteText(followUp, completionNotes);
-      await addLeadNote(lid, noteText, user?.displayName || "Agent");
-      toast.success("Follow-up completed and note added", { id: tid });
-      await reloadFollowUps();
-      await reloadNotes();
-      console.log("[LeadProfilePage] Follow-up completed, note added:", noteText);
-    } catch (err) {
-      console.error("[LeadProfilePage] markFollowUpComplete error:", err);
-      toast.error("Failed to complete follow-up", { id: tid });
-      throw err;
+const handleFollowUpMarkComplete = async (
+  followUp,
+  completionNotes,
+  isColdLead = false
+) => {
+  const tid = toast.loading(
+    isColdLead
+      ? "Completing follow-up & marking lead cold…"
+      : "Marking as completed…"
+  );
+
+  try {
+    // Complete follow-up
+    await updateFollowUp(lid, followUp.id, {
+      status: "Completed",
+      completionNotes,
+      completedAt: new Date().toISOString(),
+      isColdLead,
+    });
+
+    // Add lead note
+    const noteText = buildFollowUpNoteText(
+      followUp,
+      completionNotes
+    );
+
+    await addLeadNote(
+      lid,
+      noteText,
+      user?.displayName || "Agent"
+    );
+
+    // Mark lead as cold
+    if (isColdLead) {
+      await markLeadAsCold(
+        lid,
+        completionNotes
+      );
+
+      // instant UI update
+      setLead((prev) => ({
+        ...prev,
+        isCold: true,
+        status: "Cold Lead",
+      }));
     }
-  };
+
+    toast.success(
+      isColdLead
+        ? "Follow-up completed & lead marked cold"
+        : "Follow-up completed",
+      { id: tid }
+    );
+
+    await reloadFollowUps();
+    await reloadNotes();
+
+  } catch (err) {
+    console.error(
+      "[LeadProfilePage] markFollowUpComplete error:",
+      err
+    );
+
+    toast.error(
+      "Failed to complete follow-up",
+      { id: tid }
+    );
+
+    throw err;
+  }
+};
 
   // ── Quotation-sent follow-up prompt handlers ───────────────────────────────
   const handleFollowUpAfterQuotationSentSchedule = () => {
