@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Plus,
   Clock,
@@ -17,6 +19,7 @@ import {
   CalendarClock,
   FileText,
   AlertCircle,
+  Snowflake,
 } from "lucide-react";
 import {
   Tooltip,
@@ -73,20 +76,33 @@ function StatusBadgeFollowUp({ status, dateTime }) {
   );
 }
 
-// ── Completion Modal ────────────────────────────────────────────────────────
+// ── Completion Modal ──────────────────────────────────────────────────────────
+// 
+// CHANGE: Added "Mark as Cold Lead" checkbox.
+// When checked, `onConfirm` receives { notes, isColdLead: true }.
+// The parent (LeadProfilePage) is responsible for calling markLeadAsCold().
+//
 function CompletionModal({ followUp, onClose, onConfirm }) {
   const [notes, setNotes] = useState("");
-  const [err, setErr] = useState(false);
+  const [isColdLead, setIsColdLead] = useState(false);
+  const [notesErr, setNotesErr] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleConfirm = async () => {
-    if (!notes.trim()) { setErr(true); return; }
+    // Notes are always required
+    if (!notes.trim()) {
+      setNotesErr(true);
+      return;
+    }
+
     setLoading(true);
     try {
-      await onConfirm(followUp, notes.trim());
+      // Pass isColdLead flag up to parent — parent decides what to do with it
+      await onConfirm(followUp, notes.trim(), isColdLead);
       onClose();
     } catch (e) {
-      console.error("[CompletionModal] error:", e);
+      console.error("[CompletionModal] onConfirm error:", e);
+      // Don't close on error — let parent's toast handle it
     } finally {
       setLoading(false);
     }
@@ -105,6 +121,7 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
           }
         `}</style>
 
+        {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-emerald-50">
@@ -117,7 +134,9 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
           </div>
         </div>
 
+        {/* Body */}
         <div className="px-6 py-5 space-y-4">
+          {/* Completion Notes */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
               Completion Notes <span className="text-red-400">*</span>
@@ -126,21 +145,78 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
               rows={3}
               placeholder="What happened during this follow-up? (required)"
               value={notes}
-              onChange={(e) => { setNotes(e.target.value); if (e.target.value.trim()) setErr(false); }}
-              className={`rounded-xl text-sm resize-none ${err ? "border-red-300 bg-red-50 focus:border-red-400" : "bg-slate-50 border-slate-200 focus:border-theme-primary"}`}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                if (e.target.value.trim()) setNotesErr(false);
+              }}
+              className={`rounded-xl text-sm resize-none ${
+                notesErr
+                  ? "border-red-300 bg-red-50 focus:border-red-400"
+                  : "bg-slate-50 border-slate-200 focus:border-theme-primary"
+              }`}
             />
-            {err && (
+            {notesErr && (
               <p className="text-xs text-red-500 flex items-center gap-1">
                 <span className="inline-block w-1 h-1 rounded-full bg-red-400" />
                 Notes are required before completing
               </p>
             )}
           </div>
+
+          {/* Auto-note info */}
           <p className="text-xs text-slate-400 leading-relaxed bg-blue-50/60 rounded-xl px-3 py-2.5 border border-blue-100/60">
             A note will be auto-added to the Notes tab with this follow-up summary.
           </p>
+
+          {/* ── Cold Lead Checkbox ─────────────────────────────────────────
+               Shown only for pending/incomplete follow-ups.
+               Checking this flags the lead as cold — the cron job will
+               auto-close it to "Closed Lost" after 7 days.
+          ──────────────────────────────────────────────────────────────── */}
+          <div
+            className={`rounded-xl border p-3.5 transition-colors ${
+              isColdLead
+                ? "bg-blue-50/70 border-blue-200"
+                : "bg-slate-50 border-slate-200 hover:border-slate-300"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="cold-lead-checkbox"
+                checked={isColdLead}
+                onCheckedChange={(checked) => setIsColdLead(!!checked)}
+                className="mt-0.5 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+              />
+              <div className="space-y-0.5">
+                <Label
+                  htmlFor="cold-lead-checkbox"
+                  className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 cursor-pointer"
+                >
+                  <Snowflake className="h-3.5 w-3.5 text-blue-500" />
+                  Mark as Cold Lead
+                </Label>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Customer is unresponsive. This lead will automatically move to{" "}
+                  <span className="font-semibold text-slate-700">Closed Lost</span> after{" "}
+                  <span className="font-semibold text-slate-700">7 days</span> and all
+                  quotations will be rejected.
+                </p>
+              </div>
+            </div>
+
+            {/* Warning shown only when checkbox is checked */}
+            {isColdLead && (
+              <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  You can undo this by editing the lead before the 7-day window expires.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Footer */}
         <div className="flex gap-3 px-6 pb-6">
           <Button
             variant="outline"
@@ -153,17 +229,25 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
           <Button
             onClick={handleConfirm}
             disabled={loading}
-            className="flex-1 rounded-xl h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+            className={`flex-1 rounded-xl h-10 text-white text-sm transition-colors ${
+              isColdLead
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-emerald-600 hover:bg-emerald-700"
+            }`}
           >
             {loading ? (
               <span className="flex items-center gap-2">
                 <span className="h-3.5 w-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                Completing…
+                {isColdLead ? "Marking Cold…" : "Completing…"}
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4" />
-                Mark Complete
+                {isColdLead ? (
+                  <Snowflake className="h-4 w-4" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                {isColdLead ? "Complete & Mark Cold" : "Mark Complete"}
               </span>
             )}
           </Button>
@@ -173,11 +257,15 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
   );
 }
 
-// ── Follow-Up Card ──────────────────────────────────────────────────────────
+// ── Follow-Up Card ────────────────────────────────────────────────────────────
+//
+// CHANGE: Added cold lead badge display if followUp.isColdLead is true.
+//
 function FollowUpCard({ followUp, onEdit, onDelete, onMarkComplete }) {
   const ModeIcon = MODE_ICON[followUp.mode] || Phone;
   const completed = followUp.status === "Completed";
   const overdue = isOverdue(followUp.dateTime, followUp.status);
+  const isCold = !!followUp.isColdLead;
 
   return (
     <div
@@ -192,8 +280,16 @@ function FollowUpCard({ followUp, onEdit, onDelete, onMarkComplete }) {
       <div className="flex items-start justify-between gap-3">
         {/* Left */}
         <div className="flex items-start gap-3 min-w-0">
-          <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${completed ? "bg-emerald-100" : overdue ? "bg-red-100" : "bg-blue-50"}`}>
-            <ModeIcon className={`h-4 w-4 ${completed ? "text-emerald-600" : overdue ? "text-red-500" : "text-theme-primary"}`} />
+          <div
+            className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+              completed ? "bg-emerald-100" : overdue ? "bg-red-100" : "bg-blue-50"
+            }`}
+          >
+            <ModeIcon
+              className={`h-4 w-4 ${
+                completed ? "text-emerald-600" : overdue ? "text-red-500" : "text-theme-primary"
+              }`}
+            />
           </div>
 
           <div className="min-w-0 space-y-1.5">
@@ -202,10 +298,18 @@ function FollowUpCard({ followUp, onEdit, onDelete, onMarkComplete }) {
                 {formatDateTime(followUp.dateTime)}
               </p>
               <StatusBadgeFollowUp status={followUp.status} dateTime={followUp.dateTime} />
+              {/* Cold lead badge — shown if this follow-up triggered cold marking */}
+              {isCold && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide border border-blue-200">
+                  <Snowflake className="h-3 w-3" /> Cold Lead
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Via</span>
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                Via
+              </span>
               <span className="text-xs font-semibold text-slate-600">{followUp.mode}</span>
             </div>
 
@@ -237,16 +341,29 @@ function FollowUpCard({ followUp, onEdit, onDelete, onMarkComplete }) {
                 <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-0.5">
                   Completion Notes
                 </p>
-                <p className="text-xs text-emerald-700 leading-relaxed">{followUp.completionNotes}</p>
+                <p className="text-xs text-emerald-700 leading-relaxed">
+                  {followUp.completionNotes}
+                </p>
+              </div>
+            )}
+
+            {/* Cold lead info block — shown on completed card if cold was checked */}
+            {completed && isCold && (
+              <div className="mt-1.5 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 flex items-start gap-2">
+                <Snowflake className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  Lead flagged as cold. Will auto-close to{" "}
+                  <span className="font-semibold">Closed Lost</span> in 7 days unless updated.
+                </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Actions — hidden once completed */}
         {!completed && (
           <TooltipProvider>
-            <div className="flex gap-0.5 shrink-0  ">
+            <div className="flex gap-0.5 shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -294,7 +411,7 @@ function FollowUpCard({ followUp, onEdit, onDelete, onMarkComplete }) {
   );
 }
 
-// ── Main Section ────────────────────────────────────────────────────────────
+// ── Main Section ──────────────────────────────────────────────────────────────
 export default function FollowUpSection({
   followUps = [],
   leadQuotations = [],
@@ -308,7 +425,10 @@ export default function FollowUpSection({
   const [completingFollowUp, setCompletingFollowUp] = useState(null);
   const [activeFilter, setActiveFilter] = useState("all"); // "all" | "pending" | "completed"
 
-  const handleEdit = (f) => { setEditing(f); setOpenForm(true); };
+  const handleEdit = (f) => {
+    setEditing(f);
+    setOpenForm(true);
+  };
 
   const filtered = followUps.filter((f) => {
     if (activeFilter === "pending") return f.status !== "Completed";
@@ -345,7 +465,7 @@ export default function FollowUpSection({
                 { key: "all", label: "All", count: followUps.length },
                 { key: "pending", label: "Pending", count: pendingCount, color: "amber" },
                 { key: "completed", label: "Completed", count: completedCount, color: "green" },
-              ].map(({ key, label, count, color }) => (
+              ].map(({ key, label, count }) => (
                 <button
                   key={key}
                   onClick={() => setActiveFilter(key)}
@@ -421,7 +541,7 @@ export default function FollowUpSection({
       <FollowUpForm
         open={openForm}
         onClose={() => { setOpenForm(false); setEditing(null); }}
-        onSubmit={(data) => editing ? onEdit(editing.id, data) : onAdd(data)}
+        onSubmit={(data) => (editing ? onEdit(editing.id, data) : onAdd(data))}
         leadQuotations={leadQuotations}
         initialData={editing}
         isEdit={!!editing}

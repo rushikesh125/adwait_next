@@ -6,16 +6,29 @@ import { rateLimit } from "@/lib/rateLimit";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Permission Guard Helper
-// Checks agentPermissions/{uid}.itinerary_ai === true before proceeding.
+//
+// Role routing:
+//   superadmin → always allowed (no Firestore read)
+//   admin      → reads adminPermissions/{uid}
+//   agent      → reads agentPermissions/{uid}
+//   unknown    → reads agentPermissions/{uid}  (safe default)
 // ─────────────────────────────────────────────────────────────────────────────
-async function checkItineraryPermission(uid) {
+async function checkItineraryPermission(uid, role) {
   if (!uid) return false;
+
+  // Superadmin always has full access
+  if (role === "superadmin") return true;
+
+  // Route to the correct collection based on role
+  const collectionName =
+    role === "admin" ? "adminPermissions" : "agentPermissions";
+
   try {
-    const snap = await adminDb.collection("agentPermissions").doc(uid).get();
+    const snap = await adminDb.collection(collectionName).doc(uid).get();
     if (!snap.exists) return false;
     return snap.data()?.itinerary_ai === true;
   } catch (err) {
-    console.error("[ai-itinerary] Permission check failed:", err);
+    console.error("[ai-itinerary] Permission check failed:", err.code ?? err.message);
     return false;
   }
 }
@@ -24,19 +37,19 @@ async function checkItineraryPermission(uid) {
 // Zod Schemas — validation only, NOT passed to Gemini
 // ─────────────────────────────────────────────────────────────────────────────
 const DaySchema = z.object({
-  id: z.string(),
-  dayNumber: z.number(),
-  title: z.string(),
+  id:          z.string(),
+  dayNumber:   z.number(),
+  title:       z.string(),
   description: z.string(),
   activityIds: z.array(z.string()),
 });
 
 const ItineraryResponseSchema = z.object({
-  title: z.string(),
-  state: z.string(),
+  title:  z.string(),
+  state:  z.string(),
   cities: z.array(z.string()),
-  tags: z.array(z.string()),
-  days: z.array(DaySchema),
+  tags:   z.array(z.string()),
+  days:   z.array(DaySchema),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,9 +58,9 @@ const ItineraryResponseSchema = z.object({
 const daySchema = {
   type: "object",
   properties: {
-    id: { type: "string" },
-    dayNumber: { type: "number" },
-    title: { type: "string" },
+    id:          { type: "string" },
+    dayNumber:   { type: "number" },
+    title:       { type: "string" },
     description: { type: "string" },
     activityIds: { type: "array", items: { type: "string" } },
   },
@@ -57,11 +70,11 @@ const daySchema = {
 const geminiSchema = {
   type: "object",
   properties: {
-    title: { type: "string" },
-    state: { type: "string" },
+    title:  { type: "string" },
+    state:  { type: "string" },
     cities: { type: "array", items: { type: "string" } },
-    tags: { type: "array", items: { type: "string" } },
-    days: { type: "array", items: daySchema },
+    tags:   { type: "array", items: { type: "string" } },
+    days:   { type: "array", items: daySchema },
   },
   required: ["title", "state", "cities", "tags", "days"],
 };
@@ -90,7 +103,7 @@ note : no emojies is text
 - Destination(s): ${citiesList}
 - Total Days: ${numDays}
 - Transport Mode: ${transport}
-${arrivalTime ? `- Check-in Date:  ${arrivalTime}` : ""}
+${arrivalTime   ? `- Check-in Date:  ${arrivalTime}`   : ""}
 ${departureTime ? `- Check-out Date: ${departureTime}` : ""}
 ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
@@ -186,12 +199,12 @@ export async function POST(req) {
 
   const {
     packageContext,
-    chatHistory = [],
-    userPrompt = null,
+    chatHistory    = [],
+    userPrompt     = null,
     currentItinerary = null,
   } = body;
 
-  // ── 2. Permission check — BEFORE any AI call ──────────────────────────────
+  // ── 2. Authenticate ───────────────────────────────────────────────────────
   let requester;
   try {
     requester = await requireAuthenticatedUser(req);
@@ -201,10 +214,6 @@ export async function POST(req) {
       { status: error.status || 401 }
     );
   }
-  // 🟢 ADMIN BYPASS (ADD THIS BLOCK HERE)
-if (requester.role === "admin" || requester.role === "superadmin") {
-  return Response.json({ allowed: true }, { status: 200 });
-}
 
   if (!requester.uid) {
     return Response.json(
@@ -213,20 +222,29 @@ if (requester.role === "admin" || requester.role === "superadmin") {
     );
   }
 
-  const isAllowed = await checkItineraryPermission(requester.uid);
+  // ── 3. Permission check — role-aware, reads correct collection ────────────
+  // NOTE: Do NOT return early here. checkItineraryPermission() returns a
+  // boolean; only block if it's false. Admins read from adminPermissions
+  // and still need the permission explicitly granted by superadmin.
+  const isAllowed = await checkItineraryPermission(requester.uid, requester.role);
+
   if (!isAllowed) {
     return Response.json(
       {
-        error:
-          "You don't have access to AI Itinerary Creation. Please contact your admin to enable this feature.",
-        code: "PERMISSION_DENIED",
+        error: "You don't have access to AI Itinerary Creation. Please contact your super admin to enable this feature.",
+        code:  "PERMISSION_DENIED",
       },
       { status: 403 }
     );
   }
 
-  // ── 2b. Rate limit — 10 generations per minute per user ──────────────────
-  const rl = rateLimit({ uid: requester.uid, action: "ai-itinerary", limit: 10, windowMs: 60_000 });
+  // ── 4. Rate limit — 10 generations per minute per user ───────────────────
+  const rl = rateLimit({
+    uid:      requester.uid,
+    action:   "ai-itinerary",
+    limit:    10,
+    windowMs: 60_000,
+  });
   if (!rl.allowed) {
     return Response.json(
       { error: "Too many requests. Please wait a moment before generating again." },
@@ -237,7 +255,7 @@ if (requester.role === "admin" || requester.role === "superadmin") {
     );
   }
 
-  // ── 3. Validate required fields ───────────────────────────────────────────
+  // ── 5. Validate required fields ───────────────────────────────────────────
   if (!packageContext) {
     return Response.json(
       { error: "packageContext is required." },
@@ -255,43 +273,40 @@ if (requester.role === "admin" || requester.role === "superadmin") {
       )
     : [];
 
-  // ── 4. Destructure packageContext ─────────────────────────────────────────
+  // ── 6. Destructure packageContext ─────────────────────────────────────────
   const {
-    hotelEntries = [],
+    hotelEntries      = [],
     selectedTransport = null,
     selectedActivities = [],
-    selectedState = "",
-    checkInDate = "",
-    checkOutDate = "",
-    packageName = "",
-    customerName = "",
+    selectedState     = "",
+    checkInDate       = "",
+    checkOutDate      = "",
+    packageName       = "",
+    customerName      = "",
   } = packageContext;
 
-  // ── 5. Derive cities & destination ────────────────────────────────────────
-  const cities = [...new Set(hotelEntries.map((e) => e.city).filter(Boolean))];
+  // ── 7. Derive cities & destination ───────────────────────────────────────
+  const cities      = [...new Set(hotelEntries.map((e) => e.city).filter(Boolean))];
   const destination = cities[0] || selectedState || null;
 
   if (!destination) {
     return Response.json(
-      {
-        error:
-          "Could not determine destination. Please add at least one hotel.",
-      },
+      { error: "Could not determine destination. Please add at least one hotel." },
       { status: 400 }
     );
   }
 
-  // ── 6. Derive numDays ─────────────────────────────────────────────────────
+  // ── 8. Derive numDays ─────────────────────────────────────────────────────
   const totalNights = hotelEntries.reduce(
     (sum, e) => sum + (Number(e.nights) || 0),
     0
   );
   const numDays = totalNights > 0 ? totalNights + 1 : 3;
 
-  // ── 7. Derive transport mode ──────────────────────────────────────────────
-  const vehicleType = selectedTransport?.selectedVehicle?.type || "";
+  // ── 9. Derive transport mode ──────────────────────────────────────────────
+  const vehicleType  = selectedTransport?.selectedVehicle?.type || "";
   const vehicleLower = vehicleType.toLowerCase();
-  const transport = vehicleLower.includes("train")
+  const transport    = vehicleLower.includes("train")
     ? "train"
     : vehicleLower.includes("flight")
     ? "flight"
@@ -299,10 +314,10 @@ if (requester.role === "admin" || requester.role === "superadmin") {
     ? "bus"
     : vehicleType || "private car";
 
-  // ── 8. Origin ─────────────────────────────────────────────────────────────
+  // ── 10. Origin ────────────────────────────────────────────────────────────
   const origin = selectedState || "Origin City";
 
-  // ── 9. Additional context string ──────────────────────────────────────────
+  // ── 11. Additional context string ─────────────────────────────────────────
   const hotelLines = hotelEntries
     .map((e) =>
       [e.hotel, e.city, e.nights ? `${e.nights}N` : null, e.selectedMealPlan]
@@ -317,43 +332,41 @@ if (requester.role === "admin" || requester.role === "superadmin") {
     .join(", ");
 
   const additionalContext = [
-    hotelLines ? `Hotels: ${hotelLines}` : null,
-    activityNames ? `Activities: ${activityNames}` : null,
-    packageName ? `Package: ${packageName}` : null,
-    customerName ? `Customer: ${customerName}` : null,
-    vehicleType ? `Vehicle: ${vehicleType}` : null,
-    selectedTransport?.name
-      ? `Transport package: ${selectedTransport.name}`
-      : null,
+    hotelLines    ? `Hotels: ${hotelLines}`                           : null,
+    activityNames ? `Activities: ${activityNames}`                    : null,
+    packageName   ? `Package: ${packageName}`                         : null,
+    customerName  ? `Customer: ${customerName}`                       : null,
+    vehicleType   ? `Vehicle: ${vehicleType}`                         : null,
+    selectedTransport?.name ? `Transport package: ${selectedTransport.name}` : null,
   ]
     .filter(Boolean)
     .join(". ");
 
-  // ── 10. Determine refinement vs fresh generation ──────────────────────────
+  // ── 12. Determine refinement vs fresh generation ──────────────────────────
   const isRefinement =
     typeof userPrompt === "string" && userPrompt.trim().length > 0;
 
-  // ── 11. Build prompt ──────────────────────────────────────────────────────
+  // ── 13. Build prompt ──────────────────────────────────────────────────────
   const basePrompt = buildBasePrompt({
     origin,
     destination,
     cities,
     numDays,
     transport,
-    arrivalTime: checkInDate || undefined,
-    departureTime: checkOutDate || undefined,
+    arrivalTime:       checkInDate   || undefined,
+    departureTime:     checkOutDate  || undefined,
     additionalContext: additionalContext || undefined,
   });
 
   const fullPrompt = isRefinement
     ? `${basePrompt}\n\n${buildRefinementSuffix({
-        userPrompt: userPrompt.trim(),
-        chatHistory: safeChatHistory,
+        userPrompt:       userPrompt.trim(),
+        chatHistory:      safeChatHistory,
         currentItinerary,
       })}`
     : basePrompt;
 
-  // ── 12. Init Gemini ───────────────────────────────────────────────────────
+  // ── 14. Init Gemini ───────────────────────────────────────────────────────
   if (!process.env.GEMINI_API_KEY) {
     console.error("[ai-itinerary] GEMINI_API_KEY is not set.");
     return Response.json(
@@ -373,14 +386,14 @@ if (requester.role === "admin" || requester.role === "superadmin") {
     );
   }
 
-  // ── 13. Call Gemini ───────────────────────────────────────────────────────
+  // ── 15. Call Gemini ───────────────────────────────────────────────────────
   let rawText;
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model:   "gemini-2.5-flash-lite",
       contents: fullPrompt,
       config: {
-        responseMimeType: "application/json",
+        responseMimeType:   "application/json",
         responseJsonSchema: geminiSchema,
       },
     });
@@ -397,10 +410,7 @@ if (requester.role === "admin" || requester.role === "superadmin") {
     }
     if (msg.includes("safety") || msg.includes("blocked")) {
       return Response.json(
-        {
-          error:
-            "The AI blocked this request due to content policy. Try rephrasing your request.",
-        },
+        { error: "The AI blocked this request due to content policy. Try rephrasing your request." },
         { status: 422 }
       );
     }
@@ -413,14 +423,14 @@ if (requester.role === "admin" || requester.role === "superadmin") {
 
     return Response.json(
       {
-        error: "AI generation failed. Please try again.",
+        error:   "AI generation failed. Please try again.",
         details: msg || "Unknown Gemini error",
       },
       { status: 502 }
     );
   }
 
-  // ── 14. Guard empty response ──────────────────────────────────────────────
+  // ── 16. Guard empty response ──────────────────────────────────────────────
   if (!rawText || !rawText.trim()) {
     console.error("[ai-itinerary] Gemini returned empty text.");
     return Response.json(
@@ -429,45 +439,39 @@ if (requester.role === "admin" || requester.role === "superadmin") {
     );
   }
 
-  // ── 15. Strip markdown fences ─────────────────────────────────────────────
+  // ── 17. Strip markdown fences ─────────────────────────────────────────────
   const cleanedText = rawText
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
 
-  // ── 16. Parse JSON ────────────────────────────────────────────────────────
+  // ── 18. Parse JSON ────────────────────────────────────────────────────────
   let parsed;
   try {
     parsed = JSON.parse(cleanedText);
   } catch (jsonErr) {
     console.error("[ai-itinerary] JSON parse failed:", jsonErr);
-    console.error(
-      "[ai-itinerary] Raw output (first 500 chars):",
-      rawText.slice(0, 500)
-    );
+    console.error("[ai-itinerary] Raw output (first 500 chars):", rawText.slice(0, 500));
     return Response.json(
       {
-        error: "AI returned malformed data. Please try again.",
+        error:   "AI returned malformed data. Please try again.",
         details: `JSON parse error: ${jsonErr.message}`,
       },
       { status: 422 }
     );
   }
 
-  // ── 17. Validate with Zod ─────────────────────────────────────────────────
+  // ── 19. Validate with Zod ─────────────────────────────────────────────────
   let validated;
   try {
     validated = ItineraryResponseSchema.parse(parsed);
   } catch (zodErr) {
     console.error("[ai-itinerary] Zod validation failed:", zodErr);
-    console.warn(
-      "[ai-itinerary] Returning unvalidated parsed data as fallback."
-    );
+    console.warn("[ai-itinerary] Returning unvalidated parsed data as fallback.");
     return Response.json(parsed, {
       status: 200,
       headers: {
-        "X-Validation-Warning":
-          "Schema validation failed; data may be incomplete.",
+        "X-Validation-Warning": "Schema validation failed; data may be incomplete.",
       },
     });
   }

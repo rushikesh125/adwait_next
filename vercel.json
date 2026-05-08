@@ -12,6 +12,9 @@
     {
       "path": "/api/cron/check-followups",
       "schedule": "30 2 * * *"
+    },{
+      "path": "/api/cron/check-cold-leads",
+      "schedule": "0 2 * * *"
     }
   ]
 }
