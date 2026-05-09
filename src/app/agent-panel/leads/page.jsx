@@ -70,6 +70,9 @@ export default function LeadsPage() {
     const contacted = leads.filter(
       (lead) => lead.status === "Contacted",
     ).length;
+    const coldLeads = leads.filter(
+      (lead) => lead.status === "Cold Lead",
+    ).length;
     const newLeads = leads.filter((lead) => lead.status === "New").length;
     const activePipeline = newLeads + contacted + quotationSent;
     const needsAttention = newLeads + contacted;
@@ -83,6 +86,7 @@ export default function LeadsPage() {
       closedLost,
       closedWon,
       contacted,
+      coldLeads,
       newLeads,
       activePipeline,
       needsAttention,
@@ -126,6 +130,15 @@ export default function LeadsPage() {
       icon: FilePlus2,
       tone: "border-violet-200 bg-violet-50 text-violet-900",
       iconTone: "bg-violet-100 text-violet-700",
+    },
+    {
+      key: "Cold Lead",
+      label: "Cold Leads",
+      value: overviewMetrics.coldLeads,
+      helper: "Inactive enquiries",
+      icon: Clock3,
+      tone: "border-cyan-200 bg-cyan-50 text-cyan-900",
+      iconTone: "bg-cyan-100 text-cyan-700",
     },
     {
       key: "Closed Won",
@@ -255,68 +268,65 @@ export default function LeadsPage() {
     }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  const toastId = toast.loading("Creating lead...");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const toastId = toast.loading("Creating lead...");
 
-  try {
-    // ✅ Create lead and get ID
-    const leadId = await addLead({
-      ...form,
-      email: form.email || "",
-      mobile: form.mobile ? normalizeMobile(form.mobile) : "",
-
-      customerId: selectedCustomer?.id || null,
-      customerName: selectedCustomer?.name || form.name,
-
-      agentId: user?.uid || null,
-      assignedAgentId: user?.uid || null,
-      assignedAgentName: user?.name || "",
-      adminId: user?.adminId || null,
-      status: "New",
-      createdAt: new Date().toISOString(),
-    });
-
-    // ✅ AUTO FOLLOW-UP (SAFE BLOCK)
     try {
-      await addFollowUp(leadId, {
-        dateTime: new Date(
-          Date.now() + 16 * 60 * 60 * 1000
-        ).toISOString(),
-        mode: "Call",
-        notes: "Initial follow-up for new lead",
-        quotationIds: [],
+      // ✅ Create lead and get ID
+      const leadId = await addLead({
+        ...form,
+        email: form.email || "",
+        mobile: form.mobile ? normalizeMobile(form.mobile) : "",
+
+        customerId: selectedCustomer?.id || null,
+        customerName: selectedCustomer?.name || form.name,
+
+        agentId: user?.uid || null,
+        assignedAgentId: user?.uid || null,
+        assignedAgentName: user?.name || "",
+        adminId: user?.adminId || null,
+        status: "New",
+        createdAt: new Date().toISOString(),
       });
 
-      console.log("[Lead] Auto follow-up created");
-    } catch (followErr) {
-      console.error("[Lead] Auto follow-up failed:", followErr);
-      // ❗ Don't block main flow
+      // ✅ AUTO FOLLOW-UP (SAFE BLOCK)
+      try {
+        await addFollowUp(leadId, {
+          dateTime: new Date(Date.now() + 16 * 60 * 60 * 1000).toISOString(),
+          mode: "Call",
+          notes: "Initial follow-up for new lead",
+          quotationIds: [],
+        });
+
+        console.log("[Lead] Auto follow-up created");
+      } catch (followErr) {
+        console.error("[Lead] Auto follow-up failed:", followErr);
+        // ❗ Don't block main flow
+      }
+
+      toast.success("Lead added successfully", { id: toastId });
+
+      setShowAddLead(false);
+
+      if (searchParams.get("open") === "new") {
+        router.replace("/agent-panel/leads");
+      }
+
+      setForm({
+        ...enquiryInitialValues,
+        email: "",
+        mobile: "",
+      });
+
+      loadLeads();
+    } catch (error) {
+      console.error("[Lead] creation error:", error);
+      toast.error("Error creating lead", { id: toastId });
+    } finally {
+      setSelectedCustomer(null);
     }
-
-    toast.success("Lead added successfully", { id: toastId });
-
-    setShowAddLead(false);
-
-    if (searchParams.get("open") === "new") {
-      router.replace("/agent-panel/leads");
-    }
-
-    setForm({
-      ...enquiryInitialValues,
-      email: "",
-      mobile: "",
-    });
-
-    loadLeads();
-
-  } catch (error) {
-    console.error("[Lead] creation error:", error);
-    toast.error("Error creating lead", { id: toastId });
-  } finally {
-    setSelectedCustomer(null);
-  }
-};
+  };
   const handleDeleteLead = async (id) => {
     if (!window.confirm("Are you sure you want to delete this lead?")) return;
 
@@ -331,23 +341,23 @@ const handleSubmit = async (e) => {
     }
   };
 
-const handleStatusChange = async (id, status) => {
-  const tid = toast.loading("Updating status...");
+  const handleStatusChange = async (id, status) => {
+    const tid = toast.loading("Updating status...");
 
-  try {
-    await updateLeadStatus(id, status);
+    try {
+      await updateLeadStatus(id, status);
 
-    if (status === "Closed Lost") {
-      await rejectAllQuotationsForLead(id);
+      if (status === "Closed Lost") {
+        await rejectAllQuotationsForLead(id);
+      }
+
+      toast.success(`Status updated to ${status}`, { id: tid });
+      loadLeads();
+    } catch (error) {
+      console.error(error);
+      toast.error("Status update failed", { id: tid });
     }
-
-    toast.success(`Status updated to ${status}`, { id: tid });
-    loadLeads();
-  } catch (error) {
-    console.error(error);
-    toast.error("Status update failed", { id: tid });
-  }
-};
+  };
 
   const handleCloneLead = async (id) => {
     const tid = toast.loading("Cloning lead...");

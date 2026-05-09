@@ -106,7 +106,7 @@ const CreateHotelVoucherPage = () => {
 
   // ── Get current user & permission ──────────────────────────────────────────
   const { user } = useSelector((state) => state.auth);
-  const { hasPermission, loading: permLoading } = useAgentPermissions(user?.uid);
+  const { hasPermission, loading: permLoading } = useAgentPermissions(user?.uid,user?.role);
   const canUseHotelAi = hasPermission("hotel_fetch_ai");
 
   const [voucherNo, setVoucherNo] = useState("");

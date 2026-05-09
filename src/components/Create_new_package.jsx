@@ -341,6 +341,7 @@ const Create_new_package = ({
 
   const { hasPermission, loading: permissionsLoading } = useAgentPermissions(
     user?.uid,
+    user?.role
   );
   const canUseItineraryAI =
     !permissionsLoading && hasPermission("itinerary_ai");
