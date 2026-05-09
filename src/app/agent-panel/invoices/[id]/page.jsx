@@ -18,10 +18,8 @@ import {
   Pencil,
   Trash2,
   Loader2,
-  FileText,
   Download,
   Plus,
-  X,
   IndianRupee,
   CalendarCheck,
   XCircle,
@@ -29,7 +27,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -77,7 +74,10 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const { id } = useParams();
   const pathname = usePathname();
-  const panelBase = pathname.startsWith("/admin") ? "/admin-panel" : "/agent-panel";
+
+  // FIX: Corrected panelBase detection — was checking "/admin" but path is "/admin-panel"
+  const panelBase = pathname.startsWith("/admin-panel") ? "/admin-panel" : "/agent-panel";
+
   const { user } = useSelector((state) => state.auth);
   const agentId = user?.uid;
 
@@ -100,7 +100,11 @@ export default function InvoiceDetailPage() {
           getInvoiceById(id),
           agentId ? getPaymentAccountsByAgent(agentId) : Promise.resolve([]),
         ]);
-        if (!inv) { toast.error("Invoice not found"); router.push(`${panelBase}/invoices`); return; }
+        if (!inv) {
+          toast.error("Invoice not found");
+          router.push(`${panelBase}/invoices`);
+          return;
+        }
         setInvoice(inv);
         setPaymentAccounts(accounts);
       } catch (err) {
@@ -124,17 +128,26 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
-      await generateInvoicePDF(invoice);
-    } catch {
-      toast.error("PDF generation failed");
-    } finally {
-      setDownloading(false);
-    }
-  };
-
+  // FIX: Wrap in try/catch with detailed error and ensure invoice is valid before calling
+const handleDownload = async () => {
+  if (!invoice) {
+    toast.error("Invoice data not loaded yet");
+    return;
+  }
+  console.log("[handleDownload] Invoice object being passed to PDF generator:", invoice);
+  console.log("[handleDownload] lineItems:", invoice.lineItems);
+  console.log("[handleDownload] payments:", invoice.payments);
+  setDownloading(true);
+  try {
+    await generateInvoicePDF(invoice);
+  } catch (err) {
+    console.error("[handleDownload] Full error object:", err);
+    console.error("[handleDownload] Error stack:", err?.stack);
+    toast.error(`PDF generation failed: ${err?.message || "Unknown error"}`);
+  } finally {
+    setDownloading(false);
+  }
+};
   const handleOpenPaymentDialog = (payment = null) => {
     if (payment) {
       setEditingPaymentId(payment.id);
@@ -169,7 +182,12 @@ export default function InvoiceDetailPage() {
       paymentAccountId: accountId,
       paymentAccountName: account?.name || "",
       paymentAccountType: account?.type || "",
-      mode: account?.type === "Cash" ? "Cash" : account?.type === "UPI" ? "UPI" : "Bank Transfer",
+      mode:
+        account?.type === "Cash"
+          ? "Cash"
+          : account?.type === "UPI"
+          ? "UPI"
+          : "Bank Transfer",
     }));
   };
 
@@ -202,20 +220,34 @@ export default function InvoiceDetailPage() {
             if (booking) {
               const newPaidAmount = result.amountReceived;
               const paymentStatus =
-                newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
+                newPaidAmount <= 0
+                  ? "Unpaid"
+                  : newPaidAmount >= booking.totalAmount
+                  ? "Paid"
+                  : "Partial";
               const syncedBookingPayments = (booking.payments || []).map((p) =>
                 p.invoicePaymentId === editingPaymentId
-                  ? { ...p, amount, date: paymentData.date, mode: paymentData.paymentAccountName, reference: paymentData.reference, notes: paymentData.notes }
+                  ? {
+                      ...p,
+                      amount,
+                      date: paymentData.date,
+                      mode: paymentData.paymentAccountName,
+                      reference: paymentData.reference,
+                      notes: paymentData.notes,
+                    }
                   : p
               );
-              await updateBooking(invoice.bookingId, { paidAmount: newPaidAmount, paymentStatus, payments: syncedBookingPayments });
+              await updateBooking(invoice.bookingId, {
+                paidAmount: newPaidAmount,
+                paymentStatus,
+                payments: syncedBookingPayments,
+              });
             }
           } catch (e) {
             console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
           }
         }
         toast.success("Payment updated");
-
       } else {
         // ── ADD new payment ────────────────────────────────────────────────
         const result = await addPaymentToInvoice(id, paymentData);
@@ -227,19 +259,34 @@ export default function InvoiceDetailPage() {
             if (booking) {
               const newPaidAmount = result.amountReceived;
               const paymentStatus =
-                newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
+                newPaidAmount <= 0
+                  ? "Unpaid"
+                  : newPaidAmount >= booking.totalAmount
+                  ? "Paid"
+                  : "Partial";
 
               const prevIds = new Set((invoice.payments || []).map((p) => p.id));
-              const newInvPayment = result.payments.find((p) => !prevIds.has(p.id));
+              const newInvPayment = (result.payments || []).find((p) => !prevIds.has(p.id));
 
               const syncedBookingPayments = newInvPayment
                 ? [
                     ...(booking.payments || []),
-                    { amount: Number(newInvPayment.amount), date: newInvPayment.date, mode: newInvPayment.paymentAccountName || newInvPayment.mode || "Cash", reference: newInvPayment.reference || "", notes: newInvPayment.notes || "", invoicePaymentId: newInvPayment.id },
+                    {
+                      amount: Number(newInvPayment.amount),
+                      date: newInvPayment.date,
+                      mode: newInvPayment.paymentAccountName || newInvPayment.mode || "Cash",
+                      reference: newInvPayment.reference || "",
+                      notes: newInvPayment.notes || "",
+                      invoicePaymentId: newInvPayment.id,
+                    },
                   ]
                 : booking.payments;
 
-              await updateBooking(invoice.bookingId, { paidAmount: newPaidAmount, paymentStatus, payments: syncedBookingPayments });
+              await updateBooking(invoice.bookingId, {
+                paidAmount: newPaidAmount,
+                paymentStatus,
+                payments: syncedBookingPayments,
+              });
             }
           } catch (e) {
             console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
@@ -264,20 +311,20 @@ export default function InvoiceDetailPage() {
       const result = await deletePaymentFromInvoice(id, paymentId);
       setInvoice((prev) => ({ ...prev, ...result }));
 
-      // Sync booking payments[] + paidAmount if linked
       if (invoice.bookingId) {
         try {
           const booking = await getBookingById(invoice.bookingId);
           if (booking) {
             const newPaidAmount = result.amountReceived;
             const paymentStatus =
-              newPaidAmount <= 0 ? "Unpaid" : newPaidAmount >= booking.totalAmount ? "Paid" : "Partial";
-
-            // Remove the corresponding booking payment entry (matched by invoicePaymentId)
+              newPaidAmount <= 0
+                ? "Unpaid"
+                : newPaidAmount >= booking.totalAmount
+                ? "Paid"
+                : "Partial";
             const syncedBookingPayments = (booking.payments || []).filter(
               (p) => p.invoicePaymentId !== paymentId
             );
-
             await updateBooking(invoice.bookingId, {
               paidAmount: newPaidAmount,
               paymentStatus,
@@ -311,13 +358,24 @@ export default function InvoiceDetailPage() {
   const payments = invoice.payments || [];
   const balance = Number(invoice.amountDue) || 0;
 
+  // FIX: When editing a payment, the "use balance" should show the balance
+  // *as if* the current payment didn't exist, so adding it back won't over-pay.
+  const balanceForDialog = editingPaymentId
+    ? balance + Number(paymentForm.amount || 0)
+    : balance;
+
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.push(`${panelBase}/invoices`)} className="rounded-xl">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push(`${panelBase}/invoices`)}
+              className="rounded-xl"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
@@ -340,7 +398,7 @@ export default function InvoiceDetailPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={handleOpenPaymentDialog}
+              onClick={() => handleOpenPaymentDialog()}
               className="rounded-xl font-bold h-9 text-xs text-emerald-600 border-emerald-300 hover:bg-emerald-50"
             >
               <IndianRupee className="w-4 h-4 mr-1.5" />
@@ -352,7 +410,11 @@ export default function InvoiceDetailPage() {
               disabled={downloading}
               className="rounded-xl font-bold h-9 text-xs"
             >
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
+              {downloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-1.5" />
+              )}
               PDF
             </Button>
             <Button
@@ -368,7 +430,11 @@ export default function InvoiceDetailPage() {
               disabled={deleting}
               className="rounded-xl h-9 text-red-500 hover:bg-red-50 hover:text-red-600"
             >
-              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {deleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -388,7 +454,12 @@ export default function InvoiceDetailPage() {
             <CardContent className="px-6 pb-5">
               <p className="font-bold text-slate-800">{invoice.customerName || "—"}</p>
               {invoice.customerMobile && (
-                <a href={`tel:${invoice.customerMobile}`} className="block text-sm text-slate-500 mt-0.5 hover:text-theme-primary hover:underline">{invoice.customerMobile}</a>
+                <a
+                  href={`tel:${invoice.customerMobile}`}
+                  className="block text-sm text-slate-500 mt-0.5 hover:text-theme-primary hover:underline"
+                >
+                  {invoice.customerMobile}
+                </a>
               )}
               {invoice.customerEmail && (
                 <p className="text-sm text-slate-500">{invoice.customerEmail}</p>
@@ -433,14 +504,14 @@ export default function InvoiceDetailPage() {
                               {item.description}
                             </p>
                           )}
-                          {!item.itemName && !item.description && <span className="text-slate-400">—</span>}
+                          {!item.itemName && !item.description && (
+                            <span className="text-slate-400">—</span>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-right text-slate-600">{item.quantity}</td>
                         <td className="px-3 py-3 text-right text-slate-600">{formatCurrency(item.unitPrice)}</td>
                         <td className="px-3 py-3 text-right text-rose-500 text-xs">
-                          {item.discountAmount > 0
-                            ? `-${formatCurrency(item.discountAmount)}`
-                            : "—"}
+                          {item.discountAmount > 0 ? `-${formatCurrency(item.discountAmount)}` : "—"}
                         </td>
                         <td className="px-3 py-3 text-right text-xs">
                           {item.gstRate > 0 ? (
@@ -473,7 +544,7 @@ export default function InvoiceDetailPage() {
                 variant="outline"
                 size="sm"
                 className="rounded-xl text-xs font-bold h-8 gap-1 text-emerald-600 border-emerald-300"
-                onClick={handleOpenPaymentDialog}
+                onClick={() => handleOpenPaymentDialog()}
               >
                 <Plus className="w-3.5 h-3.5" /> Add
               </Button>
@@ -605,7 +676,10 @@ export default function InvoiceDetailPage() {
             <CardContent className="px-5 py-5 space-y-3">
               <Detail label="Invoice Date" value={formatDate(invoice.invoiceDate)} />
               {invoice.dueDate && <Detail label="Due Date" value={formatDate(invoice.dueDate)} />}
-              <Detail label="GST Type" value={invoice.gstType === "inter" ? "Interstate (IGST)" : "Intrastate (CGST+SGST)"} />
+              <Detail
+                label="GST Type"
+                value={invoice.gstType === "inter" ? "Interstate (IGST)" : "Intrastate (CGST+SGST)"}
+              />
               {invoice.sourceType === "booking" && (
                 <>
                   {invoice.bookingRef && <Detail label="Booking Ref" value={invoice.bookingRef} />}
@@ -626,12 +700,18 @@ export default function InvoiceDetailPage() {
       </div>
 
       {/* Record Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={(open) => { setPaymentDialogOpen(open); if (!open) setEditingPaymentId(null); }}>
+      <Dialog
+        open={paymentDialogOpen}
+        onOpenChange={(open) => {
+          setPaymentDialogOpen(open);
+          if (!open) setEditingPaymentId(null);
+        }}
+      >
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="font-black text-slate-900">
-            {editingPaymentId ? "Edit Payment" : "Record Payment"}
-          </DialogTitle>
+              {editingPaymentId ? "Edit Payment" : "Record Payment"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
@@ -644,12 +724,15 @@ export default function InvoiceDetailPage() {
                 placeholder="0.00"
                 autoFocus
               />
-              {balance > 0 && (
+              {/* FIX: Show corrected balance that accounts for currently-edited payment */}
+              {balanceForDialog > 0 && (
                 <button
                   className="text-xs text-theme-primary mt-1 hover:underline"
-                  onClick={() => setPaymentForm((p) => ({ ...p, amount: String(balance) }))}
+                  onClick={() =>
+                    setPaymentForm((p) => ({ ...p, amount: String(balanceForDialog) }))
+                  }
                 >
-                  Use balance: {formatCurrency(balance)}
+                  Use balance: {formatCurrency(balanceForDialog)}
                 </button>
               )}
             </div>
@@ -691,7 +774,7 @@ export default function InvoiceDetailPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {["Cash", "Bank Transfer", "UPI", "Card", "Cheque", "Online"].map((m) => (
+                    {PAYMENT_MODES.map((m) => (
                       <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
                   </SelectContent>
@@ -701,12 +784,12 @@ export default function InvoiceDetailPage() {
                     className="text-theme-primary hover:underline"
                     onClick={() => {
                       setPaymentDialogOpen(false);
-                      router.push("/agent-panel/settings/payment-accounts");
+                      router.push(`${panelBase}/settings/payment-accounts`);
                     }}
                   >
                     Set up payment accounts
-                  </button>
-                  {" "}for better tracking
+                  </button>{" "}
+                  for better tracking
                 </p>
               </div>
             )}
@@ -744,7 +827,13 @@ export default function InvoiceDetailPage() {
                 onClick={handleSavePayment}
                 disabled={savingPayment}
               >
-                {savingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : editingPaymentId ? "Update Payment" : "Save Payment"}
+                {savingPayment ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : editingPaymentId ? (
+                  "Update Payment"
+                ) : (
+                  "Save Payment"
+                )}
               </Button>
             </div>
           </div>
@@ -758,7 +847,9 @@ function Row({ label, value, bold, color }) {
   return (
     <div className="flex justify-between items-center text-sm">
       <span className="text-slate-500">{label}</span>
-      <span className={`${bold ? "font-black" : "font-semibold"} ${color || "text-slate-800"}`}>{value}</span>
+      <span className={`${bold ? "font-black" : "font-semibold"} ${color || "text-slate-800"}`}>
+        {value}
+      </span>
     </div>
   );
 }

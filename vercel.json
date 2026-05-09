@@ -1,8 +1,20 @@
 {
+  "framework": "nextjs",
   "crons": [
     {
       "path": "/api/admin/hotel-season-cleanup",
       "schedule": "45 6 * * *"
+    },
+    {
+      "path": "/api/cron/check-installments",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/check-followups",
+      "schedule": "30 2 * * *"
+    },{
+      "path": "/api/cron/check-cold-leads",
+      "schedule": "0 2 * * *"
     }
   ]
 }

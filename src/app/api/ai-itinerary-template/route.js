@@ -1,3 +1,10 @@
+/**
+ * app/api/ai-itinerary-template/route.js
+ *
+ * Used by ItineraryForm (template creation page).
+ * Applies the same role-aware permission check as ai-itinerary/route.js.
+ */
+
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { adminDb } from "@/firebase/admin";
@@ -5,51 +12,56 @@ import { requireAuthenticatedUser } from "@/lib/serverAuth";
 import { rateLimit } from "@/lib/rateLimit";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Permission Guard
-// Checks agentPermissions/{uid}.itinerary_ai === true
+// Permission Guard — role-aware
 // ─────────────────────────────────────────────────────────────────────────────
-async function checkItineraryPermission(uid) {
+async function checkItineraryPermission(uid, role) {
   if (!uid) return false;
+  if (role === "superadmin") return true;
+
+  const collectionName =
+    role === "admin" ? "adminPermissions" : "agentPermissions";
+
   try {
-    const snap = await adminDb.collection("agentPermissions").doc(uid).get();
+    const snap = await adminDb.collection(collectionName).doc(uid).get();
     if (!snap.exists) return false;
     return snap.data()?.itinerary_ai === true;
   } catch (err) {
-    console.error("[ai-itinerary-template] Permission check failed:", err);
+    console.error("[ai-itinerary-template] Permission check failed:", err.code ?? err.message);
     return false;
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Zod Schema — validation only
+// Zod Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 const DaySchema = z.object({
-  id: z.string(),
-  dayNumber: z.number(),
-  title: z.string(),
+  id:          z.string(),
+  dayNumber:   z.number(),
+  title:       z.string(),
   description: z.string(),
-  activityIds: z.array(z.string()),
+  activityIds: z.array(z.string()).optional().default([]),
 });
 
-const TemplateItineraryResponseSchema = z.object({
-  title: z.string(),
-  states: z.array(z.string()).optional(),
-  cities: z.array(z.string()).optional(),
-  startCity: z.string().optional(),
-  endCity: z.string().optional(),
-  numDays: z.number().optional(),
-  days: z.array(DaySchema),
+const TemplateResponseSchema = z.object({
+  title:     z.string(),
+  states:    z.array(z.string()).optional().default([]),
+  cities:    z.array(z.string()).optional().default([]),
+  startCity: z.string().optional().default(""),
+  endCity:   z.string().optional().default(""),
+  numDays:   z.number().optional(),
+  tags:      z.array(z.string()).optional().default([]),
+  days:      z.array(DaySchema),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Gemini JSON Schema (flat, no $ref)
+// Gemini JSON schema (flat, no $ref)
 // ─────────────────────────────────────────────────────────────────────────────
-const daySchema = {
+const dayGeminiSchema = {
   type: "object",
   properties: {
-    id: { type: "string" },
-    dayNumber: { type: "number" },
-    title: { type: "string" },
+    id:          { type: "string" },
+    dayNumber:   { type: "number" },
+    title:       { type: "string" },
     description: { type: "string" },
     activityIds: { type: "array", items: { type: "string" } },
   },
@@ -59,143 +71,77 @@ const daySchema = {
 const geminiSchema = {
   type: "object",
   properties: {
-    title: { type: "string" },
-    states: { type: "array", items: { type: "string" } },
-    cities: { type: "array", items: { type: "string" } },
+    title:     { type: "string" },
+    states:    { type: "array", items: { type: "string" } },
+    cities:    { type: "array", items: { type: "string" } },
     startCity: { type: "string" },
-    endCity: { type: "string" },
-    numDays: { type: "number" },
-    days: { type: "array", items: daySchema },
+    endCity:   { type: "string" },
+    numDays:   { type: "number" },
+    tags:      { type: "array", items: { type: "string" } },
+    days:      { type: "array", items: dayGeminiSchema },
   },
-  required: [
-    "title",
-    "states",
-    "cities",
-    "startCity",
-    "endCity",
-    "numDays",
-    "days",
-  ],
+  required: ["title", "cities", "startCity", "endCity", "numDays", "days"],
 };
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Base Prompt Builder
-// Context: template creation — no package/booking context, purely geographic
+// Prompt builders
 // ─────────────────────────────────────────────────────────────────────────────
 function buildBasePrompt({ states, cities, startCity, endCity, numDays }) {
-  const hasContext =
-    states.length > 0 ||
-    cities.length > 0 ||
-    startCity ||
-    endCity ||
-    numDays >= 1;
-  const statesList = states.length > 0 ? states.join(", ") : null;
-  const citiesList = cities.length > 0 ? cities.join(", ") : null;
-
-  const contextSection = hasContext
-    ? `
-## TRIP DETAILS (provided by user — use these exactly)
-${statesList ? `- Base State(s): ${statesList}` : ""}
-${citiesList ? `- Cities Covered: ${citiesList}` : ""}
-${startCity ? `- Starting City: ${startCity}` : ""}
-${endCity ? `- Ending City: ${endCity}` : ""}
-${numDays >= 1 ? `- Total Days: ${numDays}` : ""}
-`.trim()
-    : `
-## TRIP DETAILS
-No specific trip details were provided. You will infer a suitable Indian tour destination and create a complete itinerary for it.
-Choose a popular Indian destination (e.g. Rajasthan, Kerala Backwaters, Himachal Pradesh, etc.) and decide:
-- The states, cities, start city, end city, and number of days.
-- Return these in your JSON response so the form can be auto-filled.
-`.trim();
+  const statesList = states?.length ? states.join(", ") : "India";
+  const citiesList = cities?.length ? cities.join(", ") : startCity || "the destination";
+  const days       = Number(numDays) > 0 ? numDays : 3;
 
   return `
 You are an expert Indian tour itinerary writer for Adwait Tours.
-Generate a complete, detailed, day-wise tour itinerary (title + days array + destination metadata).
-Do NOT generate inclusions, exclusions, T&C, cancellation policy, or important information — those are managed separately.
+Generate a complete day-wise itinerary template for an agent to use as a base.
 No emojis in any text.
 
-${contextSection}
+## TRIP CONTEXT
+- States: ${statesList}
+- Cities covered: ${citiesList}
+- Starting city: ${startCity || citiesList.split(",")[0]?.trim() || "first city"}
+- Ending city:   ${endCity   || citiesList.split(",").pop()?.trim()  || "last city"}
+- Total days:    ${days}
 
-## ITINERARY RULES (follow strictly)
+## RULES
+- Day 1: Arrival day — transfer from origin to ${startCity || "first city"}, check-in, brief local orientation.
+- Intermediate days: Full sightseeing days. Use REAL, well-known attractions for each city.
+- Last day: Departure — checkout and transfer from ${endCity || "last city"} back to origin.
+- Descriptions: second-person, bullet points using '•' prefix, each bullet on a new line.
+- Include meal plan as the last bullet: "Meal Plan: Breakfast / Lunch / Dinner" or "No Meals" on travel days.
+- Generate EXACTLY ${days} day objects.
+- activityIds: always an empty array [] — the agent links activities manually.
+- IDs: short slugs like "day-001", "day-002", etc.
 
-### Day 1 — Arrival / Start
-- First day always starts in the starting city.
-- Covers arrival orientation, hotel check-in, and any afternoon sightseeing if time permits.
-- Mention meal plan at end of day (typically "No Meals" on arrival day).
-
-### Intermediate Days — Sightseeing
-- Use REAL, well-known attractions for each city.
-- Transition day when moving between cities: morning checkout + drive + afternoon sightseeing + check-in.
-- Mention meal timings: Breakfast ~8AM, Lunch ~1PM, Dinner ~8PM.
-- Include approximate timings for each activity (e.g. "09:00 AM – Visit Amber Fort").
-- Distribute cities logically across the days; do not cram all cities into one day.
-
-### Last Day — Departure
-- Final day ends in the ending city.
-- Morning checkout. If time allows before departure: one short activity (max 2 hrs).
-- Meal plan: typically "No Meals" on departure day.
-
-### General Rules
-- Write descriptions in second-person ("proceed to...", "enjoy...", "check in at...").
-- Use bullet points with '•' prefix for each activity/step, each on its own line.
-- Include meal plan as the final bullet of each day description: "• Meal Plan: [Breakfast / Lunch / Dinner / No Meals]"
-- Be specific with approximate timings.
-- Keep language simple, friendly, and informative.
-
-## OUTPUT FORMAT
-Return valid JSON matching the provided schema exactly.
-- title: a descriptive itinerary title (e.g. "5N6D Rajasthan Heritage Circuit")
-- states: array of Indian state names covered (e.g. ["Rajasthan"])
-- cities: array of all cities visited in order (e.g. ["Jaipur", "Jodhpur", "Udaipur"])
-- startCity: the first city of the trip
-- endCity: the last city of the trip
-- numDays: total number of days as an integer
-- days[].id: short slugs like "day-001", "day-002", etc.
-- days[].dayNumber: integer starting at 1
-- days[].title: short evocative title for the day (e.g. "Arrival in Jaipur")
-- days[].description: full day description using bullet points starting with '•', each on a new line
-- days[].activityIds: always an empty array []
-- Do NOT include inclusions, exclusions, tnc, cancellation, impInfo, or tags.
+## OUTPUT
+Return valid JSON only, matching the schema provided. No markdown, no explanation.
 `.trim();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Refinement Prompt Suffix
-// ─────────────────────────────────────────────────────────────────────────────
 function buildRefinementSuffix({ userPrompt, chatHistory, currentItinerary }) {
-  const historyText = chatHistory
+  const historyText = (chatHistory || [])
     .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
     .join("\n");
 
-  const itinerarySnapshot = currentItinerary
-    ? JSON.stringify(currentItinerary, null, 2)
-    : null;
-
   return `
 ## REFINEMENT MODE
-The user has already seen a generated itinerary and wants specific changes.
-Apply ONLY the changes requested — keep everything else identical.
+Apply ONLY the changes the user requested — keep everything else identical.
 
-### Conversation History (for context)
-${historyText || "(no prior conversation)"}
+### Conversation history
+${historyText || "(none)"}
 
-### Current Itinerary State (JSON — what the user currently sees)
-${itinerarySnapshot ?? "(not provided — generate fresh)"}
+### Current itinerary (what the user sees)
+${currentItinerary ? JSON.stringify(currentItinerary, null, 2) : "(not provided — generate fresh)"}
 
-### Latest User Request
+### User request
 "${userPrompt}"
 
-## INSTRUCTIONS FOR REFINEMENT
-- Read the current itinerary carefully before making any changes.
-- Apply ONLY what the user asked for. Do not alter unrelated days or content.
-- Return the FULL updated itinerary JSON (not a diff) — the client replaces its state with what you return.
-- Preserve existing IDs where content is unchanged. Use new short slug IDs only for newly added days.
-- Do NOT acknowledge, explain, or add any text outside the JSON.
+Return the FULL updated itinerary JSON. Preserve unchanged day IDs. No explanation.
 `.trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Route Handler  POST /api/ai-itinerary-template
+// Route handler
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(req) {
   // ── 1. Parse body ─────────────────────────────────────────────────────────
@@ -205,99 +151,82 @@ export async function POST(req) {
   } catch {
     return Response.json(
       { error: "Invalid JSON in request body." },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   const {
-    templateContext, // { states, cities, startCity, endCity, numDays }
-    chatHistory = [],
-    userPrompt = null,
+    templateContext  = {},
+    chatHistory      = [],
+    userPrompt       = null,
     currentItinerary = null,
   } = body;
 
-  // ── 2. Auth ───────────────────────────────────────────────────────────────
+  // ── 2. Authenticate ───────────────────────────────────────────────────────
   let requester;
   try {
     requester = await requireAuthenticatedUser(req);
   } catch (error) {
     return Response.json(
       { error: error.message },
-      { status: error.status || 401 },
+      { status: error.status || 401 }
     );
   }
-//   // 🟢 ADMIN BYPASS (ADD THIS BLOCK HERE)
-//   if (requester.role === "admin" || requester.role === "superadmin") {
-//     return Response.json({ allowed: true }, { status: 200 });
-//   }
+
   if (!requester.uid) {
     return Response.json(
-      { error: "Authenticated user required." },
-      { status: 401 },
+      { error: "Authenticated user is required." },
+      { status: 401 }
     );
   }
 
-  // ── 3. Permission check ───────────────────────────────────────────────────
- const isAdmin =
-  requester.role === "admin" || requester.role === "superadmin";
+  // ── 3. Permission check — role-aware ──────────────────────────────────────
+  const isAllowed = await checkItineraryPermission(requester.uid, requester.role);
 
-let isAllowed = true;
+  if (!isAllowed) {
+    return Response.json(
+      {
+        error: "You don't have access to AI Itinerary Creation. Please contact your super admin to enable this feature.",
+        code:  "PERMISSION_DENIED",
+      },
+      { status: 403 }
+    );
+  }
 
-// Only check Firestore for agents
-if (!isAdmin) {
-  isAllowed = await checkItineraryPermission(requester.uid);
-}
-
-if (!isAllowed) {
-  return Response.json(
-    {
-      error:
-        "You don't have access to AI Itinerary Creation. Please contact your admin.",
-      code: "PERMISSION_DENIED",
-    },
-    { status: 403 },
-  );
-}
-
-  // ── 4. Rate limit — 10 per minute ────────────────────────────────────────
+  // ── 4. Rate limit ─────────────────────────────────────────────────────────
   const rl = rateLimit({
-    uid: requester.uid,
-    action: "ai-itinerary-template",
-    limit: 10,
+    uid:      requester.uid,
+    action:   "ai-itinerary-template",
+    limit:    10,
     windowMs: 60_000,
   });
   if (!rl.allowed) {
     return Response.json(
-      {
-        error:
-          "Too many requests. Please wait a moment before generating again.",
-      },
+      { error: "Too many requests. Please wait before generating again." },
       {
         status: 429,
-        headers: {
-          "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)),
-        },
-      },
+        headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+      }
     );
   }
 
   // ── 5. Validate templateContext ───────────────────────────────────────────
-  if (!templateContext) {
+  const {
+    states    = [],
+    cities    = [],
+    startCity = "",
+    endCity   = "",
+    numDays,
+  } = templateContext;
+
+  if (!Array.isArray(cities) || !Array.isArray(states)) {
     return Response.json(
-      { error: "templateContext is required." },
-      { status: 400 },
+      { error: "templateContext.cities and templateContext.states must be arrays." },
+      { status: 400 }
     );
   }
 
-  const {
-    states = [],
-    cities = [],
-    startCity = "",
-    endCity = "",
-    numDays = 0,
-  } = templateContext;
-
-  // Fields are optional — AI will infer them from user prompts if not provided
+  const resolvedDays = Number(numDays) > 0 ? Number(numDays) : 3;
 
   // ── 6. Sanitise chatHistory ───────────────────────────────────────────────
   const safeChatHistory = Array.isArray(chatHistory)
@@ -306,7 +235,7 @@ if (!isAllowed) {
           m &&
           typeof m === "object" &&
           (m.role === "user" || m.role === "assistant") &&
-          typeof m.content === "string",
+          typeof m.content === "string"
       )
     : [];
 
@@ -317,15 +246,15 @@ if (!isAllowed) {
   const basePrompt = buildBasePrompt({
     states,
     cities,
-    startCity,
-    endCity,
-    numDays,
+    startCity: startCity.trim(),
+    endCity:   endCity.trim(),
+    numDays:   resolvedDays,
   });
 
   const fullPrompt = isRefinement
     ? `${basePrompt}\n\n${buildRefinementSuffix({
-        userPrompt: userPrompt.trim(),
-        chatHistory: safeChatHistory,
+        userPrompt:       userPrompt.trim(),
+        chatHistory:      safeChatHistory,
         currentItinerary,
       })}`
     : basePrompt;
@@ -335,7 +264,7 @@ if (!isAllowed) {
     console.error("[ai-itinerary-template] GEMINI_API_KEY not set.");
     return Response.json(
       { error: "AI service is not configured. Please contact support." },
-      { status: 503 },
+      { status: 503 }
     );
   }
 
@@ -343,13 +272,10 @@ if (!isAllowed) {
   try {
     ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   } catch (initErr) {
-    console.error(
-      "[ai-itinerary-template] Failed to init GoogleGenAI:",
-      initErr,
-    );
+    console.error("[ai-itinerary-template] Failed to init GoogleGenAI:", initErr);
     return Response.json(
       { error: "Failed to initialise AI service." },
-      { status: 503 },
+      { status: 503 }
     );
   }
 
@@ -357,44 +283,28 @@ if (!isAllowed) {
   let rawText;
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model:    "gemini-2.5-flash-lite",
       contents: fullPrompt,
       config: {
-        responseMimeType: "application/json",
+        responseMimeType:   "application/json",
         responseJsonSchema: geminiSchema,
       },
     });
     rawText = response.text;
   } catch (geminiErr) {
-    console.error("[ai-itinerary-template] Gemini API error:", geminiErr);
+    console.error("[ai-itinerary-template] Gemini error:", geminiErr);
     const msg = geminiErr?.message || "";
-    if (msg.includes("quota") || msg.includes("429")) {
-      return Response.json(
-        { error: "AI quota exceeded. Please try again in a moment." },
-        { status: 429 },
-      );
-    }
-    if (msg.includes("safety") || msg.includes("blocked")) {
-      return Response.json(
-        {
-          error:
-            "The AI blocked this request due to content policy. Try rephrasing.",
-        },
-        { status: 422 },
-      );
-    }
-    if (msg.includes("deadline") || msg.includes("timeout")) {
-      return Response.json(
-        { error: "AI took too long to respond. Please try again." },
-        { status: 504 },
-      );
-    }
+
+    if (msg.includes("quota") || msg.includes("429"))
+      return Response.json({ error: "AI quota exceeded. Please try again in a moment." }, { status: 429 });
+    if (msg.includes("safety") || msg.includes("blocked"))
+      return Response.json({ error: "AI blocked this request. Try rephrasing." }, { status: 422 });
+    if (msg.includes("deadline") || msg.includes("timeout"))
+      return Response.json({ error: "AI took too long to respond. Please try again." }, { status: 504 });
+
     return Response.json(
-      {
-        error: "AI generation failed. Please try again.",
-        details: msg || "Unknown error",
-      },
-      { status: 502 },
+      { error: "AI generation failed. Please try again.", details: msg || "Unknown error" },
+      { status: 502 }
     );
   }
 
@@ -402,7 +312,7 @@ if (!isAllowed) {
   if (!rawText?.trim()) {
     return Response.json(
       { error: "AI returned an empty response. Please try again." },
-      { status: 502 },
+      { status: 502 }
     );
   }
 
@@ -417,33 +327,23 @@ if (!isAllowed) {
   try {
     parsed = JSON.parse(cleanedText);
   } catch (jsonErr) {
-    console.error("[ai-itinerary-template] JSON parse failed:", jsonErr);
-    console.error(
-      "[ai-itinerary-template] Raw output (first 500):",
-      rawText.slice(0, 500),
-    );
+    console.error("[ai-itinerary-template] JSON parse failed:", jsonErr.message);
     return Response.json(
-      {
-        error: "AI returned malformed data. Please try again.",
-        details: `JSON parse error: ${jsonErr.message}`,
-      },
-      { status: 422 },
+      { error: "AI returned malformed data. Please try again.", details: jsonErr.message },
+      { status: 422 }
     );
   }
 
   // ── 13. Validate with Zod ─────────────────────────────────────────────────
   let validated;
   try {
-    validated = TemplateItineraryResponseSchema.parse(parsed);
+    validated = TemplateResponseSchema.parse(parsed);
   } catch (zodErr) {
     console.error("[ai-itinerary-template] Zod validation failed:", zodErr);
-    // Return unvalidated as fallback — better than a hard error
+    // Return unvalidated as fallback rather than erroring the user
     return Response.json(parsed, {
       status: 200,
-      headers: {
-        "X-Validation-Warning":
-          "Schema validation failed; data may be incomplete.",
-      },
+      headers: { "X-Validation-Warning": "Schema validation failed; data may be incomplete." },
     });
   }
 

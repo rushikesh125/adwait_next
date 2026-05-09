@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import {
@@ -47,6 +47,7 @@ const newLineItem = () => ({
   total: 0,
 });
 
+// FIX: Added payments: [] to emptyForm so payment import logic always has a valid array
 const emptyForm = () => ({
   customerName: "",
   customerEmail: "",
@@ -65,6 +66,7 @@ const emptyForm = () => ({
   quotationId: null,
   leadId: null,
   bookingRef: "",
+  payments: [],
 });
 
 function CreateInvoiceInner() {
@@ -83,16 +85,32 @@ function CreateInvoiceInner() {
   const [customers, setCustomers] = useState([]);
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const customerDropdownRef = useRef(null);
   const [totals, setTotals] = useState({
     subtotal: 0, discountTotal: 0, taxableAmount: 0,
     gstTotal: 0, grandTotal: 0, cgst: 0, sgst: 0, igst: 0,
   });
 
-  // Load customers for search
+  // FIX: Track the intended submit action separately from form state
+  // to avoid the async setState + immediate read race condition
+  const submitActionRef = useRef(null);
+
+  // Load customers
   useEffect(() => {
     if (!agentId) return;
     getAllCustomers().catch(() => []).then(setCustomers);
   }, [agentId]);
+
+  // FIX: Close customer dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target)) {
+        setShowCustomerDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Load booking data if creating from booking
   useEffect(() => {
@@ -107,22 +125,18 @@ function CreateInvoiceInner() {
           quotation = await getQuotationById(booking.agentId, booking.quotationId).catch(() => null);
         }
 
-        // Fetch customer: prefer customerId from quotation → booking, then lead as fallback
         const customerId = quotation?.customerId || booking.customerId || null;
         let customer = null;
         if (customerId) {
           customer = await getCustomerById(customerId).catch(() => null);
         }
-        // If no customer record, try the linked lead for email/mobile
         let lead = null;
         if (!customer) {
           const leadId = quotation?.leadId || booking.leadId || null;
           if (leadId) lead = await getLeadById(leadId).catch(() => null);
         }
 
-        // Build line items from quotation package details
         const lineItems = [];
-
         if (quotation) {
           lineItems.push({
             ...newLineItem(),
@@ -143,7 +157,6 @@ function CreateInvoiceInner() {
           });
         }
 
-        // Import booking payment records so invoice starts with correct paid amount
         const existingPayments = (booking.payments || [])
           .filter((p) => Number(p.amount) > 0)
           .map((p, i) => ({
@@ -200,7 +213,11 @@ function CreateInvoiceInner() {
           dueDate: inv.dueDate || "",
           status: inv.status || "Draft",
           gstType: inv.gstType || "intra",
-          lineItems: (inv.lineItems || [newLineItem()]).map((li) => ({ ...li, itemName: li.itemName || "", _key: li._key || Math.random().toString(36).slice(2) })),
+          lineItems: (inv.lineItems || [newLineItem()]).map((li) => ({
+            ...li,
+            itemName: li.itemName || "",
+            _key: li._key || Math.random().toString(36).slice(2),
+          })),
           notes: inv.notes || "",
           termsAndConditions: inv.termsAndConditions || "",
           sourceType: inv.sourceType || "manual",
@@ -208,6 +225,8 @@ function CreateInvoiceInner() {
           quotationId: inv.quotationId || null,
           leadId: inv.leadId || null,
           bookingRef: inv.bookingRef || "",
+          // FIX: Preserve existing payments when editing
+          payments: inv.payments || [],
         });
       } catch (err) {
         toast.error("Failed to load invoice");
@@ -259,7 +278,10 @@ function CreateInvoiceInner() {
       c.email?.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
-  const handleSubmit = async () => {
+  // FIX: Accept the desired status as a parameter instead of relying on async setState.
+  // This eliminates the race condition where "Save as Draft" read form.status before
+  // the setState from setField("status", "Draft") had flushed.
+  const handleSubmit = async (overrideStatus = null) => {
     if (!form.customerName.trim()) { toast.error("Customer name is required"); return; }
     if (!form.invoiceDate) { toast.error("Invoice date is required"); return; }
     if (form.lineItems.length === 0) { toast.error("Add at least one line item"); return; }
@@ -268,6 +290,8 @@ function CreateInvoiceInner() {
     try {
       const payload = {
         ...form,
+        // Use overrideStatus if provided, otherwise keep form.status
+        status: overrideStatus ?? form.status,
         agentId,
         lineItems: form.lineItems.map(({ _key, ...rest }) => rest),
       };
@@ -279,9 +303,7 @@ function CreateInvoiceInner() {
       } else {
         const invoiceId = await createInvoice(payload);
 
-        // Back-fill invoicePaymentId on booking payments so bidirectional sync works.
-        // Imported payments were assigned ids bk_<bookingId>_0, _1, ... in order of
-        // the non-zero booking payments, so we walk both arrays together.
+        // Back-fill invoicePaymentId on booking payments
         if (payload.bookingId && (form.payments || []).length > 0) {
           try {
             const booking = await getBookingById(payload.bookingId);
@@ -325,7 +347,12 @@ function CreateInvoiceInner() {
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/agent-panel/invoices")} className="rounded-xl">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/agent-panel/invoices")}
+              className="rounded-xl"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
@@ -338,8 +365,9 @@ function CreateInvoiceInner() {
             </div>
           </div>
           <div className="flex gap-2">
+            {/* FIX: Pass "Draft" directly to handleSubmit instead of relying on async setState */}
             <Button
-              onClick={() => { setField("status", "Draft"); handleSubmit(); }}
+              onClick={() => handleSubmit("Draft")}
               variant="outline"
               className="rounded-xl font-bold h-9 text-xs"
               disabled={loading}
@@ -347,11 +375,17 @@ function CreateInvoiceInner() {
               Save as Draft
             </Button>
             <Button
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               className="rounded-xl font-bold h-9 bg-theme-primary hover:bg-theme-primary/90 text-white text-xs"
               disabled={loading}
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : isEdit ? "Update Invoice" : "Create Invoice"}
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isEdit ? (
+                "Update Invoice"
+              ) : (
+                "Create Invoice"
+              )}
             </Button>
           </div>
         </div>
@@ -370,8 +404,8 @@ function CreateInvoiceInner() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-6 pb-6 space-y-4">
-                {/* Customer search/select */}
-                <div>
+                {/* FIX: Customer search dropdown — wrapped in ref div for click-outside detection */}
+                <div ref={customerDropdownRef}>
                   <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
                     Search Existing Customer
                   </Label>
@@ -395,21 +429,29 @@ function CreateInvoiceInner() {
                         <X className="w-4 h-4 text-slate-400" />
                       </button>
                     )}
+                    {/* FIX: Dropdown is now inside the relative container for correct positioning */}
+                    {showCustomerDropdown && customerSearch && filteredCustomers.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto">
+                        {filteredCustomers.slice(0, 8).map((c) => (
+                          <button
+                            key={c.id}
+                            className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm"
+                            onMouseDown={(e) => {
+                              // FIX: Use onMouseDown + preventDefault to prevent input blur
+                              // from firing before the click registers
+                              e.preventDefault();
+                              handleSelectCustomer(c);
+                            }}
+                          >
+                            <span className="font-semibold text-slate-800">{c.name}</span>
+                            {c.mobile && (
+                              <span className="text-slate-400 ml-2 text-xs">{c.mobile}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {showCustomerDropdown && customerSearch && filteredCustomers.length > 0 && (
-                    <div className="absolute z-50 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto w-full max-w-md">
-                      {filteredCustomers.slice(0, 8).map((c) => (
-                        <button
-                          key={c.id}
-                          className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm"
-                          onClick={() => handleSelectCustomer(c)}
-                        >
-                          <span className="font-semibold text-slate-800">{c.name}</span>
-                          {c.mobile && <span className="text-slate-400 ml-2 text-xs">{c.mobile}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <Separator className="my-1" />
@@ -427,9 +469,7 @@ function CreateInvoiceInner() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
-                      Mobile
-                    </Label>
+                    <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Mobile</Label>
                     <Input
                       value={form.customerMobile}
                       onChange={(e) => setField("customerMobile", e.target.value)}
@@ -438,9 +478,7 @@ function CreateInvoiceInner() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
-                      Email
-                    </Label>
+                    <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Email</Label>
                     <Input
                       value={form.customerEmail}
                       onChange={(e) => setField("customerEmail", e.target.value)}
@@ -450,9 +488,7 @@ function CreateInvoiceInner() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
-                      Address
-                    </Label>
+                    <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Address</Label>
                     <Input
                       value={form.customerAddress}
                       onChange={(e) => setField("customerAddress", e.target.value)}
@@ -527,7 +563,6 @@ function CreateInvoiceInner() {
 
           {/* RIGHT: Invoice settings + Summary */}
           <div className="space-y-5">
-            {/* Invoice Settings */}
             <Card className="rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="pb-3 pt-5 px-5">
                 <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
@@ -649,7 +684,8 @@ function LineItemRow({ item, index, onChange, onRemove, canRemove }) {
 
       <div>
         <Label className="text-xs font-bold text-slate-500 mb-1 block">
-          Description <span className="text-slate-400 font-normal">(hotels, dates, inclusions)</span>
+          Description{" "}
+          <span className="text-slate-400 font-normal">(hotels, dates, inclusions)</span>
         </Label>
         <Textarea
           value={item.description}
@@ -730,12 +766,18 @@ function LineItemRow({ item, index, onChange, onRemove, canRemove }) {
       <div className="flex justify-end items-center gap-4 pt-1 border-t border-slate-100">
         {item.discountAmount > 0 && (
           <span className="text-xs text-slate-400">
-            Discount: <span className="text-rose-500 font-semibold">-₹{Number(item.discountAmount).toLocaleString("en-IN")}</span>
+            Discount:{" "}
+            <span className="text-rose-500 font-semibold">
+              -₹{Number(item.discountAmount).toLocaleString("en-IN")}
+            </span>
           </span>
         )}
         {item.gstAmount > 0 && (
           <span className="text-xs text-slate-400">
-            GST: <span className="font-semibold text-slate-600">₹{Number(item.gstAmount).toLocaleString("en-IN")}</span>
+            GST:{" "}
+            <span className="font-semibold text-slate-600">
+              ₹{Number(item.gstAmount).toLocaleString("en-IN")}
+            </span>
           </span>
         )}
         <span className="text-sm font-black text-slate-800">
@@ -763,59 +805,56 @@ const fmtDate = (d) => {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const MEAL_PLAN_LABELS = { EP: "EP (Room Only)", CP: "CP (Bed & Breakfast)", MAP: "MAP (Breakfast & Dinner)", AP: "AP (All Meals)" };
+const MEAL_PLAN_LABELS = {
+  EP: "EP (Room Only)",
+  CP: "CP (Bed & Breakfast)",
+  MAP: "MAP (Breakfast & Dinner)",
+  AP: "AP (All Meals)",
+};
 
 function buildPackageDescription(quotation) {
   const lines = [];
 
-  // Hotels with full details
   if (quotation.hotelSummary?.length) {
     quotation.hotelSummary.forEach((h) => {
       const name = h.hotel || h.hotelName || "Hotel";
       const city = h.city ? ` – ${h.city}` : "";
       const nights = h.nights ? ` (${h.nights}N)` : "";
       const room = h.selectedRoomCategory ? `, ${h.selectedRoomCategory}` : "";
-      const meal = h.selectedMealPlan ? `, ${MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan}` : "";
+      const meal = h.selectedMealPlan
+        ? `, ${MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan}`
+        : "";
       const cin = fmtDate(h.checkInDate || h.checkIn);
       const cout = fmtDate(h.checkOutDate || h.checkOut);
       const dates = cin && cout ? ` | ${cin} → ${cout}` : "";
       lines.push(`🏨 ${name}${city}${nights}${room}${meal}${dates}`);
 
-      // Room occupancy — only show non-zero values
       const occupancy = [];
-      if (Number(h.numDouble) > 0)      occupancy.push(`${h.numDouble} Room${h.numDouble > 1 ? "s" : ""}`);
-      if (Number(h.numExtraAdult) > 0)  occupancy.push(`${h.numExtraAdult} Extra Adult`);
-      if (Number(h.numExtraChild) > 0)  occupancy.push(`${h.numExtraChild} Extra Child`);
-      if (Number(h.numCNB) > 0)         occupancy.push(`${h.numCNB} Child Without Bed`);
+      if (Number(h.numDouble) > 0)     occupancy.push(`${h.numDouble} Room${h.numDouble > 1 ? "s" : ""}`);
+      if (Number(h.numExtraAdult) > 0) occupancy.push(`${h.numExtraAdult} Extra Adult`);
+      if (Number(h.numExtraChild) > 0) occupancy.push(`${h.numExtraChild} Extra Child`);
+      if (Number(h.numCNB) > 0)        occupancy.push(`${h.numCNB} Child Without Bed`);
       if (occupancy.length) lines.push(`   ${occupancy.join(" · ")}`);
     });
   }
 
-  // Transport
   if (quotation.transportSummary?.vehicleName) {
     const t = quotation.transportSummary;
     lines.push(`🚗 Transport: ${t.vehicleName}${t.ac ? " (AC)" : ""}${t.state ? ` – ${t.state}` : ""}`);
   }
 
-  // Activities
   if (quotation.activitySummary?.length) {
     const acts = quotation.activitySummary.map((a) => a.name).join(", ");
     lines.push(`🎯 Activities: ${acts}`);
   }
 
-  // Inclusions
   const itinerary = quotation.itinerarySummary;
-  const included = (itinerary?.inclusions || [])
-    .filter((i) => i.selected)
-    .map((i) => i.text);
+  const included = (itinerary?.inclusions || []).filter((i) => i.selected).map((i) => i.text);
   if (included.length) {
     lines.push(`\n✅ Included:\n${included.map((i) => `  • ${i}`).join("\n")}`);
   }
 
-  // Exclusions
-  const excluded = (itinerary?.exclusions || [])
-    .filter((i) => i.selected)
-    .map((i) => i.text);
+  const excluded = (itinerary?.exclusions || []).filter((i) => i.selected).map((i) => i.text);
   if (excluded.length) {
     lines.push(`\n❌ Excluded:\n${excluded.map((i) => `  • ${i}`).join("\n")}`);
   }
@@ -825,11 +864,13 @@ function buildPackageDescription(quotation) {
 
 export default function CreateInvoicePage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-theme-primary" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-theme-primary" />
+        </div>
+      }
+    >
       <CreateInvoiceInner />
     </Suspense>
   );

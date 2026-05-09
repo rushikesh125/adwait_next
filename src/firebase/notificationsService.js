@@ -13,7 +13,7 @@ export async function registerServiceWorker() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
   try {
    // Change this line in registerServiceWorker()
-const reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
     _swRegistration = reg;
     navigator.serviceWorker.addEventListener("message", (e) => {
       if (e.data?.type === "NAVIGATE" && e.data.url) window.location.href = e.data.url;
@@ -82,16 +82,26 @@ export async function createNotification({ userId, type, title, message, link = 
   return docRef;
 }
 
+// This stays exactly as you have it — no changes needed
+// REPLACE the existing triggerPush function with this:
 function triggerPush({ userId, title, message, type, link, priority }) {
-  if (typeof window === "undefined") return;
-  fetch("/api/send-push", {
-    method: "POST",
-    headers: {
-      "Content-Type":  "application/json",
-      "x-push-secret": process.env.NEXT_PUBLIC_PUSH_SECRET ?? "",
-    },
-    body: JSON.stringify({ userId, title, message, type, link, priority }),
-  }).catch((err) => console.warn("[Push] Failed:", err));
+  const payload = JSON.stringify({ userId, title, message, type, link, priority });
+  const headers = {
+    "Content-Type": "application/json",
+    "x-push-secret": process.env.NEXT_PUBLIC_PUSH_SECRET ?? "",
+  };
+
+  if (typeof window === "undefined") {
+    // Server-side (cron, API routes) — must use absolute URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    fetch(`${baseUrl}/api/send-push`, { method: "POST", headers, body: payload })
+      .catch((err) => console.warn("[Push] Server-side trigger failed:", err));
+    return;
+  }
+
+  // Client-side
+  fetch("/api/send-push", { method: "POST", headers, body: payload })
+    .catch((err) => console.warn("[Push] Client-side trigger failed:", err));
 }
 
 export function subscribeToNotifications(userId, onList, onNew) {
@@ -135,12 +145,33 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-export async function subscribeToPush(vapidPublicKey) {
+// Replace your existing subscribeToPush function:
+export async function subscribeToPush(userId) {
   if (!_swRegistration) throw new Error("Service worker not registered");
+
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+  // Check if already subscribed
   const existing = await _swRegistration.pushManager.getSubscription();
-  if (existing) return existing;
-  return _swRegistration.pushManager.subscribe({
+  const subscription = existing ?? await _swRegistration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+    applicationServerKey: urlBase64ToUint8Array(vapidKey),
   });
+
+  // Save the full subscription object to Firestore (not just a token)
+  const { setDoc, doc, serverTimestamp } = await import("firebase/firestore");
+  await setDoc(
+    doc(db, "pushSubscriptions", subscription.endpoint.slice(-32)), // stable unique key
+    {
+      userId,
+      subscription: subscription.toJSON(), // endpoint + keys — this is what web-push needs
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return subscription;
 }
+
+// Replace triggerPush — same shape, no changes needed there, it calls /api/send-push
+// which now uses web-push instead of FCM. That's it.
