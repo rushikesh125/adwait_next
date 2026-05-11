@@ -80,7 +80,27 @@ function timeAgo(ts) {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
+// Add these alongside timeAgo() and formatDue() — no existing code changes
 
+function getDueLabel(dateTime) {
+  if (!dateTime) return "";
+  const due = new Date(dateTime);
+  const diffMins = Math.round((due - Date.now()) / 60000);
+  if (diffMins <= 0) {
+    const abs = Math.abs(diffMins);
+    if (abs < 60)   return `${abs}m overdue`;
+    if (abs < 1440) return `${Math.floor(abs / 60)}h overdue`;
+    return `${Math.floor(abs / 1440)}d overdue`;
+  }
+  if (diffMins < 60) return `in ${diffMins}m`;
+  const h = Math.floor(diffMins / 60);
+  const m = diffMins % 60;
+  return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
+}
+
+function isOverdue(dateTime) {
+  return !!dateTime && new Date(dateTime) < new Date();
+}
 function formatDue(dueDate) {
   const diffMins = Math.floor((Date.now() - dueDate) / 60000);
   if (diffMins < 2) return "just now";
@@ -158,6 +178,7 @@ export default function NotificationCenter({ userId }) {
   const {
     notifications,
     followUps,
+    dueSoonFollowUps,
     totalBadge,
     unreadCount,
     permissionState,
@@ -217,11 +238,14 @@ export default function NotificationCenter({ userId }) {
     const result = await askPermission();
     if (result !== "default") setShowPermBanner(false);
   };
-
-  const isEmpty =
-    !isLoading && followUps.length === 0 && notifications.length === 0;
-  const recentNotifications = notifications.slice(0, 8);
-
+const recentNotifications = notifications.filter(
+  (n) => n.type !== "follow_up_reminder"
+);
+const isEmpty =
+  !isLoading &&
+  followUps.length === 0 &&
+  dueSoonFollowUps.length === 0 &&  // ← ADD THIS LINE
+  notifications.length === 0;
   return (
     <div className="relative" ref={ref}>
       {/* Bell button */}
@@ -321,7 +345,95 @@ export default function NotificationCenter({ userId }) {
                 <SkeletonRow />
               </>
             )}
+{/* ── NEW SECTION: insert BEFORE the existing Follow-up reminders section ── */}
+{!isLoading && dueSoonFollowUps.length > 0 && (
+  <section>
+    <div className="sticky top-0 bg-rose-50/90 backdrop-blur-sm px-4 py-2 flex items-center gap-2 border-b border-rose-100 z-10">
+      <Clock className="h-3.5 w-3.5 text-rose-600" />
+      <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
+        Due Soon ({dueSoonFollowUps.length})
+      </span>
+    </div>
 
+    {dueSoonFollowUps.map((fu) => {
+      const ModeIcon = MODE_ICON[fu.mode] ?? Clock;
+      const overdue  = isOverdue(fu.dateTime);
+      const dueLabel = getDueLabel(fu.dateTime);
+      const waUrl    = fu.leadMobile
+        ? buildWhatsAppUrl(fu.leadMobile, fu.leadName || "there")
+        : null;
+
+      return (
+        <div
+          key={`due-soon-${fu.id}`}
+          className="border-b border-slate-50 px-4 py-3 hover:bg-rose-50/20 transition-colors"
+        >
+          <div className="flex items-start gap-3">
+
+            {/* Icon — red ring when overdue */}
+            <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+              overdue ? "bg-red-100 ring-2 ring-red-200" : "bg-rose-100"
+            }`}>
+              <ModeIcon className={`h-4 w-4 ${overdue ? "text-red-600" : "text-rose-500"}`} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+
+              {/* Name + pill */}
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  {fu.leadName || "Lead"}
+                </p>
+                <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${
+                  overdue
+                    ? "bg-red-100 text-red-700"
+                    : "bg-rose-100 text-rose-600"
+                }`}>
+                  {dueLabel}
+                </span>
+              </div>
+
+              {/* Mode */}
+              <p className="mt-0.5 text-xs text-slate-500">
+                {fu.mode} follow-up
+              </p>
+
+              {/* Notes preview */}
+              {fu.notes && (
+                <p className="mt-0.5 text-xs text-slate-400 line-clamp-1">
+                  {fu.notes}
+                </p>
+              )}
+
+              {/* Actions */}
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    router.push(`/agent-panel/leads/${fu.leadId}`);
+                  }}
+                  className="text-[11px] font-semibold text-theme-primary hover:underline"
+                >
+                  View Lead →
+                </button>
+
+                {waUrl && (
+                  <button
+                    onClick={() => window.open(waUrl, "_blank")}
+                    className="flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-[11px] font-bold text-white hover:bg-green-600 transition-colors"
+                  >
+                    <MessageCircle className="h-3 w-3" />
+                    WhatsApp
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </section>
+)}
             {/* Follow-up reminders */}
             {!isLoading && followUps.length > 0 && (
               <section>
