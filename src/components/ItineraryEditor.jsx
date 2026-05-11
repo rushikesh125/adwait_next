@@ -1,19 +1,5 @@
 "use client";
 
-/**
- * ItineraryEditor
- * ──────────────────────────────────────────────────────────────────────────────
- * A fully self-contained itinerary editor that works on LOCAL STATE only.
- * It NEVER reads from or writes to Firestore directly.
- *
- * Props
- * ─────
- *   initialData          – object (cloned template or null for blank)
- *   onChange             – (data) => void  called on every meaningful state change
- *   onCancel             – () => void       called when user clicks "Cancel / Discard"
- *   availableActivities  – array fetched by parent (state-scoped), passed down
- *                          so this component stays Firestore-free
- */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -63,6 +49,7 @@ async function uploadToImgBB(file, idToken) {
   return json.data.display_url;
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ImageUploader — single image slot with preview, upload, replace, remove
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,6 +92,7 @@ function ImageUploader({
     const file = e.dataTransfer.files?.[0];
     if (file) handleFile(file);
   };
+  
 
   return (
     <div className="space-y-1.5">
@@ -202,6 +190,7 @@ function MultiImageUploader({ values = [], onChange, max = 2 }) {
 
   const handleAdd = (url) => onChange([...values, url]);
   const handleRemove = (idx) => onChange(values.filter((_, i) => i !== idx));
+  
   const handleReplace = (idx, url) => {
     const updated = [...values];
     updated[idx] = url;
@@ -307,6 +296,7 @@ function ChecklistSection({
 }) {
   const [newItem, setNewItem] = useState("");
   const allSelected = items.length > 0 && items.every((i) => i.selected);
+  
 
   const handleAdd = () => {
     const trimmed = newItem.trim();
@@ -315,6 +305,9 @@ function ChecklistSection({
     setNewItem("");
   };
 
+  useEffect(() => {
+  setLocalTitle(title || "");
+}, [title]);
   return (
     <div className="space-y-3">
       {items.length > 0 && (
@@ -451,6 +444,7 @@ function AIChatPanel({
   const [prompt, setPrompt] = useState("");
   const [isExpanded, setIsExpanded] = useState(true);
   const bottomRef = useRef(null);
+  
 
   useEffect(() => {
     if (bottomRef.current) {
@@ -743,6 +737,9 @@ export default function ItineraryEditor({
   const [tnc, setTnc] = useState(initState.tnc);
   const [cancellation, setCancellation] = useState(initState.cancellation);
   const [impInfo, setImpInfo] = useState(initState.impInfo);
+    const inputRef = useRef(null);
+const [localTitle, setLocalTitle] = useState(title || "");
+
 
   const packageContext = useSelector((state) => state.package.packageContext);
 
@@ -1105,12 +1102,18 @@ export default function ItineraryEditor({
             <CardContent className="px-4 pb-4 space-y-4">
               <div className="space-y-1">
                 <Label className="text-xs font-medium">Itinerary Title</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. 5N Golden Triangle"
-                  className="text-sm"
-                />
+               <Input
+  ref={inputRef}
+  value={localTitle}
+  onChange={(e) => {
+    setLocalTitle(e.target.value);
+  }}
+  onBlur={() => {
+    setTitle(localTitle);
+  }}
+  placeholder="e.g. 5N Golden Triangle"
+  className="text-sm"
+/>
               </div>
 
               {itinState && (

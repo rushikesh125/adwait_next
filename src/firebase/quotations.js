@@ -115,21 +115,43 @@ export async function updateQuotation(
     if (data.status === "Accepted" && leadId) {
       await updateLeadStatus(leadId, "Closed Won");
     }
+    // ── Create quotation status notification ─────────────────────
+if (
+  ["Accepted", "Rejected"].includes(data.status) &&
+  previousStatus !== data.status
+) {
+  const label =
+    quotation.packageName ||
+    quotation.customerName ||
+    "Quotation";
 
-    // Create notifications on meaningful status transitions
-    const label =
-      quotation.packageName || quotation.customerName || "Quotation";
-    if (data.status === "Rejected" && previousStatus !== "Rejected") {
-      await createNotification({
-        userId: agentId,
-        type: "quotation_rejected",
-        title: "Quotation Rejected",
-        message: `"${label}" has been rejected by the customer.`,
-        link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
-        metadata: { quotationId: quotationId },
-        priority: "normal",
-      });
-    }
+  await createNotification({
+    userId: agentId,
+    type:
+      data.status === "Accepted"
+        ? "quotation_accepted"
+        : "quotation_rejected",
+
+    title:
+      data.status === "Accepted"
+        ? "Quotation Accepted 🎉"
+        : "Quotation Rejected",
+
+    message: `"${label}" has been ${
+      data.status === "Accepted"
+        ? "accepted"
+        : "rejected"
+    } by the customer.`,
+
+    link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
+
+    priority:
+      data.status === "Accepted"
+        ? "high"
+        : "normal",
+  });
+}
+
 
     // After update, check if status is being set to Sent
     if (data.status === "Sent" && leadId) {

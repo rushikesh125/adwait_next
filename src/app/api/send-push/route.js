@@ -44,7 +44,13 @@ export async function POST(req) {
     });
     await batch.commit();
     const sent = results.filter((r) => r.status === "fulfilled").length;
+    console.log("PUSH API CALLED", {
+  userId,
+  title,
+  type,
+});
     return Response.json({ ok: true, sent });
+
   } catch (err) {
     console.error("[send-push]", err);
     return Response.json({ error: err.message }, { status: 500 });
