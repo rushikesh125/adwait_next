@@ -16,7 +16,10 @@ import {
 
 const leadsRef = collection(db, "leads");
 
-// --- Existing Functions ---
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATE LEAD
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const addLead = async (data) => {
   const ref = await addDoc(leadsRef, {
     ...data,
@@ -24,23 +27,55 @@ export const addLead = async (data) => {
     status: "New",
   });
 
-  return ref.id; // ✅ IMPORTANT
+  return ref.id;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET LEADS
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const getAllLeads = async () => {
   const q = query(leadsRef, orderBy("createdAt", "desc"));
+
   const snap = await getDocs(q);
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+  return snap.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
 };
 
 export const getLeadsByAgent = async (agentId) => {
-  const q = query(leadsRef, where("agentId", "==", agentId));
+  const q = query(
+    leadsRef,
+    where("agentId", "==", agentId)
+  );
+
   const snap = await getDocs(q);
+
   return snap.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }))
-    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    .map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+    .sort(
+      (a, b) =>
+        (b.createdAt?.seconds || 0) -
+        (a.createdAt?.seconds || 0)
+    );
 };
 
-export const createAssignedLead = async ({ agentId, customerId, agentName, adminId, ...data }) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATE ASSIGNED LEAD
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const createAssignedLead = async ({
+  agentId,
+  customerId,
+  agentName,
+  adminId,
+  ...data
+}) => {
   const docRef = await addDoc(leadsRef, {
     ...data,
     agentId: agentId || null,
@@ -56,71 +91,195 @@ export const createAssignedLead = async ({ agentId, customerId, agentName, admin
   return docRef.id;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// QUOTATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const getQuotationsForLead = async (leadId) => {
   if (!leadId) return [];
+
   try {
-    const q = query(collectionGroup(db, "packages"), where("leadId", "==", leadId));
+    const q = query(
+      collectionGroup(db, "packages"),
+      where("leadId", "==", leadId)
+    );
+
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    return snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
   } catch (error) {
-    console.error("Error fetching quotations for lead:", error);
+    console.error(
+      "Error fetching quotations for lead:",
+      error
+    );
+
     return [];
   }
 };
 
-/**
- * Update lead status with business logic:
- * - If status is "Closed Lost", reject all associated quotations
- */
-export const updateLeadStatus = async (leadId, newStatus) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE LEAD STATUS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const updateLeadStatus = async (
+  leadId,
+  newStatus
+) => {
   if (!leadId) return;
 
   try {
     const leadRef = doc(db, "leads", leadId);
+
     const leadSnap = await getDoc(leadRef);
 
     if (!leadSnap.exists()) return;
 
-    const currentStatus = leadSnap.data().status;
+    const currentStatus =
+      leadSnap.data().status;
 
-    // // 🛑 Prevent overwriting final states incorrectly
-    // if (["Closed Won", "Closed Lost"].includes(currentStatus)) return;
-
-    // 🛑 Avoid unnecessary updates
+    // Avoid unnecessary updates
     if (currentStatus === newStatus) return;
 
-    await updateDoc(leadRef, {
+    const reviveStatuses = [
+      "New",
+      "Contacted",
+      "Quotation Sent",
+      "Closed Won",
+    ];
+
+    const removingColdState =
+      reviveStatuses.includes(newStatus);
+
+    const payload = {
       status: newStatus,
       updatedAt: new Date().toISOString(),
-    });
+    };
+
+    // If lead becomes active again,
+    // remove cold lead state
+    if (removingColdState) {
+      payload.isCold = false;
+      payload.coldMarkedAt = null;
+      payload.coldReason = null;
+    }
+
+    await updateDoc(leadRef, payload);
 
   } catch (error) {
-    console.error("Error updating lead status:", error);
+    console.error(
+      "Error updating lead status:",
+      error
+    );
   }
 };
 
-export const updateLeadDetails = async (id, data) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK LEAD AS COLD
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const markLeadAsCold = async (
+  leadId,
+  reason = ""
+) => {
+  if (!leadId) {
+    throw new Error(
+      "[markLeadAsCold] leadId is required"
+    );
+  }
+
+  try {
+    const leadRef = doc(db, "leads", leadId);
+
+    await updateDoc(leadRef, {
+      isCold: true,
+      status: "Cold Lead",
+      coldMarkedAt: serverTimestamp(),
+      coldReason:
+        reason.trim() ||
+        "Marked cold during follow-up completion",
+      updatedAt: new Date().toISOString(),
+    });
+
+    console.log(
+      `[leadsService] Lead ${leadId} marked as cold`
+    );
+
+  } catch (err) {
+    console.error(
+      `[leadsService] markLeadAsCold failed for ${leadId}:`,
+      err.message
+    );
+
+    throw err;
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE LEAD DETAILS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const updateLeadDetails = async (
+  id,
+  data
+) => {
   const ref = doc(db, "leads", id);
+
   await updateDoc(ref, data);
 };
 
-// --- New Functions for Profile Page ---
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILE PAGE HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const getLeadById = async (id) => {
   const ref = doc(db, "leads", id);
+
   const snap = await getDoc(ref);
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+
+  return snap.exists()
+    ? {
+        id: snap.id,
+        ...snap.data(),
+      }
+    : null;
 };
 
 export const getLeadNotes = async (lid) => {
-  const notesRef = collection(db, "leads", lid, "notes");
-  const q = query(notesRef, orderBy("createdAt", "desc"));
+  const notesRef = collection(
+    db,
+    "leads",
+    lid,
+    "notes"
+  );
+
+  const q = query(
+    notesRef,
+    orderBy("createdAt", "desc")
+  );
+
   const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  return snap.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
 };
 
-export const addLeadNote = async (lid, text, agentName) => {
-  const notesRef = collection(db, "leads", lid, "notes");
+export const addLeadNote = async (
+  lid,
+  text,
+  agentName
+) => {
+  const notesRef = collection(
+    db,
+    "leads",
+    lid,
+    "notes"
+  );
+
   return await addDoc(notesRef, {
     text,
     createdBy: agentName,
@@ -128,30 +287,79 @@ export const addLeadNote = async (lid, text, agentName) => {
   });
 };
 
-export const deleteLeadNote = async (lid, noteId) => {
-  await deleteDoc(doc(db, "leads", lid, "notes", noteId));
+export const deleteLeadNote = async (
+  lid,
+  noteId
+) => {
+  await deleteDoc(
+    doc(db, "leads", lid, "notes", noteId)
+  );
 };
 
-export const updateLeadNote = async (lid, noteId, text) => {
-  await updateDoc(doc(db, "leads", lid, "notes", noteId), { text });
+export const updateLeadNote = async (
+  lid,
+  noteId,
+  text
+) => {
+  await updateDoc(
+    doc(db, "leads", lid, "notes", noteId),
+    { text }
+  );
 };
 
-// Assuming quotations are linked via leadId
-export const getAgentQuotationsForLead = async (uid, lid) => {
-  const q = query(collection(db, "saved_packages_by_agents",uid,"packages"), where("leadId", "==", lid));
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENT QUOTATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const getAgentQuotationsForLead = async (
+  uid,
+  lid
+) => {
+  const q = query(
+    collection(
+      db,
+      "saved_packages_by_agents",
+      uid,
+      "packages"
+    ),
+    where("leadId", "==", lid)
+  );
+
   const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  return snap.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE LEAD
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const deleteLead = async (id) => {
   await deleteDoc(doc(db, "leads", id));
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CLONE LEAD
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const cloneLead = async (id) => {
   const ref = doc(db, "leads", id);
+
   const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error("Lead not found");
-  const { createdAt: _c, updatedAt: _u, ...data } = snap.data();
+
+  if (!snap.exists()) {
+    throw new Error("Lead not found");
+  }
+
+  const {
+    createdAt: _c,
+    updatedAt: _u,
+    ...data
+  } = snap.data();
+
   return await addDoc(leadsRef, {
     ...data,
     name: `Copy of ${data.name}`,
@@ -160,66 +368,107 @@ export const cloneLead = async (id) => {
   });
 };
 
-export const deleteQuotation = async (quotationId) => {
-  if (!quotationId) throw new Error("Quotation ID is required");
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE QUOTATION
+// ─────────────────────────────────────────────────────────────────────────────
 
-  await deleteDoc(doc(db, "quotations", quotationId));
-};
-export const rejectAllQuotationsForLead = async (leadId) => {
-  try {
-    const q = query(
-      collectionGroup(db, "packages"),
-      where("leadId", "==", leadId)
+export const deleteQuotation = async (
+  quotationId
+) => {
+  if (!quotationId) {
+    throw new Error(
+      "Quotation ID is required"
     );
+  }
 
-    const snapshot = await getDocs(q);
+  await deleteDoc(
+    doc(db, "quotations", quotationId)
+  );
+};
 
-    const updates = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
+// ─────────────────────────────────────────────────────────────────────────────
+// REJECT ALL QUOTATIONS FOR LEAD
+// ─────────────────────────────────────────────────────────────────────────────
 
-      // 🛑 Skip important statuses
-      if (["Booked", "Confirmed"].includes(data.status)) {
-        return Promise.resolve();
+export const rejectAllQuotationsForLead =
+  async (leadId) => {
+    try {
+      const q = query(
+        collectionGroup(db, "packages"),
+        where("leadId", "==", leadId)
+      );
+
+      const snapshot = await getDocs(q);
+
+      const updates = snapshot.docs.map(
+        (docSnap) => {
+          const data = docSnap.data();
+
+          // Skip important statuses
+          if (
+            ["Booked", "Confirmed"].includes(
+              data.status
+            )
+          ) {
+            return Promise.resolve();
+          }
+
+          return updateDoc(docSnap.ref, {
+            status: "Rejected",
+            rejectionReason:
+              "Lead Closed Lost",
+            updatedAt:
+              new Date().toISOString(),
+          });
+        }
+      );
+
+      await Promise.allSettled(updates);
+
+    } catch (error) {
+      console.error(
+        "Error rejecting quotations:",
+        error
+      );
+
+      throw error;
+    }
+  };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE LEAD STATUS FROM QUOTATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const updateLeadStatusFromQuotation =
+  async (leadId) => {
+    if (!leadId) return;
+
+    try {
+      const leadRef = doc(db, "leads", leadId);
+
+      const leadSnap = await getDoc(leadRef);
+
+      if (!leadSnap.exists()) return;
+
+      const currentStatus =
+        leadSnap.data().status;
+
+      if (
+        currentStatus === "Quotation Sent"
+      ) {
+        return;
       }
 
-      return updateDoc(docSnap.ref, {
-        status: "Rejected",
-        rejectionReason: "Lead Closed Lost",
-        updatedAt: new Date().toISOString(),
+      await updateDoc(leadRef, {
+        status: "Quotation Sent",
+        updatedAt:
+          new Date().toISOString(),
       });
-    });
 
-    await Promise.allSettled(updates); // ✅ safer than Promise.all
-
-  } catch (error) {
-    console.error("Error rejecting quotations:", error);
-    throw error;
-  }
-};
-
-export const updateLeadStatusFromQuotation = async (leadId) => {
-  if (!leadId) return;
-
-  try {
-    const leadRef = doc(db, "leads", leadId);
-    const leadSnap = await getDoc(leadRef);
-
-    if (!leadSnap.exists()) return;
-
-    const currentStatus = leadSnap.data().status;
-
-    // // 🛑 Don't override final states
-    // if (["Closed Won", "Closed Lost"].includes(currentStatus)) return;
-
-    // 🛑 Avoid unnecessary update
-    if (currentStatus === "Quotation Sent") return;
-
-    await updateDoc(leadRef, {
-      status: "Quotation Sent",
-      updatedAt: new Date().toISOString(),
-    });
-
-  } catch (error) {
-    console.error("Error updating lead from quotation:", error);
-  }
-};
+    } catch (error) {
+      console.error(
+        "Error updating lead from quotation:",
+        error
+      );
+    }
+  };

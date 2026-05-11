@@ -514,7 +514,7 @@ const VoucherDashboard = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+           <div className="flex flex-col sm:flex-row w-full md:w-auto gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -528,14 +528,14 @@ const VoucherDashboard = () => {
                 Refresh
               </Button>
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm w-full sm:w-auto"
                 onClick={() => router.push("/agent-panel/vouchers/create-flight")}
               >
                 <Plus className="mr-2 h-4 w-4" /> Create Flight Voucher
               </Button>
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                onClick={() =>
+  className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm w-full sm:w-auto"
+                  onClick={() =>
                   router.push("/agent-panel/vouchers/create-hotel")
                 }
               >

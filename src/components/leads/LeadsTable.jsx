@@ -88,6 +88,7 @@ export default function LeadsTable({
     "New",
     "Contacted",
     "Quotation Sent",
+    "Cold Lead",
     "Closed Won",
     "Closed Lost",
   ];

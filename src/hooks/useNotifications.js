@@ -41,21 +41,30 @@ export function useNotifications(userId) {
         setIsLoading(false);
       },
       (newNotif) => {
-        playNotificationSound();
-        if (document.visibilityState === "hidden" || !document.hasFocus()) {
-          showBrowserNotification({
-            title: newNotif.title,
-            body: newNotif.message,
-            tag: newNotif.type ?? "general",
-            url: newNotif.link ?? "/agent-panel",
-            requireInteraction: newNotif.priority === "high",
-            actions: [
-              { action: "view", title: "View" },
-              { action: "dismiss", title: "Dismiss" },
-            ],
-          });
-        }
-      }
+  playNotificationSound();
+
+  // ONLY show in-app/browser notification
+  // when push notifications are NOT enabled
+
+  if (Notification.permission !== "granted") {
+    if (
+      document.visibilityState === "hidden" ||
+      !document.hasFocus()
+    ) {
+      showBrowserNotification({
+        title: newNotif.title,
+        body: newNotif.message,
+        tag: newNotif.type ?? "general",
+        url: newNotif.link ?? "/agent-panel",
+        requireInteraction: newNotif.priority === "high",
+        actions: [
+          { action: "view", title: "View" },
+          { action: "dismiss", title: "Dismiss" },
+        ],
+      });
+    }
+  }
+}
     );
 
     return unsub;

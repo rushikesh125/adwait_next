@@ -20,7 +20,7 @@ import {
   getAvailableHotelMealPlans,
   getFirstAvailableHotelRate,
 } from "@/lib/hotelRateAvailability";
-import { createNotification } from "@/firebase/notificationsService";
+
 
 export function useQuotationState() {
   // `loading` here is the auth loading state — managed automatically by Redux/auth slice.
@@ -1046,40 +1046,7 @@ export function useQuotationState() {
       prev?.id === quotationId ? { ...prev, ...updateData } : prev,
     );
 
-    // ── Fire notification based on new status ──────────────────────────
-    const customerName =
-      quotation?.customerName || quotation?.leadName || "Customer";
-    const packageName = quotation?.packageName || "your package";
-    const quotationLink = `/agent-panel/my-quatation?quoteId=${quotationId}`;
-
-    const notifMap = {
-      Accepted: {
-        type: "quotation_accepted",
-        title: "Quotation accepted! 🎉",
-        message: `${customerName} accepted the quotation for ${packageName}.`,
-        priority: "high",
-      },
-      Rejected: {
-        type: "quotation_rejected",
-        title: "Quotation rejected",
-        message: `${customerName} rejected the quotation for ${packageName}.`,
-        priority: "normal",
-      },
-    };
-
-    const notifData = notifMap[nextStatus];
-    if (notifData) {
-      createNotification({
-        userId: agentId,
-        type: notifData.type,
-        title: notifData.title,
-        message: notifData.message,
-        link: quotationLink,
-        priority: notifData.priority,
-      }).catch((err) =>
-        console.error("[Notification] Failed to create notification:", err),
-      );
-    }
+  
 
     return true;
   } catch (err) {
