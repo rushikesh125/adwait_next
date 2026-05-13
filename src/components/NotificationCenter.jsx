@@ -535,27 +535,23 @@ const isEmpty =
               </section>
             )}
 
-            {isEmpty && (
+             {isEmpty && (
               <div className="px-4 py-12 text-center">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
                   <Bell className="h-6 w-6 text-slate-400" />
                 </div>
+
                 <p className="text-sm font-medium text-slate-500">
                   You&apos;re all caught up!
                 </p>
+
                 <p className="mt-1 text-xs text-slate-400">
                   No notifications right now.
                 </p>
               </div>
-            </div>,
-            document.body
-          )}
-
-          {/* ── DESKTOP: inline popover anchored to bell ──────────────────────── */}
-          <div className="hidden sm:flex absolute right-0 top-11 z-50 w-96 max-h-[32rem] flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-            {innerContent}
+            )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
