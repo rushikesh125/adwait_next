@@ -2250,12 +2250,28 @@ const Create_new_package = ({
                     </span>
                   </Label>
                   <Select
-                    value={saveAsLeadId || "none"}
-                    onValueChange={(v) =>
-                      setSaveAsLeadId(v === "none" ? "" : v)
-                    }
-                    disabled={isLoadingLeads}
-                  >
+  value={saveAsLeadId || "none"}
+  onValueChange={(v) => {
+    const selectedLeadId = v === "none" ? "" : v;
+
+    setSaveAsLeadId(selectedLeadId);
+
+    if (!selectedLeadId) return;
+
+    const selectedLead = agentLeads.find(
+      (lead) => lead.id === selectedLeadId
+    );
+
+    if (selectedLead) {
+  setCustomerName(
+    selectedLead.customerName ||
+    selectedLead.name ||
+    ""
+  );
+}
+  }}
+  disabled={isLoadingLeads}
+>
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue
                         placeholder={

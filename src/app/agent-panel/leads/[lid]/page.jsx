@@ -387,6 +387,9 @@ export default function LeadProfilePage({ params }) {
     try {
       await addFollowUp(lid, {
         ...formData,
+           leadId: lid,
+             leadName: lead?.name || "",
+      leadMobile: lead?.mobile || "",
         agentId: user?.uid || "",
         agentName: user?.displayName || "Agent",
       });

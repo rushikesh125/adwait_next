@@ -305,9 +305,7 @@ function ChecklistSection({
     setNewItem("");
   };
 
-  useEffect(() => {
-  setLocalTitle(title || "");
-}, [title]);
+  
   return (
     <div className="space-y-3">
       {items.length > 0 && (
