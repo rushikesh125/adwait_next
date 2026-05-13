@@ -45,7 +45,7 @@ export function useNotifications(userId) {
   // ONLY show in-app/browser notification
   // when push notifications are NOT enabled
 
-  if (Notification.permission !== "granted") {
+  if (Notification.permission === "granted") {
     if (
       document.visibilityState === "hidden" ||
       !document.hasFocus()
