@@ -172,7 +172,7 @@ export function buildBookingRequestMessage(booking) {
 
 // ─── Sub-component: Vendor Payment History (status‑aware) ───────────────────
 
-function VendorPaymentHistory({ svc }) {
+function VendorPaymentHistory({ svc, onEditPayment, onDeletePayment }) {
   const [open, setOpen] = useState(false);
   const payments = svc.vendorPayments || [];
   const totalCost = Number(svc.amount) || 0;
@@ -289,23 +289,53 @@ function VendorPaymentHistory({ svc }) {
             return (
               <div
                 key={p._key || i}
-                className="flex items-center gap-3 px-3 py-2 text-xs border-t border-slate-100 first:border-0"
+                className="px-3 py-2 text-xs border-t border-slate-100 first:border-0 hover:bg-slate-50/60"
               >
-                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${typeBadge}`}>
-                  {p.type || "Payment"}
-                </span>
-                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBadge}`}>
-                  {status}
-                </span>
-                <span className="text-slate-500 shrink-0">
-                  {p.date ? new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—"}
-                </span>
-                <span className="text-slate-500">{p.mode || ""}</span>
-                {p.notes && <span className="text-slate-400 truncate flex-1">· {p.notes}</span>}
-                <span className={`ml-auto font-bold shrink-0 ${status === "Pending" ? "text-amber-700" : "text-slate-800"}`}>
-                  {formatCurrency(p.amount)}
-                  {status === "Pending" && <span className="ml-0.5 text-[10px] font-medium">(planned)</span>}
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${typeBadge}`}>
+                    {p.type || "Payment"}
+                  </span>
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBadge}`}>
+                    {status}
+                  </span>
+                  <span className={`ml-auto font-bold shrink-0 ${status === "Pending" ? "text-amber-700" : "text-slate-800"}`}>
+                    {formatCurrency(p.amount)}
+                    {status === "Pending" && <span className="ml-0.5 text-[10px] font-medium">(planned)</span>}
+                  </span>
+                  {(onEditPayment || onDeletePayment) && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {onEditPayment && (
+                        <button
+                          type="button"
+                          onClick={() => onEditPayment(i)}
+                          className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                          aria-label="Edit payment"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDeletePayment && (
+                        <button
+                          type="button"
+                          onClick={() => onDeletePayment(i)}
+                          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          aria-label="Delete payment"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {(p.date || p.mode || p.notes) && (
+                  <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-slate-500">
+                    {p.date && (
+                      <span>{new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</span>
+                    )}
+                    {p.mode && <span>· {p.mode}</span>}
+                    {p.notes && <span className="text-slate-400 break-words">· {p.notes}</span>}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -336,6 +366,10 @@ export default function BookingDetailPage() {
   const [editingPaymentIdx, setEditingPaymentIdx] = useState(null);
   const [editPaymentForm, setEditPaymentForm] = useState({ amount: "", date: "", mode: "Cash", reference: "", notes: "" });
   const [savingBookingPayment, setSavingBookingPayment] = useState(false);
+
+  const [editingVendorPayment, setEditingVendorPayment] = useState(null);
+  const [vendorPaymentForm, setVendorPaymentForm] = useState({ type: "Installment", status: "Paid", amount: "", date: "", mode: "Cash", notes: "" });
+  const [savingVendorPayment, setSavingVendorPayment] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -410,6 +444,76 @@ export default function BookingDetailPage() {
       toast.error(err.message || "Failed to update payment");
     } finally {
       setSavingBookingPayment(false);
+    }
+  };
+
+  const handleOpenEditVendorPayment = (serviceIdx, paymentIdx) => {
+    const pay = booking.services?.[serviceIdx]?.vendorPayments?.[paymentIdx];
+    if (!pay) return;
+    setVendorPaymentForm({
+      type: pay.type || "Installment",
+      status: pay.status || "Paid",
+      amount: String(pay.amount || ""),
+      date: pay.date || new Date().toISOString().slice(0, 10),
+      mode: pay.mode || "Cash",
+      notes: pay.notes || "",
+    });
+    setEditingVendorPayment({ serviceIdx, paymentIdx });
+  };
+
+  const handleSaveVendorPayment = async () => {
+    if (!editingVendorPayment) return;
+    const { serviceIdx, paymentIdx } = editingVendorPayment;
+    const amount = Number(vendorPaymentForm.amount);
+    if (!amount || amount <= 0) { toast.error("Enter a valid amount"); return; }
+    if (!vendorPaymentForm.date) { toast.error("Date is required"); return; }
+
+    const svc = booking.services?.[serviceIdx];
+    if (!svc) { toast.error("Service not found"); return; }
+    const totalCost = Number(svc.amount) || 0;
+    const otherAllocated = (svc.vendorPayments || [])
+      .filter((_, i) => i !== paymentIdx)
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    if (totalCost > 0 && otherAllocated + amount > totalCost) {
+      toast.error(`Payments would exceed service cost (₹${totalCost.toLocaleString("en-IN")})`);
+      return;
+    }
+
+    setSavingVendorPayment(true);
+    try {
+      const updatedServices = booking.services.map((s, si) => {
+        if (si !== serviceIdx) return s;
+        const updatedPayments = (s.vendorPayments || []).map((p, pi) =>
+          pi === paymentIdx
+            ? { ...p, type: vendorPaymentForm.type, status: vendorPaymentForm.status, amount, date: vendorPaymentForm.date, mode: vendorPaymentForm.mode, notes: vendorPaymentForm.notes }
+            : p
+        );
+        return { ...s, vendorPayments: updatedPayments };
+      });
+      await updateBooking(id, { services: updatedServices });
+      setBooking((prev) => ({ ...prev, services: updatedServices }));
+      toast.success("Payment updated");
+      setEditingVendorPayment(null);
+    } catch (err) {
+      toast.error(err.message || "Failed to update payment");
+    } finally {
+      setSavingVendorPayment(false);
+    }
+  };
+
+  const handleDeleteVendorPayment = async (serviceIdx, paymentIdx) => {
+    if (!confirm("Delete this payment? This cannot be undone.")) return;
+    try {
+      const updatedServices = booking.services.map((s, si) => {
+        if (si !== serviceIdx) return s;
+        const updatedPayments = (s.vendorPayments || []).filter((_, pi) => pi !== paymentIdx);
+        return { ...s, vendorPayments: updatedPayments };
+      });
+      await updateBooking(id, { services: updatedServices });
+      setBooking((prev) => ({ ...prev, services: updatedServices }));
+      toast.success("Payment deleted");
+    } catch (err) {
+      toast.error(err.message || "Failed to delete payment");
     }
   };
 
@@ -581,8 +685,8 @@ export default function BookingDetailPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* ── Sticky Header (unchanged) ──────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 sm:px-6 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => router.push(`${panelBase}/bookings`)} className="rounded-xl">
               <ArrowLeft className="w-5 h-5" />
@@ -616,16 +720,16 @@ export default function BookingDetailPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-5xl mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* ── LEFT COLUMN ──────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
 
           {/* Trip Info (unchanged) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardHeader className="pb-3 pt-5 px-6">
+            <CardHeader className="pb-3 pt-5 px-4 sm:px-6">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">Trip Information</CardTitle>
             </CardHeader>
-            <CardContent className="px-6 pb-6">
+            <CardContent className="px-4 sm:px-6 pb-6">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-5 gap-x-6">
                 <InfoItem icon={Users} label="Customer" value={booking.customerName || "—"} />
                 <InfoItem icon={MapPin} label="Destination" value={booking.destination || "—"} />
@@ -648,7 +752,7 @@ export default function BookingDetailPage() {
 
           {/* Vouchers (unchanged) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardHeader className="pb-3 pt-5 px-6 flex flex-row items-center justify-between">
+            <CardHeader className="pb-3 pt-5 px-4 sm:px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
                 <FileCheck2 className="w-4 h-4 text-theme-primary" /> Vouchers
               </CardTitle>
@@ -661,7 +765,7 @@ export default function BookingDetailPage() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="px-6 pb-6">
+            <CardContent className="px-4 sm:px-6 pb-6">
               {activeVouchers.length === 0 && deletedVouchers.length === 0 ? (
                 <p className="text-slate-400 text-sm text-center py-4">No vouchers created yet. Use the buttons above to generate one.</p>
               ) : (
@@ -714,7 +818,7 @@ export default function BookingDetailPage() {
 
           {/* Services (updated with status‑aware history) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardHeader className="pb-3 pt-5 px-6 flex flex-row items-center justify-between">
+            <CardHeader className="pb-3 pt-5 px-4 sm:px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
                 Services ({booking.services?.length || 0})
               </CardTitle>
@@ -723,7 +827,7 @@ export default function BookingDetailPage() {
                 <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Services
               </Button>
             </CardHeader>
-            <CardContent className="px-6 pb-6">
+            <CardContent className="px-4 sm:px-6 pb-6">
               {!booking.services?.length ? (
                 <p className="text-slate-400 text-sm text-center py-4">No services added.</p>
               ) : (
@@ -752,7 +856,11 @@ export default function BookingDetailPage() {
                                 )}
                               </div>
                               {/* Updated vendor payment history */}
-                              <VendorPaymentHistory svc={svc} />
+                              <VendorPaymentHistory
+                                svc={svc}
+                                onEditPayment={(paymentIdx) => handleOpenEditVendorPayment(i, paymentIdx)}
+                                onDeletePayment={(paymentIdx) => handleDeleteVendorPayment(i, paymentIdx)}
+                              />
                             </div>
                           </div>
                         </div>
@@ -766,12 +874,12 @@ export default function BookingDetailPage() {
 
           {/* Customer Payments (unchanged) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
-            <CardHeader className="pb-3 pt-5 px-6">
+            <CardHeader className="pb-3 pt-5 px-4 sm:px-6">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
                 Customer Payment History ({booking.payments?.length || 0})
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-6 pb-6">
+            <CardContent className="px-4 sm:px-6 pb-6">
               {!booking.payments?.length ? (
                 <p className="text-slate-400 text-sm text-center py-4">No payments recorded.</p>
               ) : (
@@ -975,6 +1083,77 @@ export default function BookingDetailPage() {
               <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                 onClick={handleSaveBookingPayment} disabled={savingBookingPayment}>
                 {savingBookingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Payment"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Vendor Payment Dialog ─────────────────────────────────── */}
+      <Dialog open={editingVendorPayment !== null} onOpenChange={(open) => { if (!open) setEditingVendorPayment(null); }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-black text-slate-900">Edit Service Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Type</Label>
+                <Select value={vendorPaymentForm.type} onValueChange={(v) => setVendorPaymentForm((p) => ({ ...p, type: v }))}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Advance", "Installment"].map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Status</Label>
+                <Select value={vendorPaymentForm.status} onValueChange={(v) => setVendorPaymentForm((p) => ({ ...p, status: v }))}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Paid", "Pending"].map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Amount (₹) *</Label>
+              <Input type="number" value={vendorPaymentForm.amount}
+                onChange={(e) => setVendorPaymentForm((p) => ({ ...p, amount: e.target.value }))}
+                className="rounded-xl" placeholder="0.00" autoFocus />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Date *</Label>
+              <Input type="date" value={vendorPaymentForm.date}
+                onChange={(e) => setVendorPaymentForm((p) => ({ ...p, date: e.target.value }))}
+                className="rounded-xl" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Mode</Label>
+              <Select value={vendorPaymentForm.mode} onValueChange={(v) => setVendorPaymentForm((p) => ({ ...p, mode: v }))}>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["Cash", "Bank Transfer", "UPI", "Card", "Cheque", "Online"].map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Notes</Label>
+              <Input value={vendorPaymentForm.notes}
+                onChange={(e) => setVendorPaymentForm((p) => ({ ...p, notes: e.target.value }))}
+                className="rounded-xl" placeholder="Optional" />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditingVendorPayment(null)}>Cancel</Button>
+              <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={handleSaveVendorPayment} disabled={savingVendorPayment}>
+                {savingVendorPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Payment"}
               </Button>
             </div>
           </div>

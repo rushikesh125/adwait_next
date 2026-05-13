@@ -181,20 +181,6 @@ export default function NotificationCenter({ userId }) {
     return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
   }, [open]);
 
-  // Prevent background scroll on mobile when open
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (open && window.innerWidth < 640) {
-      const y = window.scrollY;
-      document.body.style.cssText = `position:fixed;top:-${y}px;left:0;right:0;overflow:hidden`;
-    } else {
-      const y = Math.abs(parseInt(document.body.style.top || "0", 10));
-      document.body.style.cssText = "";
-      if (!open && window.innerWidth < 640) window.scrollTo(0, y);
-    }
-    return () => { document.body.style.cssText = ""; };
-  }, [open]);
-
   const handleNotificationClick = async (n) => {
     if (!n.read) await markNotificationRead(n.id);
     setOpen(false);
@@ -242,28 +228,17 @@ const isEmpty =
         )}
       </Button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[110] bg-black/20 backdrop-blur-sm sm:hidden"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
-      {/* Dropdown — full screen on mobile, popover on desktop */}
-      {open && (
-        <div
-          className="
-          fixed left-0 right-0 bottom-0 z-120 rounded-t-2xl
-          sm:absolute sm:left-auto sm:right-0 sm:bottom-auto sm:top-11 sm:rounded-2xl sm:w-96 sm:z-50
-          max-w-full sm:max-w-[calc(100vw-1rem)]
-          border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5
-          animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-top-2 duration-200
-        "
-        >
-          {/* Drag handle for mobile */}
-          <div className="flex justify-center pt-2 pb-1 sm:hidden">
-            <div className="h-1 w-10 rounded-full bg-slate-200" />
-          </div>
+      {mounted && open && createPortal(
+        <>
+          <div
+            id="notif-mobile-panel"
+            className="
+            fixed right-2 top-14 z-[120] w-[calc(100vw-1rem)] max-w-sm rounded-2xl
+            sm:right-4 sm:top-16 lg:top-20 sm:w-96 sm:max-w-[calc(100vw-1rem)]
+            border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5
+            animate-in fade-in slide-in-from-top-2 duration-200
+          "
+          >
 
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -552,6 +527,8 @@ const isEmpty =
             )}
           </div>
         </div>
+        </>,
+        document.body
       )}
     </div>
   );
