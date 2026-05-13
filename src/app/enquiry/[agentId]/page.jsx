@@ -144,7 +144,7 @@ export default function PublicEnquiryPage() {
         }
       }
 
-      // ✅ Create lead
+      // Create lead
       const isAdmin = ownerType === "admin";
       const leadId = await createAssignedLead({
         ...form,
@@ -180,12 +180,13 @@ export default function PublicEnquiryPage() {
         cleanMobile,
       });
       if (!isAdmin && agent?.id) {
+        console.log("Notification link:", `/agent-panel/leads/${leadId}`);
         createNotification({
           userId: agent.id,
           type: "lead_assigned",
           title: "New Lead Received! 🔔",
           message: `${form.name.trim()} enquired about ${form.destination} for ${form.adults} adult(s).`,
-          link: `/agent-panel/leads`,
+           link: `/agent-panel/leads/${leadId}`,
           priority: "high",
         }).catch((err) =>
           console.warn("[Push] Lead notification failed:", err),

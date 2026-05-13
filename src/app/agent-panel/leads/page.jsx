@@ -296,6 +296,9 @@ export default function LeadsPage() {
           dateTime: new Date(Date.now() + 16 * 60 * 60 * 1000).toISOString(),
           mode: "Call",
           notes: "Initial follow-up for new lead",
+          eadName: form.name,
+  leadMobile: form.mobile,
+  agentId: user?.uid,
           quotationIds: [],
         });
 

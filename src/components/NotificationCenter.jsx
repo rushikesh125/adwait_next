@@ -181,17 +181,32 @@ export default function NotificationCenter({ userId }) {
     return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
   }, [open]);
 
-  const handleNotificationClick = async (n) => {
-    if (!n.read) await markNotificationRead(n.id);
-    setOpen(false);
-    if (n.type === "quotation_accepted" || n.type === "quotation_rejected") {
-      if (n.quotationId) {
-        router.push(`/agent-panel/my-quatation?quoteId=${n.quotationId}`);
-        return;
-      }
+ const handleNotificationClick = async (n) => {
+  // ONLY remove quotation status notifications
+  if (
+    (n.type === "quotation_accepted" ||
+      n.type === "quotation_rejected") &&
+    !n.read
+  ) {
+    await markNotificationRead(n.id);
+  }
+
+  setOpen(false);
+
+  if (
+    n.type === "quotation_accepted" ||
+    n.type === "quotation_rejected"
+  ) {
+    if (n.quotationId) {
+      router.push(
+        `/agent-panel/my-quatation?quoteId=${n.quotationId}`
+      );
+      return;
     }
-    if (n.link) router.push(n.link);
-  };
+  }
+
+  if (n.link) router.push(n.link);
+};
 
   const handleMarkAll = async () => {
     if (!userId) return;
@@ -202,9 +217,32 @@ export default function NotificationCenter({ userId }) {
     const result = await askPermission();
     if (result !== "default") setShowPermBanner(false);
   };
-const recentNotifications = notifications.filter(
-  (n) => n.type !== "follow_up_reminder"
-);
+const recentNotifications = notifications
+  .filter((n) => {
+    if (n.type === "follow_up_reminder") return false;
+
+    // Remove quotation status notifications after read
+    if (
+      (n.type === "quotation_accepted" ||
+        n.type === "quotation_rejected") &&
+      n.read
+    ) {
+      return false;
+    }
+
+    return true;
+  })
+  .sort((a, b) => {
+    const aTime = a.createdAt?.toDate
+      ? a.createdAt.toDate()
+      : new Date(a.createdAt || 0);
+
+    const bTime = b.createdAt?.toDate
+      ? b.createdAt.toDate()
+      : new Date(b.createdAt || 0);
+
+    return bTime - aTime;
+  });
 const isEmpty =
   !isLoading &&
   followUps.length === 0 &&

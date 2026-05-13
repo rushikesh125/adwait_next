@@ -34,7 +34,9 @@ self.addEventListener("push", (e) => {
 });
 
 self.addEventListener("notificationclick", (e) => {
+   console.log("Notification data:", e.notification.data);
   e.notification.close();
+  
   if (e.action === "dismiss") return;
   const url = e.notification.data?.url ?? "/agent-panel";
   e.waitUntil(openOrFocusWindow(url));
