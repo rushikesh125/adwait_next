@@ -858,15 +858,27 @@ const Create_new_package = ({
 
   const handleEditHotel = (index) => {
     const entry = hotelEntries[index];
-    updateActiveOption({
-      selectedState: entry.state,
-      checkInDate: entry.checkInDate,
-      nights: entry.nights,
-      selectedHotelId:
-        hotels.find((h) => h.name === entry.hotel && h.city === entry.city)
-          ?.id || null,
-      editingIndex: index,
-    });
+    if (entry?.isCustom) {
+      updateActiveOption({
+        selectedState: entry.state,
+        checkInDate: entry.checkInDate,
+        nights: entry.nights,
+        selectedHotelId: null,
+        editingIndex: index,
+        showCustomHotelForm: true,
+      });
+    } else {
+      updateActiveOption({
+        selectedState: entry.state,
+        checkInDate: entry.checkInDate,
+        nights: entry.nights,
+        selectedHotelId:
+          hotels.find((h) => h.name === entry.hotel && h.city === entry.city)
+            ?.id || null,
+        editingIndex: index,
+        showCustomHotelForm: false,
+      });
+    }
     window.scrollTo({ top: 300, behavior: "smooth" });
   };
 
@@ -888,7 +900,12 @@ const Create_new_package = ({
   };
 
   const handleCustomHotelAdd = (data) => {
-    addHotelEntryToOption(data);
+    if (editingIndex !== null) {
+      updateHotelEntryInOption(editingIndex, data);
+      setEditingIndex(null);
+    } else {
+      addHotelEntryToOption(data);
+    }
     setShowCustomHotelForm(false);
     setSaveChanges(true);
     setIsReadyToAddAnother(true);
@@ -1457,8 +1474,16 @@ const Create_new_package = ({
                   {showCustomHotelForm && (
                     <CustomHotelForm
                       defaultState={selectedState}
+                      initial={
+                        editingIndex !== null && hotelEntries[editingIndex]?.isCustom
+                          ? hotelEntries[editingIndex]
+                          : null
+                      }
                       onAdd={handleCustomHotelAdd}
-                      onCancel={() => setShowCustomHotelForm(false)}
+                      onCancel={() => {
+                        setShowCustomHotelForm(false);
+                        if (editingIndex !== null) setEditingIndex(null);
+                      }}
                     />
                   )}
                 </CardContent>
