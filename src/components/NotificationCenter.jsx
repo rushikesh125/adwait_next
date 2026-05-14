@@ -271,7 +271,7 @@ const isEmpty =
           <div
             id="notif-mobile-panel"
             className="
-            fixed right-2 top-14 z-[120] w-[calc(100vw-1rem)] max-w-sm rounded-2xl
+            fixed right-4 top-14 z-40 w-[calc(100vw-1rem)] max-w-sm rounded-2xl
             sm:right-4 sm:top-16 lg:top-20 sm:w-96 sm:max-w-[calc(100vw-1rem)]
             border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5
             animate-in fade-in slide-in-from-top-2 duration-200
