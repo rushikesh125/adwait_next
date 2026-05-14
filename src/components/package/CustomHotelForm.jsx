@@ -30,21 +30,22 @@ import {
 import { PenLine, Plus } from "lucide-react";
 import { min } from "date-fns";
 
-const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
-  const [hotelName, setHotelName] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState(defaultState);
-  const [rating, setRating] = useState("3");
-  const [roomType, setRoomType] = useState("");
-  const [pricing, setPricing] = useState(EMPTY_PRICING());
-  const [selectedMealPlan, setSelectedMealPlan] = useState("EP");
-  const [nights, setNights] = useState(1);
-  const [numDouble, setNumDouble] = useState(1);
-  const [numExtraAdult, setNumExtraAdult] = useState(0);
-  const [numExtraChild, setNumExtraChild] = useState(0);
-  const [numCNB, setNumCNB] = useState(0);
+const CustomHotelForm = ({ defaultState = "", initial = null, onAdd, onCancel }) => {
+  const isEditing = !!initial;
+  const [hotelName, setHotelName] = useState(initial?.hotel || "");
+  const [city, setCity] = useState(initial?.city || "");
+  const [state, setState] = useState(initial?.state || defaultState);
+  const [rating, setRating] = useState(initial?.rating || "3");
+  const [roomType, setRoomType] = useState(initial?.selectedRoomCategory || "");
+  const [pricing, setPricing] = useState(initial?.pricing || EMPTY_PRICING());
+  const [selectedMealPlan, setSelectedMealPlan] = useState(initial?.selectedMealPlan || "EP");
+  const [nights, setNights] = useState(initial?.nights ?? 1);
+  const [numDouble, setNumDouble] = useState(initial?.numDouble ?? 1);
+  const [numExtraAdult, setNumExtraAdult] = useState(initial?.numExtraAdult ?? 0);
+  const [numExtraChild, setNumExtraChild] = useState(initial?.numExtraChild ?? 0);
+  const [numCNB, setNumCNB] = useState(initial?.numCNB ?? 0);
   const [checkInDate, setCheckInDate] = useState(
-    new Date().toISOString().split("T")[0]
+    initial?.checkInDate || new Date().toISOString().split("T")[0]
   );
   const [existingDocId, setExistingDocId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -161,7 +162,7 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
       <CardHeader className="pb-2 p-3">
         <CardTitle className="text-xs flex items-center gap-2 text-theme-primary">
           <PenLine className="h-3.5 w-3.5" />
-          Add Custom Hotel
+          {isEditing ? "Edit Custom Hotel" : "Add Custom Hotel"}
           {existingDocId && (
             <span className="ml-1 text-[10px] font-normal text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
               ✓ Found in records
@@ -439,7 +440,7 @@ const CustomHotelForm = ({ defaultState = "", onAdd, onCancel }) => {
               className="bg-theme-primary hover:bg-theme-secondary text-xs h-7 px-3"
             >
               <Plus className="h-3 w-3 mr-1" />
-              {isSaving ? "Saving…" : "Add Hotel"}
+              {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Add Hotel"}
             </Button>
           </div>
         </div>

@@ -296,6 +296,9 @@ export default function LeadsPage() {
           dateTime: new Date(Date.now() + 16 * 60 * 60 * 1000).toISOString(),
           mode: "Call",
           notes: "Initial follow-up for new lead",
+          eadName: form.name,
+  leadMobile: form.mobile,
+  agentId: user?.uid,
           quotationIds: [],
         });
 
@@ -633,9 +636,7 @@ export default function LeadsPage() {
                 {showSuggestions && (
                   <div
                     ref={suggestionsRef}
-                    className="absolute left-0 right-0 sm:max-w-md bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] top-30 animate-in fade-in slide-in-from-top-2"
-                  >
-                    <div className="bg-slate-50/80 px-4 py-2 flex items-center justify-between border-b rounded-t-xl">
+className="absolute left-0 top-[190px] w-full sm:max-w-md bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] animate-in fade-in slide-in-from-top-2">                    <div className="bg-slate-50/80 px-4 py-2 flex items-center justify-between border-b rounded-t-xl">
                       <span className="text-[10px] font-bold text-slate-500 uppercase">
                         {filteredCustomers.length > 0
                           ? "Matches Found"

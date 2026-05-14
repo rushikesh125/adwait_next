@@ -154,6 +154,9 @@ export default function AdminLeadsPage() {
         await addFollowUp(leadId, {
           dateTime: new Date(Date.now() + 16 * 60 * 60 * 1000).toISOString(),
           mode: "Call", notes: "Initial follow-up for new lead", quotationIds: [],
+          leadName: form.name,
+  leadMobile: form.mobile,
+  agentId: agent?.id || user.uid,
         });
       } catch {}
       toast.success("Lead created");

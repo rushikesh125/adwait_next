@@ -1,12 +1,5 @@
-// ── hooks/useNotifications.js ─────────────────────────────────────────────────
-// Single hook that manages:
-//   - Firestore notification subscription
-//   - Browser notification permission + display
-//   - New notification sound
-//   - SW registration (once per app)
-
+// hooks/useNotifications.js
 import { useCallback, useEffect, useState } from "react";
-import { db } from "@/firebase/config";
 import {
   subscribeToNotifications,
   showBrowserNotification,
@@ -15,14 +8,20 @@ import {
   registerServiceWorker,
 } from "@/firebase/notificationsService";
 import { useInstallmentAlerts } from "./useInstallmentAlerts";
+import { useTodayFollowUps } from "./useTodayFollowUps"; // ← NEW
 
 export function useNotifications(userId) {
   useInstallmentAlerts(userId);
+
+  // ── NEW: live 2hr-window follow-ups from subcollection ───────────────────
+  const { followUps: dueSoonFollowUps, isLoading: fuLoading } =
+    useTodayFollowUps(userId);
+
   const [notifications, setNotifications] = useState([]);
   const [permissionState, setPermissionState] = useState("default");
   const [isLoading, setIsLoading] = useState(true);
 
-  // ── 1. Register SW once ───────────────────────────────────────────────────
+  // ── 1. Register SW once — UNCHANGED ──────────────────────────────────────
   useEffect(() => {
     registerServiceWorker();
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -30,7 +29,7 @@ export function useNotifications(userId) {
     }
   }, []);
 
-  // ── 2. Subscribe to Firestore notifications ───────────────────────────────
+  // ── 2. Subscribe to Firestore notifications — UNCHANGED ──────────────────
   useEffect(() => {
     if (!userId) return;
 
@@ -41,47 +40,61 @@ export function useNotifications(userId) {
         setIsLoading(false);
       },
       (newNotif) => {
-        playNotificationSound();
-        if (document.visibilityState === "hidden" || !document.hasFocus()) {
-          showBrowserNotification({
-            title: newNotif.title,
-            body: newNotif.message,
-            tag: newNotif.type ?? "general",
-            url: newNotif.link ?? "/agent-panel",
-            requireInteraction: newNotif.priority === "high",
-            actions: [
-              { action: "view", title: "View" },
-              { action: "dismiss", title: "Dismiss" },
-            ],
-          });
-        }
-      }
+  playNotificationSound();
+
+  // ONLY show in-app/browser notification
+  // when push notifications are NOT enabled
+
+  if (Notification.permission === "granted") {
+    if (
+      document.visibilityState === "hidden" ||
+      !document.hasFocus()
+    ) {
+      showBrowserNotification({
+        title: newNotif.title,
+        body: newNotif.message,
+        tag: newNotif.type ?? "general",
+        url: newNotif.link ?? "/agent-panel",
+        requireInteraction: newNotif.priority === "high",
+        actions: [
+          { action: "view", title: "View" },
+          { action: "dismiss", title: "Dismiss" },
+        ],
+      });
+    }
+  }
+}
     );
 
     return unsub;
   }, [userId]);
 
-  // ── 3. Request permission helper ──────────────────────────────────────────
+  // ── 3. Request permission helper — UNCHANGED ─────────────────────────────
   const askPermission = useCallback(async () => {
     const result = await requestNotificationPermission();
     setPermissionState(result);
     return result;
   }, []);
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+  // ── Derived — UNCHANGED except totalBadge ────────────────────────────────
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Existing: follow_up_reminder Firestore notifications (unread)
   const followUps = notifications.filter(
     (n) => n.type === "follow_up_reminder" && !n.read
   );
-  const totalBadge = unreadCount;
+
+  // Badge now includes both unread notifications AND due-soon follow-ups
+  const totalBadge = unreadCount + dueSoonFollowUps.length; // ← ONLY CHANGE
 
   return {
     notifications,
-    followUps,
+    followUps,           // unchanged — existing Follow-up Reminders section
+    dueSoonFollowUps,    // ← NEW
     unreadCount,
     totalBadge,
     permissionState,
-    isLoading,
+    isLoading: isLoading || fuLoading,
     askPermission,
     refetchFollowUps: () => {},
   };

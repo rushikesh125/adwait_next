@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -29,42 +30,13 @@ import {
 import { useNotifications } from "@/hooks/useNotifications";
 
 const TYPE_META = {
-  vendor_payment_due: {
-    // ← add this entry
-    icon: AlertCircle,
-    color: "text-rose-600",
-    bg: "bg-rose-50",
-  },
-  quotation_accepted: {
-    icon: TrendingUp,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-  },
-  quotation_rejected: {
-    icon: TrendingDown,
-    color: "text-rose-600",
-    bg: "bg-rose-50",
-  },
-  follow_up_reminder: {
-    icon: Clock,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-  },
-  booking_confirmed: {
-    icon: CalendarCheck,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-  },
-  booking_cancelled: {
-    icon: XCircle,
-    color: "text-rose-600",
-    bg: "bg-rose-50",
-  },
-  invoice_generated: {
-    icon: FileText,
-    color: "text-purple-600",
-    bg: "bg-purple-50",
-  },
+  vendor_payment_due: { icon: AlertCircle, color: "text-rose-600", bg: "bg-rose-50" },
+  quotation_accepted: { icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
+  quotation_rejected: { icon: TrendingDown, color: "text-rose-600", bg: "bg-rose-50" },
+  follow_up_reminder: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
+  booking_confirmed: { icon: CalendarCheck, color: "text-emerald-600", bg: "bg-emerald-50" },
+  booking_cancelled: { icon: XCircle, color: "text-rose-600", bg: "bg-rose-50" },
+  invoice_generated: { icon: FileText, color: "text-purple-600", bg: "bg-purple-50" },
   lead_assigned: { icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
   default: { icon: FileText, color: "text-slate-600", bg: "bg-slate-100" },
 };
@@ -80,7 +52,27 @@ function timeAgo(ts) {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
+// Add these alongside timeAgo() and formatDue() — no existing code changes
 
+function getDueLabel(dateTime) {
+  if (!dateTime) return "";
+  const due = new Date(dateTime);
+  const diffMins = Math.round((due - Date.now()) / 60000);
+  if (diffMins <= 0) {
+    const abs = Math.abs(diffMins);
+    if (abs < 60)   return `${abs}m overdue`;
+    if (abs < 1440) return `${Math.floor(abs / 60)}h overdue`;
+    return `${Math.floor(abs / 1440)}d overdue`;
+  }
+  if (diffMins < 60) return `in ${diffMins}m`;
+  const h = Math.floor(diffMins / 60);
+  const m = diffMins % 60;
+  return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
+}
+
+function isOverdue(dateTime) {
+  return !!dateTime && new Date(dateTime) < new Date();
+}
 function formatDue(dueDate) {
   const diffMins = Math.floor((Date.now() - dueDate) / 60000);
   if (diffMins < 2) return "just now";
@@ -121,13 +113,11 @@ function SkeletonRow() {
 
 function PermissionBanner({ onAllow, onDismiss }) {
   return (
-    <div className="mx-3 my-3 rounded-xl bg-blue-50 border border-blue-200 px-3 py-3">
+    <div className="mx-3 my-3 rounded-xl bg-blue-50 border border-blue-200 px-3 py-3 shrink-0">
       <div className="flex items-start gap-2">
         <Bell className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-blue-900">
-            Enable notifications
-          </p>
+          <p className="text-xs font-semibold text-blue-900">Enable notifications</p>
           <p className="text-[11px] text-blue-700 mt-0.5">
             Get alerts even when this tab is in the background.
           </p>
@@ -158,6 +148,7 @@ export default function NotificationCenter({ userId }) {
   const {
     notifications,
     followUps,
+    dueSoonFollowUps,
     totalBadge,
     unreadCount,
     permissionState,
@@ -167,46 +158,55 @@ export default function NotificationCenter({ userId }) {
 
   const [open, setOpen] = useState(false);
   const [showPermBanner, setShowPermBanner] = useState(false);
-  const ref = useRef(null);
+  const [mounted, setMounted] = useState(false);
+  const bellWrapRef = useRef(null);
   const router = useRouter();
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (open && permissionState === "default") setShowPermBanner(true);
   }, [open, permissionState]);
 
+  // Close on outside click
   useEffect(() => {
+    if (!open) return;
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      const insideBell = bellWrapRef.current?.contains(e.target);
+      const mobilePanel = document.getElementById("notif-mobile-panel");
+      const insideMobile = mobilePanel?.contains(e.target);
+      if (!insideBell && !insideMobile) setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  // Prevent body scroll when dropdown is open on mobile
-  useEffect(() => {
-    if (open && window.innerWidth < 640) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
+    const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
   }, [open]);
 
-  const handleNotificationClick = async (n) => {
-    if (!n.read) await markNotificationRead(n.id);
-    setOpen(false);
-    if (n.type === "quotation_accepted" || n.type === "quotation_rejected") {
-      if (n.quotationId) {
-        router.push(`/agent-panel/my-quatation?quoteId=${n.quotationId}`);
-        return;
-      }
-    }
+ const handleNotificationClick = async (n) => {
+  // ONLY remove quotation status notifications
+  if (
+    (n.type === "quotation_accepted" ||
+      n.type === "quotation_rejected") &&
+    !n.read
+  ) {
+    await markNotificationRead(n.id);
+  }
 
-    // fallback (for other types)
-    if (n.link) router.push(n.link);
-  };
+  setOpen(false);
+
+  if (
+    n.type === "quotation_accepted" ||
+    n.type === "quotation_rejected"
+  ) {
+    if (n.quotationId) {
+      router.push(
+        `/agent-panel/my-quatation?quoteId=${n.quotationId}`
+      );
+      return;
+    }
+  }
+
+  if (n.link) router.push(n.link);
+};
 
   const handleMarkAll = async () => {
     if (!userId) return;
@@ -217,13 +217,39 @@ export default function NotificationCenter({ userId }) {
     const result = await askPermission();
     if (result !== "default") setShowPermBanner(false);
   };
+const recentNotifications = notifications
+  .filter((n) => {
+    if (n.type === "follow_up_reminder") return false;
 
-  const isEmpty =
-    !isLoading && followUps.length === 0 && notifications.length === 0;
-  const recentNotifications = notifications.slice(0, 8);
+    // Remove quotation status notifications after read
+    if (
+      (n.type === "quotation_accepted" ||
+        n.type === "quotation_rejected") &&
+      n.read
+    ) {
+      return false;
+    }
 
+    return true;
+  })
+  .sort((a, b) => {
+    const aTime = a.createdAt?.toDate
+      ? a.createdAt.toDate()
+      : new Date(a.createdAt || 0);
+
+    const bTime = b.createdAt?.toDate
+      ? b.createdAt.toDate()
+      : new Date(b.createdAt || 0);
+
+    return bTime - aTime;
+  });
+const isEmpty =
+  !isLoading &&
+  followUps.length === 0 &&
+  dueSoonFollowUps.length === 0 &&  // ← ADD THIS LINE
+  notifications.length === 0;
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative" ref={bellWrapRef}>
       {/* Bell button */}
       <Button
         variant="ghost"
@@ -240,29 +266,17 @@ export default function NotificationCenter({ userId }) {
         )}
       </Button>
 
-      {/* Mobile overlay backdrop */}
-      {open && (
-        <div
-          className="fixed inset-0 z-[110] bg-black/20 backdrop-blur-sm sm:hidden"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
-      {/* Dropdown — full screen on mobile, popover on desktop */}
-      {open && (
-        <div
-          className="
-          fixed left-0 right-0  z-50 rounded-t-2xl
-          sm:absolute sm:left-auto sm:right-0 sm:bottom-auto sm:top-11 sm:rounded-2xl sm:w-96 sm:z-50
-          max-w-full sm:max-w-[calc(100vw-1rem)]
-          border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5
-          animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-top-2 duration-200
-        "
-        >
-          {/* Drag handle for mobile */}
-          <div className="flex justify-center pt-2 pb-1 sm:hidden">
-            <div className="h-1 w-10 rounded-full bg-slate-200" />
-          </div>
+      {mounted && open && createPortal(
+        <>
+          <div
+            id="notif-mobile-panel"
+            className="
+            fixed right-2 top-14 z-[120] w-[calc(100vw-1rem)] max-w-sm rounded-2xl
+            sm:right-4 sm:top-16 lg:top-20 sm:w-96 sm:max-w-[calc(100vw-1rem)]
+            border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5
+            animate-in fade-in slide-in-from-top-2 duration-200
+          "
+          >
 
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -321,7 +335,95 @@ export default function NotificationCenter({ userId }) {
                 <SkeletonRow />
               </>
             )}
+{/* ── NEW SECTION: insert BEFORE the existing Follow-up reminders section ── */}
+{!isLoading && dueSoonFollowUps.length > 0 && (
+  <section>
+    <div className="sticky top-0 bg-rose-50/90 backdrop-blur-sm px-4 py-2 flex items-center gap-2 border-b border-rose-100 z-10">
+      <Clock className="h-3.5 w-3.5 text-rose-600" />
+      <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
+        Due Soon ({dueSoonFollowUps.length})
+      </span>
+    </div>
 
+    {dueSoonFollowUps.map((fu) => {
+      const ModeIcon = MODE_ICON[fu.mode] ?? Clock;
+      const overdue  = isOverdue(fu.dateTime);
+      const dueLabel = getDueLabel(fu.dateTime);
+      const waUrl    = fu.leadMobile
+        ? buildWhatsAppUrl(fu.leadMobile, fu.leadName || "there")
+        : null;
+
+      return (
+        <div
+          key={`due-soon-${fu.id}`}
+          className="border-b border-slate-50 px-4 py-3 hover:bg-rose-50/20 transition-colors"
+        >
+          <div className="flex items-start gap-3">
+
+            {/* Icon — red ring when overdue */}
+            <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+              overdue ? "bg-red-100 ring-2 ring-red-200" : "bg-rose-100"
+            }`}>
+              <ModeIcon className={`h-4 w-4 ${overdue ? "text-red-600" : "text-rose-500"}`} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+
+              {/* Name + pill */}
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  {fu.leadName || "Lead"}
+                </p>
+                <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${
+                  overdue
+                    ? "bg-red-100 text-red-700"
+                    : "bg-rose-100 text-rose-600"
+                }`}>
+                  {dueLabel}
+                </span>
+              </div>
+
+              {/* Mode */}
+              <p className="mt-0.5 text-xs text-slate-500">
+                {fu.mode} follow-up
+              </p>
+
+              {/* Notes preview */}
+              {fu.notes && (
+                <p className="mt-0.5 text-xs text-slate-400 line-clamp-1">
+                  {fu.notes}
+                </p>
+              )}
+
+              {/* Actions */}
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    router.push(`/agent-panel/leads/${fu.leadId}`);
+                  }}
+                  className="text-[11px] font-semibold text-theme-primary hover:underline"
+                >
+                  View Lead →
+                </button>
+
+                {waUrl && (
+                  <button
+                    onClick={() => window.open(waUrl, "_blank")}
+                    className="flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-[11px] font-bold text-white hover:bg-green-600 transition-colors"
+                  >
+                    <MessageCircle className="h-3 w-3" />
+                    WhatsApp
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </section>
+)}
             {/* Follow-up reminders */}
             {!isLoading && followUps.length > 0 && (
               <section>
@@ -373,8 +475,10 @@ export default function NotificationCenter({ userId }) {
                           <div className="mt-2 flex items-center gap-2">
                             <button
                               onClick={() => {
+                                const leadId = fu.metadata?.leadId ?? fu.leadId;
                                 setOpen(false);
-                                router.push(`/agent-panel/leads/${fu.leadId}`);
+                                if (fu.link) router.push(fu.link);
+                                else if (leadId) router.push(`/agent-panel/leads/${leadId}`);
                               }}
                               className="text-[11px] font-semibold text-theme-primary hover:underline"
                             >
@@ -446,14 +550,16 @@ export default function NotificationCenter({ userId }) {
               </section>
             )}
 
-            {isEmpty && (
+             {isEmpty && (
               <div className="px-4 py-12 text-center">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
                   <Bell className="h-6 w-6 text-slate-400" />
                 </div>
+
                 <p className="text-sm font-medium text-slate-500">
                   You&apos;re all caught up!
                 </p>
+
                 <p className="mt-1 text-xs text-slate-400">
                   No notifications right now.
                 </p>
@@ -461,6 +567,8 @@ export default function NotificationCenter({ userId }) {
             )}
           </div>
         </div>
+        </>,
+        document.body
       )}
     </div>
   );
