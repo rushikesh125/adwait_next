@@ -564,6 +564,7 @@ export const exportPackagePDF = async ({
   packageName,
   itineraryData = null,
   refNumber = null,
+  appliedDiscount = null,
 }) => {
   const allHotelEntries = packageOptions?.length
     ? packageOptions.flatMap((o) => o.hotelEntries || [])
@@ -723,15 +724,12 @@ export const exportPackagePDF = async ({
       y = pdfdoc.lastAutoTable.finalY + 4;
     }
 
-    // ── Cost breakdown rows for this option ──
     const breakdownRows = [];
 
-    // Calculate option-specific totals
     const optionHotelTotal = optHotels.reduce(
       (s, e) => s + Number(e.hotelTotal || 0),
       0,
     );
-    // Use resolved markup for this specific option
     const optionMarkup = resolveOptionMarkup(
       opt,
       transportTotalPrice || 0,
@@ -740,15 +738,56 @@ export const exportPackagePDF = async ({
       markupType,
       markupAmount,
     );
-
-    // Calculate option grand total using option-specific values
-    const optionGrandTotal =
+    const preDiscountTotal =
       optionHotelTotal +
       (transportTotalPrice || 0) +
       (activityTotalPrice || 0) +
       optionMarkup;
 
-    // Grand total row - use option-specific total
+    const discountAmount = (() => {
+      if (!appliedDiscount?.value || appliedDiscount.value <= 0) return 0;
+      if (appliedDiscount.type === "percentage") {
+        return Math.round((appliedDiscount.value / 100) * preDiscountTotal);
+      }
+      // Fixed: cap at this option's own pre-discount total
+      return Math.min(Number(appliedDiscount.value), preDiscountTotal);
+    })();
+    const optionGrandTotal = preDiscountTotal - discountAmount;
+
+    // Sub-total row (only show when discount is present so customer sees the before/after)
+    if (discountAmount > 0) {
+      breakdownRows.push([
+        {
+          content: "Package Cost (Before Discount)",
+          styles: { fontStyle: "normal", fontSize: FONT_SMALL },
+        },
+        {
+          content: `Rs. ${preDiscountTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+          styles: { halign: "right", fontSize: FONT_SMALL },
+        },
+      ]);
+      breakdownRows.push([
+        {
+          content: `Special Discount${appliedDiscount.notes ? ` — ${appliedDiscount.notes}` : ""}${appliedDiscount.type === "percentage" ? ` (${appliedDiscount.value}%)` : ""}`,
+          styles: {
+            fontStyle: "italic",
+            textColor: [185, 28, 28],
+            fontSize: FONT_SMALL,
+          },
+        },
+        {
+          content: ` Rs. ${discountAmount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+          styles: {
+            halign: "right",
+            fontStyle: "italic",
+            textColor: [185, 28, 28],
+            fontSize: FONT_SMALL,
+          },
+        },
+      ]);
+    }
+
+    // Grand total row
     breakdownRows.push([
       {
         content: `${opt.name} — Total Tour Cost`,

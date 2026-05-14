@@ -420,6 +420,11 @@ const MyQuotations = () => {
             {
               name: "Option 1",
               hotelEntries: quotation.hotelSummary || [],
+              grandTotal: quotation.grandTotal,
+              hotelTotal: (quotation.hotelSummary || []).reduce(
+                (s, h) => s + Number(h.hotelTotal || 0),
+                0,
+              ),
             },
           ];
 
@@ -438,18 +443,25 @@ const MyQuotations = () => {
       : null;
 
     const selectedActivities = quotation.activitySummary || [];
-
     const transportTotalPrice =
       quotation.transportSummary?.totalTransportCost || 0;
-
-    const activityTotalPrice = (quotation.activitySummary || []).reduce(
-      (sum, a) => sum + (a.totalPrice || 0),
+    const activityTotalPrice = selectedActivities.reduce(
+      (sum, a) => sum + Number(a.totalPrice || 0),
       0,
     );
 
-    const confirmedMarkup = quotation.markup || 0;
+    // Read markup fields saved by the updated Create_new_package
     const markupType = quotation.markupType || "lumpsum";
-    const markupAmount = quotation.markupAmount || quotation.markup || 0;
+    const markupAmount = quotation.markupAmount ?? quotation.markup ?? 0;
+    const confirmedMarkup = quotation.markup || 0;
+
+    // Discount — saved in full by updated component
+    const appliedDiscount = quotation.discount ?? {
+      type: "fixed",
+      value: 0,
+      notes: "",
+      amount: 0,
+    };
 
     exportPackagePDF({
       packageOptions,
@@ -458,12 +470,13 @@ const MyQuotations = () => {
       transportTotalPrice,
       activityTotalPrice,
       confirmedMarkup,
-      markupType, // ✅ ADD THIS
-      markupAmount, // ✅ ADD THIS
+      markupType,
+      markupAmount,
       customerName: quotation.customerName || quotation.leadName || "",
       packageName: quotation.packageName || "",
       itineraryData: quotation.itinerarySummary || null,
       refNumber: quotation.refNumber || null,
+      appliedDiscount,
     });
   };
 
