@@ -475,8 +475,10 @@ const isEmpty =
                           <div className="mt-2 flex items-center gap-2">
                             <button
                               onClick={() => {
+                                const leadId = fu.metadata?.leadId ?? fu.leadId;
                                 setOpen(false);
-                                router.push(`/agent-panel/leads/${fu.leadId}`);
+                                if (fu.link) router.push(fu.link);
+                                else if (leadId) router.push(`/agent-panel/leads/${leadId}`);
                               }}
                               className="text-[11px] font-semibold text-theme-primary hover:underline"
                             >
