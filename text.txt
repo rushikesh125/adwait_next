@@ -1,7 +1,7 @@
 UI/UX concepts and make UI good and modern + attractive ( but no to animated heavy ,) keep it standard but good , also use shadcn@latest components for ui and lucid react icons and light theme with color scheme
 @theme inline { --color-theme-primary: #1E88E5; /* Bright blue */ --color-theme-secondary: #1565C0; /* Deep/strong blue */ --color-theme-accent: #42A5F5; /* Light friendly blue */ --color-theme-muted: #E3F2FD; /* Soft pale blue */ --color-theme-dark: #0D47A1; /* Navy/dark blue */ --color-theme-gradient-from: #2196F3; /* Gradient: Blue → Violet-Pink hint */ --color-theme-gradient-to: #7C3AED; /* Blue-violet (matches theme) */
-to use these color sheme use like text/bg-theme-primary like this , also don't forget to preserve the features as it i VERY IMP preserver its functionality as it is
-so we are using nextjs(latest with app rotuer and JS ( no ts ))+shadcn@latest , lucid react icons , react-hot-toast , redux toolkit and firebase (@/firebase/config.js)
+to use these color scheme use like text/bg-theme-primary like this , also don't forget to preserve the features as it i VERY IMP preserve its functionality as it is
+so we are using nextjs(latest with app router and JS ( no ts ))+shadcn@latest , lucide react icons , react-hot-toast , redux toolkit and firebase (@/firebase/config.js)
 
 
 i am trying to build quotation building application , 
@@ -13,13 +13,13 @@ kkK
 
 so here we have some changes
 
-now as u context knowledge about whole section of creating_quoation/package , i want to update the export pdf features while making sure that u preserve everything as it is , just update the things that i have suggested 
+now as u context knowledge about whole section of creating_quotation/package , i want to update the export pdf features while making sure that u preserve everything as it is , just update the things that i have suggested 
 
 
 
 
 
-we have 2 sections for inclusion and exclusion , so here we want only one inclusion and excultion section but include both sides of points and make sure its rendered in tabular form , in short move above inc & exc seciton to bottom and merge other inc&exc data into it 
+we have 2 sections for inclusion and exclusion , so here we want only one inclusion and exclusion section but include both sides of points and make sure its rendered in tabular form , in short move above inc & exc section to bottom and merge other inc&exc data into it 
 
 
 

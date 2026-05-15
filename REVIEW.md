@@ -23,7 +23,7 @@ Six files exceed 1,000 lines:
 |---|---|
 | [src/components/Create_new_package.jsx](src/components/Create_new_package.jsx) | 2,327 |
 | [src/app/agent-panel/bookings/create/page.jsx](src/app/agent-panel/bookings/create/page.jsx) | 1,694 |
-| [src/app/agent-panel/my-quatation/edit/[cid]/page.jsx](src/app/agent-panel/my-quatation/edit/%5Bcid%5D/page.jsx) | 1,624 |
+| [src/app/agent-panel/my-quotation/edit/[cid]/page.jsx](src/app/agent-panel/my-quotation/edit/%5Bcid%5D/page.jsx) | 1,624 |
 | [src/components/ItineraryEditor.jsx](src/components/ItineraryEditor.jsx) | 1,468 |
 | [src/app/admin-panel/accommodations/hotel-upload/page.jsx](src/app/admin-panel/accommodations/hotel-upload/page.jsx) | 1,458 |
 | [src/app/agent-panel/itinerary/create/page.jsx](src/app/agent-panel/itinerary/create/page.jsx) | 1,437 |

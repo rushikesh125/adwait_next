@@ -389,7 +389,7 @@ export default function LeadsTable({
                         className="bg-theme-primary text-white h-8 px-3"
                         onClick={() =>
                           router.push(
-                            `/agent-panel/my-quatation/create?leadId=${lead.id}`,
+                            `/agent-panel/my-quotation/create?leadId=${lead.id}`,
                           )
                         }
                       >

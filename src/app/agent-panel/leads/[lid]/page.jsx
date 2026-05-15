@@ -75,7 +75,7 @@ import {
 } from "@/components/ui/tooltip";
 import StatusBadge from "@/components/StatusBadge";
 import { setEditingQuotation } from "@/store/packageSlice";
-import QuotationPreviewModal from "@/app/agent-panel/my-quatation/QuotationPreviewModal";
+import QuotationPreviewModal from "@/app/agent-panel/my-quotation/QuotationPreviewModal";
 import {
   buildQuotationSummaryPayload,
   sharePackageSummaryOnWhatsApp,
@@ -325,7 +325,7 @@ export default function LeadProfilePage({ params }) {
     const p = new URLSearchParams();
     p.set("quotationId", quote.id);
     p.set("leadId", lid);
-    router.push(`/agent-panel/my-quatation/create?${p.toString()}`);
+    router.push(`/agent-panel/my-quotation/create?${p.toString()}`);
   };
 
   const handleDeleteQuotation = async (quoteId) => {
@@ -682,7 +682,7 @@ export default function LeadProfilePage({ params }) {
               <Edit3 className="h-4 w-4 mr-1.5" /> Edit Lead
             </Button>
             <Button
-              onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
+              onClick={() => router.push(`/agent-panel/my-quotation/create?leadId=${lid}`)}
               className="flex-1 sm:flex-none bg-theme-primary text-white text-xs sm:text-sm h-9 flex items-center justify-center"
             >
               <Plus className="h-4 w-4 mr-1.5" /> Create Quotation
@@ -797,7 +797,7 @@ export default function LeadProfilePage({ params }) {
                         Attach existing
                       </Button>
                       <Button
-                        onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
+                        onClick={() => router.push(`/agent-panel/my-quotation/create?leadId=${lid}`)}
                         className="bg-theme-primary text-white rounded-xl h-9 px-4 text-sm"
                       >
                         <Plus className="h-4 w-4 mr-1.5" /> New
@@ -924,7 +924,7 @@ export default function LeadProfilePage({ params }) {
                       </div>
                       <p className="text-slate-400 font-medium text-sm">No quotations yet.</p>
                       <Button
-                        onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
+                        onClick={() => router.push(`/agent-panel/my-quotation/create?leadId=${lid}`)}
                         className="bg-theme-primary text-white rounded-xl h-9 text-sm"
                       >
                         <Plus className="h-4 w-4 mr-2" /> Create First Quotation

@@ -208,7 +208,7 @@ export default function CustomerProfilePage({ params }) {
           </div>
           <Button
             onClick={() =>
-              router.push(`/agent-panel/my-quatation/create?customerId=${cid}`)
+              router.push(`/agent-panel/my-quotation/create?customerId=${cid}`)
             }
             className="bg-theme-primary text-white px-4 lg:px-6 rounded-xl"
           >
@@ -438,7 +438,7 @@ export default function CustomerProfilePage({ params }) {
                             variant="outline"
                             className="rounded-xl"
                             onClick={() =>
-                              router.push(`/agent-panel/my-quatation/create?leadId=${lead.id}`)
+                              router.push(`/agent-panel/my-quotation/create?leadId=${lead.id}`)
                             }
                           >
                             <Plus className="mr-2 h-4 w-4" />
@@ -512,7 +512,7 @@ export default function CustomerProfilePage({ params }) {
                             className="rounded-xl"
                             onClick={() =>
                               router.push(
-                                `/agent-panel/my-quatation/create?quotationId=${quote.id}&customerId=${cid}`,
+                                `/agent-panel/my-quotation/create?quotationId=${quote.id}&customerId=${cid}`,
                               )
                             }
                           >

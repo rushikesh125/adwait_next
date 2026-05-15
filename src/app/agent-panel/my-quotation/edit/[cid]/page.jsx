@@ -198,7 +198,7 @@ const EditQuotationPage = () => {
           }
         } else {
           toast.error("Quotation not found");
-          router.push("/agent-panel/my-quatation");
+          router.push("/agent-panel/my-quotation");
         }
       } catch (error) {
         console.error("Error fetching quotation:", error);
@@ -847,7 +847,7 @@ setToggleValue(prev => !prev)
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push("/agent-panel/my-quatation")}
+                onClick={() => router.push("/agent-panel/my-quotation")}
                 className="rounded-xl hover:bg-slate-100"
               >
                 <ArrowLeft className="h-5 w-5 text-theme-primary" />
