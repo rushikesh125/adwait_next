@@ -199,7 +199,7 @@ export default function NotificationCenter({ userId }) {
   ) {
     if (n.quotationId) {
       router.push(
-        `/agent-panel/my-quatation?quoteId=${n.quotationId}`
+        `/agent-panel/my-quotation?quoteId=${n.quotationId}`
       );
       return;
     }

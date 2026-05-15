@@ -68,7 +68,7 @@ import {
 } from "@/components/ui/tooltip";
 import StatusBadge from "@/components/StatusBadge";
 import { setEditingQuotation } from "@/store/packageSlice";
-import QuotationPreviewModal from "@/app/agent-panel/my-quatation/QuotationPreviewModal";
+import QuotationPreviewModal from "@/app/agent-panel/my-quotation/QuotationPreviewModal";
 import { deleteQuotation } from "@/firebase/quotations";
 import { sharePackageSummaryOnWhatsApp } from "@/lib/copyPackageSummary";
 import { normaliseQuotation } from "@/lib/quotationAdapter";

@@ -33,7 +33,7 @@ export async function POST(request) {
 
     return NextResponse.json(
       {
-        message: "User successfully promoted to Super Admin,and removed from admin list",
+        message: "User successfully promoted to Super Admin, and removed from admin list",
         data: superAdminData,
       },
       { status: 200 },

@@ -376,7 +376,7 @@ const MyQuotations = () => {
     if (quotation.customerId) params.set("customerId", quotation.customerId);
     if (quotation.leadId) params.set("leadId", quotation.leadId);
 
-    router.push(`/agent-panel/my-quatation/create?${params.toString()}`);
+    router.push(`/agent-panel/my-quotation/create?${params.toString()}`);
   };
 
   // Auto-open edit modal when editId is in URL
@@ -688,7 +688,7 @@ const MyQuotations = () => {
           <p className="text-slate-500 mb-4">No quotations found.</p>
           <Button
             className="bg-theme-primary text-white"
-            onClick={() => router.push("/agent-panel/my-quatation/create")}
+            onClick={() => router.push("/agent-panel/my-quotation/create")}
           >
             + Create Quotation
           </Button>

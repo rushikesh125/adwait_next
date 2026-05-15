@@ -375,7 +375,7 @@ export default function LeadsPage() {
 
   const handleCreateQuotation = (lead) => {
     router.push(
-      `/agent-panel/my-quatation/create?leadId=${lead.id}&leadName=${encodeURIComponent(lead.name)}`,
+      `/agent-panel/my-quotation/create?leadId=${lead.id}&leadName=${encodeURIComponent(lead.name)}`,
     );
   };
 

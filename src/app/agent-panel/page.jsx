@@ -41,7 +41,7 @@ const QUICK_LINKS = [
   {
     title: "Create Quotation",
     description: "Start a new quotation for a customer enquiry.",
-    href: "/agent-panel/my-quatation/create",
+    href: "/agent-panel/my-quotation/create",
     icon: FileText,
   },
   {
