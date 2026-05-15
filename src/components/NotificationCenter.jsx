@@ -147,6 +147,7 @@ function PermissionBanner({ onAllow, onDismiss }) {
 export default function NotificationCenter({ userId }) {
   const {
     notifications,
+    setNotifications,
     followUps,
     dueSoonFollowUps,
     totalBadge,
@@ -182,15 +183,23 @@ export default function NotificationCenter({ userId }) {
   }, [open]);
 
  const handleNotificationClick = async (n) => {
-  // ONLY remove quotation status notifications
- if (
+if (
   n.type !== "follow_up_reminder" &&
   n.type !== "vendor_payment_due" &&
   !n.read
 ) {
+  // instant UI update
+  setNotifications((prev) =>
+    prev.map((item) =>
+      item.id === n.id
+        ? { ...item, read: true }
+        : item
+    )
+  );
+
+  // firestore update
   await markNotificationRead(n.id);
 }
-
   setOpen(false);
 
   if (

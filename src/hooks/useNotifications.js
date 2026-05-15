@@ -124,6 +124,7 @@ export function useNotifications(userId) {
 
   return {
     notifications,
+    setNotifications,
     followUps,           // unchanged — existing Follow-up Reminders section
     dueSoonFollowUps,    // ← NEW
     unreadCount,
