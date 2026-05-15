@@ -199,7 +199,7 @@ export default function CustomersTable({ customers, onEdit, onDelete }) {
                           size="sm"
                           className="bg-theme-primary hover:bg-theme-secondary text-white h-8 px-3 rounded-md shadow-sm"
                           onClick={() =>
-                            router.push(`/agent-panel/my-quatation/create?customerId=${c.id}`)
+                            router.push(`/agent-panel/my-quotation/create?customerId=${c.id}`)
                           }
                         >
                           <FilePlus2 className="h-3.5 w-3.5 mr-1.5" />

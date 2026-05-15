@@ -1,1 +1,1 @@
-export { default } from "@/app/agent-panel/my-quatation/create/page";
+export { default } from "@/app/agent-panel/my-quotation/create/page";

@@ -183,7 +183,7 @@ const QuotationsTable = ({
       <div className="flex justify-end mb-8">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Button
-            onClick={() => router.push("/agent-panel/my-quatation/create")}
+            onClick={() => router.push("/agent-panel/my-quotation/create")}
             className="bg-theme-primary hover:bg-theme-secondary text-white shadow-md transition-all hover:scale-105"
           >
             <PackagePlus className="mr-2 h-4 w-4" /> New Package

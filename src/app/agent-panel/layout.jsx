@@ -62,7 +62,7 @@ const AgentPanelLayout = ({ children }) => {
   const navItems = [
     { name: "Dashboard",      href: "/agent-panel",               icon: LayoutDashboard },
     { name: "Lead",           href: "/agent-panel/leads",          icon: Briefcase       },
-    { name: "Quotation",      href: "/agent-panel/my-quatation",   icon: Map             },
+    { name: "Quotation",      href: "/agent-panel/my-quotation",   icon: Map             },
     { name: "Booking",        href: "/agent-panel/bookings",       icon: CalendarCheck   },
     { name: "Invoices",       href: "/agent-panel/invoices",       icon: FileText        },
     { name: "Vouchers",       href: "/agent-panel/vouchers",       icon: Tickets         },

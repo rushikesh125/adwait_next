@@ -143,7 +143,7 @@ if (
         : "rejected"
     } by the customer.`,
 
-    link: `/agent-panel/my-quatation?quoteId=${quotationId}`,
+    link: `/agent-panel/my-quotation?quoteId=${quotationId}`,
 
     priority:
       data.status === "Accepted"
