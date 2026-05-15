@@ -85,6 +85,8 @@ import {
   UserPlus,
   Search,
   Link2,
+  Tag,
+  BadgePercent,
 } from "lucide-react";
 import ItinerarySection from "./ItinerarySection";
 import { generateQuotationRef } from "@/firebase/quotationRef";
@@ -126,12 +128,11 @@ const createEmptyOption = (id, name = "") => ({
   currentHotelTotal: 0,
   guests: { numDouble: 1, numExtraAdult: 0, numExtraChild: 0, numCNB: 0 },
   saveChanges: false,
-  markup: null, // ← per-option resolved markup in ₹ (null = not yet applied)
+  markup: null, // per-option resolved markup in ₹ (null = use shared lumpsum)
 });
 
 // ─── Validation helpers ───────────────────────────────────────────────────────
 const validateOptions = (options) => {
-  // Check each option has at least one hotel
   for (const opt of options) {
     if (!opt.hotelEntries || opt.hotelEntries.length === 0) {
       return {
@@ -141,14 +142,12 @@ const validateOptions = (options) => {
     }
   }
 
-  // Check for duplicate names
   const names = options.map((o) => o.name.trim().toLowerCase());
   const uniqueNames = new Set(names);
   if (uniqueNames.size !== names.length) {
     return { valid: false, error: "Option name must be unique." };
   }
 
-  // Check option uniqueness: no two options with same hotels AND same dates
   for (let i = 0; i < options.length; i++) {
     for (let j = i + 1; j < options.length; j++) {
       const a = options[i];
@@ -299,7 +298,7 @@ const Create_new_package = ({
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
 
-  // ── Shared State (Transport, Activities, Markup, Itinerary) ───────────────
+  // ── Shared State ──────────────────────────────────────────────────────────
   const [itineraryData, setItineraryData] = useState(null);
   const [hotels, setHotels] = useState([]);
   const [states, setStates] = useState([]);
@@ -312,6 +311,15 @@ const Create_new_package = ({
   const [editableBaseCost, setEditableBaseCost] = useState(null);
   const [markupAmount, setMarkupAmount] = useState(0);
   const [markupType, setMarkupType] = useState("lumpsum");
+  const [discountType, setDiscountType] = useState("fixed");
+  const [discountValue, setDiscountValue] = useState(0);
+  const [discountNotes, setDiscountNotes] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState({
+    type: "fixed",
+    value: 0,
+    notes: "",
+    amount: 0,
+  });
   const [showSaveModal, _setShowSaveModal] = useState(false);
   const setShowSaveModal = (v) => {
     if (!v) {
@@ -331,29 +339,27 @@ const Create_new_package = ({
   };
   const [customerName, setCustomerName] = useState("");
   const [optionValidationError, setOptionValidationError] = useState("");
-  // ── Customer linking in save modal ────────────────────────────────────────
+  // ── Customer linking ──────────────────────────────────────────────────────
   const [customers, setCustomers] = useState([]);
   const [customerSearchText, setCustomerSearchText] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomerLink, setSelectedCustomerLink] = useState(null);
-  const [showInlineCreateCustomer, setShowInlineCreateCustomer] =
-    useState(false);
+  const [showInlineCreateCustomer, setShowInlineCreateCustomer] = useState(false);
   const [newCustomerDraft, setNewCustomerDraft] = useState({
     name: "",
     mobile: "",
     email: "",
   });
-  // ── Lead linking in save modal (edit/clone mode) ──────────────────────────
+  // ── Lead linking ──────────────────────────────────────────────────────────
   const [agentLeads, setAgentLeads] = useState([]);
   const [saveAsLeadId, setSaveAsLeadId] = useState("");
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
 
   const { hasPermission, loading: permissionsLoading } = useAgentPermissions(
     user?.uid,
-    user?.role
+    user?.role,
   );
-  const canUseItineraryAI =
-    !permissionsLoading && hasPermission("itinerary_ai");
+  const canUseItineraryAI = !permissionsLoading && hasPermission("itinerary_ai");
 
   // ── Active Option helpers ──────────────────────────────────────────────────
   const activeOption =
@@ -412,7 +418,7 @@ const Create_new_package = ({
     updateActiveOption({ currentHotelTotal: v });
   const setGuests = (v) => updateActiveOption({ guests: v });
 
-  // ── Hotel dispatch-like helpers for per-option storage ─────────────────────
+  // ── Hotel dispatch-like helpers ────────────────────────────────────────────
   const addHotelEntryToOption = (entry) => {
     updateActiveOption((opt) => ({
       ...opt,
@@ -433,14 +439,14 @@ const Create_new_package = ({
     }));
   };
 
-  // ── Sync propCheckInDate/propCheckOutDate with active option ───────────────
+  // ── Sync propCheckInDate with active option ────────────────────────────────
   useEffect(() => {
     if (propCheckInDate !== undefined && propCheckInDate !== checkInDate) {
       updateActiveOption({ checkInDate: propCheckInDate });
     }
   }, [propCheckInDate]);
 
-  // ── Load customers for linking in save modal ──────────────────────────────
+  // ── Load customers ────────────────────────────────────────────────────────
   useEffect(() => {
     getDocs(collection(db, "customers")).then((snap) => {
       setCustomers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -459,7 +465,6 @@ const Create_new_package = ({
       .slice(0, 8);
   }, [customers, customerSearchText]);
 
-  // Active leads for the selected customer (used in lead selector dropdown)
   const leadsForSelectedCustomer = useMemo(() => {
     if (!selectedCustomerLink) return agentLeads;
     return agentLeads.filter(
@@ -469,7 +474,6 @@ const Create_new_package = ({
     );
   }, [agentLeads, selectedCustomerLink]);
 
-  // Auto-select the latest active lead when customer changes
   useEffect(() => {
     if (!isEditMode || !selectedCustomerLink || agentLeads.length === 0) return;
     const active = agentLeads.filter(
@@ -512,7 +516,6 @@ const Create_new_package = ({
     hydratedRef.current = true;
     const q = editingQuotation;
 
-    // Hydrate package options
     if (q.packageOptions?.length) {
       const hydrated = q.packageOptions.map((po, idx) => ({
         ...createEmptyOption(idx + 1, po.name || `Option ${idx + 1}`),
@@ -523,7 +526,6 @@ const Create_new_package = ({
       setPackageOptions(hydrated);
       setNextOptionId(hydrated.length + 1);
     } else if (q.hotelSummary?.length) {
-      // Legacy single-option
       setPackageOptions([
         {
           ...createEmptyOption(1, "Option 1"),
@@ -571,6 +573,12 @@ const Create_new_package = ({
     setCustomerName(q.customerName || q.leadName || "");
     if (q.itinerarySummary) setItineraryData(q.itinerarySummary);
     dispatch(clearEditingQuotation());
+    if (q.discount) {
+      setAppliedDiscount(q.discount);
+      setDiscountType(q.discount.type || "fixed");
+      setDiscountValue(q.discount.value || 0);
+      setDiscountNotes(q.discount.notes || "");
+    }
   }, [isEditMode, editingQuotation]);
 
   useEffect(() => {
@@ -604,8 +612,7 @@ const Create_new_package = ({
     updateActiveOption({ checkOutDate: d.toISOString().split("T")[0] });
   }, [checkInDate, nights, activeOptionId]);
 
-  // Keep redux context in sync for itinerary/AI. Package options are alternatives,
-  // so duration-sensitive context must follow the active option only.
+  // Keep redux context in sync
   useEffect(() => {
     dispatch(
       setPackageContext({
@@ -631,54 +638,9 @@ const Create_new_package = ({
     customerName,
     dispatch,
   ]);
-
-  // ── Filtered/Grouped Hotels ───────────────────────────────────────────────
-  const filteredHotels = useMemo(
-    () =>
-      hotels.filter(
-        (h) =>
-          h.state?.toLowerCase() === selectedState.toLowerCase() &&
-          hotelHasRatesForStay(h, { checkInDate, checkOutDate, nights }),
-      ),
-    [hotels, selectedState, checkInDate, checkOutDate, nights],
-  );
-  const groupedHotels = useMemo(
-    () =>
-      filteredHotels.reduce((acc, h) => {
-        const c = h.city || "Other";
-        if (!acc[c]) acc[c] = [];
-        acc[c].push(h);
-        return acc;
-      }, {}),
-    [filteredHotels],
-  );
-
-  const selectedHotelData = filteredHotels.find((h) => h.id === selectedHotelId);
-
-  useEffect(() => {
-    if (!selectedHotelId || filteredHotels.some((h) => h.id === selectedHotelId)) {
-      return;
-    }
-
-    updateActiveOption({
-      selectedHotelId: null,
-      roomCategory: "",
-      mealPlan: "",
-      currentHotelTotal: 0,
-    });
-  }, [selectedHotelId, filteredHotels, activeOptionId]);
-
-  // ── Per-option hotel totals ───────────────────────────────────────────────
-  const getOptionHotelTotal = (opt) =>
-    (opt.hotelEntries || []).reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
-
-  const hotelTotalPrice = getOptionHotelTotal(activeOption);
-
-  // ── Transport breakdown (shared) ─────────────────────────────────────────
   const transportBreakdown = useMemo(() => {
     if (!selectedTransport?.selectedVehicle) return null;
     const vehicle = selectedTransport.selectedVehicle;
-    // Use all options combined nights for transport
     const totalNights =
       packageOptions[0]?.hotelEntries?.reduce(
         (sum, e) => sum + (Number(e.nights) || 0),
@@ -692,9 +654,7 @@ const Create_new_package = ({
     if (perKm > 0) {
       const calculatedBaseCost = Number(minKm || 0) * perKm * days;
       const baseCost =
-        editableBaseCost !== null
-          ? Number(editableBaseCost)
-          : calculatedBaseCost;
+        editableBaseCost !== null ? Number(editableBaseCost) : calculatedBaseCost;
       const driverAllowance = allowancePerDay * days;
       const toll = Math.max(0, Number(tollCharges || 0));
       const permit = Math.max(0, Number(permitCharges || 0));
@@ -731,22 +691,129 @@ const Create_new_package = ({
     otherCharges,
   ]);
 
-  const transportTotalPrice = transportBreakdown?.total || 0;
-
-  // Grand total per option
-  const getOptionGrandTotal = (opt) => {
-    // Use per-option markup if stored, else shared confirmedMarkup
-    const optMarkup =
-      typeof opt.markup === "number" ? opt.markup : confirmedMarkup;
-    return (
-      getOptionHotelTotal(opt) +
-      transportTotalPrice +
-      activityTotalPrice +
-      optMarkup
+const transportTotalPrice = transportBreakdown?.total || 0;
+  // ── Re-apply percentage markup whenever options or shared costs change ─────
+  // This ensures per-option markup stays accurate when hotel entries are edited
+  useEffect(() => {
+    if (markupType !== "percentage" || !markupAmount) return;
+    setPackageOptions((prev) =>
+      prev.map((opt) => {
+        const hotelTotal = (opt.hotelEntries || []).reduce(
+          (s, e) => s + Number(e.hotelTotal || 0),
+          0,
+        );
+        const base = hotelTotal + transportTotalPrice + activityTotalPrice;
+        return { ...opt, markup: (markupAmount / 100) * base };
+      }),
     );
+  }, [
+    // Only re-run when hotel entries of any option change, or shared costs change
+    // We stringify hotelEntries of all options as a cheap dependency
+    packageOptions.map((o) => o.hotelEntries.map((e) => e.hotelTotal).join(",")).join("|"),
+    transportTotalPrice,
+    activityTotalPrice,
+    markupType,
+    markupAmount,
+  ]);
+
+  // ── Filtered/Grouped Hotels ───────────────────────────────────────────────
+  const filteredHotels = useMemo(
+    () =>
+      hotels.filter(
+        (h) =>
+          h.state?.toLowerCase() === selectedState.toLowerCase() &&
+          hotelHasRatesForStay(h, { checkInDate, checkOutDate, nights }),
+      ),
+    [hotels, selectedState, checkInDate, checkOutDate, nights],
+  );
+
+  const groupedHotels = useMemo(
+    () =>
+      filteredHotels.reduce((acc, h) => {
+        const c = h.city || "Other";
+        if (!acc[c]) acc[c] = [];
+        acc[c].push(h);
+        return acc;
+      }, {}),
+    [filteredHotels],
+  );
+
+  const selectedHotelData = filteredHotels.find((h) => h.id === selectedHotelId);
+
+  useEffect(() => {
+    if (!selectedHotelId || filteredHotels.some((h) => h.id === selectedHotelId)) {
+      return;
+    }
+    updateActiveOption({
+      selectedHotelId: null,
+      roomCategory: "",
+      mealPlan: "",
+      currentHotelTotal: 0,
+    });
+  }, [selectedHotelId, filteredHotels, activeOptionId]);
+
+  // ── Transport breakdown (shared) ─────────────────────────────────────────
+  
+  
+
+  // ── Per-option pricing helpers ────────────────────────────────────────────
+
+  /** Hotel total for a given option */
+  const getOptionHotelTotal = (opt) =>
+    (opt.hotelEntries || []).reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
+
+  /**
+   * Resolved markup in ₹ for a given option.
+   * - If markupType === 'percentage': use opt.markup (stored per-option)
+   * - If markupType === 'lumpsum': use confirmedMarkup (same for all options)
+   * Falls back gracefully if opt.markup is null/undefined.
+   */
+  const getOptionMarkup = (opt) => {
+    if (markupType === "percentage") {
+      // If per-option markup is stored, use it; otherwise compute on the fly
+      if (typeof opt.markup === "number") return opt.markup;
+      const hotelTotal = getOptionHotelTotal(opt);
+      const base = hotelTotal + transportTotalPrice + activityTotalPrice;
+      return (markupAmount / 100) * base;
+    }
+    // lumpsum: same for all
+    return Number(confirmedMarkup) || 0;
   };
 
+  /** Pre-discount total for an option */
+  const getOptionPreDiscountTotal = (opt) =>
+    getOptionHotelTotal(opt) +
+    transportTotalPrice +
+    activityTotalPrice +
+    getOptionMarkup(opt);
+
+  /**
+   * Resolved discount amount for a specific option.
+   * We always recalculate against the option's own pre-discount total
+   * so that percentage discounts are applied correctly per-option.
+   */
+  const resolveDiscountAmountForOption = (opt) => {
+    if (!appliedDiscount.value || appliedDiscount.value <= 0) return 0;
+    const preDiscount = getOptionPreDiscountTotal(opt);
+    if (appliedDiscount.type === "percentage") {
+      return Math.round((appliedDiscount.value / 100) * preDiscount);
+    }
+    // Fixed: cap at that option's pre-discount total
+    return Math.min(Number(appliedDiscount.value), preDiscount);
+  };
+
+  /** Grand total for an option after markup and discount */
+  const getOptionGrandTotal = (opt) =>
+    getOptionPreDiscountTotal(opt) - resolveDiscountAmountForOption(opt);
+
+  // Convenience values for the active option
+  const hotelTotalPrice = getOptionHotelTotal(activeOption);
+  const activeOptionMarkup = getOptionMarkup(activeOption);
+  const activeOptionPreDiscountTotal = getOptionPreDiscountTotal(activeOption);
+  const activeOptionDiscountAmount = resolveDiscountAmountForOption(activeOption);
   const grandTotal = getOptionGrandTotal(activeOption);
+
+  // Gap warnings
   const optionsWithHotelGaps = useMemo(
     () =>
       packageOptions
@@ -758,14 +825,9 @@ const Create_new_package = ({
     () => getOptionHotelGaps(activeOption),
     [activeOption],
   );
-  const activeOptionHasHotelGap = useMemo(
-    () => activeOptionHotelGaps.length > 0,
-    [activeOptionHotelGaps],
-  );
+  const activeOptionHasHotelGap = activeOptionHotelGaps.length > 0;
   const hasHotelGapWarning = optionsWithHotelGaps.length > 0;
-  const activeHotelGapWarningText = `There is no hotel selected for these dates: ${formatGapLabels(
-    activeOptionHotelGaps,
-  )}.`;
+  const activeHotelGapWarningText = `There is no hotel selected for these dates: ${formatGapLabels(activeOptionHotelGaps)}.`;
 
   // ── Option Management ─────────────────────────────────────────────────────
   const handleAddOption = () => {
@@ -925,31 +987,63 @@ const Create_new_package = ({
   };
 
   const handleApplyMarkup = () => {
-    if (markupType === "percentage") {
-      // Compute and store individual markup on every option
-      setPackageOptions((prev) =>
-        prev.map((opt) => {
-          const hotelTotal = (opt.hotelEntries || []).reduce(
-            (s, e) => s + Number(e.hotelTotal || 0),
-            0,
-          );
-          const base = hotelTotal + transportTotalPrice + activityTotalPrice;
-          const resolved = (markupAmount / 100) * base;
-          return { ...opt, markup: resolved };
-        }),
-      );
-      // Also store a representative value in Redux (first option) for UI display
-      const firstOptTotal = getOptionHotelTotal(packageOptions[0]);
-      const firstBase =
-        firstOptTotal + transportTotalPrice + activityTotalPrice;
-      dispatch(setConfirmedMarkup((markupAmount / 100) * firstBase));
-    } else {
-      // Lumpsum: same for all — clear per-option markup and store in Redux
-      setPackageOptions((prev) =>
-        prev.map((opt) => ({ ...opt, markup: null })),
-      );
-      dispatch(setConfirmedMarkup(Number(markupAmount)));
+    const amount = Number(markupAmount);
+    if (amount < 0) {
+      toast.error("Markup cannot be negative.");
+      return;
     }
+    if (markupType === "percentage") {
+      if (amount > 100) {
+        toast.error("Percentage markup cannot exceed 100%.");
+        return;
+      }
+      // Compute and store per-option markup
+      const updated = packageOptions.map((opt) => {
+        const hotelTotal = (opt.hotelEntries || []).reduce(
+          (s, e) => s + Number(e.hotelTotal || 0),
+          0,
+        );
+        const base = hotelTotal + transportTotalPrice + activityTotalPrice;
+        return { ...opt, markup: (amount / 100) * base };
+      });
+      setPackageOptions(updated);
+      // Store the active option's resolved markup in Redux for display
+      const activeOpt = updated.find((o) => o.id === activeOptionId) || updated[0];
+      dispatch(setConfirmedMarkup(activeOpt.markup));
+    } else {
+      // Lumpsum: clear per-option markup, store shared value in Redux
+      setPackageOptions((prev) => prev.map((opt) => ({ ...opt, markup: null })));
+      dispatch(setConfirmedMarkup(amount));
+    }
+    toast.success("Markup applied!");
+  };
+
+  const handleApplyDiscount = () => {
+    const val = Number(discountValue);
+    if (val < 0) {
+      toast.error("Discount value cannot be negative.");
+      return;
+    }
+    if (discountType === "percentage" && val > 100) {
+      toast.error("Percentage discount cannot exceed 100%.");
+      return;
+    }
+    if (discountType === "fixed" && val > activeOptionPreDiscountTotal) {
+      toast.error("Discount amount cannot exceed quotation total.");
+      return;
+    }
+    // For display in UI, compute resolved amount for the active option
+    const resolvedAmount =
+      discountType === "percentage"
+        ? Math.round((val / 100) * activeOptionPreDiscountTotal)
+        : val;
+    setAppliedDiscount({
+      type: discountType,
+      value: val,
+      notes: discountNotes.trim(),
+      amount: resolvedAmount,
+    });
+    toast.success("Discount applied!");
   };
 
   const handleCopyToClipboard = () =>
@@ -963,6 +1057,7 @@ const Create_new_package = ({
       markupType,
       markupAmount,
       hotels,
+      appliedDiscount,
     });
 
   const handleExportToPDF = () =>
@@ -972,12 +1067,13 @@ const Create_new_package = ({
       selectedActivities,
       transportTotalPrice,
       activityTotalPrice,
-      confirmedMarkup, // lumpsum markup value
-      markupType, // 'percentage' or 'lumpsum'
-      markupAmount, // percentage value or lumpsum amount
+      confirmedMarkup,
+      markupType,
+      markupAmount,
       customerName,
       packageName,
       itineraryData,
+      appliedDiscount,
     });
 
   // ── Save Package ──────────────────────────────────────────────────────────
@@ -991,7 +1087,6 @@ const Create_new_package = ({
       return;
     }
 
-    // Validate options
     const validation = validateOptions(packageOptions);
     if (!validation.valid) {
       setOptionValidationError(validation.error);
@@ -1009,10 +1104,9 @@ const Create_new_package = ({
       const linkedLead = effectiveLeadId
         ? agentLeads.find((l) => l.id === effectiveLeadId)
         : null;
-
       // Build linkage block additively so every available identifier is
       // persisted on the quotation — leadId + customerId + name + contacts.
-      // This prevents the "quotation belongs to a lead but has no leadId"
+      // This prevents the "quotation belongs to a lead but had no leadId"
       // orphan state that breaks the lead's Quotations tab.
       const c_data = {};
       if (effectiveLeadId) {
@@ -1037,13 +1131,16 @@ const Create_new_package = ({
         ? editingQuotation?.refNumber || (await generateQuotationRef())
         : await generateQuotationRef();
 
-      // Build packageOptions summary for storage
       const packageOptionsSummary = packageOptions.map((opt) => ({
         name: opt.name,
         hotelEntries: opt.hotelEntries,
         hotelTotal: getOptionHotelTotal(opt),
+        markup: getOptionMarkup(opt),
+        preDiscountTotal: getOptionPreDiscountTotal(opt),
+        discountAmount: resolveDiscountAmountForOption(opt),
         grandTotal: getOptionGrandTotal(opt),
       }));
+
       const cleanedItinerary =
         itineraryData && Array.isArray(itineraryData.days)
           ? {
@@ -1058,7 +1155,6 @@ const Create_new_package = ({
             }
           : null;
 
-      // Legacy hotelSummary = first option's hotels (for backwards compat)
       const firstOptionHotels = packageOptions[0]?.hotelEntries || [];
 
       const packagePayload = {
@@ -1066,10 +1162,18 @@ const Create_new_package = ({
         ...c_data,
         refNumber,
         markup: confirmedMarkup || 0,
+        markupType,
+        markupAmount,
+        discount: {
+          type: appliedDiscount.type,
+          value: appliedDiscount.value,
+          amount: appliedDiscount.amount,
+          notes: appliedDiscount.notes,
+          appliedBy: user?.uid || "",
+          appliedAt: new Date().toISOString(),
+        },
         grandTotal: getOptionGrandTotal(packageOptions[0]) || 0,
-        // Multi-option storage
         packageOptions: packageOptionsSummary,
-        // Legacy compat
         hotelSummary: firstOptionHotels,
         activitySummary: selectedActivities,
         transportSummary: selectedTransport
@@ -1160,37 +1264,30 @@ const Create_new_package = ({
               </div>
             )}
 
-
             {/* ── Package Options Tabs ────────────────────────────────────── */}
-            {/* ── Package Options Section ────────────────────────────────────── */}
             <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="p-3 pb-2 border-b border-slate-100">
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-                  {headerTitle && (
-                    <div className="min-w-0 lg:flex-shrink-0">{headerTitle}</div>
-                  )}
-                  <div className="flex items-center justify-between gap-2 lg:flex-1 lg:justify-end">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Layers className="h-4 w-4 text-theme-primary shrink-0" />
-                      <CardTitle className="text-sm font-semibold truncate">
-                        Package Options
-                      </CardTitle>
-                      <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
-                        {packageOptions.length}/{MAX_OPTIONS}
-                      </span>
-                    </div>
-
-                    <Button
-                      onClick={handleAddOption}
-                      disabled={packageOptions.length >= MAX_OPTIONS}
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs text-theme-primary border-theme-primary hover:bg-theme-primary/5 shrink-0"
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Add Option
-                    </Button>
+              <CardHeader className="p-4 pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-theme-primary" />
+                    <CardTitle className="text-lg font-semibold">
+                      Package Options
+                    </CardTitle>
+                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                      {packageOptions.length}/{MAX_OPTIONS}
+                    </span>
                   </div>
+
+                  <Button
+                    onClick={handleAddOption}
+                    disabled={packageOptions.length >= MAX_OPTIONS}
+                    variant="outline"
+                    size="sm"
+                    className="text-theme-primary border-theme-primary hover:bg-theme-primary/5"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add Option
+                  </Button>
                 </div>
               </CardHeader>
 
@@ -1199,51 +1296,63 @@ const Create_new_package = ({
                   {packageOptions.map((opt) => {
                     const isActive = activeOptionId === opt.id;
                     const hotelCount = opt.hotelEntries?.length || 0;
+                    const optTotal = getOptionGrandTotal(opt);
+                    const hasHotels = hotelCount > 0;
 
                     return (
                       <div
                         key={opt.id}
                         onClick={() => setActiveOptionId(opt.id)}
                         className={`
-              group flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs transition-all cursor-pointer
+              group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer
               ${
                 isActive
-                  ? "border-theme-primary bg-theme-primary/5 text-theme-primary shadow-sm"
-                  : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                  ? "border-theme-primary bg-theme-primary/5 shadow-sm"
+                  : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
               }
             `}
                       >
                         {/* Option Name */}
-                        {renamingId === opt.id ? (
-                          <input
-                            autoFocus
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleConfirmRename();
-                              if (e.key === "Escape") {
-                                setRenamingId(null);
-                                setRenameValue("");
-                              }
-                            }}
-                            onBlur={handleConfirmRename}
-                            className="bg-transparent font-medium focus:outline-none border-b border-theme-primary min-w-0 w-24"
-                          />
-                        ) : (
-                          <span
-                            className="font-medium truncate"
-                            onDoubleClick={() => handleStartRename(opt)}
-                          >
-                            {opt.name}
-                          </span>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          {renamingId === opt.id ? (
+                            <input
+                              autoFocus
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleConfirmRename();
+                                if (e.key === "Escape") {
+                                  setRenamingId(null);
+                                  setRenameValue("");
+                                }
+                              }}
+                              onBlur={handleConfirmRename}
+                              className="w-full bg-transparent font-medium text-sm focus:outline-none border-b border-theme-primary"
+                            />
+                          ) : (
+                            <div
+                              className="font-medium text-sm truncate"
+                              onDoubleClick={() => handleStartRename(opt)}
+                            >
+                              {opt.name}
+                            </div>
+                          )}
+                        </div>
 
-                        {/* Actions — only on hover (or always for active) */}
+                        {/* Hotels Count */}
                         <div
                           className={`flex items-center gap-0.5 transition-opacity ${
                             isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                           }`}
                         >
+                          <Hotel className="h-3.5 w-3.5" />
+                          {hotelCount}
+                        </div>
+
+                        {/* Total */}
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1260,8 +1369,7 @@ const Create_new_package = ({
                                 e.stopPropagation();
                                 handleRemoveOption(opt.id);
                               }}
-                              className="p-0.5 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
-                              aria-label="Remove option"
+                              className="p-1.5 hover:bg-red-50 rounded-lg  text-red-500 hover:text-red-700"
                             >
                               <Trash2 className="h-3 w-3" />
                             </button>
@@ -1272,7 +1380,6 @@ const Create_new_package = ({
                   })}
                 </div>
 
-                {/* Messages */}
                 {optionValidationError && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl flex gap-2">
                     <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -1291,11 +1398,11 @@ const Create_new_package = ({
 
             {/* ── 1. Date + Nights + State ── */}
             <Card className="border-slate-200 shadow-sm">
-              <CardContent className="p-2.5">
+              <CardContent className="p-3">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] flex items-center gap-1 font-medium text-slate-500 uppercase tracking-wide">
-                      <Calendar className="h-3 w-3 text-theme-primary" />
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center gap-1 font-medium">
+                      <Calendar className="h-3 w-3 text-theme-primary" />{" "}
                       Check-in
                     </Label>
                     <Input
@@ -1376,16 +1483,14 @@ const Create_new_package = ({
                         <Hotel className="h-5 w-5 text-slate-400" />
                       </div>
                       <p className="text-slate-500 text-xs">
-                        No hotels with rates found for the selected stay in{" "}
-                        {selectedState}.
+                        No hotels with rates found for the selected stay in {selectedState}.
                       </p>
                       <Button
                         onClick={() => setShowCustomHotelForm(true)}
                         className="bg-theme-primary hover:bg-theme-secondary"
                         size="sm"
                       >
-                        <PenLine className="h-3.5 w-3.5 mr-1.5" /> Add Custom
-                        Hotel
+                        <PenLine className="h-3.5 w-3.5 mr-1.5" /> Add Custom Hotel
                       </Button>
                     </div>
                   ) : (
@@ -1427,8 +1532,7 @@ const Create_new_package = ({
                                       <div className="flex items-center gap-1 mt-0.5">
                                         <Star className="h-2 w-2 fill-yellow-400 text-yellow-400" />
                                         <span className="text-[9px] text-slate-500">
-                                          {h.GoogleReviewRating || "N/A"} ·{" "}
-                                          {h.city}
+                                          {h.GoogleReviewRating || "N/A"} · {h.city}
                                         </span>
                                       </div>
                                     </div>
@@ -1445,9 +1549,7 @@ const Create_new_package = ({
                               className="text-xs h-7 border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5"
                             >
                               <PenLine className="h-3 w-3 mr-1" />
-                              {showCustomHotelForm
-                                ? "Hide Custom Form"
-                                : "Add Custom Hotel"}
+                              {showCustomHotelForm ? "Hide Custom Form" : "Add Custom Hotel"}
                             </Button>
                           </div>
                         </div>
@@ -1482,9 +1584,7 @@ const Create_new_package = ({
                                 className="bg-theme-primary hover:bg-theme-secondary text-xs h-8"
                                 size="sm"
                               >
-                                {editingIndex !== null
-                                  ? "✏️ Update Hotel"
-                                  : "💾 Save Hotel"}
+                                {editingIndex !== null ? "✏️ Update Hotel" : "💾 Save Hotel"}
                               </Button>
                               {isReadyToAddAnother && (
                                 <Button
@@ -1493,8 +1593,7 @@ const Create_new_package = ({
                                   onClick={handleAddAnotherHotel}
                                   className="text-xs h-8 border-theme-primary text-theme-primary hover:bg-theme-primary/5"
                                 >
-                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add
-                                  Another Hotel
+                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Another Hotel
                                 </Button>
                               )}
                             </div>
@@ -1540,8 +1639,7 @@ const Create_new_package = ({
                     <h3 className="text-sm font-bold text-slate-800">
                       {activeOption.name} — Hotels
                       <span className="ml-1.5 text-[11px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {hotelEntries.length} hotel
-                        {hotelEntries.length > 1 ? "s" : ""}
+                        {hotelEntries.length} hotel{hotelEntries.length > 1 ? "s" : ""}
                       </span>
                     </h3>
                   </div>
@@ -1570,9 +1668,7 @@ const Create_new_package = ({
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Car className="h-4 w-4 text-theme-primary" /> Transport
-                    <span className="text-[10px] font-normal text-slate-400">
-                      (shared)
-                    </span>
+                    <span className="text-[10px] font-normal text-slate-400">(shared)</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0 space-y-3">
@@ -1594,8 +1690,7 @@ const Create_new_package = ({
                       onEdit={() => setShowTransportSection(true)}
                     />
                   )}
-                  {!showTransportSection &&
-                  !selectedTransport?.selectedVehicle ? (
+                  {!showTransportSection && !selectedTransport?.selectedVehicle ? (
                     <Button
                       onClick={() => setShowTransportSection(true)}
                       className="w-full bg-theme-primary hover:bg-theme-secondary text-xs h-8"
@@ -1620,11 +1715,8 @@ const Create_new_package = ({
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Palmtree className="h-4 w-4 text-theme-primary" />{" "}
-                    Activities
-                    <span className="text-[10px] font-normal text-slate-400">
-                      (shared)
-                    </span>
+                    <Palmtree className="h-4 w-4 text-theme-primary" /> Activities
+                    <span className="text-[10px] font-normal text-slate-400">(shared)</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0 space-y-3">
@@ -1646,13 +1738,8 @@ const Create_new_package = ({
                   ) : showActivitiesSection ? (
                     <div className="space-y-2 mt-1">
                       <div className="space-y-1">
-                        <Label className="text-xs font-medium">
-                          State for Activities
-                        </Label>
-                        <Select
-                          value={selectedState}
-                          onValueChange={setSelectedState}
-                        >
+                        <Label className="text-xs font-medium">State for Activities</Label>
+                        <Select value={selectedState} onValueChange={setSelectedState}>
                           <SelectTrigger className="text-xs h-8">
                             <SelectValue placeholder="Select state" />
                           </SelectTrigger>
@@ -1679,8 +1766,7 @@ const Create_new_package = ({
                           onClick={() => setShowActivitiesSection(false)}
                           className="text-xs h-7 border-green-300 text-green-700 hover:bg-green-50"
                         >
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Done —
-                          Collapse
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Done — Collapse
                         </Button>
                       )}
                     </div>
@@ -1714,17 +1800,20 @@ const Create_new_package = ({
           {/* ══ RIGHT COLUMN — Sticky Pricing Panel ══════════════════════ */}
           {showRightPanel && (
             <div className="lg:w-80 xl:w-96 lg:min-w-[300px] lg:sticky lg:top-6 lg:self-start space-y-3 pt-4 lg:pt-0">
+
               {/* All Options Summary */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100">
                   <h3 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-theme-primary" />{" "}
-                    Package Options
+                    <Layers className="h-3.5 w-3.5 text-theme-primary" /> Package Options
                   </h3>
                 </div>
                 <div className="p-3 space-y-2">
                   {packageOptions.map((opt) => {
                     const optHotelTotal = getOptionHotelTotal(opt);
+                    const optMarkup = getOptionMarkup(opt);
+                    const optPreDiscount = getOptionPreDiscountTotal(opt);
+                    const optDiscount = resolveDiscountAmountForOption(opt);
                     const optGrandTotal = getOptionGrandTotal(opt);
                     const isActive = opt.id === activeOptionId;
                     return (
@@ -1743,37 +1832,40 @@ const Create_new_package = ({
                           >
                             {opt.name}
                           </span>
-                          <span className="text-xs font-black text-theme-primary">
-                            ₹
-                            {optGrandTotal.toLocaleString("en-IN", {
-                              maximumFractionDigits: 0,
-                            })}
-                          </span>
+                          <div className="text-right">
+                            {optDiscount > 0 && (
+                              <p className="text-[10px] text-slate-400 line-through leading-tight">
+                                ₹{optPreDiscount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                              </p>
+                            )}
+                            <span className="text-xs font-black text-theme-primary">
+                              ₹{optGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                            </span>
+                          </div>
                         </div>
                         {opt.hotelEntries.length > 0 ? (
                           <div className="space-y-0.5">
                             {opt.hotelEntries.map((h, i) => (
-                              <p
-                                key={i}
-                                className="text-[10px] text-slate-500 truncate"
-                              >
+                              <p key={i} className="text-[10px] text-slate-500 truncate">
                                 🏨 {h.hotel} · {h.city} · {h.nights}N
                               </p>
                             ))}
-                            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
-                              <span>
-                                Hotels: ₹{optHotelTotal.toLocaleString("en-IN")}
-                              </span>
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 flex-wrap">
+                              <span>Hotels: ₹{optHotelTotal.toLocaleString("en-IN")}</span>
                               {transportTotalPrice > 0 && (
-                                <span>
-                                  · Trans: ₹
-                                  {transportTotalPrice.toLocaleString("en-IN")}
-                                </span>
+                                <span>· Trans: ₹{transportTotalPrice.toLocaleString("en-IN")}</span>
                               )}
                               {activityTotalPrice > 0 && (
-                                <span>
-                                  · Act: ₹
-                                  {activityTotalPrice.toLocaleString("en-IN")}
+                                <span>· Act: ₹{activityTotalPrice.toLocaleString("en-IN")}</span>
+                              )}
+                              {optMarkup > 0 && (
+                                <span className="text-amber-500">
+                                  · Markup: +₹{Math.round(optMarkup).toLocaleString("en-IN")}
+                                </span>
+                              )}
+                              {optDiscount > 0 && (
+                                <span className="text-rose-400">
+                                  · Disc: −₹{optDiscount.toLocaleString("en-IN")}
                                 </span>
                               )}
                             </div>
@@ -1821,39 +1913,59 @@ const Create_new_package = ({
                       val: activityTotalPrice,
                     },
                   ].map(({ icon, bg, label, val }) => (
-                    <div
-                      key={label}
-                      className="flex items-center justify-between text-xs"
-                    >
+                    <div key={label} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5 text-slate-600">
-                        <div
-                          className={`w-5 h-5 rounded-md ${bg} flex items-center justify-center`}
-                        >
+                        <div className={`w-5 h-5 rounded-md ${bg} flex items-center justify-center`}>
                           {icon}
                         </div>
                         {label}
                       </div>
                       <span className="font-semibold">
-                        ₹
-                        {val.toLocaleString("en-IN", {
-                          maximumFractionDigits: 0,
-                        })}
+                        ₹{val.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                       </span>
                     </div>
                   ))}
-                  {confirmedMarkup > 0 && (
+
+                  {/* Markup row — always shows the active option's resolved markup */}
+                  {activeOptionMarkup > 0 && (
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5 text-slate-600">
                         <div className="w-5 h-5 rounded-md bg-amber-100 flex items-center justify-center">
                           <Wallet className="h-3 w-3 text-amber-600" />
                         </div>
                         Markup
+                        {markupType === "percentage" && (
+                          <span className="text-[10px] text-slate-400">({markupAmount}%)</span>
+                        )}
                       </div>
                       <span className="font-semibold text-amber-600">
-                        +₹
-                        {confirmedMarkup.toLocaleString("en-IN", {
-                          maximumFractionDigits: 0,
-                        })}
+                        +₹{Math.round(activeOptionMarkup).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Subtotal before discount */}
+                  {activeOptionDiscountAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs border-t border-slate-100 pt-1.5 mt-1">
+                      <span className="text-slate-500">Subtotal</span>
+                      <span className="font-semibold">
+                        ₹{activeOptionPreDiscountTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Discount row */}
+                  {activeOptionDiscountAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-rose-600 font-medium flex items-center gap-1">
+                        <BadgePercent className="h-3 w-3" />
+                        {appliedDiscount.type === "percentage"
+                          ? `${appliedDiscount.value}% discount`
+                          : "Fixed discount"}{" "}
+                        applied
+                      </span>
+                      <span className="font-bold text-rose-600">
+                        −₹{activeOptionDiscountAmount.toLocaleString("en-IN")}
                       </span>
                     </div>
                   )}
@@ -1864,8 +1976,12 @@ const Create_new_package = ({
               <Card className="shadow-sm border-slate-200">
                 <CardContent className="p-3">
                   <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
-                    <Wallet className="h-3.5 w-3.5 text-theme-primary" /> Add
-                    Markup
+                    <Wallet className="h-3.5 w-3.5 text-theme-primary" /> Add Markup
+                    {markupType === "percentage" && (
+                      <span className="ml-auto text-[10px] font-normal text-slate-400">
+                        Applied per-option
+                      </span>
+                    )}
                   </p>
                   <div className="flex gap-1.5">
                     <Input
@@ -1892,16 +2008,83 @@ const Create_new_package = ({
                       Apply
                     </Button>
                   </div>
-                  {confirmedMarkup > 0 && (
+                  {activeOptionMarkup > 0 && (
                     <p className="mt-1.5 text-xs text-slate-500">
-                      Applied:{" "}
+                      {activeOption.name} markup:{" "}
                       <span className="font-bold text-theme-dark">
-                        ₹
-                        {confirmedMarkup.toLocaleString("en-IN", {
-                          maximumFractionDigits: 0,
-                        })}
+                        ₹{Math.round(activeOptionMarkup).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                       </span>
                     </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Discount */}
+              <Card className="shadow-sm border-rose-100">
+                <CardContent className="p-3">
+                  <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
+                    <Tag className="h-3.5 w-3.5 text-rose-500" /> Apply Discount
+                  </p>
+                  <div className="flex gap-1.5">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(Number(e.target.value))}
+                      className="flex-1 text-xs h-8"
+                      placeholder="0"
+                    />
+                    <Select value={discountType} onValueChange={setDiscountType}>
+                      <SelectTrigger className="w-28 text-xs h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Fixed (₹)</SelectItem>
+                        <SelectItem value="percentage">Percent (%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={handleApplyDiscount}
+                      size="sm"
+                      className="bg-rose-500 hover:bg-rose-600 h-8 px-3 text-xs text-white"
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                  <Input
+                    value={discountNotes}
+                    onChange={(e) => setDiscountNotes(e.target.value)}
+                    placeholder="Note (e.g. Festive Offer, Repeat Customer)"
+                    className="mt-1.5 text-xs h-8"
+                  />
+                  {activeOptionDiscountAmount > 0 && (
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className="text-rose-600 font-medium flex items-center gap-1">
+                        <BadgePercent className="h-3 w-3" />
+                        {appliedDiscount.type === "percentage"
+                          ? `${appliedDiscount.value}% discount`
+                          : "Fixed discount"}{" "}
+                        applied
+                      </span>
+                      <span className="font-bold text-rose-600">
+                        −₹{activeOptionDiscountAmount.toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  )}
+                  {appliedDiscount.notes && (
+                    <p className="mt-1 text-[10px] text-slate-400 italic">
+                      "{appliedDiscount.notes}"
+                    </p>
+                  )}
+                  {appliedDiscount.value > 0 && (
+                    <button
+                      onClick={() =>
+                        setAppliedDiscount({ type: "fixed", value: 0, notes: "", amount: 0 })
+                      }
+                      className="mt-1.5 text-[10px] text-rose-400 hover:text-rose-600 underline"
+                    >
+                      Remove discount
+                    </button>
                   )}
                 </CardContent>
               </Card>
@@ -1916,20 +2099,33 @@ const Create_new_package = ({
                     </div>
                     {hotelEntries.length > 0 && (
                       <p className="text-[10px] text-white/50">
-                        {hotelEntries.reduce(
-                          (s, e) => s + (parseInt(e.nights) || 0),
-                          0,
-                        )}
-                        N · {hotelEntries[0]?.numDouble || 0} room
+                        {hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0)}N ·{" "}
+                        {hotelEntries[0]?.numDouble || 0} room
                         {(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
+                  {activeOptionDiscountAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs text-white/50 mb-1">
+                      <span>Original</span>
+                      <span className="line-through">
+                        ₹{activeOptionPreDiscountTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  )}
+                  {activeOptionDiscountAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs text-rose-300 mb-1">
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        {appliedDiscount.notes || "Discount"}
+                      </span>
+                      <span>
+                        −₹{activeOptionDiscountAmount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  )}
                   <p className="text-4xl font-black tracking-tight mb-4">
-                    ₹
-                    {grandTotal.toLocaleString("en-IN", {
-                      maximumFractionDigits: 0,
-                    })}
+                    ₹{grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                   </p>
                   <Button
                     onClick={() => setShowSaveModal(true)}
@@ -2012,23 +2208,30 @@ const Create_new_package = ({
                 </p>
                 {packageOptions.map((opt) => {
                   const optGrandTotal = getOptionGrandTotal(opt);
+                  const optDiscount = resolveDiscountAmountForOption(opt);
                   return (
                     <div
                       key={opt.id}
                       className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0"
                     >
                       <div>
-                        <span className="font-semibold text-slate-700">
-                          {opt.name}
-                        </span>
+                        <span className="font-semibold text-slate-700">{opt.name}</span>
                         <span className="ml-1.5 text-[10px] text-slate-400">
-                          {opt.hotelEntries.length} hotel
-                          {opt.hotelEntries.length !== 1 ? "s" : ""}
+                          {opt.hotelEntries.length} hotel{opt.hotelEntries.length !== 1 ? "s" : ""}
                         </span>
                       </div>
-                      <span className="font-bold text-theme-primary">
-                        ₹{optGrandTotal.toLocaleString("en-IN")}
-                      </span>
+                      <div className="text-right">
+                        <span className="font-bold text-theme-primary">
+                          ₹{optGrandTotal.toLocaleString("en-IN")}
+                        </span>
+                        {optDiscount > 0 && (
+                          <div className="text-[10px] text-rose-500 flex items-center justify-end gap-1 mt-0.5">
+                            <Tag className="h-2.5 w-2.5" />
+                            −₹{optDiscount.toLocaleString("en-IN")}
+                            {appliedDiscount.notes && ` · ${appliedDiscount.notes}`}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -2047,10 +2250,7 @@ const Create_new_package = ({
                   <div>
                     <p>There are hotel gaps in this quotation.</p>
                     {optionsWithHotelGaps.map((opt) => (
-                      <p
-                        key={opt.id}
-                        className="mt-1 text-[10px] text-amber-700/90"
-                      >
+                      <p key={opt.id} className="mt-1 text-[10px] text-amber-700/90">
                         {opt.name}: {formatGapLabels(opt.hotelGaps)}
                       </p>
                     ))}
@@ -2067,7 +2267,8 @@ const Create_new_package = ({
                   className="h-8 text-xs"
                 />
               </div>
-              {/* Customer field: disabled if URL has customerId, searchable otherwise */}
+
+              {/* Customer field */}
               {customerId ? (
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Customer Name *</Label>
@@ -2076,9 +2277,7 @@ const Create_new_package = ({
                     disabled
                     className="h-8 text-xs bg-slate-100 cursor-not-allowed"
                   />
-                  <p className="text-[10px] text-slate-400">
-                    ✓ Auto-filled from customer record
-                  </p>
+                  <p className="text-[10px] text-slate-400">✓ Auto-filled from customer record</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -2123,14 +2322,14 @@ const Create_new_package = ({
                         }}
                         onBlur={() =>
                           setTimeout(() => setShowCustomerDropdown(false), 200)
-                        } // Allow click on dropdown items
+                        }
                         placeholder="Search by name or mobile..."
                         className="h-8 text-xs pl-8"
                       />
                       {showCustomerDropdown && (
                         <div
                           className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl z-20 overflow-hidden mt-1 max-h-48"
-                          style={{ maxHeight: "192px" }} // Ensure consistent max height
+                          style={{ maxHeight: "192px" }}
                         >
                           <div className="overflow-y-auto max-h-40">
                             {customerSuggestions.length > 0 ? (
@@ -2139,10 +2338,7 @@ const Create_new_package = ({
                                   <li
                                     key={c.id}
                                     onMouseDown={() => {
-                                      setSelectedCustomerLink({
-                                        id: c.id,
-                                        name: c.name,
-                                      });
+                                      setSelectedCustomerLink({ id: c.id, name: c.name });
                                       setCustomerName(c.name);
                                       setCustomerSearchText("");
                                       setShowCustomerDropdown(false);
@@ -2154,9 +2350,7 @@ const Create_new_package = ({
                                         {c.name}
                                       </p>
                                       {c.mobile && (
-                                        <p className="text-[10px] text-slate-400">
-                                          {c.mobile}
-                                        </p>
+                                        <p className="text-[10px] text-slate-400">{c.mobile}</p>
                                       )}
                                     </div>
                                     {c.city && (
@@ -2185,8 +2379,7 @@ const Create_new_package = ({
                               }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-theme-primary hover:bg-theme-muted/30 border-t border-slate-100 font-medium"
                             >
-                              <UserPlus className="h-3 w-3" /> Create new
-                              customer
+                              <UserPlus className="h-3 w-3" /> Create new customer
                             </button>
                           </div>
                         </div>
@@ -2195,12 +2388,10 @@ const Create_new_package = ({
                   )}
                   {leadId && !selectedCustomerLink && (
                     <p className="text-[10px] text-slate-400">
-                      ✓ Name auto-filled from lead. Optionally link to a
-                      customer.
+                      ✓ Name auto-filled from lead. Optionally link to a customer.
                     </p>
                   )}
 
-                  {/* Inline create customer form */}
                   {showInlineCreateCustomer && (
                     <div className="border border-theme-primary/30 rounded-lg p-3 space-y-2 bg-slate-50 mt-1">
                       <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
@@ -2209,10 +2400,7 @@ const Create_new_package = ({
                       <Input
                         value={newCustomerDraft.name}
                         onChange={(e) =>
-                          setNewCustomerDraft((p) => ({
-                            ...p,
-                            name: e.target.value,
-                          }))
+                          setNewCustomerDraft((p) => ({ ...p, name: e.target.value }))
                         }
                         placeholder="Full name *"
                         className="h-7 text-xs"
@@ -2220,10 +2408,7 @@ const Create_new_package = ({
                       <Input
                         value={newCustomerDraft.mobile}
                         onChange={(e) =>
-                          setNewCustomerDraft((p) => ({
-                            ...p,
-                            mobile: e.target.value,
-                          }))
+                          setNewCustomerDraft((p) => ({ ...p, mobile: e.target.value }))
                         }
                         placeholder="Mobile"
                         className="h-7 text-xs"
@@ -2231,10 +2416,7 @@ const Create_new_package = ({
                       <Input
                         value={newCustomerDraft.email}
                         onChange={(e) =>
-                          setNewCustomerDraft((p) => ({
-                            ...p,
-                            email: e.target.value,
-                          }))
+                          setNewCustomerDraft((p) => ({ ...p, email: e.target.value }))
                         }
                         placeholder="Email"
                         className="h-7 text-xs"
@@ -2247,23 +2429,14 @@ const Create_new_package = ({
                           onClick={async () => {
                             if (!newCustomerDraft.name.trim()) return;
                             try {
-                              const ref = await addDoc(
-                                collection(db, "customers"),
-                                {
-                                  ...newCustomerDraft,
-                                  status: "New",
-                                  date: new Date().toLocaleDateString(),
-                                },
-                              );
-                              const newCust = {
-                                id: ref.id,
+                              const ref = await addDoc(collection(db, "customers"), {
                                 ...newCustomerDraft,
-                              };
-                              setCustomers((prev) => [...prev, newCust]);
-                              setSelectedCustomerLink({
-                                id: ref.id,
-                                name: newCustomerDraft.name,
+                                status: "New",
+                                date: new Date().toLocaleDateString(),
                               });
+                              const newCust = { id: ref.id, ...newCustomerDraft };
+                              setCustomers((prev) => [...prev, newCust]);
+                              setSelectedCustomerLink({ id: ref.id, name: newCustomerDraft.name });
                               setCustomerName(newCustomerDraft.name);
                               setShowInlineCreateCustomer(false);
                               toast.success("Customer created and linked");
@@ -2289,45 +2462,29 @@ const Create_new_package = ({
                 </div>
               )}
 
-              {/* Lead selector — only shown in edit/clone mode */}
+              {/* Lead selector — edit/clone mode only */}
               {isEditMode && (
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">
                     Link to Lead{" "}
-                    <span className="text-slate-400 font-normal">
-                      (optional)
-                    </span>
+                    <span className="text-slate-400 font-normal">(optional)</span>
                   </Label>
                   <Select
-  value={saveAsLeadId || "none"}
-  onValueChange={(v) => {
-    const selectedLeadId = v === "none" ? "" : v;
-
-    setSaveAsLeadId(selectedLeadId);
-
-    if (!selectedLeadId) return;
-
-    const selectedLead = agentLeads.find(
-      (lead) => lead.id === selectedLeadId
-    );
-
-    if (selectedLead) {
-  setCustomerName(
-    selectedLead.customerName ||
-    selectedLead.name ||
-    ""
-  );
-}
-  }}
-  disabled={isLoadingLeads}
->
+                    value={saveAsLeadId || "none"}
+                    onValueChange={(v) => {
+                      const selectedLeadId = v === "none" ? "" : v;
+                      setSaveAsLeadId(selectedLeadId);
+                      if (!selectedLeadId) return;
+                      const selectedLead = agentLeads.find((lead) => lead.id === selectedLeadId);
+                      if (selectedLead) {
+                        setCustomerName(selectedLead.customerName || selectedLead.name || "");
+                      }
+                    }}
+                    disabled={isLoadingLeads}
+                  >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue
-                        placeholder={
-                          isLoadingLeads
-                            ? "Loading leads..."
-                            : "Select a lead..."
-                        }
+                        placeholder={isLoadingLeads ? "Loading leads..." : "Select a lead..."}
                       />
                     </SelectTrigger>
                     <SelectContent>

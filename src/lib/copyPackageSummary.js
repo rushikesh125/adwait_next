@@ -102,6 +102,7 @@ const buildOptionBlock = (
   activityTotal = 0,
   optionMarkup = 0,
   isMultiOption = true,
+  appliedDiscount = null,
 ) => {
   const hotelEntries = option.hotelEntries || [];
   if (hotelEntries.length === 0) {
@@ -151,12 +152,32 @@ const buildOptionBlock = (
   });
 
   // Grand total per option — no individual cost breakdown shown
-  s += `*TOTAL TOUR COST: ₹${grandTotal.toLocaleString("en-IN")}/-*\n`;
+  const preDiscountTotal = calcOptionGrandTotal(
+    option,
+    transportTotal,
+    activityTotal,
+    optionMarkup,
+  );
+  const discountAmount = (() => {
+    if (!appliedDiscount?.value || appliedDiscount.value <= 0) return 0;
+    if (appliedDiscount.type === "percentage") {
+      return Math.round((appliedDiscount.value / 100) * preDiscountTotal);
+    }
+    return Math.min(Number(appliedDiscount.value), preDiscountTotal);
+  })();
+  const finalTotal = preDiscountTotal - discountAmount;
 
+  if (discountAmount > 0) {
+    s += `Package Cost: ₹${preDiscountTotal.toLocaleString("en-IN")}/-\n`;
+    s += `Special Discount${appliedDiscount.notes ? ` (${appliedDiscount.notes})` : ""}: −₹${discountAmount.toLocaleString("en-IN")}/-\n`;
+    s += `*Final Package Cost: ₹${finalTotal.toLocaleString("en-IN")}/-*\n`;
+  } else {
+    s += `*TOTAL TOUR COST: ₹${preDiscountTotal.toLocaleString("en-IN")}/-*\n`;
+  }
   return s;
 };
 
-// ─── Summary Builder 
+// ─── Summary Builder
 export const buildPackageSummary = ({
   packageOptions,
   selectedTransport,
@@ -167,7 +188,7 @@ export const buildPackageSummary = ({
   markupType = "lumpsum",
   markupAmount = 0,
   hotels = [],
-  // Legacy single-option compat
+  appliedDiscount = null,
   hotelEntries: legacyHotelEntries,
 }) => {
   const options = packageOptions?.length
@@ -211,6 +232,7 @@ export const buildPackageSummary = ({
       activityTotalPrice,
       optionMarkup,
       isMultiOption,
+      appliedDiscount,
     );
     s += `\n`;
   }
@@ -282,7 +304,8 @@ export const buildQuotationSummaryPayload = (quotation = {}, hotels = []) => {
     : null;
 
   const selectedActivities = quotation.activitySummary || [];
-  const transportTotalPrice = quotation.transportSummary?.totalTransportCost || 0;
+  const transportTotalPrice =
+    quotation.transportSummary?.totalTransportCost || 0;
   const activityTotalPrice = selectedActivities.reduce(
     (sum, activity) => sum + (activity.totalPrice || 0),
     0,
@@ -301,6 +324,12 @@ export const buildQuotationSummaryPayload = (quotation = {}, hotels = []) => {
     markupType,
     markupAmount,
     hotels,
+    appliedDiscount: quotation.discount ?? {   // ← add this
+    type: "fixed",
+    value: 0,
+    notes: "",
+    amount: 0,
+  },
   };
 };
 

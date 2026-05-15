@@ -22,6 +22,7 @@ import {
   RefreshCw,
   ChevronDown,
   Sparkles,
+  Search,
 } from "lucide-react";
 import {
   collection,
@@ -52,6 +53,10 @@ import {
   ChecklistSection,
   MultiStateDropdown,
 } from "./../ItinerarySubComponents";
+import { ImageSearchPanel } from "../ImageSearchPanel";
+
+// NEW: Image Search Panel
+// import { ImageSearchPanel } from "./ImageSearchPanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -68,7 +73,7 @@ async function getAuthHeaders() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Default checklist data
+// Default checklist data (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_INCLUSIONS = [
   "Hotel to Airport transfer on the day of departure.",
@@ -117,7 +122,7 @@ const SECTIONS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AIChatPopup — floating popup with chat history + prompt input
+// AIChatPopup (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 function AIChatPopup({
   open,
@@ -128,7 +133,7 @@ function AIChatPopup({
   onGenerate,
   onRefine,
   hasGenerated,
-  canGenerate, // true when required fields are filled
+  canGenerate,
 }) {
   const [prompt, setPrompt] = useState("");
   const bottomRef = useRef(null);
@@ -157,14 +162,10 @@ function AIChatPopup({
 
   return (
     <>
-      {/* Backdrop */}
-
-      {/* Popup panel */}
       <div
         className="fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
         style={{ maxHeight: "calc(100vh - 5rem)" }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
@@ -195,7 +196,6 @@ function AIChatPopup({
           </button>
         </div>
 
-        {/* Chat area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
           {chatHistory.length === 0 && !isGenerating && (
             <div className="text-center py-6 space-y-3">
@@ -270,10 +270,8 @@ function AIChatPopup({
           <div ref={bottomRef} />
         </div>
 
-        {/* Input area */}
         <div className="p-3 border-t border-slate-100 bg-slate-50/80 flex-shrink-0 space-y-2">
           {!hasGenerated ? (
-            // Initial generate button
             <Button
               type="button"
               onClick={onGenerate}
@@ -311,7 +309,6 @@ function AIChatPopup({
               )}
             </Button>
           ) : (
-            // Refinement input
             <>
               <div className="flex items-center gap-1.5 mb-1">
                 <MessageSquare className="w-3 h-3 text-slate-400" />
@@ -375,14 +372,15 @@ export default function ItineraryForm() {
   const [cityInput, setCityInput] = useState("");
   const { user } = useSelector((state) => state.auth);
   const isValidCityName = (value) => /^[A-Za-z\s]+$/.test(value.trim());
-  // ── Form state ─────────────────────────────────────────────────────────────
+
+  // ── Form state (unchanged) ─────────────────────────────────────────────────
   const [form, setForm] = useState({
     title: "",
-    states: [], // multi-select (was single `state`)
+    states: [],
     cities: [],
-    startCity: "", // NEW: first destination city
-    endCity: "", // NEW: last destination city
-    numDays: "", // NEW: number of trip days
+    startCity: "",
+    endCity: "",
+    numDays: "",
     tags: [],
     isActive: true,
     version: 0,
@@ -416,7 +414,7 @@ export default function ItineraryForm() {
     DEFAULT_IMP_INFO.map((i) => ({ ...i, id: mkId() })),
   );
 
-  // ── AI state ───────────────────────────────────────────────────────────────
+  // ── AI state (unchanged) ───────────────────────────────────────────────────
   const [chatPopupOpen, setChatPopupOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -424,17 +422,19 @@ export default function ItineraryForm() {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [canUseAI, setCanUseAI] = useState(false);
 
-  // Check AI permission
+  // ── NEW: Image Search Panel State ──────────────────────────────────────────
+  const [imageSearchOpen, setImageSearchOpen] = useState(false);
+  const [imageSearchContext, setImageSearchContext] = useState(null); // { type: 'poster' | 'day', dayIdx?: number }
+
+  // Check AI permission (unchanged)
   useEffect(() => {
     if (!user?.uid) return;
-    // Optimistically check — parent or API will enforce
-    setCanUseAI(true); // Set based on your agentPermissions logic if needed client-side
+    setCanUseAI(true);
   }, [user?.uid]);
 
-  // ── Can generate? requires key fields ─────────────────────────────────────
   const canGenerate = true;
 
-  // ── Load states ─────────────────────────────────────────────────────────
+  // ── Load states (unchanged) ────────────────────────────────────────────────
   useEffect(() => {
     const fetchStates = async () => {
       try {
@@ -450,7 +450,7 @@ export default function ItineraryForm() {
     fetchStates();
   }, []);
 
-  // ── Load existing itinerary for edit ────────────────────────────────────
+  // ── Load existing itinerary (unchanged) ────────────────────────────────────
   useEffect(() => {
     if (!itineraryId) return;
     const loadData = async () => {
@@ -460,7 +460,6 @@ export default function ItineraryForm() {
           const data = snap.data();
           setForm({
             title: data.title || "",
-            // Support both legacy single `state` and new multi `states`
             states: data.states || (data.state ? [data.state] : []),
             cities: data.cities || [],
             startCity: data.startCity || "",
@@ -494,7 +493,7 @@ export default function ItineraryForm() {
     loadData();
   }, [itineraryId]);
 
-  // ── Load activities when states change ──────────────────────────────────
+  // ── Load activities (unchanged) ────────────────────────────────────────────
   useEffect(() => {
     if (form.states.length === 0) {
       setAvailableActivities([]);
@@ -502,7 +501,6 @@ export default function ItineraryForm() {
     }
     const fetchActivities = async () => {
       try {
-        // Fetch activities for all selected states
         const snaps = await Promise.all(
           form.states.map((s) =>
             getDocs(
@@ -528,7 +526,7 @@ export default function ItineraryForm() {
     fetchActivities();
   }, [form.states]);
 
-  // ── Checklist helpers ──────────────────────────────────────────────────
+  // ── Checklist helpers (unchanged) ──────────────────────────────────────────
   const makeHandlers = (setter) => ({
     toggle: (id) =>
       setter((prev) =>
@@ -550,62 +548,32 @@ export default function ItineraryForm() {
   const canH = makeHandlers(setCancellation);
   const impH = makeHandlers(setImpInfo);
 
-  // ── City tag input ─────────────────────────────────────────────────────
-  // const handleAddCity = (e) => {
-  //   if (e.key === "Enter" && cityInput.trim()) {
-  //     e.preventDefault();
-
-  //     const value = cityInput.trim();
-
-  //     if (!isValidCityName(value)) {
-  //       toast.error("City name should only contain letters and spaces.");
-  //       return;
-  //     }
-
-  //     if (!form.cities.includes(value)) {
-  //       setForm((prev) => ({
-  //         ...prev,
-  //         cities: [...prev.cities, value],
-  //       }));
-  //     }
-
-  //     setCityInput("");
-  //   }
-  // };
+  // ── City handlers (unchanged) ──────────────────────────────────────────────
   const handleAddCity = (e) => {
-  // Block numbers and special characters on keypress
-  // if (/[^A-Za-z\s]/.test(e.key) && e.key.length === 1) {
-  //   e.preventDefault();
-  //   return;
-  // }
-
-  if (e.key === "Enter" && cityInput.trim()) {
-    e.preventDefault();
-
-    const value = cityInput.trim();
-
-    if (!isValidCityName(value)) {
-      toast.error("City name should only contain letters and spaces.");
-      return;
+    if (e.key === "Enter" && cityInput.trim()) {
+      e.preventDefault();
+      const value = cityInput.trim();
+      if (!isValidCityName(value)) {
+        toast.error("City name should only contain letters and spaces.");
+        return;
+      }
+      if (!form.cities.includes(value)) {
+        setForm((prev) => ({
+          ...prev,
+          cities: [...prev.cities, value],
+        }));
+      }
+      setCityInput("");
     }
+  };
 
-    if (!form.cities.includes(value)) {
-      setForm((prev) => ({
-        ...prev,
-        cities: [...prev.cities, value],
-      }));
-    }
-
-    setCityInput("");
-  }
-};
   const removeCity = (city) =>
     setForm((prev) => ({
       ...prev,
       cities: prev.cities.filter((c) => c !== city),
     }));
 
-  // ── Day handlers ───────────────────────────────────────────────────────
+  // ── Day handlers (unchanged except image updates) ──────────────────────────
   const handleAddDay = () =>
     setDays((prev) => [
       ...prev,
@@ -656,7 +624,25 @@ export default function ItineraryForm() {
       return updated;
     });
 
-  // ── AI: Apply response — ONLY title + days ─────────────────────────────
+  // ── NEW: Open Image Search ─────────────────────────────────────────────────
+  const openImageSearch = (context) => {
+    setImageSearchContext(context);
+    setImageSearchOpen(true);
+  };
+
+  const handleImageSearchSelect = (selectedUrls) => {
+    if (imageSearchContext?.type === "poster") {
+      setForm((prev) => ({ ...prev, posterImage: selectedUrls[0] || null }));
+    } else if (imageSearchContext?.type === "day" && typeof imageSearchContext.dayIdx === "number") {
+      const currentDayImages = days[imageSearchContext.dayIdx]?.images || [];
+      const combined = [...currentDayImages, ...selectedUrls].slice(0, 2); // respect max 2
+      updateDayImages(imageSearchContext.dayIdx, combined);
+    }
+    setImageSearchOpen(false);
+    setImageSearchContext(null);
+  };
+
+  // ── AI handlers (unchanged) ────────────────────────────────────────────────
   const applyAIResponse = (data) => {
     setForm((prev) => ({
       ...prev,
@@ -689,7 +675,6 @@ export default function ItineraryForm() {
     }
   };
 
-  // ── AI: Initial generation ─────────────────────────────────────────────
   const handleGenerateWithAI = async () => {
     setIsGenerating(true);
     setAiError(null);
@@ -745,7 +730,6 @@ export default function ItineraryForm() {
     }
   };
 
-  // ── AI: Refinement ─────────────────────────────────────────────────────
   const handleRefine = async (userPrompt) => {
     if (!userPrompt.trim() || isGenerating) return;
 
@@ -784,7 +768,6 @@ export default function ItineraryForm() {
         try {
           const errBody = await res.json();
           errMsg = errBody?.error || errMsg;
-          if (errBody?.details) errMsg += ` — ${errBody.details}`;
         } catch {}
         throw new Error(errMsg);
       }
@@ -796,11 +779,7 @@ export default function ItineraryForm() {
         ...prev,
         {
           role: "assistant",
-          content: `Done! Updated the itinerary based on your request.${
-            data.days?.length
-              ? ` The plan now has ${data.days.length} days.`
-              : ""
-          }`,
+          content: `Done! Updated the itinerary based on your request.${data.days?.length ? ` The plan now has ${data.days.length} days.` : ""}`,
         },
       ]);
     } catch (err) {
@@ -817,7 +796,7 @@ export default function ItineraryForm() {
     }
   };
 
-  // ── Save ───────────────────────────────────────────────────────────────
+  // ── Save (unchanged) ───────────────────────────────────────────────────────
   const handleSave = async (isDraft = false) => {
     if (!form.title || form.states.length === 0 || form.cities.length === 0)
       return toast.error(
@@ -833,11 +812,9 @@ export default function ItineraryForm() {
     if (!isValidCityName(form.startCity)) {
       return toast.error("Starting city must contain only letters.");
     }
-
     if (!isValidCityName(form.endCity)) {
       return toast.error("Ending city must contain only letters.");
     }
-
     if (form.cities.some((city) => !isValidCityName(city))) {
       return toast.error("All cities must contain only letters.");
     }
@@ -845,7 +822,6 @@ export default function ItineraryForm() {
     const payload = {
       title: form.title,
       states: form.states,
-      // Keep legacy `state` field as first state for backward compatibility
       state: form.states[0] || "",
       cities: form.cities,
       startCity: form.startCity,
@@ -893,7 +869,7 @@ export default function ItineraryForm() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      {/* ── Sticky Header ─────────────────────────────────────────────────── */}
+      {/* Sticky Header (unchanged) */}
       <header className="sticky top-0 z-20 bg-white border-b px-6 py-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -904,7 +880,6 @@ export default function ItineraryForm() {
           </h1>
         </div>
         <div className="flex gap-2 items-center">
-          {/* AI Trigger Button */}
           <Button
             type="button"
             onClick={() => setChatPopupOpen(true)}
@@ -932,7 +907,7 @@ export default function ItineraryForm() {
         </div>
       </header>
 
-      {/* ── Section Tabs ───────────────────────────────────────────────────── */}
+      {/* Section Tabs (unchanged) */}
       <div className="sticky top-[73px] z-10 bg-white border-b shadow-sm">
         <div className="max-w-5xl mx-auto px-4 flex gap-1 py-2 overflow-x-auto">
           {SECTIONS.map(({ id, label, icon: Icon }) => (
@@ -954,9 +929,7 @@ export default function ItineraryForm() {
       </div>
 
       <main className="max-w-5xl mx-auto mt-6 px-4 space-y-6">
-        {/* ══════════════════════════════════════
-            SECTION 1 – ITINERARY & DAYS
-        ══════════════════════════════════════ */}
+        {/* ITINERARY SECTION */}
         {activeSection === "itinerary" && (
           <>
             {/* Header Info */}
@@ -967,7 +940,7 @@ export default function ItineraryForm() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Title */}
+                {/* Title, States, Cities, Start/End, NumDays (unchanged) */}
                 <div className="space-y-1">
                   <Label>Itinerary Title *</Label>
                   <Input
@@ -979,7 +952,6 @@ export default function ItineraryForm() {
                   />
                 </div>
 
-                {/* States (multi-select) */}
                 <div className="space-y-1.5">
                   <Label>Base State(s) *</Label>
                   <MultiStateDropdown
@@ -991,7 +963,6 @@ export default function ItineraryForm() {
                   />
                 </div>
 
-                {/* Cities */}
                 <div className="space-y-2">
                   <Label>Cities Covered (type and press Enter) *</Label>
                   <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-white min-h-[45px] focus-within:ring-1 focus-within:ring-blue-500">
@@ -1010,45 +981,31 @@ export default function ItineraryForm() {
                         </button>
                       </Badge>
                     ))}
-                    {/* <input
+                    <input
                       className="flex-1 outline-none text-sm min-w-[120px]"
                       value={cityInput}
-                    onChange={(e) => {
-                        const value = e.target.value;
-
-                        // Allow only letters and spaces
-                         if (/^[A-Za-z\s]*$/.test(value)) {
-                          setCityInput(value);
+                      onChange={(e) => {
+                        const filtered = e.target.value.replace(/[^A-Za-z\s]/g, "");
+                        setCityInput(filtered);
+                      }}
+                      onKeyDown={(e) => {
+                        if (/[^A-Za-z\s]/.test(e.key) && e.key.length === 1) {
+                          e.preventDefault();
+                          return;
                         }
-                      }}                      onKeyDown={handleAddCity}
+                        handleAddCity(e);
+                      }}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData("text");
+                        const filtered = pasted.replace(/[^A-Za-z\s]/g, "");
+                        setCityInput((prev) => (prev + filtered).trimStart());
+                      }}
                       placeholder="Add city..."
-                    /> */}
-                 <input
-  className="flex-1 outline-none text-sm min-w-[120px]"
-  value={cityInput}
-  onChange={(e) => {
-    const filtered = e.target.value.replace(/[^A-Za-z\s]/g, "");
-    setCityInput(filtered);
-  }}
-  onKeyDown={(e) => {
-    if (/[^A-Za-z\s]/.test(e.key) && e.key.length === 1) {
-      e.preventDefault();
-      return;
-    }
-    handleAddCity(e);
-  }}
-  onPaste={(e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text");
-    const filtered = pasted.replace(/[^A-Za-z\s]/g, "");
-    setCityInput((prev) => (prev + filtered).trimStart());
-  }}
-  placeholder="Add city..."
-/>
+                    />
                   </div>
                 </div>
 
-                {/* Start City + End City */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label>Starting City *</Label>
@@ -1056,8 +1013,6 @@ export default function ItineraryForm() {
                       value={form.startCity}
                       onChange={(e) => {
                         const value = e.target.value;
-
-                        // Allow only valid characters while typing
                         if (/^[A-Za-z\s]*$/.test(value)) {
                           setForm({ ...form, startCity: value });
                         }
@@ -1074,7 +1029,6 @@ export default function ItineraryForm() {
                       value={form.endCity}
                       onChange={(e) => {
                         const value = e.target.value;
-
                         if (/^[A-Za-z\s]*$/.test(value)) {
                           setForm({ ...form, endCity: value });
                         }
@@ -1087,7 +1041,6 @@ export default function ItineraryForm() {
                   </div>
                 </div>
 
-                {/* Number of Days */}
                 <div className="space-y-1 max-w-xs">
                   <Label>Number of Trip Days *</Label>
                   <Input
@@ -1105,54 +1058,24 @@ export default function ItineraryForm() {
                   </p>
                 </div>
 
-                {/* AI hint banner */}
-                {canGenerate && !hasGenerated && (
-                  <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
-                    <Sparkles className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-blue-700">
-                        Ready to generate with AI
-                      </p>
-                      <p className="text-xs text-blue-500">
-                        Click "AI Generate" in the header to auto-fill the day
-                        program.
-                      </p>
-                    </div>
+                {/* Poster Image with Search Button */}
+                <div className="space-y-1.5 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                      <ImageIcon className="w-4 h-4 text-blue-500" />
+                      Poster / Cover Image
+                    </Label>
                     <Button
                       type="button"
+                      variant="outline"
                       size="sm"
-                      onClick={() => setChatPopupOpen(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 flex-shrink-0"
+                      onClick={() => openImageSearch({ type: "poster" })}
+                      className="flex items-center gap-1.5 text-xs"
                     >
-                      <Sparkles className="w-3.5 h-3.5 mr-1" />
-                      Generate
+                      <Search className="w-3.5 h-3.5" />
+                      Search Images
                     </Button>
                   </div>
-                )}
-
-                {hasGenerated && (
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 rounded-xl">
-                    <span className="text-green-600 text-sm">✓</span>
-                    <p className="text-xs text-green-700 font-medium">
-                      AI-generated itinerary applied. Review the days below and
-                      edit as needed.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setChatPopupOpen(true)}
-                      className="ml-auto text-xs text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Refine
-                    </button>
-                  </div>
-                )}
-
-                {/* Poster Image */}
-                <div className="space-y-1.5 pt-2 border-t">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-                    <ImageIcon className="w-4 h-4 text-blue-500" />
-                    Poster / Cover Image
-                  </Label>
                   <p className="text-xs text-slate-400">
                     Main image shown at the top of the itinerary.
                   </p>
@@ -1177,12 +1100,6 @@ export default function ItineraryForm() {
                 <h2 className="text-lg font-bold text-slate-800">
                   Step 2: Day Program
                 </h2>
-                {!canGenerate && (
-                  <p className="text-xs text-slate-400">
-                    Fill in States, Cities, Start/End city and Days to enable AI
-                    generation
-                  </p>
-                )}
               </div>
 
               {days.map((day, idx) => (
@@ -1222,15 +1139,34 @@ export default function ItineraryForm() {
                       className="min-h-[100px]"
                     />
 
-                    {/* Day Images */}
+                    {/* Day Images with Search Button */}
                     <div className="space-y-2 border-t pt-3">
-                      <Label className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        Day Photos
-                        <span className="ml-auto text-[10px] text-slate-400 font-normal">
-                          {(day.images || []).length} / 2 uploaded
-                        </span>
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          Day Photos
+                          <span className="ml-auto text-[10px] text-slate-400 font-normal">
+                            {(day.images || []).length} / 2
+                          </span>
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            openImageSearch({
+                              type: "day",
+                              dayIdx: idx,
+                              dayTitle: day.title,
+                              dayDescription: day.description,
+                            })
+                          }
+                          className="text-xs h-7"
+                        >
+                          <Search className="w-3.5 h-3.5 mr-1" />
+                          Search
+                        </Button>
+                      </div>
                       <MultiImageUploader
                         values={day.images || []}
                         onChange={(urls) => updateDayImages(idx, urls)}
@@ -1238,7 +1174,7 @@ export default function ItineraryForm() {
                       />
                     </div>
 
-                    {/* Linked Activities */}
+                    {/* Linked Activities (unchanged) */}
                     <div className="space-y-2 border-t pt-3">
                       <Label className="text-xs text-slate-500">
                         Linked Activities
@@ -1313,9 +1249,7 @@ export default function ItineraryForm() {
           </>
         )}
 
-        {/* ══════════════════════════════════════
-            SECTION 2 – INCLUSIONS & EXCLUSIONS
-        ══════════════════════════════════════ */}
+        {/* Other sections unchanged */}
         {activeSection === "inclusions" && (
           <Card>
             <CardHeader>
@@ -1354,15 +1288,12 @@ export default function ItineraryForm() {
           </Card>
         )}
 
-        {/* ══════════════════════════════════════
-            SECTION 3 – T&Cs & CANCELLATION
-        ══════════════════════════════════════ */}
         {activeSection === "tnc" && (
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-xs uppercase tracking-widest text-slate-500 font-semibold">
-                  T&amp;C's
+                  T&amp;C&apos;s
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1396,9 +1327,6 @@ export default function ItineraryForm() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════
-            SECTION 4 – IMPORTANT INFORMATION
-        ══════════════════════════════════════ */}
         {activeSection === "impinfo" && (
           <Card>
             <CardHeader>
@@ -1420,7 +1348,7 @@ export default function ItineraryForm() {
         )}
       </main>
 
-      {/* ── AI Chat Popup ───────────────────────────────────────────────────── */}
+      {/* AI Chat Popup (unchanged) */}
       <AIChatPopup
         open={chatPopupOpen}
         onClose={() => setChatPopupOpen(false)}
@@ -1431,6 +1359,17 @@ export default function ItineraryForm() {
         onRefine={handleRefine}
         hasGenerated={hasGenerated}
         canGenerate={canGenerate}
+      />
+
+      {/* NEW: Image Search Panel */}
+      <ImageSearchPanel
+        open={imageSearchOpen}
+        onClose={() => {
+          setImageSearchOpen(false);
+          setImageSearchContext(null);
+        }}
+        context={imageSearchContext}
+        onSelect={handleImageSearchSelect}
       />
     </div>
   );
