@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { updateHotelComplete, deleteHotel as deleteHotelFromDB, validateHotelData } from '@/firebase/accomodation';
+import { updateHotelComplete, deleteHotel as deleteHotelFromDB, validateHotelData } from '@/firebase/accommodation';
 import toast from 'react-hot-toast';
 
 // ─── Date Overlap Utilities ────────────────────────────────────────────────

@@ -12,7 +12,7 @@ import {
   addDoc
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import { validateHotelData } from "@/firebase/accomodation";
+import { validateHotelData } from "@/firebase/accommodation";
 import { 
   X, MapPin, Hotel, Calendar, BedDouble, Plus, Check, ChevronRight, Star,
   ExternalLink, AlertTriangle, Loader2

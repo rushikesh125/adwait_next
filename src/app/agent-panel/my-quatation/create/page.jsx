@@ -111,26 +111,26 @@ const [checkOutDate, setCheckOutDate] = useState("");
 
               <TabsContent value="create" className="mt-0 outline-none">
                 <Card className="border-none shadow-md overflow-hidden">
-                  <CardHeader className="border-b bg-white">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <CardTitle className="text-xl text-theme-dark">
-                          Package Builder
-                        </CardTitle>
-                        <CardDescription>
-                          Create a professional itinerary for your clients
-                        </CardDescription>
-                      </div>
-                      {!showCreateForm && (
+                  {!showCreateForm && (
+                    <CardHeader className="border-b bg-white">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <CardTitle className="text-xl text-theme-dark">
+                            Package Builder
+                          </CardTitle>
+                          <CardDescription>
+                            Create a professional itinerary for your clients
+                          </CardDescription>
+                        </div>
                         <Button
                           onClick={() => setShowCreateForm(true)}
                           className="bg-theme-primary hover:bg-theme-secondary text-white shadow-md transition-all hover:scale-105"
                         >
                           <PackagePlus className="mr-2 h-4 w-4" /> New Package
                         </Button>
-                      )}
-                    </div>
-                  </CardHeader>
+                      </div>
+                    </CardHeader>
+                  )}
 
                   <CardContent className="p-0">
                     <AnimatePresence mode="wait">
@@ -167,6 +167,16 @@ const [checkOutDate, setCheckOutDate] = useState("");
                             setSaveChanges={setSaveChanges}
                             checkOutDate={checkOutDate}
                             setCheckOutDate={setCheckOutDate}
+                            headerTitle={
+                              <div>
+                                <h2 className="text-base lg:text-lg font-bold text-theme-dark leading-tight">
+                                  Package Builder
+                                </h2>
+                                <p className="text-[11px] lg:text-xs text-slate-500 leading-tight">
+                                  Create a professional itinerary for your clients
+                                </p>
+                              </div>
+                            }
                           />
                         </motion.div>
                       )}

@@ -56,13 +56,13 @@ export const addCustomer = async (customerData) => {
  * @param {string} id - Document ID.
  * @param {Object} data - Fields to update.
  */
-export const udpateCustomer = async (id, data) => {
+export const updateCustomer = async (id, data) => {
   try {
     const ref = doc(db, COLLECTION, id);
     await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
-    console.info(`[customersService] udpateCustomer: updated ${id}`);
+    console.info(`[customersService] updateCustomer: updated ${id}`);
   } catch (error) {
-    logError("udpateCustomer", error);
+    logError("updateCustomer", error);
     throw error;
   }
 };

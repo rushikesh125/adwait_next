@@ -73,7 +73,7 @@ const AgentPanelLayout = ({ children }) => {
 
   const SidebarContent = ({ mobile = false }) => (
     <div className="flex flex-col h-full bg-white">
-      <div className="h-20 flex items-center justify-between px-6 border-b border-slate-50 flex-shrink-0">
+      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-50 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="relative min-w-[42px] h-10 w-10 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <Image
@@ -157,7 +157,7 @@ const AgentPanelLayout = ({ children }) => {
 
         <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
           {/* Header — z-[90] so notification sheet (z-[120]) slides over it on mobile */}
-          <header className="h-16 lg:h-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-30">
+          <header className="h-14 lg:h-16 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-30">
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"

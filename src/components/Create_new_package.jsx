@@ -255,6 +255,7 @@ const Create_new_package = ({
   setSaveChanges: propSetSaveChanges,
   checkOutDate: propCheckOutDate,
   setCheckOutDate: propSetCheckOutDate,
+  headerTitle = null,
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1236,6 +1237,7 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       {packageOptions.length}/{MAX_OPTIONS}
                     </span>
                   </div>
+
                   <Button
                     onClick={handleAddOption}
                     disabled={packageOptions.length >= MAX_OPTIONS}
@@ -1249,7 +1251,7 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                 </div>
               </CardHeader>
 
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex flex-wrap gap-2">
                   {packageOptions.map((opt) => {
                     const isActive = activeOptionId === opt.id;
@@ -1262,13 +1264,13 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         key={opt.id}
                         onClick={() => setActiveOptionId(opt.id)}
                         className={`
-                          group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer
-                          ${
-                            isActive
-                              ? "border-theme-primary bg-theme-primary/5 shadow-sm"
-                              : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                          }
-                        `}
+              group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer
+              ${
+                isActive
+                  ? "border-theme-primary bg-theme-primary/5 shadow-sm"
+                  : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+              }
+            `}
                       >
                         {/* Option Name */}
                         <div className="flex-1 min-w-0">
@@ -1295,25 +1297,19 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                               {opt.name}
                             </div>
                           )}
-                          {/* Show grand total per option card if has hotels */}
-                          {hasHotels && (
-                            <div className="text-[11px] font-bold text-theme-primary mt-0.5">
-                              ₹{optTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                            </div>
-                          )}
                         </div>
 
                         {/* Hotels Count */}
                         <div
-                          className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1 ${
-                            hotelCount > 0
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-slate-100 text-slate-500"
+                          className={`flex items-center gap-0.5 transition-opacity ${
+                            isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                           }`}
                         >
                           <Hotel className="h-3.5 w-3.5" />
                           {hotelCount}
                         </div>
+
+                        {/* Total */}
 
                         {/* Actions */}
                         <div className="flex items-center gap-1">
@@ -1322,9 +1318,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                               e.stopPropagation();
                               handleStartRename(opt);
                             }}
-                            className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600"
+                            className="p-0.5 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600"
+                            aria-label="Rename option"
                           >
-                            <PenLine className="h-3.5 w-3.5" />
+                            <PenLine className="h-3 w-3" />
                           </button>
                           {packageOptions.length > 1 && (
                             <button
@@ -1332,17 +1329,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                                 e.stopPropagation();
                                 handleRemoveOption(opt.id);
                               }}
-                              className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 hover:text-red-700"
+                              className="p-1.5 hover:bg-red-50 rounded-lg  text-red-500 hover:text-red-700"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                             </button>
                           )}
                         </div>
-
-                        {/* Active Indicator */}
-                        {isActive && (
-                          <div className="w-2 h-2 bg-theme-primary rounded-full" />
-                        )}
                       </div>
                     );
                   })}
@@ -1367,26 +1359,22 @@ const transportTotalPrice = transportBreakdown?.total || 0;
             {/* ── 1. Date + Nights + State ── */}
             <Card className="border-slate-200 shadow-sm">
               <CardContent className="p-3">
-                {/* Active option label */}
-                <p className="text-[11px] font-semibold text-theme-primary mb-2 flex items-center gap-1">
-                  <Layers className="h-3 w-3" />
-                  Configuring: {activeOption.name}
-                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div className="space-y-1">
                     <Label className="text-xs flex items-center gap-1 font-medium">
-                      <Calendar className="h-3 w-3 text-theme-primary" /> Check-in
+                      <Calendar className="h-3 w-3 text-theme-primary" />{" "}
+                      Check-in
                     </Label>
                     <Input
                       type="date"
                       value={checkInDate}
                       min={new Date().toISOString().split("T")[0]}
                       onChange={(e) => setCheckInDate(e.target.value)}
-                      className="h-8 text-xs"
+                      className="h-7 text-xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium flex items-center gap-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-medium flex items-center gap-1 text-slate-500 uppercase tracking-wide">
                       <Moon className="h-3 w-3 text-theme-primary" /> Nights
                     </Label>
                     <Input
@@ -1397,29 +1385,29 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         const val = e.target.value;
                         setNights(val === "" ? "" : Number(val));
                       }}
-                      className="h-8 text-xs"
+                      className="h-7 text-xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium flex items-center gap-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-medium flex items-center gap-1 text-slate-500 uppercase tracking-wide">
                       <Sun className="h-3 w-3 text-theme-primary" /> Check-out
                     </Label>
                     <Input
                       type="date"
                       value={checkOutDate}
                       readOnly
-                      className="h-8 text-xs bg-slate-50 cursor-not-allowed"
+                      className="h-7 text-xs bg-slate-50 cursor-not-allowed"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium flex items-center gap-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-medium flex items-center gap-1 text-slate-500 uppercase tracking-wide">
                       <MapPin className="h-3 w-3 text-theme-primary" /> State
                     </Label>
                     <Select
                       value={selectedState}
                       onValueChange={(v) => setSelectedState(v)}
                     >
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger className="h-7 text-xs">
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent>

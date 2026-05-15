@@ -21,7 +21,7 @@ import { db } from "@/firebase/config";
 // import HotelDetailModal from "@/components/accommodation/HotelDetailModal";
 import HotelDetailModal from "@/components/accommodation/HotelDetailModel";
 import { searchHotelsByName } from "@/firebase/hotels";
-import { deleteHotel } from "@/firebase/accomodation";
+import { deleteHotel } from "@/firebase/accommodation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

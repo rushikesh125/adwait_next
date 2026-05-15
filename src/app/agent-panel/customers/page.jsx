@@ -11,7 +11,7 @@ import CustomersPagination from "@/components/customers/CustomersPagination";
 import {
   addCustomer,
   getAllCustomers,
-  udpateCustomer,
+  updateCustomer,
   deleteCustomer,
 } from "@/firebase/customersService";
 import toast, { Toaster } from "react-hot-toast";
@@ -182,7 +182,7 @@ export default function CustomersPage() {
     const toastId = toast.loading(editMode ? "Updating..." : "Adding...");
     try {
       if (editMode) {
-        await udpateCustomer(selectedCustomer.id, form);
+        await updateCustomer(selectedCustomer.id, form);
         toast.success("Customer updated successfully", { id: toastId });
         logInfo("handleSubmit", `updated customer ${selectedCustomer.id}`);
       } else {
