@@ -256,6 +256,7 @@ const Create_new_package = ({
   setSaveChanges: propSetSaveChanges,
   checkOutDate: propCheckOutDate,
   setCheckOutDate: propSetCheckOutDate,
+  headerTitle = null,
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1122,27 +1123,32 @@ const Create_new_package = ({
             {/* ── Package Options Section ────────────────────────────────────── */}
             <Card className="border-slate-200 shadow-sm">
               <CardHeader className="p-3 pb-2 border-b border-slate-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-theme-primary" />
-                    <CardTitle className="text-sm font-semibold">
-                      Package Options
-                    </CardTitle>
-                    <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {packageOptions.length}/{MAX_OPTIONS}
-                    </span>
-                  </div>
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+                  {headerTitle && (
+                    <div className="min-w-0 lg:flex-shrink-0">{headerTitle}</div>
+                  )}
+                  <div className="flex items-center justify-between gap-2 lg:flex-1 lg:justify-end">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Layers className="h-4 w-4 text-theme-primary shrink-0" />
+                      <CardTitle className="text-sm font-semibold truncate">
+                        Package Options
+                      </CardTitle>
+                      <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                        {packageOptions.length}/{MAX_OPTIONS}
+                      </span>
+                    </div>
 
-                  <Button
-                    onClick={handleAddOption}
-                    disabled={packageOptions.length >= MAX_OPTIONS}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-theme-primary border-theme-primary hover:bg-theme-primary/5"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Add Option
-                  </Button>
+                    <Button
+                      onClick={handleAddOption}
+                      disabled={packageOptions.length >= MAX_OPTIONS}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-theme-primary border-theme-primary hover:bg-theme-primary/5 shrink-0"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add Option
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
 
@@ -1157,65 +1163,54 @@ const Create_new_package = ({
                         key={opt.id}
                         onClick={() => setActiveOptionId(opt.id)}
                         className={`
-              group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer
+              group flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs transition-all cursor-pointer
               ${
                 isActive
-                  ? "border-theme-primary bg-theme-primary/5 shadow-sm"
-                  : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                  ? "border-theme-primary bg-theme-primary/5 text-theme-primary shadow-sm"
+                  : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
               }
             `}
                       >
                         {/* Option Name */}
-                        <div className="flex-1 min-w-0">
-                          {renamingId === opt.id ? (
-                            <input
-                              autoFocus
-                              value={renameValue}
-                              onChange={(e) => setRenameValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") handleConfirmRename();
-                                if (e.key === "Escape") {
-                                  setRenamingId(null);
-                                  setRenameValue("");
-                                }
-                              }}
-                              onBlur={handleConfirmRename}
-                              className="w-full bg-transparent font-medium text-sm focus:outline-none border-b border-theme-primary"
-                            />
-                          ) : (
-                            <div
-                              className="font-medium text-sm truncate"
-                              onDoubleClick={() => handleStartRename(opt)}
-                            >
-                              {opt.name}
-                            </div>
-                          )}
-                        </div>
+                        {renamingId === opt.id ? (
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleConfirmRename();
+                              if (e.key === "Escape") {
+                                setRenamingId(null);
+                                setRenameValue("");
+                              }
+                            }}
+                            onBlur={handleConfirmRename}
+                            className="bg-transparent font-medium focus:outline-none border-b border-theme-primary min-w-0 w-24"
+                          />
+                        ) : (
+                          <span
+                            className="font-medium truncate"
+                            onDoubleClick={() => handleStartRename(opt)}
+                          >
+                            {opt.name}
+                          </span>
+                        )}
 
-                        {/* Hotels Count */}
+                        {/* Actions — only on hover (or always for active) */}
                         <div
-                          className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1 ${
-                            hotelCount > 0
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-slate-100 text-slate-500"
+                          className={`flex items-center gap-0.5 transition-opacity ${
+                            isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                           }`}
                         >
-                          <Hotel className="h-3.5 w-3.5" />
-                          {hotelCount}
-                        </div>
-
-                        {/* Total */}
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleStartRename(opt);
                             }}
-                            className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600"
+                            className="p-0.5 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600"
+                            aria-label="Rename option"
                           >
-                            <PenLine className="h-3.5 w-3.5" />
+                            <PenLine className="h-3 w-3" />
                           </button>
                           {packageOptions.length > 1 && (
                             <button
@@ -1223,17 +1218,13 @@ const Create_new_package = ({
                                 e.stopPropagation();
                                 handleRemoveOption(opt.id);
                               }}
-                              className="p-1.5 hover:bg-red-50 rounded-lg  text-red-500 hover:text-red-700"
+                              className="p-0.5 hover:bg-red-50 rounded text-red-500 hover:text-red-700"
+                              aria-label="Remove option"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                             </button>
                           )}
                         </div>
-
-                        {/* Active Indicator */}
-                        {isActive && (
-                          <div className="w-2 h-2 bg-theme-primary rounded-full" />
-                        )}
                       </div>
                     );
                   })}
@@ -1258,11 +1249,11 @@ const Create_new_package = ({
 
             {/* ── 1. Date + Nights + State ── */}
             <Card className="border-slate-200 shadow-sm">
-              <CardContent className="p-3">
+              <CardContent className="p-2.5">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs flex items-center gap-1 font-medium">
-                      <Calendar className="h-3 w-3 text-theme-primary" />{" "}
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] flex items-center gap-1 font-medium text-slate-500 uppercase tracking-wide">
+                      <Calendar className="h-3 w-3 text-theme-primary" />
                       Check-in
                     </Label>
                     <Input
@@ -1270,11 +1261,11 @@ const Create_new_package = ({
                       value={checkInDate}
                       min={new Date().toISOString().split("T")[0]}
                       onChange={(e) => setCheckInDate(e.target.value)}
-                      className="h-8 text-xs"
+                      className="h-7 text-xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium flex items-center gap-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-medium flex items-center gap-1 text-slate-500 uppercase tracking-wide">
                       <Moon className="h-3 w-3 text-theme-primary" /> Nights
                     </Label>
                     <Input
@@ -1285,29 +1276,29 @@ const Create_new_package = ({
                         const val = e.target.value;
                         setNights(val === "" ? "" : Number(val));
                       }}
-                      className="h-8 text-xs"
+                      className="h-7 text-xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium flex items-center gap-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-medium flex items-center gap-1 text-slate-500 uppercase tracking-wide">
                       <Sun className="h-3 w-3 text-theme-primary" /> Check-out
                     </Label>
                     <Input
                       type="date"
                       value={checkOutDate}
                       readOnly
-                      className="h-8 text-xs bg-slate-50 cursor-not-allowed"
+                      className="h-7 text-xs bg-slate-50 cursor-not-allowed"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium flex items-center gap-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-medium flex items-center gap-1 text-slate-500 uppercase tracking-wide">
                       <MapPin className="h-3 w-3 text-theme-primary" /> State
                     </Label>
                     <Select
                       value={selectedState}
                       onValueChange={(v) => setSelectedState(v)}
                     >
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger className="h-7 text-xs">
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent>
