@@ -72,7 +72,12 @@ export default function AdminQuotationsPage() {
         q.leadName?.toLowerCase().includes(s) ||
         q.customerName?.toLowerCase().includes(s) ||
         q.destination?.toLowerCase().includes(s) ||
-        q.title?.toLowerCase().includes(s)
+        q.title?.toLowerCase().includes(s) ||
+        q.refNumber?.toLowerCase().includes(s) ||
+        q.customerMobile?.toLowerCase().includes(s) ||
+        q.mobile?.toLowerCase().includes(s) ||
+        q.customerEmail?.toLowerCase().includes(s) ||
+        q.email?.toLowerCase().includes(s)
       );
     }
     return data;

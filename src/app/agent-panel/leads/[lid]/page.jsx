@@ -63,6 +63,8 @@ import {
   deleteQuotation,
   fetchAllHotels,
   updateQuotation,
+  fetchUnlinkedQuotationsByAgent,
+  attachQuotationToLead,
 } from "@/firebase/quotations"; // ← PATCH 1
 import toast, { Toaster } from "react-hot-toast";
 import {
@@ -183,6 +185,13 @@ export default function LeadProfilePage({ params }) {
   const [pendingFollowUpForQuotation, setPendingFollowUpForQuotation] = useState(null);
   const [showFollowUpAfterQuotationSent, setShowFollowUpAfterQuotationSent] = useState(false);
   const [showFollowUpFormDirect, setShowFollowUpFormDirect] = useState(false);
+
+  // Attach existing (orphan) quotation to this lead
+  const [attachDialogOpen, setAttachDialogOpen] = useState(false);
+  const [orphanQuotations, setOrphanQuotations] = useState([]);
+  const [orphanLoading, setOrphanLoading] = useState(false);
+  const [attachSearch, setAttachSearch] = useState("");
+  const [attachingId, setAttachingId] = useState(null);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -309,6 +318,51 @@ export default function LeadProfilePage({ params }) {
       toast.error("Failed to delete quotation");
     }
   };
+
+  const handleOpenAttachDialog = async () => {
+    if (!user?.uid) { toast.error("Not signed in"); return; }
+    setAttachDialogOpen(true);
+    setOrphanLoading(true);
+    setAttachSearch("");
+    try {
+      const orphans = await fetchUnlinkedQuotationsByAgent(user.uid);
+      setOrphanQuotations(orphans);
+    } catch (err) {
+      console.error("[LeadProfilePage] fetchUnlinked error:", err);
+      toast.error("Failed to load unlinked quotations");
+    } finally {
+      setOrphanLoading(false);
+    }
+  };
+
+  const handleAttachQuotation = async (quote) => {
+    if (!user?.uid || !lead?.id) { toast.error("Missing required data"); return; }
+    setAttachingId(quote.id);
+    try {
+      await attachQuotationToLead(user.uid, quote.id, lead);
+      setQuotations((prev) => [{ ...quote, leadId: lead.id, leadName: lead.name }, ...prev]);
+      setOrphanQuotations((prev) => prev.filter((q) => q.id !== quote.id));
+      toast.success("Quotation attached to this lead");
+    } catch (err) {
+      console.error("[LeadProfilePage] attachQuotation error:", err);
+      toast.error("Failed to attach quotation");
+    } finally {
+      setAttachingId(null);
+    }
+  };
+
+  const visibleOrphans = orphanQuotations.filter((q) => {
+    if (!attachSearch.trim()) return true;
+    const s = attachSearch.toLowerCase();
+    return (
+      q.customerName?.toLowerCase().includes(s) ||
+      q.leadName?.toLowerCase().includes(s) ||
+      q.packageName?.toLowerCase().includes(s) ||
+      q.refNumber?.toLowerCase().includes(s) ||
+      q.customerMobile?.toLowerCase().includes(s) ||
+      q.customerEmail?.toLowerCase().includes(s)
+    );
+  });
 
   const getHotelLookup = async () => {
     if (hotelLookupRef.current) return hotelLookupRef.current;
@@ -844,19 +898,28 @@ const handleFollowUpMarkComplete = async (
             {activeTab === "quotations" && (
               <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
                 <CardHeader className="px-6 py-5 border-b border-slate-50">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div>
                       <CardTitle className="text-base font-bold">Package Quotations</CardTitle>
                       <p className="text-xs text-slate-400 mt-0.5">
                         Track all quotations sent to convert this lead.
                       </p>
                     </div>
-                    <Button
-                      onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
-                      className="bg-theme-primary text-white rounded-xl h-9 px-4 text-sm"
-                    >
-                      <Plus className="h-4 w-4 mr-1.5" /> New
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleOpenAttachDialog}
+                        className="rounded-xl h-9 px-3 text-sm"
+                      >
+                        Attach existing
+                      </Button>
+                      <Button
+                        onClick={() => router.push(`/agent-panel/my-quatation/create?leadId=${lid}`)}
+                        className="bg-theme-primary text-white rounded-xl h-9 px-4 text-sm"
+                      >
+                        <Plus className="h-4 w-4 mr-1.5" /> New
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -1097,6 +1160,68 @@ const handleFollowUpMarkComplete = async (
               submitLabel="Update Lead"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Attach Existing Quotation Dialog ─────────────────────────────── */}
+      <Dialog open={attachDialogOpen} onOpenChange={setAttachDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Attach quotation to {lead?.name || "this lead"}</DialogTitle>
+            <DialogDescription>
+              Shows quotations you created that aren&apos;t linked to any lead. Pick the right one to attach it permanently.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
+            <Input
+              value={attachSearch}
+              onChange={(e) => setAttachSearch(e.target.value)}
+              placeholder="Search by name, mobile, package, ref…"
+              className="rounded-xl"
+            />
+            <div className="flex-1 overflow-y-auto rounded-xl border border-slate-100">
+              {orphanLoading ? (
+                <div className="p-6 text-center text-sm text-slate-400">Loading…</div>
+              ) : visibleOrphans.length === 0 ? (
+                <div className="p-6 text-center text-sm text-slate-400">
+                  {orphanQuotations.length === 0
+                    ? "No unlinked quotations. Every quotation already belongs to a lead."
+                    : "No quotations match your search."}
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {visibleOrphans.map((q) => (
+                    <li key={q.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-800 truncate">
+                          {q.packageName || "Untitled package"}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">
+                          {q.customerName || q.leadName || "—"}
+                          {q.refNumber && <span> · {q.refNumber}</span>}
+                          {q.customerMobile && <span> · {q.customerMobile}</span>}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {q.status || "Draft"}
+                          {q.createdAt?.toDate && (
+                            <span> · {q.createdAt.toDate().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                          )}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleAttachQuotation(q)}
+                        disabled={attachingId === q.id}
+                        className="rounded-xl h-8 px-3 text-xs bg-theme-primary text-white"
+                      >
+                        {attachingId === q.id ? "Attaching…" : "Attach"}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

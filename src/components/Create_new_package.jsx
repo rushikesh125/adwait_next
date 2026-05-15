@@ -275,6 +275,14 @@ const Create_new_package = ({
 
   const quotationId = searchParams.get("quotationId");
   const isEditMode = !!quotationId;
+  // Overwriting in place is only allowed while the original is still a Draft.
+  // Requires editingQuotation to be loaded with an explicit "Draft" status —
+  // any other value (or unloaded state) falls back to Save As New so we never
+  // silently overwrite a Sent / Accepted / Rejected quotation.
+  const canOverwrite =
+    isEditMode &&
+    !!editingQuotation &&
+    editingQuotation.status === "Draft";
   const customerId =
     searchParams.get("customerId") || searchParams.get("customerid");
   const leadId = searchParams.get("leadId");
@@ -973,7 +981,7 @@ const Create_new_package = ({
     });
 
   // ── Save Package ──────────────────────────────────────────────────────────
-  const handleSavePackage = async () => {
+  const handleSavePackage = async (mode = "new") => {
     if (!packageName.trim()) {
       alert("Please enter a package name.");
       return;
@@ -992,6 +1000,8 @@ const Create_new_package = ({
     }
     setOptionValidationError("");
 
+    const isOverwrite = mode === "overwrite" && isEditMode && canOverwrite;
+
     try {
       const agentId = user?.uid;
       if (!agentId) throw new Error("Not logged in");
@@ -999,23 +1009,33 @@ const Create_new_package = ({
       const linkedLead = effectiveLeadId
         ? agentLeads.find((l) => l.id === effectiveLeadId)
         : null;
-      const c_data = customerId
-        ? { customerId, customerName }
-        : selectedCustomerLink
-          ? {
-              customerId: selectedCustomerLink.id,
-              customerName: selectedCustomerLink.name,
-            }
-          : effectiveLeadId
-            ? {
-                leadId: effectiveLeadId,
-                leadName: customerName,
-                ...(linkedLead?.customerId
-                  ? { customerId: linkedLead.customerId }
-                  : {}),
-              }
-            : { customerName };
-      const refNumber = await generateQuotationRef();
+
+      // Build linkage block additively so every available identifier is
+      // persisted on the quotation — leadId + customerId + name + contacts.
+      // This prevents the "quotation belongs to a lead but has no leadId"
+      // orphan state that breaks the lead's Quotations tab.
+      const c_data = {};
+      if (effectiveLeadId) {
+        c_data.leadId = effectiveLeadId;
+        c_data.leadName = linkedLead?.name || customerName;
+      }
+      if (customerId) {
+        c_data.customerId = customerId;
+      } else if (selectedCustomerLink?.id) {
+        c_data.customerId = selectedCustomerLink.id;
+      } else if (linkedLead?.customerId) {
+        c_data.customerId = linkedLead.customerId;
+      }
+      if (selectedCustomerLink?.name) {
+        c_data.customerName = selectedCustomerLink.name;
+      } else if (customerName) {
+        c_data.customerName = customerName;
+      }
+      if (linkedLead?.mobile) c_data.customerMobile = linkedLead.mobile;
+      if (linkedLead?.email) c_data.customerEmail = linkedLead.email;
+      const refNumber = isOverwrite
+        ? editingQuotation?.refNumber || (await generateQuotationRef())
+        : await generateQuotationRef();
 
       // Build packageOptions summary for storage
       const packageOptionsSummary = packageOptions.map((opt) => ({
@@ -1041,49 +1061,63 @@ const Create_new_package = ({
       // Legacy hotelSummary = first option's hotels (for backwards compat)
       const firstOptionHotels = packageOptions[0]?.hotelEntries || [];
 
-      await addDoc(
-        collection(doc(db, "saved_packages_by_agents", agentId), "packages"),
-        {
-          packageName,
-          ...c_data,
-          status: "Draft",
-          refNumber,
-          createdAt: serverTimestamp(),
-          markup: confirmedMarkup || 0,
-          grandTotal: getOptionGrandTotal(packageOptions[0]) || 0,
-          // Multi-option storage
-          packageOptions: packageOptionsSummary,
-          // Legacy compat
-          hotelSummary: firstOptionHotels,
-          activitySummary: selectedActivities,
-          transportSummary: selectedTransport
-            ? {
-                packageName: selectedTransport.name || "Custom",
-                vehicleName: selectedTransport.selectedVehicle?.type || "",
-                seats: selectedTransport.selectedVehicle?.seating || "",
-                ac: selectedTransport.selectedVehicle?.ac || false,
-                pricingType: selectedTransport.pricingType || "fixed",
-                perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
-                minKm: minKm || 0,
-                vehicleCost: transportBreakdown?.baseCost || 0,
-                driverAllowance: transportBreakdown?.driverAllowance || 0,
-                tollCharges: transportBreakdown?.toll || 0,
-                permitCharges: transportBreakdown?.permit || 0,
-                otherCharges: transportBreakdown?.other || 0,
-                totalTransportCost: transportBreakdown?.total || 0,
-                isCustom: selectedTransport.selectedVehicle?.isCustom || false,
-              }
+      const packagePayload = {
+        packageName,
+        ...c_data,
+        refNumber,
+        markup: confirmedMarkup || 0,
+        grandTotal: getOptionGrandTotal(packageOptions[0]) || 0,
+        // Multi-option storage
+        packageOptions: packageOptionsSummary,
+        // Legacy compat
+        hotelSummary: firstOptionHotels,
+        activitySummary: selectedActivities,
+        transportSummary: selectedTransport
+          ? {
+              packageName: selectedTransport.name || "Custom",
+              vehicleName: selectedTransport.selectedVehicle?.type || "",
+              seats: selectedTransport.selectedVehicle?.seating || "",
+              ac: selectedTransport.selectedVehicle?.ac || false,
+              pricingType: selectedTransport.pricingType || "fixed",
+              perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
+              minKm: minKm || 0,
+              vehicleCost: transportBreakdown?.baseCost || 0,
+              driverAllowance: transportBreakdown?.driverAllowance || 0,
+              tollCharges: transportBreakdown?.toll || 0,
+              permitCharges: transportBreakdown?.permit || 0,
+              otherCharges: transportBreakdown?.other || 0,
+              totalTransportCost: transportBreakdown?.total || 0,
+              isCustom: selectedTransport.selectedVehicle?.isCustom || false,
+            }
+          : null,
+        itinerarySummary:
+          cleanedItinerary && cleanedItinerary.days.length > 0
+            ? cleanedItinerary
             : null,
-          itinerarySummary:
-            cleanedItinerary && cleanedItinerary.days.length > 0
-              ? cleanedItinerary
-              : null,
-        },
-      );
+      };
+
+      if (isOverwrite) {
+        // In-place update of the existing Draft quotation: keep id, status, createdAt
+        await updateDoc(
+          doc(db, "saved_packages_by_agents", agentId, "packages", quotationId),
+          { ...packagePayload, updatedAt: serverTimestamp() },
+        );
+      } else {
+        await addDoc(
+          collection(doc(db, "saved_packages_by_agents", agentId), "packages"),
+          {
+            ...packagePayload,
+            status: "Draft",
+            createdAt: serverTimestamp(),
+          },
+        );
+      }
       toast(
-        isEditMode
-          ? "Saved as new quotation! ✅"
-          : "Package saved successfully! ✅",
+        isOverwrite
+          ? "Changes saved! ✅"
+          : isEditMode
+            ? "Saved as new quotation! ✅"
+            : "Package saved successfully! ✅",
       );
       router.back();
       setShowSaveModal(false);
@@ -1111,9 +1145,17 @@ const Create_new_package = ({
               <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-amber-500" />
                 <span>
-                  Editing a copy — saving will create a{" "}
-                  <strong>new quotation with a new reference number</strong>.
-                  The original stays unchanged.
+                  {canOverwrite ? (
+                    <>
+                      Editing a <strong>Draft</strong> — choose <strong>Save Changes</strong> to update this quotation in place, or <strong>Save as New</strong> to create a copy with a new reference number.
+                    </>
+                  ) : (
+                    <>
+                      Editing a copy — saving will create a{" "}
+                      <strong>new quotation with a new reference number</strong>.
+                      The original stays unchanged.
+                    </>
+                  )}
                 </span>
               </div>
             )}
@@ -1894,7 +1936,11 @@ const Create_new_package = ({
                     className="w-full py-5 bg-theme-primary hover:bg-theme-secondary font-bold text-sm shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Save className="h-4 w-4 mr-2" />
-                    {isEditMode ? "Save As New Quotation" : "Save Package"}
+                    {canOverwrite
+                      ? "Save Quotation"
+                      : isEditMode
+                        ? "Save As New Quotation"
+                        : "Save Package"}
                   </Button>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <button
@@ -1924,7 +1970,11 @@ const Create_new_package = ({
             <div className="bg-theme-dark text-white px-5 py-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold">
-                  {isEditMode ? "Save As New Quotation" : "Finalize Package"}
+                  {canOverwrite
+                    ? "Save Draft Quotation"
+                    : isEditMode
+                      ? "Save As New Quotation"
+                      : "Finalize Package"}
                 </h2>
                 <button
                   onClick={() => setShowSaveModal(false)}
@@ -1934,16 +1984,24 @@ const Create_new_package = ({
                 </button>
               </div>
               <p className="text-white/60 text-xs mt-0.5">
-                {isEditMode
-                  ? "A new quotation with a new reference number will be created"
-                  : "Fill in details to save this package"}
+                {canOverwrite
+                  ? "Save changes in place or create a new copy"
+                  : isEditMode
+                    ? "A new quotation with a new reference number will be created"
+                    : "Fill in details to save this package"}
               </p>
             </div>
             <div className="p-5 space-y-3">
-              {isEditMode && (
+              {isEditMode && !canOverwrite && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                   <Info className="h-3 w-3 flex-shrink-0" />
                   Original quotation will not be modified
+                </div>
+              )}
+              {canOverwrite && (
+                <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  <Info className="h-3 w-3 flex-shrink-0" />
+                  Editing a Draft — Save updates this quotation; Save as New creates a copy.
                 </div>
               )}
 
@@ -2291,7 +2349,7 @@ const Create_new_package = ({
                 </div>
               )}
             </div>
-            <div className="px-5 pb-5 flex justify-end gap-2">
+            <div className="px-5 pb-5 flex justify-end gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -2299,13 +2357,28 @@ const Create_new_package = ({
               >
                 Cancel
               </Button>
+              {canOverwrite && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSavePackage("new")}
+                  className="px-4"
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  Save as New
+                </Button>
+              )}
               <Button
-                onClick={handleSavePackage}
+                onClick={() => handleSavePackage(canOverwrite ? "overwrite" : "new")}
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white px-5"
               >
                 <Save className="h-3.5 w-3.5 mr-1.5" />
-                {isEditMode ? "Save As New" : "Save Package"}
+                {canOverwrite
+                  ? "Save Changes"
+                  : isEditMode
+                    ? "Save As New"
+                    : "Save Package"}
               </Button>
             </div>
           </div>

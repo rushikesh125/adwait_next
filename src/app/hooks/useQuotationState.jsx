@@ -350,12 +350,19 @@ export function useQuotationState() {
         ? new Date(q.createdAt.seconds * 1000)
         : null;
       const packageDestination = getDestinationOfpkg(q);
+      const s = searchTerm.toLowerCase();
       const matchesSearch =
-        searchTerm.toLowerCase() === "" ||
-        q.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        `quote ${q.quoteNumber}`.includes(searchTerm.toLowerCase()) ||
-        q.packageName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        packageDestination.toLowerCase().includes(searchTerm.toLowerCase());
+        s === "" ||
+        q.customerName?.toLowerCase().includes(s) ||
+        q.leadName?.toLowerCase().includes(s) ||
+        `quote ${q.quoteNumber}`.includes(s) ||
+        q.refNumber?.toLowerCase().includes(s) ||
+        q.packageName?.toLowerCase().includes(s) ||
+        packageDestination.toLowerCase().includes(s) ||
+        q.customerMobile?.toLowerCase().includes(s) ||
+        q.mobile?.toLowerCase().includes(s) ||
+        q.customerEmail?.toLowerCase().includes(s) ||
+        q.email?.toLowerCase().includes(s);
       const matchesStartDate =
         !startDate || (quotationDate && quotationDate >= new Date(startDate));
       const matchesEndDate =

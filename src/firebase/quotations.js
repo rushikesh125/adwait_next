@@ -216,6 +216,53 @@ export async function deleteQuotation(agentId, quotationId) {
 }
 
 /**
+ * Fetch this agent's quotations that have no leadId set yet —
+ * candidates an agent can attach to a lead from the lead detail page.
+ */
+export async function fetchUnlinkedQuotationsByAgent(agentId) {
+  if (!agentId) return [];
+
+  try {
+    const ref = collection(db, "saved_packages_by_agents", agentId, "packages");
+    const snap = await getDocs(query(ref, orderBy("createdAt", "desc")));
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((q) => q.packageName !== null)
+      .filter((q) => !q.leadId);
+  } catch (error) {
+    console.error("❌ fetchUnlinkedQuotationsByAgent:", error);
+    throw error;
+  }
+}
+
+/**
+ * Attach an existing (unlinked) quotation to a lead.
+ * Writes leadId + leadName + customerId/customerMobile/customerEmail
+ * onto the quotation document so future queries find it via leadId.
+ */
+export async function attachQuotationToLead(agentId, quotationId, lead) {
+  if (!agentId || !quotationId || !lead?.id) {
+    throw new Error("agentId, quotationId, and lead are required");
+  }
+
+  const ref = doc(
+    db,
+    "saved_packages_by_agents",
+    agentId,
+    "packages",
+    quotationId,
+  );
+
+  const patch = { leadId: lead.id };
+  if (lead.name) patch.leadName = lead.name;
+  if (lead.customerId) patch.customerId = lead.customerId;
+  if (lead.mobile) patch.customerMobile = lead.mobile;
+  if (lead.email) patch.customerEmail = lead.email;
+
+  await updateDoc(ref, patch);
+}
+
+/**
  * Save quotation as new (Save As)
  */
 export async function saveQuotationAs(agentId, quotationData) {

@@ -99,54 +99,10 @@ export const getQuotationsForLead = async (leadId) => {
   if (!leadId) return [];
 
   try {
-    const byLeadIdQ = query(
-      collectionGroup(db, "packages"),
-      where("leadId", "==", leadId)
+    const snap = await getDocs(
+      query(collectionGroup(db, "packages"), where("leadId", "==", leadId))
     );
-    const byLeadIdSnap = await getDocs(byLeadIdQ);
-    const byId = new Map(
-      byLeadIdSnap.docs.map((d) => [d.ref.path, { id: d.id, ...d.data() }])
-    );
-
-    const leadSnap = await getDoc(doc(db, "leads", leadId));
-    const lead = leadSnap.exists() ? leadSnap.data() : null;
-    const mobile = lead?.mobile;
-    const email = lead?.email;
-
-    const fallbackQueries = [];
-    if (mobile) {
-      fallbackQueries.push(
-        query(collectionGroup(db, "packages"), where("customerMobile", "==", mobile))
-      );
-      fallbackQueries.push(
-        query(collectionGroup(db, "packages"), where("mobile", "==", mobile))
-      );
-    }
-    if (email) {
-      fallbackQueries.push(
-        query(collectionGroup(db, "packages"), where("customerEmail", "==", email))
-      );
-      fallbackQueries.push(
-        query(collectionGroup(db, "packages"), where("email", "==", email))
-      );
-    }
-
-    await Promise.all(
-      fallbackQueries.map(async (q) => {
-        try {
-          const snap = await getDocs(q);
-          snap.docs.forEach((d) => {
-            const data = d.data();
-            if (data.leadId && data.leadId !== leadId) return;
-            byId.set(d.ref.path, { id: d.id, ...data });
-          });
-        } catch (e) {
-          // A fallback may fail if the field doesn't exist — non-fatal.
-        }
-      })
-    );
-
-    return Array.from(byId.values());
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (error) {
     console.error("Error fetching quotations for lead:", error);
     return [];
