@@ -69,6 +69,41 @@ export function useNotifications(userId) {
     return unsub;
   }, [userId]);
 
+  useEffect(() => {
+  if (
+    typeof window === "undefined" ||
+    Notification.permission !== "granted"
+  ) {
+    return;
+  }
+
+  dueSoonFollowUps.forEach((fu) => {
+    // prevent duplicate browser notifications
+    const key = `fu_browser_${fu.id}`;
+
+    if (sessionStorage.getItem(key)) return;
+
+    const overdue =
+      new Date(fu.dateTime) < new Date();
+
+    showBrowserNotification({
+      title: overdue
+        ? "⚠️ Follow-up Overdue"
+        : "📞 Follow-up Due Soon",
+
+      body: `${fu.leadName} • ${fu.mode} follow-up`,
+
+      tag: `followup-${fu.id}`,
+
+      url: `/agent-panel/leads/${fu.leadId}`,
+
+      requireInteraction: overdue,
+    });
+
+    sessionStorage.setItem(key, "1");
+  });
+}, [dueSoonFollowUps]);
+
   // ── 3. Request permission helper — UNCHANGED ─────────────────────────────
   const askPermission = useCallback(async () => {
     const result = await requestNotificationPermission();

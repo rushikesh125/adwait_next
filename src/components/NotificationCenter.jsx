@@ -183,13 +183,13 @@ export default function NotificationCenter({ userId }) {
 
  const handleNotificationClick = async (n) => {
   // ONLY remove quotation status notifications
-  if (
-    (n.type === "quotation_accepted" ||
-      n.type === "quotation_rejected") &&
-    !n.read
-  ) {
-    await markNotificationRead(n.id);
-  }
+ if (
+  n.type !== "follow_up_reminder" &&
+  n.type !== "vendor_payment_due" &&
+  !n.read
+) {
+  await markNotificationRead(n.id);
+}
 
   setOpen(false);
 
@@ -219,18 +219,18 @@ export default function NotificationCenter({ userId }) {
   };
 const recentNotifications = notifications
   .filter((n) => {
-    if (n.type === "follow_up_reminder") return false;
-
-    // Remove quotation status notifications after read
-    if (
-      (n.type === "quotation_accepted" ||
-        n.type === "quotation_rejected") &&
-      n.read
-    ) {
-      return false;
+    // Keep follow-up reminders always visible
+    if (n.type === "follow_up_reminder") {
+      return !n.read;
     }
 
-    return true;
+    // Keep payment reminders visible even after click
+    if (n.type === "vendor_payment_due") {
+      return true;
+    }
+
+    // Remove ALL OTHER notifications once read
+    return !n.read;
   })
   .sort((a, b) => {
     const aTime = a.createdAt?.toDate
@@ -243,6 +243,14 @@ const recentNotifications = notifications
 
     return bTime - aTime;
   });
+
+  const overdueFollowUps = dueSoonFollowUps.filter((fu) =>
+  isOverdue(fu.dateTime)
+);
+
+const upcomingFollowUps = dueSoonFollowUps.filter(
+  (fu) => !isOverdue(fu.dateTime)
+);
 const isEmpty =
   !isLoading &&
   followUps.length === 0 &&
@@ -336,16 +344,16 @@ const isEmpty =
               </>
             )}
 {/* ── NEW SECTION: insert BEFORE the existing Follow-up reminders section ── */}
-{!isLoading && dueSoonFollowUps.length > 0 && (
+{!isLoading && overdueFollowUps.length > 0 && (
   <section>
     <div className="sticky top-0 bg-rose-50/90 backdrop-blur-sm px-4 py-2 flex items-center gap-2 border-b border-rose-100 z-10">
       <Clock className="h-3.5 w-3.5 text-rose-600" />
       <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
-        Due Soon ({dueSoonFollowUps.length})
+       Overdue Follow-ups ({overdueFollowUps.length})
       </span>
     </div>
 
-    {dueSoonFollowUps.map((fu) => {
+   {overdueFollowUps.map((fu) => {
       const ModeIcon = MODE_ICON[fu.mode] ?? Clock;
       const overdue  = isOverdue(fu.dateTime);
       const dueLabel = getDueLabel(fu.dateTime);
@@ -407,7 +415,7 @@ const isEmpty =
                   View Lead →
                 </button>
 
-                {waUrl && (
+                {/* {waUrl && (
                   <button
                     onClick={() => window.open(waUrl, "_blank")}
                     className="flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-[11px] font-bold text-white hover:bg-green-600 transition-colors"
@@ -415,7 +423,7 @@ const isEmpty =
                     <MessageCircle className="h-3 w-3" />
                     WhatsApp
                   </button>
-                )}
+                )} */}
               </div>
             </div>
           </div>
@@ -425,15 +433,15 @@ const isEmpty =
   </section>
 )}
             {/* Follow-up reminders */}
-            {!isLoading && followUps.length > 0 && (
+           {!isLoading && upcomingFollowUps.length > 0 && (
               <section>
                 <div className="sticky top-0 bg-amber-50/90 backdrop-blur-sm px-4 py-2 flex items-center gap-2 border-b border-amber-100 z-10">
                   <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
                   <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">
-                    Follow-up Reminders ({followUps.length})
+                   Follow-up Reminders ({upcomingFollowUps.length})
                   </span>
                 </div>
-                {followUps.map((fu) => {
+             {upcomingFollowUps.map((fu) => {
                   const ModeIcon = MODE_ICON[fu.mode] ?? Clock;
                   const waUrl = buildWhatsAppUrl(fu.leadMobile, fu.leadName);
                   return (

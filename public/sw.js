@@ -45,8 +45,10 @@ self.addEventListener("notificationclick", (e) => {
 async function openOrFocusWindow(url) {
   const all = await clients.matchAll({ type: "window", includeUncontrolled: true });
   const existing = all.find((c) => c.url.includes(self.location.origin));
-  if (existing) { await existing.focus(); existing.postMessage({ type: "NAVIGATE", url }); return; }
-  return clients.openWindow(url);
+if (existing) {
+  await existing.focus();
+  return existing.navigate(url);
+}  return clients.openWindow(url);
 }
 
 self.addEventListener("install", () => self.skipWaiting());
