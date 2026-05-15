@@ -60,7 +60,7 @@ const AdminPanelLayout = ({ children }) => {
 
   const SidebarContent = ({ mobile = false }) => (
     <div className="flex flex-col h-full bg-[#0F172A] text-slate-300">
-      <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800">
+      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className="min-w-[36px] h-9 bg-linear-to-tr from-theme-primary to-theme-secondary rounded-lg flex items-center justify-center">
             <Lock className="text-white w-4 h-4" />
@@ -160,7 +160,7 @@ const AdminPanelLayout = ({ children }) => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="h-16 lg:h-20 bg-white border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
+        <header className="h-14 lg:h-16 bg-white border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between flex-shrink-0 z-40">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
               <Menu className="w-6 h-6 text-slate-600" />

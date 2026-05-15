@@ -1121,14 +1121,14 @@ const Create_new_package = ({
             {/* ── Package Options Tabs ────────────────────────────────────── */}
             {/* ── Package Options Section ────────────────────────────────────── */}
             <Card className="border-slate-200 shadow-sm">
-              <CardHeader className="p-4 pb-3 border-b border-slate-100">
+              <CardHeader className="p-3 pb-2 border-b border-slate-100">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Layers className="h-5 w-5 text-theme-primary" />
-                    <CardTitle className="text-lg font-semibold">
+                    <Layers className="h-4 w-4 text-theme-primary" />
+                    <CardTitle className="text-sm font-semibold">
                       Package Options
                     </CardTitle>
-                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                       {packageOptions.length}/{MAX_OPTIONS}
                     </span>
                   </div>
@@ -1138,15 +1138,15 @@ const Create_new_package = ({
                     disabled={packageOptions.length >= MAX_OPTIONS}
                     variant="outline"
                     size="sm"
-                    className="text-theme-primary border-theme-primary hover:bg-theme-primary/5"
+                    className="h-7 px-2 text-xs text-theme-primary border-theme-primary hover:bg-theme-primary/5"
                   >
-                    <Plus className="h-4 w-4 mr-1.5" />
+                    <Plus className="h-3.5 w-3.5 mr-1" />
                     Add Option
                   </Button>
                 </div>
               </CardHeader>
 
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex flex-wrap gap-2">
                   {packageOptions.map((opt) => {
                     const isActive = activeOptionId === opt.id;

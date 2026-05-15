@@ -546,6 +546,14 @@ const handleFollowUpMarkComplete = async (
 
   const tripFields = [
     { icon: User, label: "Lead Name", value: lead?.name || "-" },
+    ...(lead?.customerId
+      ? [{
+          icon: User,
+          label: "Customer Record",
+          value: "View profile →",
+          href: `/agent-panel/customers/${lead.customerId}`,
+        }]
+      : []),
     { icon: Phone, label: "Mobile", value: lead?.mobile || "-", href: lead?.mobile ? `tel:${lead.mobile}` : null },
     { icon: Mail, label: "Email", value: lead?.email || "-" },
     { icon: MapPin, label: "Destination", value: lead?.destination || "-" },

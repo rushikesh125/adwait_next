@@ -21,7 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import toast, { Toaster } from "react-hot-toast";
-import { updateHotelComplete, validateHotelData } from "@/firebase/accomodation";
+import { updateHotelComplete, validateHotelData } from "@/firebase/accommodation";
 
 // ─── Date Overlap Utilities ────────────────────────────────────────────────
 const parseDate = (str) => {
