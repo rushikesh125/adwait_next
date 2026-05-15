@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, use, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
 import {
@@ -80,11 +80,7 @@ import {
   buildQuotationSummaryPayload,
   sharePackageSummaryOnWhatsApp,
 } from "@/lib/copyPackageSummary";
-
-// ── Unified Activity Timeline ─────────────────────────────────────────────────
 import ActivityTimeline from "@/components/ActivityTimeline";
-
-// ── Follow-up components (still used for quotation-sent prompt) ───────────────
 import FollowUpForm from "@/components/followups/FollowUpForm";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -106,6 +102,32 @@ function buildFollowUpNoteText(followUp, completionNotes) {
       })
     : "-";
   return `FOLLOW-UP – ${dt} – ${followUp.mode}: ${completionNotes}`;
+}
+
+// Helper to get timestamp from various date formats
+function getTimestamp(item, type) {
+  if (type === "note") {
+    if (item?.createdAt?.seconds) return item.createdAt.seconds * 1000;
+    if (item?.createdAt) return new Date(item.createdAt).getTime();
+    return Date.now();
+  }
+  if (type === "followUp") {
+    if (item?.dateTime) return new Date(item.dateTime).getTime();
+    if (item?.createdAt?.seconds) return item.createdAt.seconds * 1000;
+    if (item?.createdAt) return new Date(item.createdAt).getTime();
+    return Date.now();
+  }
+  if (type === "systemEvent") {
+    if (item?.timestamp?.seconds) return item.timestamp.seconds * 1000;
+    if (item?.timestamp) return new Date(item.timestamp).getTime();
+    return Date.now();
+  }
+  return 0;
+}
+
+// Sort items by date (newest first for activity feed)
+function sortByDateDesc(items, type) {
+  return [...items].sort((a, b) => getTimestamp(b, type) - getTimestamp(a, type));
 }
 
 // ── Quotation-Sent Follow-Up Prompt ───────────────────────────────────────────
@@ -162,7 +184,7 @@ function QuotationSentFollowUpPrompt({ open, quotation, onSchedule, onSkip }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LeadProfilePage({ params }) {
-  const { lid } = use(params);
+  const { lid } = React.use(params);
   const router  = useRouter();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
@@ -180,16 +202,10 @@ export default function LeadProfilePage({ params }) {
   const [isLeadEditOpen, setIsLeadEditOpen] = useState(false);
   const [leadForm, setLeadForm]             = useState(null);
   const [previewQuotation, setPreviewQuotation] = useState(null);
-
-  // Single active tab: "quotations" | "activities"
   const [activeTab, setActiveTab] = useState("quotations");
-
-  // Quotation-sent → follow-up prompt
   const [pendingFollowUpForQuotation, setPendingFollowUpForQuotation] = useState(null);
   const [showFollowUpAfterQuotationSent, setShowFollowUpAfterQuotationSent] = useState(false);
   const [showFollowUpFormDirect, setShowFollowUpFormDirect]                 = useState(false);
-
-  // Attach existing (orphan) quotation to this lead
   const [attachDialogOpen, setAttachDialogOpen] = useState(false);
   const [orphanQuotations, setOrphanQuotations] = useState([]);
   const [orphanLoading, setOrphanLoading] = useState(false);
@@ -429,7 +445,7 @@ export default function LeadProfilePage({ params }) {
     }
   };
 
-  // ── Follow-Up handlers (passed to ActivityTimeline) ────────────────────────
+  // ── Follow-Up handlers ─────────────────────────────────────────────────────
   const handleFollowUpAdd = async (formData) => {
     if (!formData?.dateTime) { toast.error("Date/time is required"); throw new Error("validation"); }
     if (!formData?.mode)     { toast.error("Mode is required");       throw new Error("validation"); }
@@ -551,6 +567,10 @@ export default function LeadProfilePage({ params }) {
   ).length;
   const activityCount = followUps.length + notes.length;
 
+  // ── Sorted activities for timeline (newest first) ──────────────────────────
+  const sortedNotes = sortByDateDesc(notes, "note");
+  const sortedFollowUps = sortByDateDesc(followUps, "followUp");
+
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading)
     return (
@@ -593,7 +613,7 @@ export default function LeadProfilePage({ params }) {
     },
   ];
 
-  // Tab config — now just 2 tabs
+  // Tab config
   const TABS = [
     { key: "quotations",  label: "Quotations",  count: quotations.length,  badge: null },
     {
@@ -822,7 +842,6 @@ export default function LeadProfilePage({ params }) {
 
                         <TooltipProvider>
                           <div className="flex items-center gap-0.5 shrink-0">
-                            {/* WhatsApp */}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -836,7 +855,6 @@ export default function LeadProfilePage({ params }) {
                               <TooltipContent side="top">Share on WhatsApp</TooltipContent>
                             </Tooltip>
 
-                            {/* Mark as Sent */}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -857,7 +875,6 @@ export default function LeadProfilePage({ params }) {
                               </TooltipContent>
                             </Tooltip>
 
-                            {/* View */}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -871,7 +888,6 @@ export default function LeadProfilePage({ params }) {
                               <TooltipContent side="top">View Quotation</TooltipContent>
                             </Tooltip>
 
-                            {/* Edit */}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -885,7 +901,6 @@ export default function LeadProfilePage({ params }) {
                               <TooltipContent side="top">Edit Quotation</TooltipContent>
                             </Tooltip>
 
-                            {/* Delete */}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -920,21 +935,64 @@ export default function LeadProfilePage({ params }) {
               </Card>
             )}
 
-            {/* ── ACTIVITIES TAB (unified follow-ups + notes) ── */}
+            {/* ── ACTIVITIES TAB (with note input at top + sorted timeline) ── */}
             {activeTab === "activities" && (
-              <ActivityTimeline
-                followUps={followUps}
-                notes={notes}
-                systemEvents={[]}       
-                leadQuotations={quotations}
-                lead={lead}
-                onAddNote={handleAddNote}
-                onDeleteNote={handleDeleteNote}
-                onFollowUpAdd={handleFollowUpAdd}
-                onFollowUpEdit={handleFollowUpEdit}
-                onFollowUpDelete={handleFollowUpDelete}
-                onFollowUpMarkComplete={handleFollowUpMarkComplete}
-              />
+              <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
+                <CardContent className="p-0">
+                  {/* Note Input at Top */}
+                  <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                    <div className="flex gap-3">
+                      <div className="flex-1 relative">
+                        <Input
+                          placeholder="Add a quick note..."
+                          className="pr-20 rounded-xl border-slate-200 focus:border-theme-primary focus:ring-theme-primary/20"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && e.target.value.trim()) {
+                              handleAddNote(e.target.value);
+                              e.target.value = "";
+                            }
+                          }}
+                          onBlur={(e) => {
+                            if (e.target.value.trim()) {
+                              handleAddNote(e.target.value);
+                              e.target.value = "";
+                            }
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 px-3 rounded-lg bg-theme-primary hover:bg-theme-secondary text-white text-xs"
+                          onClick={(e) => {
+                            const input = e.target.closest(".relative").querySelector("input");
+                            if (input?.value.trim()) {
+                              handleAddNote(input.value);
+                              input.value = "";
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">Press Enter or click Add to save</p>
+                  </div>
+
+                  {/* Unified Activity Timeline with sorted data */}
+                  <ActivityTimeline
+                    followUps={sortedFollowUps}
+                    notes={sortedNotes}
+                    systemEvents={[]}
+                    leadQuotations={quotations}
+                    lead={lead}
+                    onAddNote={handleAddNote}
+                    onDeleteNote={handleDeleteNote}
+                    onFollowUpAdd={handleFollowUpAdd}
+                    onFollowUpEdit={handleFollowUpEdit}
+                    onFollowUpDelete={handleFollowUpDelete}
+                    onFollowUpMarkComplete={handleFollowUpMarkComplete}
+                  />
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
