@@ -110,6 +110,68 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MAX_OPTIONS = 4;
+const MAX_ROOM_CATEGORIES = 3;
+
+// ─── Room Category helpers ─────────────────────────────────────────────────────
+/**
+ * Create a blank room-category row.
+ * @param {number} index - 0-based index within the hotel entry
+ * @param {string} inheritedMealPlan - meal plan to inherit from the primary room
+ */
+const createEmptyRoomCategory = (index = 0, inheritedMealPlan = "") => ({
+  id: Date.now() + index, // ephemeral client-side id
+  roomCategory: "",
+  mealPlan: inheritedMealPlan,
+  mealPlanOverridden: false, // true once the agent explicitly changed this row's meal plan
+  numDouble: index === 0 ? 1 : 0, // first room defaults to 1 double; extras default to 0
+  numExtraAdult: 0,
+  numExtraChild: 0,
+  numCNB: 0,
+  price: 0, // resolved per-room-category total (nights × rate × occupancy)
+});
+
+/**
+ * Migrate a legacy hotel entry (flat structure) to the new multi-room-category structure.
+ * Safe to call on entries that are already migrated.
+ */
+const migrateHotelEntry = (entry) => {
+  if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
+    return entry; // already migrated
+  }
+  // Build a single room-category from the flat fields
+  const legacyRoom = {
+    id: Date.now(),
+    roomCategory: entry.selectedRoomCategory || entry.roomCategory || "",
+    mealPlan: entry.selectedMealPlan || entry.mealPlan || "",
+    mealPlanOverridden: false,
+    numDouble: entry.numDouble ?? 1,
+    numExtraAdult: entry.numExtraAdult ?? 0,
+    numExtraChild: entry.numExtraChild ?? 0,
+    numCNB: entry.numCNB ?? 0,
+    price: entry.hotelTotal ?? 0,
+  };
+  return {
+    ...entry,
+    roomCategories: [legacyRoom],
+    // keep legacy flat fields for backwards-compatible reads elsewhere
+  };
+};
+
+/**
+ * Compute the total price of a hotel entry from its room categories.
+ */
+const calcHotelEntryTotal = (entry) =>
+  (entry.roomCategories || []).reduce((s, rc) => s + Number(rc.price || 0), 0);
+
+/**
+ * Sort hotel entries by checkInDate ascending.
+ */
+const sortEntriesByCheckIn = (entries) =>
+  [...entries].sort((a, b) => {
+    const da = a.checkInDate ? new Date(a.checkInDate) : new Date(0);
+    const db_ = b.checkInDate ? new Date(b.checkInDate) : new Date(0);
+    return da - db_;
+  });
 
 const createEmptyOption = (id, name = "") => ({
   id,
@@ -129,6 +191,8 @@ const createEmptyOption = (id, name = "") => ({
   guests: { numDouble: 1, numExtraAdult: 0, numExtraChild: 0, numCNB: 0 },
   saveChanges: false,
   markup: null, // per-option resolved markup in ₹ (null = use shared lumpsum)
+  // Multi-room-category state for the *current* hotel being configured
+  roomCategoryRows: [createEmptyRoomCategory(0)], // array of room-category rows being built
 });
 
 // ─── Validation helpers ───────────────────────────────────────────────────────
@@ -139,6 +203,30 @@ const validateOptions = (options) => {
         valid: false,
         error: `"${opt.name}" must have at least one hotel selected.`,
       };
+    }
+    // Validate room categories within each hotel entry
+    for (const entry of opt.hotelEntries) {
+      const rooms = entry.roomCategories || [];
+      if (rooms.length === 0) {
+        return {
+          valid: false,
+          error: `Hotel "${entry.hotel}" in "${opt.name}" must have at least one room category.`,
+        };
+      }
+      for (const rc of rooms) {
+        if (!rc.roomCategory) {
+          return {
+            valid: false,
+            error: `All room categories in "${entry.hotel}" (${opt.name}) must have a room type selected.`,
+          };
+        }
+        if (!rc.mealPlan) {
+          return {
+            valid: false,
+            error: `All room categories in "${entry.hotel}" (${opt.name}) must have a meal plan selected.`,
+          };
+        }
+      }
     }
   }
 
@@ -169,11 +257,17 @@ const validateOptions = (options) => {
         .sort()
         .join(",");
       const aMeals = (a.hotelEntries || [])
-        .map((h) => `${h.hotel}|${h.city}|${h.selectedMealPlan}`)
+        .map(
+          (h) =>
+            `${h.hotel}|${h.city}|${(h.roomCategories || []).map((rc) => rc.mealPlan).join(":")}`,
+        )
         .sort()
         .join(",");
       const bMeals = (b.hotelEntries || [])
-        .map((h) => `${h.hotel}|${h.city}|${h.selectedMealPlan}`)
+        .map(
+          (h) =>
+            `${h.hotel}|${h.city}|${(h.roomCategories || []).map((rc) => rc.mealPlan).join(":")}`,
+        )
         .sort()
         .join(",");
       if (aHotels === bHotels && aDates === bDates && aMeals === bMeals) {
@@ -246,6 +340,250 @@ const getOptionHotelGaps = (option) => {
   return gaps;
 };
 
+// ─── MultiRoomCategoryEditor ──────────────────────────────────────────────────
+/**
+ * Inline sub-component for managing multiple room-category rows for a single hotel.
+ * Props:
+ *   rows          – array of room-category rows (state from parent)
+ *   onChange      – (updatedRows) => void
+ *   hotelData     – the selected hotel object (for room categories list)
+ *   nights        – number of nights (for price computation reference)
+ *   checkInDate   – ISO string
+ *   checkOutDate  – ISO string
+ *   onTotalChange – (total: number) => void  called whenever total price changes
+ *   onRoomCategoryChange – (category: string) => void  for primary row (index 0)
+ *   onMealPlanChange     – (mealPlan: string) => void  for primary row (index 0)
+ *   onGuestsChange       – (guests: object) => void    for primary row (index 0)
+ *   HotelRoomSelector    – the existing component (passed as prop to avoid circular import issues)
+ *   editingEntry         – full hotel entry when editing (for initial values)
+ *   roomPriceRefs        – mutable ref to store latest prices per row (FIX)
+ */
+const MultiRoomCategoryEditor = ({
+  rows,
+  onChange,
+  hotelData,
+  nights,
+  checkInDate,
+  checkOutDate,
+  onTotalChange,
+  editingEntry, // full hotel entry when editing (for initial values)
+  roomPriceRefs, // FIX: added ref for price sync
+}) => {
+  // Propagate total whenever rows change
+  useEffect(() => {
+    const total = rows.reduce((s, r) => s + Number(r.price || 0), 0);
+    onTotalChange?.(total);
+  }, [rows]);
+
+  const primaryMealPlan = rows[0]?.mealPlan || "";
+
+  /**
+   * Update a single row by index.
+   * Handles meal-plan sync: when row 0's mealPlan changes, cascade to non-overridden rows.
+   */
+  const updateRow = (index, patch) => {
+    const updated = rows.map((row, i) => {
+      if (i === index) {
+        const newRow = { ...row, ...patch };
+        // If the agent is explicitly setting mealPlan on this row and it's not row 0,
+        // mark it as overridden so cascade won't overwrite it later.
+        if ("mealPlan" in patch && i !== 0) {
+          newRow.mealPlanOverridden = true;
+        }
+        return newRow;
+      }
+      // Cascade meal plan from row 0 to non-overridden rows
+      if (index === 0 && "mealPlan" in patch && !row.mealPlanOverridden) {
+        return { ...row, mealPlan: patch.mealPlan };
+      }
+      return row;
+    });
+    onChange(updated);
+  };
+
+  const addRow = () => {
+    if (rows.length >= MAX_ROOM_CATEGORIES) {
+      toast.error(`Maximum ${MAX_ROOM_CATEGORIES} room categories per hotel.`);
+      return;
+    }
+    onChange([...rows, createEmptyRoomCategory(rows.length, primaryMealPlan)]);
+  };
+
+  const removeRow = (index) => {
+    if (rows.length <= 1) {
+      toast.error("At least one room category is required.");
+      return;
+    }
+    // FIX: delete the ref entry for the removed row
+    const removedRow = rows[index];
+    if (removedRow && roomPriceRefs?.current) {
+      delete roomPriceRefs.current[removedRow.id];
+    }
+    onChange(rows.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row, index) => (
+        <div
+          key={row.id}
+          className="relative rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2"
+        >
+          {/* Row header */}
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold text-theme-primary uppercase tracking-wide flex items-center gap-1.5">
+              <BedDouble className="h-3 w-3" />
+              Room Category {index + 1}
+              {index === 0 && (
+                <span className="text-[9px] bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded-full font-semibold">
+                  Primary
+                </span>
+              )}
+            </span>
+            <div className="flex items-center gap-1">
+              {rows.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeRow(index)}
+                  className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 transition-colors"
+                  aria-label="Remove room category"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* HotelRoomSelector with ref‑writing callbacks */}
+          <HotelRoomSelector
+            hotel={hotelData}
+            checkInDate={checkInDate}
+            checkOutDate={checkOutDate}
+            nights={nights}
+            onTotalChange={(price) => {
+              console.log("ROOM", index, "PRICE:", price);
+              // FIX: store latest price in the ref immediately
+              if (roomPriceRefs?.current) {
+                roomPriceRefs.current[row.id] = price;
+              }
+              updateRow(index, { price });
+            }}
+            onRoomCategoryChange={(roomCategory) =>
+              updateRow(index, { roomCategory })
+            }
+            onMealPlanChange={(mealPlan) => updateRow(index, { mealPlan })}
+            onGuestsChange={(guests) =>
+              updateRow(index, {
+                numDouble: guests.numDouble,
+                numExtraAdult: guests.numExtraAdult,
+                numExtraChild: guests.numExtraChild,
+                numCNB: guests.numCNB,
+              })
+            }
+            // When editing, pass initial values for this specific row
+            initial={
+              editingEntry?.roomCategories?.[index]
+                ? {
+                    selectedRoomCategory:
+                      editingEntry.roomCategories[index].roomCategory,
+                    selectedMealPlan:
+                      editingEntry.roomCategories[index].mealPlan,
+                    numDouble: editingEntry.roomCategories[index].numDouble,
+                    numExtraAdult:
+                      editingEntry.roomCategories[index].numExtraAdult,
+                    numExtraChild:
+                      editingEntry.roomCategories[index].numExtraChild,
+                    numCNB: editingEntry.roomCategories[index].numCNB,
+                  }
+                : index === 0 && editingEntry && !editingEntry.roomCategories
+                  ? editingEntry // legacy flat structure
+                  : {}
+            }
+            // Pass the current meal plan to keep HotelRoomSelector in sync with cascade
+            forcedMealPlan={
+              index !== 0 && !row.mealPlanOverridden
+                ? primaryMealPlan
+                : undefined
+            }
+          />
+
+          {/* Meal-plan override indicator for non-primary rows */}
+          {index !== 0 && row.mealPlanOverridden && (
+            <div className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+              <Info className="h-3 w-3 flex-shrink-0" />
+              <span>
+                Meal plan overridden — changes to Room 1 won't affect this room.{" "}
+                <button
+                  type="button"
+                  className="underline font-medium hover:text-amber-800"
+                  onClick={() =>
+                    updateRow(index, {
+                      mealPlan: primaryMealPlan,
+                      mealPlanOverridden: false,
+                    })
+                  }
+                >
+                  Reset to Room 1
+                </button>
+              </span>
+            </div>
+          )}
+
+          {/* Price display for this row */}
+          {row.price > 0 && (
+            <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-1.5 mt-1">
+              <span>Room Category {index + 1} subtotal</span>
+              <span className="font-bold text-slate-700">
+                ₹{Number(row.price).toLocaleString("en-IN")}
+              </span>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Add room category button */}
+      {rows.length < MAX_ROOM_CATEGORIES && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addRow}
+          className="w-full text-xs h-8 border-dashed border-theme-primary/50 text-theme-primary hover:bg-theme-primary/5"
+        >
+          <Plus className="h-3.5 w-3.5 mr-1.5" />
+          Add Room Category{" "}
+          <span className="ml-1 text-[10px] text-slate-400">
+            ({rows.length}/{MAX_ROOM_CATEGORIES})
+          </span>
+        </Button>
+      )}
+
+      {rows.length >= MAX_ROOM_CATEGORIES && (
+        <p className="text-[10px] text-amber-600 flex items-center gap-1.5">
+          <AlertCircle className="h-3 w-3" />
+          Maximum {MAX_ROOM_CATEGORIES} room categories per hotel
+        </p>
+      )}
+
+      {/* Combined total */}
+      {rows.length > 1 && (
+        <div className="flex items-center justify-between rounded-lg bg-theme-primary/5 border border-theme-primary/20 px-3 py-2 text-xs">
+          <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+            <Hotel className="h-3.5 w-3.5 text-theme-primary" />
+            Combined Hotel Total
+          </span>
+          <span className="font-black text-theme-primary text-sm">
+            ₹
+            {rows
+              .reduce((s, r) => s + Number(r.price || 0), 0)
+              .toLocaleString("en-IN")}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Create_new_package = ({
   userData,
@@ -274,14 +612,8 @@ const Create_new_package = ({
 
   const quotationId = searchParams.get("quotationId");
   const isEditMode = !!quotationId;
-  // Overwriting in place is only allowed while the original is still a Draft.
-  // Requires editingQuotation to be loaded with an explicit "Draft" status —
-  // any other value (or unloaded state) falls back to Save As New so we never
-  // silently overwrite a Sent / Accepted / Rejected quotation.
   const canOverwrite =
-    isEditMode &&
-    !!editingQuotation &&
-    editingQuotation.status === "Draft";
+    isEditMode && !!editingQuotation && editingQuotation.status === "Draft";
   const customerId =
     searchParams.get("customerId") || searchParams.get("customerid");
   const leadId = searchParams.get("leadId");
@@ -344,7 +676,8 @@ const Create_new_package = ({
   const [customerSearchText, setCustomerSearchText] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedCustomerLink, setSelectedCustomerLink] = useState(null);
-  const [showInlineCreateCustomer, setShowInlineCreateCustomer] = useState(false);
+  const [showInlineCreateCustomer, setShowInlineCreateCustomer] =
+    useState(false);
   const [newCustomerDraft, setNewCustomerDraft] = useState({
     name: "",
     mobile: "",
@@ -359,7 +692,8 @@ const Create_new_package = ({
     user?.uid,
     user?.role,
   );
-  const canUseItineraryAI = !permissionsLoading && hasPermission("itinerary_ai");
+  const canUseItineraryAI =
+    !permissionsLoading && hasPermission("itinerary_ai");
 
   // ── Active Option helpers ──────────────────────────────────────────────────
   const activeOption =
@@ -395,6 +729,7 @@ const Create_new_package = ({
     mealPlan,
     currentHotelTotal,
     guests,
+    roomCategoryRows,
   } = activeOption;
 
   const setCheckInDate = (v) => updateActiveOption({ checkInDate: v });
@@ -418,20 +753,40 @@ const Create_new_package = ({
     updateActiveOption({ currentHotelTotal: v });
   const setGuests = (v) => updateActiveOption({ guests: v });
 
+  /** Update the roomCategoryRows for the current hotel being configured */
+  const setRoomCategoryRows = (updater) => {
+    updateActiveOption((opt) => ({
+      ...opt,
+      roomCategoryRows:
+        typeof updater === "function" ? updater(opt.roomCategoryRows) : updater,
+    }));
+  };
+
+  // FIX: ref to store latest price per room (synchronous bridge)
+  const roomPriceRefs = useRef({});
+  // Helper to get total from refs
+  const getLatestTotal = useCallback(
+    () => Object.values(roomPriceRefs.current).reduce((sum, p) => sum + (p || 0), 0),
+    [],
+  );
+
   // ── Hotel dispatch-like helpers ────────────────────────────────────────────
   const addHotelEntryToOption = (entry) => {
     updateActiveOption((opt) => ({
       ...opt,
-      hotelEntries: [...opt.hotelEntries, entry],
+      // Always sort by checkInDate when adding
+      hotelEntries: sortEntriesByCheckIn([...opt.hotelEntries, entry]),
     }));
   };
+
   const updateHotelEntryInOption = (index, data) => {
     updateActiveOption((opt) => {
-      const updated = [...opt.hotelEntries];
-      updated[index] = data;
-      return { ...opt, hotelEntries: updated };
+      // When updating, re-sort so dates remain in order
+      const updated = opt.hotelEntries.map((e, i) => (i === index ? data : e));
+      return { ...opt, hotelEntries: sortEntriesByCheckIn(updated) };
     });
   };
+
   const deleteHotelEntryFromOption = (index) => {
     updateActiveOption((opt) => ({
       ...opt,
@@ -519,7 +874,10 @@ const Create_new_package = ({
     if (q.packageOptions?.length) {
       const hydrated = q.packageOptions.map((po, idx) => ({
         ...createEmptyOption(idx + 1, po.name || `Option ${idx + 1}`),
-        hotelEntries: po.hotelEntries || [],
+        // Migrate each hotel entry to ensure it has roomCategories
+        hotelEntries: sortEntriesByCheckIn(
+          (po.hotelEntries || []).map(migrateHotelEntry),
+        ),
         checkInDate: po.hotelEntries?.[0]?.checkInDate || "",
         checkOutDate: po.hotelEntries?.[0]?.checkOutDate || "",
       }));
@@ -529,7 +887,9 @@ const Create_new_package = ({
       setPackageOptions([
         {
           ...createEmptyOption(1, "Option 1"),
-          hotelEntries: q.hotelSummary,
+          hotelEntries: sortEntriesByCheckIn(
+            q.hotelSummary.map(migrateHotelEntry),
+          ),
           checkInDate: q.hotelSummary[0]?.checkInDate || "",
           checkOutDate: q.hotelSummary[0]?.checkOutDate || "",
         },
@@ -638,6 +998,7 @@ const Create_new_package = ({
     customerName,
     dispatch,
   ]);
+
   const transportBreakdown = useMemo(() => {
     if (!selectedTransport?.selectedVehicle) return null;
     const vehicle = selectedTransport.selectedVehicle;
@@ -654,7 +1015,9 @@ const Create_new_package = ({
     if (perKm > 0) {
       const calculatedBaseCost = Number(minKm || 0) * perKm * days;
       const baseCost =
-        editableBaseCost !== null ? Number(editableBaseCost) : calculatedBaseCost;
+        editableBaseCost !== null
+          ? Number(editableBaseCost)
+          : calculatedBaseCost;
       const driverAllowance = allowancePerDay * days;
       const toll = Math.max(0, Number(tollCharges || 0));
       const permit = Math.max(0, Number(permitCharges || 0));
@@ -691,15 +1054,15 @@ const Create_new_package = ({
     otherCharges,
   ]);
 
-const transportTotalPrice = transportBreakdown?.total || 0;
+  const transportTotalPrice = transportBreakdown?.total || 0;
+
   // ── Re-apply percentage markup whenever options or shared costs change ─────
-  // This ensures per-option markup stays accurate when hotel entries are edited
   useEffect(() => {
     if (markupType !== "percentage" || !markupAmount) return;
     setPackageOptions((prev) =>
       prev.map((opt) => {
         const hotelTotal = (opt.hotelEntries || []).reduce(
-          (s, e) => s + Number(e.hotelTotal || 0),
+          (s, e) => s + calcHotelEntryTotal(e),
           0,
         );
         const base = hotelTotal + transportTotalPrice + activityTotalPrice;
@@ -707,9 +1070,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
       }),
     );
   }, [
-    // Only re-run when hotel entries of any option change, or shared costs change
-    // We stringify hotelEntries of all options as a cheap dependency
-    packageOptions.map((o) => o.hotelEntries.map((e) => e.hotelTotal).join(",")).join("|"),
+    packageOptions
+      .map((o) => o.hotelEntries.map((e) => calcHotelEntryTotal(e)).join(","))
+      .join("|"),
     transportTotalPrice,
     activityTotalPrice,
     markupType,
@@ -738,10 +1101,15 @@ const transportTotalPrice = transportBreakdown?.total || 0;
     [filteredHotels],
   );
 
-  const selectedHotelData = filteredHotels.find((h) => h.id === selectedHotelId);
+  const selectedHotelData = filteredHotels.find(
+    (h) => h.id === selectedHotelId,
+  );
 
   useEffect(() => {
-    if (!selectedHotelId || filteredHotels.some((h) => h.id === selectedHotelId)) {
+    if (
+      !selectedHotelId ||
+      filteredHotels.some((h) => h.id === selectedHotelId)
+    ) {
       return;
     }
     updateActiveOption({
@@ -749,60 +1117,43 @@ const transportTotalPrice = transportBreakdown?.total || 0;
       roomCategory: "",
       mealPlan: "",
       currentHotelTotal: 0,
+      roomCategoryRows: [createEmptyRoomCategory(0)],
     });
+    // FIX: clear price refs when hotel is deselected
+    roomPriceRefs.current = {};
   }, [selectedHotelId, filteredHotels, activeOptionId]);
-
-  // ── Transport breakdown (shared) ─────────────────────────────────────────
-  
-  
 
   // ── Per-option pricing helpers ────────────────────────────────────────────
 
-  /** Hotel total for a given option */
+  /** Hotel total for a given option — sums all hotel entries, each summing room categories */
   const getOptionHotelTotal = (opt) =>
-    (opt.hotelEntries || []).reduce((s, e) => s + Number(e.hotelTotal || 0), 0);
+    (opt.hotelEntries || []).reduce((s, e) => s + calcHotelEntryTotal(e), 0);
 
-  /**
-   * Resolved markup in ₹ for a given option.
-   * - If markupType === 'percentage': use opt.markup (stored per-option)
-   * - If markupType === 'lumpsum': use confirmedMarkup (same for all options)
-   * Falls back gracefully if opt.markup is null/undefined.
-   */
   const getOptionMarkup = (opt) => {
     if (markupType === "percentage") {
-      // If per-option markup is stored, use it; otherwise compute on the fly
       if (typeof opt.markup === "number") return opt.markup;
       const hotelTotal = getOptionHotelTotal(opt);
       const base = hotelTotal + transportTotalPrice + activityTotalPrice;
       return (markupAmount / 100) * base;
     }
-    // lumpsum: same for all
     return Number(confirmedMarkup) || 0;
   };
 
-  /** Pre-discount total for an option */
   const getOptionPreDiscountTotal = (opt) =>
     getOptionHotelTotal(opt) +
     transportTotalPrice +
     activityTotalPrice +
     getOptionMarkup(opt);
 
-  /**
-   * Resolved discount amount for a specific option.
-   * We always recalculate against the option's own pre-discount total
-   * so that percentage discounts are applied correctly per-option.
-   */
   const resolveDiscountAmountForOption = (opt) => {
     if (!appliedDiscount.value || appliedDiscount.value <= 0) return 0;
     const preDiscount = getOptionPreDiscountTotal(opt);
     if (appliedDiscount.type === "percentage") {
       return Math.round((appliedDiscount.value / 100) * preDiscount);
     }
-    // Fixed: cap at that option's pre-discount total
     return Math.min(Number(appliedDiscount.value), preDiscount);
   };
 
-  /** Grand total for an option after markup and discount */
   const getOptionGrandTotal = (opt) =>
     getOptionPreDiscountTotal(opt) - resolveDiscountAmountForOption(opt);
 
@@ -810,7 +1161,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
   const hotelTotalPrice = getOptionHotelTotal(activeOption);
   const activeOptionMarkup = getOptionMarkup(activeOption);
   const activeOptionPreDiscountTotal = getOptionPreDiscountTotal(activeOption);
-  const activeOptionDiscountAmount = resolveDiscountAmountForOption(activeOption);
+  const activeOptionDiscountAmount =
+    resolveDiscountAmountForOption(activeOption);
   const grandTotal = getOptionGrandTotal(activeOption);
 
   // Gap warnings
@@ -887,19 +1239,88 @@ const transportTotalPrice = transportBreakdown?.total || 0;
   };
 
   // ── Hotel handlers ────────────────────────────────────────────────────────
+
+  /**
+   * Compute the combined total for the current roomCategoryRows being edited.
+   * (Used only for display, not for validation)
+   */
+  const computedRoomCategoryTotal = useMemo(
+    () =>
+      (roomCategoryRows || []).reduce((s, r) => s + Number(r.price || 0), 0),
+    [roomCategoryRows],
+  );
+
+  /**
+   * Validate room-category rows before saving.
+   */
+  const validateRoomCategoryRows = (rows) => {
+    if (!rows || rows.length === 0) {
+      return { valid: false, error: "At least one room category is required." };
+    }
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.roomCategory) {
+        return {
+          valid: false,
+          error: `Room Category ${i + 1}: Please select a room type.`,
+        };
+      }
+      if (!r.mealPlan) {
+        return {
+          valid: false,
+          error: `Room Category ${i + 1}: Please select a meal plan.`,
+        };
+      }
+      // NOTE: we skip price check here because price is now read from refs
+    }
+    return { valid: true };
+  };
+  const validateRoomCategoryRows_ConfigOnly = (rows) => {
+    if (!rows || rows.length === 0) {
+      return { valid: false, error: "At least one room category is required." };
+    }
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.roomCategory) {
+        return {
+          valid: false,
+          error: `Room Category ${i + 1}: Please select a room type.`,
+        };
+      }
+      if (!r.mealPlan) {
+        return {
+          valid: false,
+          error: `Room Category ${i + 1}: Please select a meal plan.`,
+        };
+      }
+    }
+    return { valid: true };
+  };
+
   const handleSaveHotel = () => {
     if (!selectedHotelData) {
       alert("Please select a hotel.");
       return;
     }
-    if (!mealPlan) {
-      alert("Please select a meal plan.");
+
+    // Validate room/meal selection
+    const configValidation =
+      validateRoomCategoryRows_ConfigOnly(roomCategoryRows);
+    if (!configValidation.valid) {
+      alert(configValidation.error);
       return;
     }
-    if (!currentHotelTotal || Number(currentHotelTotal) <= 0) {
+
+    // FIX: use ref-based total that is always synchronous
+    const totalForEntry = getLatestTotal();
+    if (totalForEntry <= 0) {
       alert("No valid hotel rate is available for the selected stay dates.");
       return;
     }
+
+    // Derive primary room values from row 0 for backwards-compatibility fields
+    const primaryRow = roomCategoryRows[0];
+
     const entry = {
       checkInDate,
       nights,
@@ -908,23 +1329,43 @@ const transportTotalPrice = transportBreakdown?.total || 0;
       hotel: selectedHotelData.name,
       city: selectedHotelData.city,
       GoogleListingURL: selectedHotelData.GoogleListingURL || null,
-      numDouble: guests.numDouble,
-      numExtraAdult: guests.numExtraAdult,
-      numExtraChild: guests.numExtraChild,
-      numCNB: guests.numCNB,
-      hotelTotal: currentHotelTotal,
-      selectedMealPlan: mealPlan,
-      selectedRoomCategory: roomCategory,
+      // Legacy flat fields (row 0 values)
+      numDouble: primaryRow.numDouble,
+      numExtraAdult: primaryRow.numExtraAdult,
+      numExtraChild: primaryRow.numExtraChild,
+      numCNB: primaryRow.numCNB,
+      selectedMealPlan: primaryRow.mealPlan,
+      selectedRoomCategory: primaryRow.roomCategory,
+      hotelTotal: totalForEntry,
       isCustom: false,
+      // New multi-room-category structure — now we also persist the price from state for display,
+      // but we rely on the ref-calculated total for the entry price.
+      roomCategories: roomCategoryRows.map((r) => ({
+        id: r.id,
+        roomCategory: r.roomCategory,
+        mealPlan: r.mealPlan,
+        mealPlanOverridden: r.mealPlanOverridden || false,
+        numDouble: r.numDouble,
+        numExtraAdult: r.numExtraAdult,
+        numExtraChild: r.numExtraChild,
+        numCNB: r.numCNB,
+        price: r.price || roomPriceRefs.current?.[r.id] || 0, // fallback to ref if state lagged
+      })),
     };
+
     if (editingIndex !== null) {
       updateHotelEntryInOption(editingIndex, entry);
     } else {
       addHotelEntryToOption(entry);
     }
+
     setSaveChanges(true);
     setIsReadyToAddAnother(true);
     setEditingIndex(null);
+    // Reset room category rows for next hotel
+    updateActiveOption({ roomCategoryRows: [createEmptyRoomCategory(0)] });
+    // FIX: clear refs after save
+    roomPriceRefs.current = {};
   };
 
   const handleEditHotel = (index) => {
@@ -937,8 +1378,38 @@ const transportTotalPrice = transportBreakdown?.total || 0;
         selectedHotelId: null,
         editingIndex: index,
         showCustomHotelForm: true,
+        roomCategoryRows: [createEmptyRoomCategory(0)],
       });
     } else {
+      // When editing, pre-populate roomCategoryRows from the entry's roomCategories
+      const existingRows =
+        Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0
+          ? entry.roomCategories.map((rc, i) => ({
+              id: rc.id || Date.now() + i,
+              roomCategory: rc.roomCategory || "",
+              mealPlan: rc.mealPlan || "",
+              mealPlanOverridden: rc.mealPlanOverridden || false,
+              numDouble: rc.numDouble ?? (i === 0 ? 1 : 0),
+              numExtraAdult: rc.numExtraAdult ?? 0,
+              numExtraChild: rc.numExtraChild ?? 0,
+              numCNB: rc.numCNB ?? 0,
+              price: rc.price ?? 0,
+            }))
+          : [
+              {
+                id: Date.now(),
+                roomCategory:
+                  entry.selectedRoomCategory || entry.roomCategory || "",
+                mealPlan: entry.selectedMealPlan || entry.mealPlan || "",
+                mealPlanOverridden: false,
+                numDouble: entry.numDouble ?? 1,
+                numExtraAdult: entry.numExtraAdult ?? 0,
+                numExtraChild: entry.numExtraChild ?? 0,
+                numCNB: entry.numCNB ?? 0,
+                price: entry.hotelTotal ?? 0,
+              },
+            ];
+
       updateActiveOption({
         selectedState: entry.state,
         checkInDate: entry.checkInDate,
@@ -948,7 +1419,14 @@ const transportTotalPrice = transportBreakdown?.total || 0;
             ?.id || null,
         editingIndex: index,
         showCustomHotelForm: false,
+        roomCategoryRows: existingRows,
       });
+      // FIX: prefill refs with current prices so validation works immediately
+      const refs = {};
+      existingRows.forEach((r) => {
+        if (r.price > 0) refs[r.id] = r.price;
+      });
+      roomPriceRefs.current = refs;
     }
     window.scrollTo({ top: 300, behavior: "smooth" });
   };
@@ -966,16 +1444,21 @@ const transportTotalPrice = transportBreakdown?.total || 0;
       isReadyToAddAnother: false,
       editingIndex: null,
       showCustomHotelForm: false,
+      roomCategoryRows: [createEmptyRoomCategory(0)],
     });
+    // FIX: reset price refs
+    roomPriceRefs.current = {};
     setSaveChanges(false);
   };
 
   const handleCustomHotelAdd = (data) => {
+    // Migrate custom hotel to multi-room-category structure if needed
+    const migratedData = migrateHotelEntry(data);
     if (editingIndex !== null) {
-      updateHotelEntryInOption(editingIndex, data);
+      updateHotelEntryInOption(editingIndex, migratedData);
       setEditingIndex(null);
     } else {
-      addHotelEntryToOption(data);
+      addHotelEntryToOption(migratedData);
     }
     setShowCustomHotelForm(false);
     setSaveChanges(true);
@@ -997,22 +1480,22 @@ const transportTotalPrice = transportBreakdown?.total || 0;
         toast.error("Percentage markup cannot exceed 100%.");
         return;
       }
-      // Compute and store per-option markup
       const updated = packageOptions.map((opt) => {
         const hotelTotal = (opt.hotelEntries || []).reduce(
-          (s, e) => s + Number(e.hotelTotal || 0),
+          (s, e) => s + calcHotelEntryTotal(e),
           0,
         );
         const base = hotelTotal + transportTotalPrice + activityTotalPrice;
         return { ...opt, markup: (amount / 100) * base };
       });
       setPackageOptions(updated);
-      // Store the active option's resolved markup in Redux for display
-      const activeOpt = updated.find((o) => o.id === activeOptionId) || updated[0];
+      const activeOpt =
+        updated.find((o) => o.id === activeOptionId) || updated[0];
       dispatch(setConfirmedMarkup(activeOpt.markup));
     } else {
-      // Lumpsum: clear per-option markup, store shared value in Redux
-      setPackageOptions((prev) => prev.map((opt) => ({ ...opt, markup: null })));
+      setPackageOptions((prev) =>
+        prev.map((opt) => ({ ...opt, markup: null })),
+      );
       dispatch(setConfirmedMarkup(amount));
     }
     toast.success("Markup applied!");
@@ -1032,7 +1515,6 @@ const transportTotalPrice = transportBreakdown?.total || 0;
       toast.error("Discount amount cannot exceed quotation total.");
       return;
     }
-    // For display in UI, compute resolved amount for the active option
     const resolvedAmount =
       discountType === "percentage"
         ? Math.round((val / 100) * activeOptionPreDiscountTotal)
@@ -1104,10 +1586,6 @@ const transportTotalPrice = transportBreakdown?.total || 0;
       const linkedLead = effectiveLeadId
         ? agentLeads.find((l) => l.id === effectiveLeadId)
         : null;
-      // Build linkage block additively so every available identifier is
-      // persisted on the quotation — leadId + customerId + name + contacts.
-      // This prevents the "quotation belongs to a lead but had no leadId"
-      // orphan state that breaks the lead's Quotations tab.
       const c_data = {};
       if (effectiveLeadId) {
         c_data.leadId = effectiveLeadId;
@@ -1127,13 +1605,17 @@ const transportTotalPrice = transportBreakdown?.total || 0;
       }
       if (linkedLead?.mobile) c_data.customerMobile = linkedLead.mobile;
       if (linkedLead?.email) c_data.customerEmail = linkedLead.email;
+
       const refNumber = isOverwrite
         ? editingQuotation?.refNumber || (await generateQuotationRef())
         : await generateQuotationRef();
 
       const packageOptionsSummary = packageOptions.map((opt) => ({
         name: opt.name,
-        hotelEntries: opt.hotelEntries,
+        // Persist with sorted entries and migrated room categories
+        hotelEntries: sortEntriesByCheckIn(opt.hotelEntries).map(
+          migrateHotelEntry,
+        ),
         hotelTotal: getOptionHotelTotal(opt),
         markup: getOptionMarkup(opt),
         preDiscountTotal: getOptionPreDiscountTotal(opt),
@@ -1155,7 +1637,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
             }
           : null;
 
-      const firstOptionHotels = packageOptions[0]?.hotelEntries || [];
+      const firstOptionHotels = sortEntriesByCheckIn(
+        packageOptions[0]?.hotelEntries || [],
+      ).map(migrateHotelEntry);
 
       const packagePayload = {
         packageName,
@@ -1201,7 +1685,6 @@ const transportTotalPrice = transportBreakdown?.total || 0;
       };
 
       if (isOverwrite) {
-        // In-place update of the existing Draft quotation: keep id, status, createdAt
         await updateDoc(
           doc(db, "saved_packages_by_agents", agentId, "packages", quotationId),
           { ...packagePayload, updatedAt: serverTimestamp() },
@@ -1238,6 +1721,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
     allHotelEntries.length > 0 ||
     selectedTransport;
 
+  // ── Sorted hotel entries for display (always date-ascending) ─────────────
+  const sortedHotelEntries = useMemo(
+    () => sortEntriesByCheckIn(hotelEntries),
+    [hotelEntries],
+  );
+
   return (
     <div className="min-h-screen pb-12">
       <div className="mx-auto p-0 md:px-4 lg:px-8">
@@ -1251,13 +1740,16 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                 <span>
                   {canOverwrite ? (
                     <>
-                      Editing a <strong>Draft</strong> — choose <strong>Save Changes</strong> to update this quotation in place, or <strong>Save as New</strong> to create a copy with a new reference number.
+                      Editing a <strong>Draft</strong> — choose{" "}
+                      <strong>Save Changes</strong> to update this quotation in
+                      place, or <strong>Save as New</strong> to create a copy
+                      with a new reference number.
                     </>
                   ) : (
                     <>
                       Editing a copy — saving will create a{" "}
-                      <strong>new quotation with a new reference number</strong>.
-                      The original stays unchanged.
+                      <strong>new quotation with a new reference number</strong>
+                      . The original stays unchanged.
                     </>
                   )}
                 </span>
@@ -1297,7 +1789,6 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     const isActive = activeOptionId === opt.id;
                     const hotelCount = opt.hotelEntries?.length || 0;
                     const optTotal = getOptionGrandTotal(opt);
-                    const hasHotels = hotelCount > 0;
 
                     return (
                       <div
@@ -1342,14 +1833,14 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         {/* Hotels Count */}
                         <div
                           className={`flex items-center gap-0.5 transition-opacity ${
-                            isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                            isActive
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-100"
                           }`}
                         >
                           <Hotel className="h-3.5 w-3.5" />
                           {hotelCount}
                         </div>
-
-                        {/* Total */}
 
                         {/* Actions */}
                         <div className="flex items-center gap-1">
@@ -1483,20 +1974,26 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         <Hotel className="h-5 w-5 text-slate-400" />
                       </div>
                       <p className="text-slate-500 text-xs">
-                        No hotels with rates found for the selected stay in {selectedState}.
+                        No hotels with rates found for the selected stay in{" "}
+                        {selectedState}.
                       </p>
                       <Button
                         onClick={() => setShowCustomHotelForm(true)}
                         className="bg-theme-primary hover:bg-theme-secondary"
                         size="sm"
                       >
-                        <PenLine className="h-3.5 w-3.5 mr-1.5" /> Add Custom Hotel
+                        <PenLine className="h-3.5 w-3.5 mr-1.5" /> Add Custom
+                        Hotel
                       </Button>
                     </div>
                   ) : (
                     <>
                       <div
-                        className={`${selectedHotelData && !showCustomHotelForm ? "grid grid-cols-1 lg:grid-cols-2 gap-3" : ""}`}
+                        className={`${
+                          selectedHotelData && !showCustomHotelForm
+                            ? "grid grid-cols-1 lg:grid-cols-2 gap-3"
+                            : ""
+                        }`}
                       >
                         <div className="space-y-1.5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
@@ -1522,6 +2019,14 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                                       onChange={() => {
                                         setSelectedHotelId(h.id);
                                         setShowCustomHotelForm(false);
+                                        // Reset room category rows when switching hotels
+                                        updateActiveOption({
+                                          roomCategoryRows: [
+                                            createEmptyRoomCategory(0),
+                                          ],
+                                        });
+                                        // FIX: clear price refs on hotel change
+                                        roomPriceRefs.current = {};
                                       }}
                                       className="accent-theme-primary flex-shrink-0"
                                     />
@@ -1532,7 +2037,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                                       <div className="flex items-center gap-1 mt-0.5">
                                         <Star className="h-2 w-2 fill-yellow-400 text-yellow-400" />
                                         <span className="text-[9px] text-slate-500">
-                                          {h.GoogleReviewRating || "N/A"} · {h.city}
+                                          {h.GoogleReviewRating || "N/A"} ·{" "}
+                                          {h.city}
                                         </span>
                                       </div>
                                     </div>
@@ -1549,42 +2055,56 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                               className="text-xs h-7 border-theme-primary/40 text-theme-primary hover:bg-theme-primary/5"
                             >
                               <PenLine className="h-3 w-3 mr-1" />
-                              {showCustomHotelForm ? "Hide Custom Form" : "Add Custom Hotel"}
+                              {showCustomHotelForm
+                                ? "Hide Custom Form"
+                                : "Add Custom Hotel"}
                             </Button>
                           </div>
                         </div>
 
+                        {/* ── Multi-Room-Category Editor ── */}
                         {selectedHotelData && !showCustomHotelForm && (
-                          <div className="border-t lg:border-t-0 lg:border-l border-slate-100 pt-3 lg:pt-0 lg:pl-3">
-                            <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                          <div className="border-t lg:border-t-0 lg:border-l border-slate-100 pt-3 lg:pt-0 lg:pl-3 space-y-2">
+                            <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                               <Hotel className="h-3.5 w-3.5 text-theme-primary" />
                               {selectedHotelData.name}
                               <span className="text-slate-400 font-normal">
                                 — {selectedHotelData.city}
                               </span>
                             </p>
-                            <HotelRoomSelector
-                              hotel={selectedHotelData}
+
+                            <MultiRoomCategoryEditor
+                              rows={
+                                roomCategoryRows || [createEmptyRoomCategory(0)]
+                              }
+                              onChange={(updatedRows) =>
+                                setRoomCategoryRows(updatedRows)
+                              }
+                              hotelData={selectedHotelData}
+                              nights={nights}
                               checkInDate={checkInDate}
                               checkOutDate={checkOutDate}
-                              nights={nights}
-                              onTotalChange={setCurrentHotelTotal}
-                              onRoomCategoryChange={setRoomCategory}
-                              onMealPlanChange={setMealPlan}
-                              onGuestsChange={setGuests}
-                              initial={
+                              onTotalChange={(total) =>
+                                updateActiveOption({ currentHotelTotal: total })
+                              }
+                              editingEntry={
                                 editingIndex !== null
                                   ? hotelEntries[editingIndex]
-                                  : {}
+                                  : null
                               }
+                              // FIX: pass the ref
+                              roomPriceRefs={roomPriceRefs}
                             />
+
                             <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
                               <Button
                                 onClick={handleSaveHotel}
                                 className="bg-theme-primary hover:bg-theme-secondary text-xs h-8"
                                 size="sm"
                               >
-                                {editingIndex !== null ? "✏️ Update Hotel" : "💾 Save Hotel"}
+                                {editingIndex !== null
+                                  ? "✏️ Update Hotel"
+                                  : "💾 Save Hotel"}
                               </Button>
                               {isReadyToAddAnother && (
                                 <Button
@@ -1593,7 +2113,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                                   onClick={handleAddAnotherHotel}
                                   className="text-xs h-8 border-theme-primary text-theme-primary hover:bg-theme-primary/5"
                                 >
-                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Another Hotel
+                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                                  Another Hotel
                                 </Button>
                               )}
                             </div>
@@ -1607,7 +2128,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     <CustomHotelForm
                       defaultState={selectedState}
                       initial={
-                        editingIndex !== null && hotelEntries[editingIndex]?.isCustom
+                        editingIndex !== null &&
+                        hotelEntries[editingIndex]?.isCustom
                           ? hotelEntries[editingIndex]
                           : null
                       }
@@ -1622,8 +2144,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
               </Card>
             )}
 
-            {/* ── 3. Hotel Itinerary for active option ── */}
-            {hotelEntries.length > 0 && (
+            {/* ── 3. Hotel Itinerary for active option (date-sorted) ── */}
+            {sortedHotelEntries.length > 0 && (
               <div className="space-y-2">
                 {activeOptionHasHotelGap && (
                   <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
@@ -1639,7 +2161,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     <h3 className="text-sm font-bold text-slate-800">
                       {activeOption.name} — Hotels
                       <span className="ml-1.5 text-[11px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {hotelEntries.length} hotel{hotelEntries.length > 1 ? "s" : ""}
+                        {sortedHotelEntries.length} hotel
+                        {sortedHotelEntries.length > 1 ? "s" : ""}
                       </span>
                     </h3>
                   </div>
@@ -1648,15 +2171,89 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {hotelEntries.map((entry, idx) => (
-                    <HotelItineraryCard
-                      key={idx}
-                      entry={entry}
-                      index={idx}
-                      onEdit={handleEditHotel}
-                      onDelete={(i) => deleteHotelEntryFromOption(i)}
-                    />
-                  ))}
+                  {sortedHotelEntries.map((entry, displayIdx) => {
+                    // Find the actual index in the un-sorted hotelEntries array
+                    // so edit/delete operations work correctly
+                    const actualIndex = hotelEntries.findIndex(
+                      (e) =>
+                        e.checkInDate === entry.checkInDate &&
+                        e.hotel === entry.hotel &&
+                        e.city === entry.city,
+                    );
+                    return (
+                      <div
+                        key={`${entry.hotel}-${entry.checkInDate}-${displayIdx}`}
+                      >
+                        <HotelItineraryCard
+                          entry={entry}
+                          index={actualIndex >= 0 ? actualIndex : displayIdx}
+                          onEdit={handleEditHotel}
+                          onDelete={(i) => deleteHotelEntryFromOption(i)}
+                        />
+                        {/* Room category breakup under the hotel card */}
+                        {Array.isArray(entry.roomCategories) &&
+                          entry.roomCategories.length > 1 && (
+                            <div className="ml-4 mt-1 rounded-b-lg border border-t-0 border-slate-200 bg-slate-50 px-3 py-2 space-y-1">
+                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
+                                <BedDouble className="h-3 w-3" /> Room
+                                Categories
+                              </p>
+                              {entry.roomCategories.map((rc, rcIdx) => (
+                                <div
+                                  key={rc.id || rcIdx}
+                                  className="flex items-start justify-between text-[11px] text-slate-600"
+                                >
+                                  <div className="flex items-start gap-1.5">
+                                    <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-theme-primary/10 text-[9px] font-bold text-theme-primary flex-shrink-0">
+                                      {rcIdx + 1}
+                                    </span>
+                                    <div>
+                                      <span className="font-semibold">
+                                        {rc.roomCategory}
+                                      </span>
+                                      <span className="mx-1 text-slate-300">
+                                        ·
+                                      </span>
+                                      <span className="text-slate-500">
+                                        {rc.mealPlan}
+                                      </span>
+                                      <div className="text-[10px] text-slate-400 mt-0.5">
+                                        {rc.numDouble > 0 &&
+                                          `${rc.numDouble * 2} Adult${
+                                            rc.numDouble * 2 > 1 ? "s" : ""
+                                          }`}
+                                        {rc.numExtraAdult > 0 &&
+                                          ` + ${rc.numExtraAdult} Extra Adult`}
+                                        {rc.numExtraChild > 0 &&
+                                          ` + ${rc.numExtraChild} Child`}
+                                        {rc.numCNB > 0 && ` + ${rc.numCNB} CNB`}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span className="font-semibold text-slate-700 whitespace-nowrap ml-2">
+                                    ₹
+                                    {Number(rc.price || 0).toLocaleString(
+                                      "en-IN",
+                                    )}
+                                  </span>
+                                </div>
+                              ))}
+                              <div className="flex items-center justify-between border-t border-slate-200 pt-1 mt-1 text-xs">
+                                <span className="font-bold text-slate-600">
+                                  Hotel Total
+                                </span>
+                                <span className="font-black text-theme-primary">
+                                  ₹
+                                  {calcHotelEntryTotal(entry).toLocaleString(
+                                    "en-IN",
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1668,7 +2265,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Car className="h-4 w-4 text-theme-primary" /> Transport
-                    <span className="text-[10px] font-normal text-slate-400">(shared)</span>
+                    <span className="text-[10px] font-normal text-slate-400">
+                      (shared)
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0 space-y-3">
@@ -1690,7 +2289,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       onEdit={() => setShowTransportSection(true)}
                     />
                   )}
-                  {!showTransportSection && !selectedTransport?.selectedVehicle ? (
+                  {!showTransportSection &&
+                  !selectedTransport?.selectedVehicle ? (
                     <Button
                       onClick={() => setShowTransportSection(true)}
                       className="w-full bg-theme-primary hover:bg-theme-secondary text-xs h-8"
@@ -1715,8 +2315,11 @@ const transportTotalPrice = transportBreakdown?.total || 0;
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Palmtree className="h-4 w-4 text-theme-primary" /> Activities
-                    <span className="text-[10px] font-normal text-slate-400">(shared)</span>
+                    <Palmtree className="h-4 w-4 text-theme-primary" />{" "}
+                    Activities
+                    <span className="text-[10px] font-normal text-slate-400">
+                      (shared)
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 pt-0 space-y-3">
@@ -1738,8 +2341,13 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   ) : showActivitiesSection ? (
                     <div className="space-y-2 mt-1">
                       <div className="space-y-1">
-                        <Label className="text-xs font-medium">State for Activities</Label>
-                        <Select value={selectedState} onValueChange={setSelectedState}>
+                        <Label className="text-xs font-medium">
+                          State for Activities
+                        </Label>
+                        <Select
+                          value={selectedState}
+                          onValueChange={setSelectedState}
+                        >
                           <SelectTrigger className="text-xs h-8">
                             <SelectValue placeholder="Select state" />
                           </SelectTrigger>
@@ -1766,7 +2374,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                           onClick={() => setShowActivitiesSection(false)}
                           className="text-xs h-7 border-green-300 text-green-700 hover:bg-green-50"
                         >
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Done — Collapse
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Done —
+                          Collapse
                         </Button>
                       )}
                     </div>
@@ -1785,9 +2394,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
             </div>
 
             {/* ── 5. Itinerary ── */}
-            {hotelEntries.length > 0 && (
+            {sortedHotelEntries.length > 0 && (
               <ItinerarySection
-                hotelEntries={hotelEntries}
+                hotelEntries={sortedHotelEntries}
                 selectedState={selectedState}
                 itineraryData={itineraryData}
                 setItineraryData={setItineraryData}
@@ -1800,12 +2409,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
           {/* ══ RIGHT COLUMN — Sticky Pricing Panel ══════════════════════ */}
           {showRightPanel && (
             <div className="lg:w-80 xl:w-96 lg:min-w-[300px] lg:sticky lg:top-6 lg:self-start space-y-3 pt-4 lg:pt-0">
-
               {/* All Options Summary */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100">
                   <h3 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-theme-primary" /> Package Options
+                    <Layers className="h-3.5 w-3.5 text-theme-primary" />{" "}
+                    Package Options
                   </h3>
                 </div>
                 <div className="p-3 space-y-2">
@@ -1828,44 +2437,86 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span
-                            className={`text-xs font-bold ${isActive ? "text-theme-primary" : "text-slate-700"}`}
+                            className={`text-xs font-bold ${
+                              isActive ? "text-theme-primary" : "text-slate-700"
+                            }`}
                           >
                             {opt.name}
                           </span>
                           <div className="text-right">
                             {optDiscount > 0 && (
                               <p className="text-[10px] text-slate-400 line-through leading-tight">
-                                ₹{optPreDiscount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                                ₹
+                                {optPreDiscount.toLocaleString("en-IN", {
+                                  maximumFractionDigits: 0,
+                                })}
                               </p>
                             )}
                             <span className="text-xs font-black text-theme-primary">
-                              ₹{optGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                              ₹
+                              {optGrandTotal.toLocaleString("en-IN", {
+                                maximumFractionDigits: 0,
+                              })}
                             </span>
                           </div>
                         </div>
                         {opt.hotelEntries.length > 0 ? (
                           <div className="space-y-0.5">
-                            {opt.hotelEntries.map((h, i) => (
-                              <p key={i} className="text-[10px] text-slate-500 truncate">
-                                🏨 {h.hotel} · {h.city} · {h.nights}N
-                              </p>
-                            ))}
+                            {sortEntriesByCheckIn(opt.hotelEntries).map(
+                              (h, i) => (
+                                <div key={i}>
+                                  <p className="text-[10px] text-slate-500 truncate">
+                                    🏨 {h.hotel} · {h.city} · {h.nights}N
+                                  </p>
+                                  {/* Show room category summary if multiple */}
+                                  {Array.isArray(h.roomCategories) &&
+                                    h.roomCategories.length > 1 && (
+                                      <div className="ml-4 space-y-0.5">
+                                        {h.roomCategories.map((rc, rcI) => (
+                                          <p
+                                            key={rcI}
+                                            className="text-[9px] text-slate-400"
+                                          >
+                                            • {rc.roomCategory} · {rc.mealPlan}{" "}
+                                            · ₹
+                                            {Number(
+                                              rc.price || 0,
+                                            ).toLocaleString("en-IN")}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                </div>
+                              ),
+                            )}
                             <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 flex-wrap">
-                              <span>Hotels: ₹{optHotelTotal.toLocaleString("en-IN")}</span>
+                              <span>
+                                Hotels: ₹{optHotelTotal.toLocaleString("en-IN")}
+                              </span>
                               {transportTotalPrice > 0 && (
-                                <span>· Trans: ₹{transportTotalPrice.toLocaleString("en-IN")}</span>
+                                <span>
+                                  · Trans: ₹
+                                  {transportTotalPrice.toLocaleString("en-IN")}
+                                </span>
                               )}
                               {activityTotalPrice > 0 && (
-                                <span>· Act: ₹{activityTotalPrice.toLocaleString("en-IN")}</span>
+                                <span>
+                                  · Act: ₹
+                                  {activityTotalPrice.toLocaleString("en-IN")}
+                                </span>
                               )}
                               {optMarkup > 0 && (
                                 <span className="text-amber-500">
-                                  · Markup: +₹{Math.round(optMarkup).toLocaleString("en-IN")}
+                                  · Markup: +₹
+                                  {Math.round(optMarkup).toLocaleString(
+                                    "en-IN",
+                                  )}
                                 </span>
                               )}
                               {optDiscount > 0 && (
                                 <span className="text-rose-400">
-                                  · Disc: −₹{optDiscount.toLocaleString("en-IN")}
+                                  · Disc: −₹
+                                  {optDiscount.toLocaleString("en-IN")}
                                 </span>
                               )}
                             </div>
@@ -1888,7 +2539,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     {activeOption.name} — Breakdown
                   </h3>
                   <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {hotelEntries.length}H · {selectedTransport ? "1T" : "0T"} ·{" "}
+                    {sortedHotelEntries.length}H ·{" "}
+                    {selectedTransport ? "1T" : "0T"} ·{" "}
                     {selectedActivities.length}A
                   </span>
                 </div>
@@ -1897,7 +2549,7 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     {
                       icon: <Hotel className="h-3 w-3 text-blue-600" />,
                       bg: "bg-blue-100",
-                      label: `Hotels (${hotelEntries.length})`,
+                      label: `Hotels (${sortedHotelEntries.length})`,
                       val: hotelTotalPrice,
                     },
                     {
@@ -1913,20 +2565,65 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       val: activityTotalPrice,
                     },
                   ].map(({ icon, bg, label, val }) => (
-                    <div key={label} className="flex items-center justify-between text-xs">
+                    <div
+                      key={label}
+                      className="flex items-center justify-between text-xs"
+                    >
                       <div className="flex items-center gap-1.5 text-slate-600">
-                        <div className={`w-5 h-5 rounded-md ${bg} flex items-center justify-center`}>
+                        <div
+                          className={`w-5 h-5 rounded-md ${bg} flex items-center justify-center`}
+                        >
                           {icon}
                         </div>
                         {label}
                       </div>
                       <span className="font-semibold">
-                        ₹{val.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        ₹
+                        {val.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
                       </span>
                     </div>
                   ))}
 
-                  {/* Markup row — always shows the active option's resolved markup */}
+                  {/* Hotel-level breakdown for active option */}
+                  {sortedHotelEntries.length > 0 && (
+                    <div className="ml-3 space-y-0.5 border-l-2 border-blue-100 pl-2">
+                      {sortedHotelEntries.map((entry, i) => {
+                        const entryTotal = calcHotelEntryTotal(entry);
+                        const rooms = entry.roomCategories || [];
+                        return (
+                          <div key={i}>
+                            <div className="flex items-center justify-between text-[10px] text-slate-500">
+                              <span className="truncate max-w-[140px]">
+                                {entry.hotel}
+                              </span>
+                              <span>₹{entryTotal.toLocaleString("en-IN")}</span>
+                            </div>
+                            {rooms.length > 1 &&
+                              rooms.map((rc, rcI) => (
+                                <div
+                                  key={rcI}
+                                  className="flex items-center justify-between text-[9px] text-slate-400 pl-2"
+                                >
+                                  <span>
+                                    {rc.roomCategory} · {rc.mealPlan}
+                                  </span>
+                                  <span>
+                                    ₹
+                                    {Number(rc.price || 0).toLocaleString(
+                                      "en-IN",
+                                    )}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Markup row */}
                   {activeOptionMarkup > 0 && (
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5 text-slate-600">
@@ -1935,11 +2632,17 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         </div>
                         Markup
                         {markupType === "percentage" && (
-                          <span className="text-[10px] text-slate-400">({markupAmount}%)</span>
+                          <span className="text-[10px] text-slate-400">
+                            ({markupAmount}%)
+                          </span>
                         )}
                       </div>
                       <span className="font-semibold text-amber-600">
-                        +₹{Math.round(activeOptionMarkup).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        +₹
+                        {Math.round(activeOptionMarkup).toLocaleString(
+                          "en-IN",
+                          { maximumFractionDigits: 0 },
+                        )}
                       </span>
                     </div>
                   )}
@@ -1949,7 +2652,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     <div className="flex items-center justify-between text-xs border-t border-slate-100 pt-1.5 mt-1">
                       <span className="text-slate-500">Subtotal</span>
                       <span className="font-semibold">
-                        ₹{activeOptionPreDiscountTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        ₹
+                        {activeOptionPreDiscountTotal.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
                       </span>
                     </div>
                   )}
@@ -1965,7 +2671,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         applied
                       </span>
                       <span className="font-bold text-rose-600">
-                        −₹{activeOptionDiscountAmount.toLocaleString("en-IN")}
+                        −₹
+                        {activeOptionDiscountAmount.toLocaleString("en-IN")}
                       </span>
                     </div>
                   )}
@@ -1976,7 +2683,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
               <Card className="shadow-sm border-slate-200">
                 <CardContent className="p-3">
                   <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
-                    <Wallet className="h-3.5 w-3.5 text-theme-primary" /> Add Markup
+                    <Wallet className="h-3.5 w-3.5 text-theme-primary" /> Add
+                    Markup
                     {markupType === "percentage" && (
                       <span className="ml-auto text-[10px] font-normal text-slate-400">
                         Applied per-option
@@ -2012,7 +2720,11 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     <p className="mt-1.5 text-xs text-slate-500">
                       {activeOption.name} markup:{" "}
                       <span className="font-bold text-theme-dark">
-                        ₹{Math.round(activeOptionMarkup).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        ₹
+                        {Math.round(activeOptionMarkup).toLocaleString(
+                          "en-IN",
+                          { maximumFractionDigits: 0 },
+                        )}
                       </span>
                     </p>
                   )}
@@ -2034,7 +2746,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       className="flex-1 text-xs h-8"
                       placeholder="0"
                     />
-                    <Select value={discountType} onValueChange={setDiscountType}>
+                    <Select
+                      value={discountType}
+                      onValueChange={setDiscountType}
+                    >
                       <SelectTrigger className="w-28 text-xs h-8">
                         <SelectValue />
                       </SelectTrigger>
@@ -2079,7 +2794,12 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   {appliedDiscount.value > 0 && (
                     <button
                       onClick={() =>
-                        setAppliedDiscount({ type: "fixed", value: 0, notes: "", amount: 0 })
+                        setAppliedDiscount({
+                          type: "fixed",
+                          value: 0,
+                          notes: "",
+                          amount: 0,
+                        })
                       }
                       className="mt-1.5 text-[10px] text-rose-400 hover:text-rose-600 underline"
                     >
@@ -2097,11 +2817,14 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       <IndianRupee className="h-4 w-4 opacity-70" />
                       <h3 className="text-sm font-bold">{activeOption.name}</h3>
                     </div>
-                    {hotelEntries.length > 0 && (
+                    {sortedHotelEntries.length > 0 && (
                       <p className="text-[10px] text-white/50">
-                        {hotelEntries.reduce((s, e) => s + (parseInt(e.nights) || 0), 0)}N ·{" "}
-                        {hotelEntries[0]?.numDouble || 0} room
-                        {(hotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
+                        {sortedHotelEntries.reduce(
+                          (s, e) => s + (parseInt(e.nights) || 0),
+                          0,
+                        )}
+                        N · {sortedHotelEntries[0]?.numDouble || 0} room
+                        {(sortedHotelEntries[0]?.numDouble || 0) > 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
@@ -2109,7 +2832,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     <div className="flex items-center justify-between text-xs text-white/50 mb-1">
                       <span>Original</span>
                       <span className="line-through">
-                        ₹{activeOptionPreDiscountTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        ₹
+                        {activeOptionPreDiscountTotal.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
                       </span>
                     </div>
                   )}
@@ -2120,12 +2846,18 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                         {appliedDiscount.notes || "Discount"}
                       </span>
                       <span>
-                        −₹{activeOptionDiscountAmount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        −₹
+                        {activeOptionDiscountAmount.toLocaleString("en-IN", {
+                          maximumFractionDigits: 0,
+                        })}
                       </span>
                     </div>
                   )}
                   <p className="text-4xl font-black tracking-tight mb-4">
-                    ₹{grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    ₹
+                    {grandTotal.toLocaleString("en-IN", {
+                      maximumFractionDigits: 0,
+                    })}
                   </p>
                   <Button
                     onClick={() => setShowSaveModal(true)}
@@ -2187,7 +2919,7 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     : "Fill in details to save this package"}
               </p>
             </div>
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
               {isEditMode && !canOverwrite && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                   <Info className="h-3 w-3 flex-shrink-0" />
@@ -2197,7 +2929,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
               {canOverwrite && (
                 <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
                   <Info className="h-3 w-3 flex-shrink-0" />
-                  Editing a Draft — Save updates this quotation; Save as New creates a copy.
+                  Editing a Draft — Save updates this quotation; Save as New
+                  creates a copy.
                 </div>
               )}
 
@@ -2212,15 +2945,41 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   return (
                     <div
                       key={opt.id}
-                      className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0"
+                      className="flex justify-between items-start py-1 border-b border-slate-100 last:border-0"
                     >
                       <div>
-                        <span className="font-semibold text-slate-700">{opt.name}</span>
-                        <span className="ml-1.5 text-[10px] text-slate-400">
-                          {opt.hotelEntries.length} hotel{opt.hotelEntries.length !== 1 ? "s" : ""}
+                        <span className="font-semibold text-slate-700">
+                          {opt.name}
                         </span>
+                        <span className="ml-1.5 text-[10px] text-slate-400">
+                          {opt.hotelEntries.length} hotel
+                          {opt.hotelEntries.length !== 1 ? "s" : ""}
+                        </span>
+                        {/* Room category summary per hotel */}
+                        {sortEntriesByCheckIn(opt.hotelEntries).map(
+                          (h, hIdx) =>
+                            Array.isArray(h.roomCategories) &&
+                            h.roomCategories.length > 1 ? (
+                              <div key={hIdx} className="mt-1 ml-2 space-y-0.5">
+                                <p className="text-[9px] text-slate-400 font-medium">
+                                  {h.hotel}:
+                                </p>
+                                {h.roomCategories.map((rc, rcI) => (
+                                  <p
+                                    key={rcI}
+                                    className="text-[9px] text-slate-400 ml-2"
+                                  >
+                                    • {rc.roomCategory} · {rc.mealPlan} · ₹
+                                    {Number(rc.price || 0).toLocaleString(
+                                      "en-IN",
+                                    )}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null,
+                        )}
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex-shrink-0 ml-2">
                         <span className="font-bold text-theme-primary">
                           ₹{optGrandTotal.toLocaleString("en-IN")}
                         </span>
@@ -2228,7 +2987,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                           <div className="text-[10px] text-rose-500 flex items-center justify-end gap-1 mt-0.5">
                             <Tag className="h-2.5 w-2.5" />
                             −₹{optDiscount.toLocaleString("en-IN")}
-                            {appliedDiscount.notes && ` · ${appliedDiscount.notes}`}
+                            {appliedDiscount.notes &&
+                              ` · ${appliedDiscount.notes}`}
                           </div>
                         )}
                       </div>
@@ -2250,7 +3010,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   <div>
                     <p>There are hotel gaps in this quotation.</p>
                     {optionsWithHotelGaps.map((opt) => (
-                      <p key={opt.id} className="mt-1 text-[10px] text-amber-700/90">
+                      <p
+                        key={opt.id}
+                        className="mt-1 text-[10px] text-amber-700/90"
+                      >
                         {opt.name}: {formatGapLabels(opt.hotelGaps)}
                       </p>
                     ))}
@@ -2277,7 +3040,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                     disabled
                     className="h-8 text-xs bg-slate-100 cursor-not-allowed"
                   />
-                  <p className="text-[10px] text-slate-400">✓ Auto-filled from customer record</p>
+                  <p className="text-[10px] text-slate-400">
+                    ✓ Auto-filled from customer record
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -2338,7 +3103,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                                   <li
                                     key={c.id}
                                     onMouseDown={() => {
-                                      setSelectedCustomerLink({ id: c.id, name: c.name });
+                                      setSelectedCustomerLink({
+                                        id: c.id,
+                                        name: c.name,
+                                      });
                                       setCustomerName(c.name);
                                       setCustomerSearchText("");
                                       setShowCustomerDropdown(false);
@@ -2350,7 +3118,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                                         {c.name}
                                       </p>
                                       {c.mobile && (
-                                        <p className="text-[10px] text-slate-400">{c.mobile}</p>
+                                        <p className="text-[10px] text-slate-400">
+                                          {c.mobile}
+                                        </p>
                                       )}
                                     </div>
                                     {c.city && (
@@ -2379,7 +3149,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                               }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-theme-primary hover:bg-theme-muted/30 border-t border-slate-100 font-medium"
                             >
-                              <UserPlus className="h-3 w-3" /> Create new customer
+                              <UserPlus className="h-3 w-3" /> Create new
+                              customer
                             </button>
                           </div>
                         </div>
@@ -2388,7 +3159,8 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                   )}
                   {leadId && !selectedCustomerLink && (
                     <p className="text-[10px] text-slate-400">
-                      ✓ Name auto-filled from lead. Optionally link to a customer.
+                      ✓ Name auto-filled from lead. Optionally link to a
+                      customer.
                     </p>
                   )}
 
@@ -2400,7 +3172,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       <Input
                         value={newCustomerDraft.name}
                         onChange={(e) =>
-                          setNewCustomerDraft((p) => ({ ...p, name: e.target.value }))
+                          setNewCustomerDraft((p) => ({
+                            ...p,
+                            name: e.target.value,
+                          }))
                         }
                         placeholder="Full name *"
                         className="h-7 text-xs"
@@ -2408,7 +3183,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       <Input
                         value={newCustomerDraft.mobile}
                         onChange={(e) =>
-                          setNewCustomerDraft((p) => ({ ...p, mobile: e.target.value }))
+                          setNewCustomerDraft((p) => ({
+                            ...p,
+                            mobile: e.target.value,
+                          }))
                         }
                         placeholder="Mobile"
                         className="h-7 text-xs"
@@ -2416,7 +3194,10 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       <Input
                         value={newCustomerDraft.email}
                         onChange={(e) =>
-                          setNewCustomerDraft((p) => ({ ...p, email: e.target.value }))
+                          setNewCustomerDraft((p) => ({
+                            ...p,
+                            email: e.target.value,
+                          }))
                         }
                         placeholder="Email"
                         className="h-7 text-xs"
@@ -2429,14 +3210,23 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                           onClick={async () => {
                             if (!newCustomerDraft.name.trim()) return;
                             try {
-                              const ref = await addDoc(collection(db, "customers"), {
+                              const ref = await addDoc(
+                                collection(db, "customers"),
+                                {
+                                  ...newCustomerDraft,
+                                  status: "New",
+                                  date: new Date().toLocaleDateString(),
+                                },
+                              );
+                              const newCust = {
+                                id: ref.id,
                                 ...newCustomerDraft,
-                                status: "New",
-                                date: new Date().toLocaleDateString(),
-                              });
-                              const newCust = { id: ref.id, ...newCustomerDraft };
+                              };
                               setCustomers((prev) => [...prev, newCust]);
-                              setSelectedCustomerLink({ id: ref.id, name: newCustomerDraft.name });
+                              setSelectedCustomerLink({
+                                id: ref.id,
+                                name: newCustomerDraft.name,
+                              });
                               setCustomerName(newCustomerDraft.name);
                               setShowInlineCreateCustomer(false);
                               toast.success("Customer created and linked");
@@ -2467,7 +3257,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">
                     Link to Lead{" "}
-                    <span className="text-slate-400 font-normal">(optional)</span>
+                    <span className="text-slate-400 font-normal">
+                      (optional)
+                    </span>
                   </Label>
                   <Select
                     value={saveAsLeadId || "none"}
@@ -2475,16 +3267,24 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                       const selectedLeadId = v === "none" ? "" : v;
                       setSaveAsLeadId(selectedLeadId);
                       if (!selectedLeadId) return;
-                      const selectedLead = agentLeads.find((lead) => lead.id === selectedLeadId);
+                      const selectedLead = agentLeads.find(
+                        (lead) => lead.id === selectedLeadId,
+                      );
                       if (selectedLead) {
-                        setCustomerName(selectedLead.customerName || selectedLead.name || "");
+                        setCustomerName(
+                          selectedLead.customerName || selectedLead.name || "",
+                        );
                       }
                     }}
                     disabled={isLoadingLeads}
                   >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue
-                        placeholder={isLoadingLeads ? "Loading leads..." : "Select a lead..."}
+                        placeholder={
+                          isLoadingLeads
+                            ? "Loading leads..."
+                            : "Select a lead..."
+                        }
                       />
                     </SelectTrigger>
                     <SelectContent>
@@ -2506,7 +3306,7 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                 </div>
               )}
             </div>
-            <div className="px-5 pb-5 flex justify-end gap-2 flex-wrap">
+            <div className="px-5 pb-5 flex justify-end gap-2 flex-wrap border-t border-slate-100 pt-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -2526,7 +3326,9 @@ const transportTotalPrice = transportBreakdown?.total || 0;
                 </Button>
               )}
               <Button
-                onClick={() => handleSavePackage(canOverwrite ? "overwrite" : "new")}
+                onClick={() =>
+                  handleSavePackage(canOverwrite ? "overwrite" : "new")
+                }
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white px-5"
               >
