@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
+import { addLeadNote } from "@/firebase/leadsService";
 import {
   Briefcase,
   Plus,
@@ -344,23 +345,32 @@ export default function LeadsPage() {
     }
   };
 
-  const handleStatusChange = async (id, status) => {
-    const tid = toast.loading("Updating status...");
+ const handleStatusChange = async (id, status) => {
+  const tid = toast.loading("Updating status...");
 
+  try {
+    await updateLeadStatus(id, status);
+
+    // Add a note about the status change
     try {
-      await updateLeadStatus(id, status);
-
-      if (status === "Closed Lost") {
-        await rejectAllQuotationsForLead(id);
-      }
-
-      toast.success(`Status updated to ${status}`, { id: tid });
-      loadLeads();
-    } catch (error) {
-      console.error(error);
-      toast.error("Status update failed", { id: tid });
+      const noteText = `Status updated to: ${status}`;
+      await addLeadNote(id, noteText, user?.displayName || "Agent");
+    } catch (noteError) {
+      console.error("[LeadsPage] Failed to add status change note:", noteError);
+      // Don't fail the whole operation if adding the note fails
     }
-  };
+
+    if (status === "Closed Lost") {
+      await rejectAllQuotationsForLead(id);
+    }
+
+    toast.success(`Status updated to ${status}`, { id: tid });
+    loadLeads();
+  } catch (error) {
+    console.error(error);
+    toast.error("Status update failed", { id: tid });
+  }
+};
 
   const handleCloneLead = async (id) => {
     const tid = toast.loading("Cloning lead...");

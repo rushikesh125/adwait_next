@@ -86,7 +86,9 @@ import FollowUpForm from "@/components/followups/FollowUpForm";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(value) {
   if (!value) return "-";
-  const date = value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
+  const date = value?.seconds
+    ? new Date(value.seconds * 1000)
+    : new Date(value);
   if (isNaN(date)) return "-";
   return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
 }
@@ -127,7 +129,9 @@ function getTimestamp(item, type) {
 
 // Sort items by date (newest first for activity feed)
 function sortByDateDesc(items, type) {
-  return [...items].sort((a, b) => getTimestamp(b, type) - getTimestamp(a, type));
+  return [...items].sort(
+    (a, b) => getTimestamp(b, type) - getTimestamp(a, type),
+  );
 }
 
 // ── Quotation-Sent Follow-Up Prompt ───────────────────────────────────────────
@@ -151,14 +155,18 @@ function QuotationSentFollowUpPrompt({ open, quotation, onSchedule, onSkip }) {
               <CalendarClock className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Schedule a Follow-Up?</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Quotation has been sent</p>
+              <h3 className="text-base font-bold text-slate-900">
+                Schedule a Follow-Up?
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Quotation has been sent
+              </p>
             </div>
           </div>
           <p className="text-sm text-slate-600 leading-relaxed">
-            <span className="font-semibold">{quotation?.packageName}</span> was marked as{" "}
-            <span className="font-semibold text-amber-600">Sent</span>. Do you want to schedule a
-            follow-up to check in with the customer?
+            <span className="font-semibold">{quotation?.packageName}</span> was
+            marked as <span className="font-semibold text-amber-600">Sent</span>
+            . Do you want to schedule a follow-up to check in with the customer?
           </p>
         </div>
         <div className="flex gap-3 px-6 pb-5">
@@ -185,27 +193,29 @@ function QuotationSentFollowUpPrompt({ open, quotation, onSchedule, onSkip }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LeadProfilePage({ params }) {
   const { lid } = React.use(params);
-  const router  = useRouter();
+  const router = useRouter();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
 
   // ── Data state ────────────────────────────────────────────────────────────
-  const [lead, setLead]           = useState(null);
+  const [lead, setLead] = useState(null);
   const [quotations, setQuotations] = useState([]);
-  const [notes, setNotes]         = useState([]);
+  const [notes, setNotes] = useState([]);
   const [followUps, setFollowUps] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const hotelLookupRef            = useRef(null);
-  const hotelLookupPromiseRef     = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const hotelLookupRef = useRef(null);
+  const hotelLookupPromiseRef = useRef(null);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isLeadEditOpen, setIsLeadEditOpen] = useState(false);
-  const [leadForm, setLeadForm]             = useState(null);
+  const [leadForm, setLeadForm] = useState(null);
   const [previewQuotation, setPreviewQuotation] = useState(null);
   const [activeTab, setActiveTab] = useState("quotations");
-  const [pendingFollowUpForQuotation, setPendingFollowUpForQuotation] = useState(null);
-  const [showFollowUpAfterQuotationSent, setShowFollowUpAfterQuotationSent] = useState(false);
-  const [showFollowUpFormDirect, setShowFollowUpFormDirect]                 = useState(false);
+  const [pendingFollowUpForQuotation, setPendingFollowUpForQuotation] =
+    useState(null);
+  const [showFollowUpAfterQuotationSent, setShowFollowUpAfterQuotationSent] =
+    useState(false);
+  const [showFollowUpFormDirect, setShowFollowUpFormDirect] = useState(false);
   const [attachDialogOpen, setAttachDialogOpen] = useState(false);
   const [orphanQuotations, setOrphanQuotations] = useState([]);
   const [orphanLoading, setOrphanLoading] = useState(false);
@@ -220,26 +230,26 @@ export default function LeadProfilePage({ params }) {
   useEffect(() => {
     if (!lead) return;
     setLeadForm({
-      name:                lead.name             || "",
-      travelDate:          lead.travelDate        || "",
-      days:                lead.days              || "",
-      destination:         lead.destination       || "",
-      adults:              lead.adults            || "",
-      children:            lead.children          || "",
-      hotelPreference:     lead.hotelPreference   || "",
+      name: lead.name || "",
+      travelDate: lead.travelDate || "",
+      days: lead.days || "",
+      destination: lead.destination || "",
+      adults: lead.adults || "",
+      children: lead.children || "",
+      hotelPreference: lead.hotelPreference || "",
       transportPreference: lead.transportPreference || "",
-      budget:              lead.budget            || "",
-      notes:               lead.notes             || "",
-      mealPlan:            lead.mealPlan          || "",
-      hotelCategory:       lead.hotelCategory     || "",
-      departureCity:       lead.departureCity     || "",
-      tripType:            lead.tripType          || "",
-      rooms:               lead.rooms             || "",
-      childAges:           Array.isArray(lead.childAges) ? lead.childAges : [],
-      sightseeingVehicle:  lead.sightseeingVehicle || "",
-      ticketHelp:          lead.ticketHelp        || [],
-      mobile:              lead.mobile || lead.phone || "",
-      source:              lead.source            || "",
+      budget: lead.budget || "",
+      notes: lead.notes || "",
+      mealPlan: lead.mealPlan || "",
+      hotelCategory: lead.hotelCategory || "",
+      departureCity: lead.departureCity || "",
+      tripType: lead.tripType || "",
+      rooms: lead.rooms || "",
+      childAges: Array.isArray(lead.childAges) ? lead.childAges : [],
+      sightseeingVehicle: lead.sightseeingVehicle || "",
+      ticketHelp: lead.ticketHelp || [],
+      mobile: lead.mobile || lead.phone || "",
+      source: lead.source || "",
     });
   }, [lead]);
 
@@ -329,7 +339,10 @@ export default function LeadProfilePage({ params }) {
   };
 
   const handleDeleteQuotation = async (quoteId) => {
-    if (!quoteId || !user?.uid) { toast.error("Missing required data"); return; }
+    if (!quoteId || !user?.uid) {
+      toast.error("Missing required data");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this quotation?")) return;
     try {
       await deleteQuotation(user.uid, quoteId);
@@ -342,7 +355,10 @@ export default function LeadProfilePage({ params }) {
   };
 
   const handleOpenAttachDialog = async () => {
-    if (!user?.uid) { toast.error("Not signed in"); return; }
+    if (!user?.uid) {
+      toast.error("Not signed in");
+      return;
+    }
     setAttachDialogOpen(true);
     setOrphanLoading(true);
     setAttachSearch("");
@@ -358,11 +374,17 @@ export default function LeadProfilePage({ params }) {
   };
 
   const handleAttachQuotation = async (quote) => {
-    if (!user?.uid || !lead?.id) { toast.error("Missing required data"); return; }
+    if (!user?.uid || !lead?.id) {
+      toast.error("Missing required data");
+      return;
+    }
     setAttachingId(quote.id);
     try {
       await attachQuotationToLead(user.uid, quote.id, lead);
-      setQuotations((prev) => [{ ...quote, leadId: lead.id, leadName: lead.name }, ...prev]);
+      setQuotations((prev) => [
+        { ...quote, leadId: lead.id, leadName: lead.name },
+        ...prev,
+      ]);
       setOrphanQuotations((prev) => prev.filter((q) => q.id !== quote.id));
       toast.success("Quotation attached to this lead");
     } catch (err) {
@@ -390,9 +412,17 @@ export default function LeadProfilePage({ params }) {
     if (hotelLookupRef.current) return hotelLookupRef.current;
     if (!hotelLookupPromiseRef.current) {
       hotelLookupPromiseRef.current = fetchAllHotels()
-        .then((hotels) => { hotelLookupRef.current = hotels; return hotels; })
-        .catch((error) => { console.error("[LeadProfilePage] fetchAllHotels error:", error); return []; })
-        .finally(() => { hotelLookupPromiseRef.current = null; });
+        .then((hotels) => {
+          hotelLookupRef.current = hotels;
+          return hotels;
+        })
+        .catch((error) => {
+          console.error("[LeadProfilePage] fetchAllHotels error:", error);
+          return [];
+        })
+        .finally(() => {
+          hotelLookupPromiseRef.current = null;
+        });
     }
     return hotelLookupPromiseRef.current;
   };
@@ -411,7 +441,7 @@ export default function LeadProfilePage({ params }) {
     try {
       await updateQuotation(user.uid, quote.id, { status: "Sent" });
       setQuotations((prev) =>
-        prev.map((q) => (q.id === quote.id ? { ...q, status: "Sent" } : q))
+        prev.map((q) => (q.id === quote.id ? { ...q, status: "Sent" } : q)),
       );
       toast.success("Quotation marked as Sent", { id: tid });
       handleQuotationMarkedSent({ ...quote, status: "Sent" });
@@ -447,16 +477,22 @@ export default function LeadProfilePage({ params }) {
 
   // ── Follow-Up handlers ─────────────────────────────────────────────────────
   const handleFollowUpAdd = async (formData) => {
-    if (!formData?.dateTime) { toast.error("Date/time is required"); throw new Error("validation"); }
-    if (!formData?.mode)     { toast.error("Mode is required");       throw new Error("validation"); }
+    if (!formData?.dateTime) {
+      toast.error("Date/time is required");
+      throw new Error("validation");
+    }
+    if (!formData?.mode) {
+      toast.error("Mode is required");
+      throw new Error("validation");
+    }
     const tid = toast.loading("Scheduling follow-up…");
     try {
       await addFollowUp(lid, {
         ...formData,
-        leadId:    lid,
-        leadName:  lead?.name   || "",
+        leadId: lid,
+        leadName: lead?.name || "",
         leadMobile: lead?.mobile || "",
-        agentId:   user?.uid    || "",
+        agentId: user?.uid || "",
         agentName: user?.displayName || "Agent",
       });
       toast.success("Follow-up scheduled", { id: tid });
@@ -472,7 +508,10 @@ export default function LeadProfilePage({ params }) {
   };
 
   const handleFollowUpEdit = async (followUpId, formData) => {
-    if (!formData?.dateTime) { toast.error("Date/time is required"); throw new Error("validation"); }
+    if (!formData?.dateTime) {
+      toast.error("Date/time is required");
+      throw new Error("validation");
+    }
     const tid = toast.loading("Updating follow-up…");
     try {
       await updateFollowUp(lid, followUpId, formData);
@@ -499,30 +538,46 @@ export default function LeadProfilePage({ params }) {
     }
   };
 
-  const handleFollowUpMarkComplete = async (followUp, completionNotes, isColdLead = false) => {
+  const handleFollowUpMarkComplete = async (
+    followUp,
+    completionNotes,
+    isColdLead = false,
+  ) => {
     if (!completionNotes?.trim()) {
       toast.error("Completion notes are required");
       throw new Error("validation");
     }
     const tid = toast.loading(
-      isColdLead ? "Completing follow-up & marking lead cold…" : "Marking as completed…"
+      isColdLead
+        ? "Completing follow-up & marking lead cold…"
+        : "Marking as completed…",
     );
     try {
       await updateFollowUp(lid, followUp.id, {
-        status:           "Completed",
+        status: "Completed",
         completionNotes,
-        completedAt:      new Date().toISOString(),
+        completedAt: new Date().toISOString(),
         isColdLead,
       });
       const noteText = buildFollowUpNoteText(followUp, completionNotes);
       await addLeadNote(lid, noteText, user?.displayName || "Agent");
+
       if (isColdLead) {
+        // Add a specific note for cold lead status change
+        await addLeadNote(
+          lid,
+          `Lead marked as Cold Lead`,
+          user?.displayName || "Agent",
+        );
+
         await markLeadAsCold(lid, completionNotes);
         setLead((prev) => ({ ...prev, isCold: true, status: "Cold Lead" }));
       }
       toast.success(
-        isColdLead ? "Follow-up completed & lead marked cold" : "Follow-up completed",
-        { id: tid }
+        isColdLead
+          ? "Follow-up completed & lead marked cold"
+          : "Follow-up completed",
+        { id: tid },
       );
       await reloadFollowUps();
       await reloadNotes();
@@ -550,10 +605,20 @@ export default function LeadProfilePage({ params }) {
     await handleFollowUpAdd({
       ...formData,
       quotationIds: pendingFollowUpForQuotation
-        ? [...new Set([...(formData.quotationIds || []), pendingFollowUpForQuotation.id])]
+        ? [
+            ...new Set([
+              ...(formData.quotationIds || []),
+              pendingFollowUpForQuotation.id,
+            ]),
+          ]
         : formData.quotationIds,
       quotationNames: pendingFollowUpForQuotation
-        ? [...new Set([...(formData.quotationNames || []), pendingFollowUpForQuotation.packageName || ""])]
+        ? [
+            ...new Set([
+              ...(formData.quotationNames || []),
+              pendingFollowUpForQuotation.packageName || "",
+            ]),
+          ]
         : formData.quotationNames,
     });
     setShowFollowUpFormDirect(false);
@@ -561,9 +626,9 @@ export default function LeadProfilePage({ params }) {
   };
 
   // ── Derived counts for tab badges ──────────────────────────────────────────
-  const pendingCount  = followUps.filter((f) => f.status !== "Completed").length;
-  const overdueCount  = followUps.filter(
-    (f) => f.status !== "Completed" && new Date(f.dateTime) < new Date()
+  const pendingCount = followUps.filter((f) => f.status !== "Completed").length;
+  const overdueCount = followUps.filter(
+    (f) => f.status !== "Completed" && new Date(f.dateTime) < new Date(),
   ).length;
   const activityCount = followUps.length + notes.length;
 
@@ -584,38 +649,85 @@ export default function LeadProfilePage({ params }) {
 
   // ── Trip fields ───────────────────────────────────────────────────────────
   const tripFields = [
-    { icon: User,    label: "Lead Name",    value: lead?.name || "-" },
+    { icon: User, label: "Lead Name", value: lead?.name || "-" },
     ...(lead?.customerId
-      ? [{ icon: User, label: "Customer Record", value: "View profile →", href: `/agent-panel/customers/${lead.customerId}` }]
+      ? [
+          {
+            icon: User,
+            label: "Customer Record",
+            value: "View profile →",
+            href: `/agent-panel/customers/${lead.customerId}`,
+          },
+        ]
       : []),
-    { icon: Phone,   label: "Mobile",       value: lead?.mobile || "-", href: lead?.mobile ? `tel:${lead.mobile}` : null },
-    { icon: Mail,    label: "Email",         value: lead?.email  || "-" },
-    { icon: MapPin,  label: "Destination",  value: lead?.destination  || "-" },
-    { icon: Calendar,label: "Travel Date",  value: formatDate(lead?.travelDate) },
-    { icon: Clock,   label: "Duration",     value: lead?.days ? `${lead.days} Days` : "-" },
-    { icon: MapPin,  label: "Departure City",value: lead?.departureCity || "-" },
-    { icon: Users,   label: "Trip Type",    value: lead?.tripType      || "-" },
-    { icon: Users,   label: "Adults",       value: lead?.adults        ?? "-" },
-    { icon: Users,   label: "Children",     value: lead?.children      ?? "0" },
     {
-      icon: Hash, label: "Child Ages",
-      value: Array.isArray(lead?.childAges) && lead.childAges.length > 0
-        ? lead.childAges.join(", ") : "N/A",
+      icon: Phone,
+      label: "Mobile",
+      value: lead?.mobile || "-",
+      href: lead?.mobile ? `tel:${lead.mobile}` : null,
     },
-    { icon: Hotel, label: "Hotel Preference",   value: lead?.hotelPreference  || "-" },
-    { icon: Tag,   label: "Meal Plan",           value: lead?.mealPlan         || "-" },
-    { icon: Hotel, label: "Rooms Required",      value: lead?.rooms ? `${lead.rooms}` : "-" },
-    { icon: Car,   label: "Sightseeing Vehicle", value: lead?.sightseeingVehicle || "-" },
+    { icon: Mail, label: "Email", value: lead?.email || "-" },
+    { icon: MapPin, label: "Destination", value: lead?.destination || "-" },
     {
-      icon: Train, label: "Booking Help",
-      value: Array.isArray(lead?.ticketHelp) && lead.ticketHelp.length > 0
-        ? lead.ticketHelp.join(", ") : "-",
+      icon: Calendar,
+      label: "Travel Date",
+      value: formatDate(lead?.travelDate),
+    },
+    {
+      icon: Clock,
+      label: "Duration",
+      value: lead?.days ? `${lead.days} Days` : "-",
+    },
+    {
+      icon: MapPin,
+      label: "Departure City",
+      value: lead?.departureCity || "-",
+    },
+    { icon: Users, label: "Trip Type", value: lead?.tripType || "-" },
+    { icon: Users, label: "Adults", value: lead?.adults ?? "-" },
+    { icon: Users, label: "Children", value: lead?.children ?? "0" },
+    {
+      icon: Hash,
+      label: "Child Ages",
+      value:
+        Array.isArray(lead?.childAges) && lead.childAges.length > 0
+          ? lead.childAges.join(", ")
+          : "N/A",
+    },
+    {
+      icon: Hotel,
+      label: "Hotel Preference",
+      value: lead?.hotelPreference || "-",
+    },
+    { icon: Tag, label: "Meal Plan", value: lead?.mealPlan || "-" },
+    {
+      icon: Hotel,
+      label: "Rooms Required",
+      value: lead?.rooms ? `${lead.rooms}` : "-",
+    },
+    {
+      icon: Car,
+      label: "Sightseeing Vehicle",
+      value: lead?.sightseeingVehicle || "-",
+    },
+    {
+      icon: Train,
+      label: "Booking Help",
+      value:
+        Array.isArray(lead?.ticketHelp) && lead.ticketHelp.length > 0
+          ? lead.ticketHelp.join(", ")
+          : "-",
     },
   ];
 
   // Tab config
   const TABS = [
-    { key: "quotations",  label: "Quotations",  count: quotations.length,  badge: null },
+    {
+      key: "quotations",
+      label: "Quotations",
+      count: quotations.length,
+      badge: null,
+    },
     {
       key: "activities",
       label: "Activities",
@@ -650,14 +762,23 @@ export default function LeadProfilePage({ params }) {
               <div className="mt-2 flex flex-col sm:flex-row sm:flex-wrap gap-2 text-xs sm:text-sm">
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-semibold">Status:</span>
-                  <StatusBadge status={lead?.status || "New"} fallback="New" className="border-none text-xs" />
+                  <StatusBadge
+                    status={lead?.status || "New"}
+                    fallback="New"
+                    className="border-none text-xs"
+                  />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-semibold">Created:</span>
-                  <span className="text-slate-700 font-medium">{formatDate(lead?.createdAt)}</span>
+                  <span className="text-slate-700 font-medium">
+                    {formatDate(lead?.createdAt)}
+                  </span>
                 </div>
                 {lead?.mobile && (
-                  <a href={`tel:${lead.mobile}`} className="flex items-center gap-1.5 text-slate-700 font-medium hover:text-theme-primary">
+                  <a
+                    href={`tel:${lead.mobile}`}
+                    className="flex items-center gap-1.5 text-slate-700 font-medium hover:text-theme-primary"
+                  >
                     <Phone className="h-3.5 w-3.5 text-slate-400" />
                     <span className="truncate">{lead.mobile}</span>
                   </a>
@@ -665,7 +786,9 @@ export default function LeadProfilePage({ params }) {
                 {lead?.email && (
                   <div className="flex items-center gap-1.5 text-slate-700 font-medium min-w-0">
                     <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate max-w-[180px] sm:max-w-[220px]">{lead.email}</span>
+                    <span className="truncate max-w-[180px] sm:max-w-[220px]">
+                      {lead.email}
+                    </span>
                   </div>
                 )}
               </div>
@@ -682,7 +805,9 @@ export default function LeadProfilePage({ params }) {
               <Edit3 className="h-4 w-4 mr-1.5" /> Edit Lead
             </Button>
             <Button
-              onClick={() => router.push(`/agent-panel/my-quotation/create?leadId=${lid}`)}
+              onClick={() =>
+                router.push(`/agent-panel/my-quotation/create?leadId=${lid}`)
+              }
               className="flex-1 sm:flex-none bg-theme-primary text-white text-xs sm:text-sm h-9 flex items-center justify-center"
             >
               <Plus className="h-4 w-4 mr-1.5" /> Create Quotation
@@ -694,7 +819,6 @@ export default function LeadProfilePage({ params }) {
       {/* ── MAIN ── */}
       <main className="max-w-[1600px] mx-auto px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
           {/* LEFT — Trip Requirements */}
           <div className="lg:col-span-4">
             <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
@@ -721,10 +845,15 @@ export default function LeadProfilePage({ params }) {
                           </p>
                           <p className="break-words text-xs font-bold text-slate-700 leading-snug">
                             {item.href ? (
-                              <a href={item.href} className="hover:text-theme-primary hover:underline">
+                              <a
+                                href={item.href}
+                                className="hover:text-theme-primary hover:underline"
+                              >
                                 {item.value}
                               </a>
-                            ) : item.value}
+                            ) : (
+                              item.value
+                            )}
                           </p>
                         </div>
                       </div>
@@ -735,7 +864,9 @@ export default function LeadProfilePage({ params }) {
                       <p className="text-[10px] font-semibold text-slate-400 uppercase mb-1">
                         Additional Requirements
                       </p>
-                      <p className="text-xs text-slate-700 leading-relaxed">{lead.notes}</p>
+                      <p className="text-xs text-slate-700 leading-relaxed">
+                        {lead.notes}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -745,7 +876,6 @@ export default function LeadProfilePage({ params }) {
 
           {/* RIGHT — Tabs */}
           <div className="lg:col-span-8 flex flex-col gap-4">
-
             {/* Tab Bar */}
             <div className="flex items-center gap-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-1.5">
               {TABS.map((tab) => (
@@ -765,9 +895,11 @@ export default function LeadProfilePage({ params }) {
                       className={`inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-black ${
                         activeTab === tab.key
                           ? "bg-white/20 text-white"
-                          : tab.badge === "red"   ? "bg-red-100 text-red-700"
-                          : tab.badge === "amber" ? "bg-amber-100 text-amber-700"
-                                                  : "bg-slate-100 text-slate-600"
+                          : tab.badge === "red"
+                            ? "bg-red-100 text-red-700"
+                            : tab.badge === "amber"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-slate-100 text-slate-600"
                       }`}
                     >
                       {tab.count}
@@ -783,7 +915,9 @@ export default function LeadProfilePage({ params }) {
                 <CardHeader className="px-6 py-5 border-b border-slate-50">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div>
-                      <CardTitle className="text-base font-bold">Package Quotations</CardTitle>
+                      <CardTitle className="text-base font-bold">
+                        Package Quotations
+                      </CardTitle>
                       <p className="text-xs text-slate-400 mt-0.5">
                         Track all quotations sent to convert this lead.
                       </p>
@@ -797,7 +931,11 @@ export default function LeadProfilePage({ params }) {
                         Attach existing
                       </Button>
                       <Button
-                        onClick={() => router.push(`/agent-panel/my-quotation/create?leadId=${lid}`)}
+                        onClick={() =>
+                          router.push(
+                            `/agent-panel/my-quotation/create?leadId=${lid}`,
+                          )
+                        }
                         className="bg-theme-primary text-white rounded-xl h-9 px-4 text-sm"
                       >
                         <Plus className="h-4 w-4 mr-1.5" /> New
@@ -834,7 +972,10 @@ export default function LeadProfilePage({ params }) {
                             )}
                             {quote.grandTotal > 0 && (
                               <p className="text-xs font-semibold text-theme-primary mt-0.5">
-                                ₹{Number(quote.grandTotal).toLocaleString("en-IN")}
+                                ₹
+                                {Number(quote.grandTotal).toLocaleString(
+                                  "en-IN",
+                                )}
                               </p>
                             )}
                           </div>
@@ -845,73 +986,94 @@ export default function LeadProfilePage({ params }) {
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
-                                  size="icon" variant="ghost"
+                                  size="icon"
+                                  variant="ghost"
                                   className="rounded-lg h-8 w-8 hover:bg-green-500 cursor-pointer hover:text-white text-green-600"
-                                  onClick={() => handleShareQuotationOnWhatsApp(quote)}
+                                  onClick={() =>
+                                    handleShareQuotationOnWhatsApp(quote)
+                                  }
                                 >
                                   <MessageCircle className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent side="top">Share on WhatsApp</TooltipContent>
-                            </Tooltip>
-
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="icon" variant="ghost"
-                                  className={`rounded-lg h-8 w-8 transition-colors ${
-                                    quote.status === "Sent"
-                                      ? "text-amber-500 cursor-default"
-                                      : "hover:bg-amber-50 hover:text-amber-600 text-slate-400"
-                                  }`}
-                                  onClick={() => handleMarkQuotationAsSent(quote)}
-                                  disabled={quote.status === "Sent"}
-                                >
-                                  <Send className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
                               <TooltipContent side="top">
-                                {quote.status === "Sent" ? "Already Sent" : "Mark as Sent"}
+                                Share on WhatsApp
                               </TooltipContent>
                             </Tooltip>
 
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
-                                  size="icon" variant="ghost"
+                                  size="icon"
+                                  variant="ghost"
+                                  className={`rounded-lg h-8 w-8 transition-colors ${
+                                    quote.status === "Sent"
+                                      ? "text-amber-500 cursor-default"
+                                      : "hover:bg-amber-50 hover:text-amber-600 text-slate-400"
+                                  }`}
+                                  onClick={() =>
+                                    handleMarkQuotationAsSent(quote)
+                                  }
+                                  disabled={quote.status === "Sent"}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                {quote.status === "Sent"
+                                  ? "Already Sent"
+                                  : "Mark as Sent"}
+                              </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
                                   className="rounded-lg h-8 w-8 hover:bg-theme-primary cursor-pointer hover:text-white"
                                   onClick={() => handleOpenDetails(quote)}
                                 >
                                   <ExternalLink className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent side="top">View Quotation</TooltipContent>
+                              <TooltipContent side="top">
+                                View Quotation
+                              </TooltipContent>
                             </Tooltip>
 
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
-                                  size="icon" variant="ghost"
+                                  size="icon"
+                                  variant="ghost"
                                   className="rounded-lg h-8 w-8 hover:bg-theme-primary cursor-pointer hover:text-white"
                                   onClick={() => handleEditQuotation(quote)}
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent side="top">Edit Quotation</TooltipContent>
+                              <TooltipContent side="top">
+                                Edit Quotation
+                              </TooltipContent>
                             </Tooltip>
 
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
-                                  size="icon" variant="ghost"
+                                  size="icon"
+                                  variant="ghost"
                                   className="rounded-lg h-8 w-8 hover:bg-red-500 cursor-pointer hover:text-white"
-                                  onClick={() => handleDeleteQuotation(quote.id)}
+                                  onClick={() =>
+                                    handleDeleteQuotation(quote.id)
+                                  }
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent side="top">Delete Quotation</TooltipContent>
+                              <TooltipContent side="top">
+                                Delete Quotation
+                              </TooltipContent>
                             </Tooltip>
                           </div>
                         </TooltipProvider>
@@ -922,9 +1084,15 @@ export default function LeadProfilePage({ params }) {
                       <div className="bg-slate-50 w-14 h-14 rounded-full flex items-center justify-center mx-auto text-slate-300">
                         <TrendingUp className="h-7 w-7" />
                       </div>
-                      <p className="text-slate-400 font-medium text-sm">No quotations yet.</p>
+                      <p className="text-slate-400 font-medium text-sm">
+                        No quotations yet.
+                      </p>
                       <Button
-                        onClick={() => router.push(`/agent-panel/my-quotation/create?leadId=${lid}`)}
+                        onClick={() =>
+                          router.push(
+                            `/agent-panel/my-quotation/create?leadId=${lid}`,
+                          )
+                        }
                         className="bg-theme-primary text-white rounded-xl h-9 text-sm"
                       >
                         <Plus className="h-4 w-4 mr-2" /> Create First Quotation
@@ -963,7 +1131,9 @@ export default function LeadProfilePage({ params }) {
                           size="sm"
                           className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 px-3 rounded-lg bg-theme-primary hover:bg-theme-secondary text-white text-xs"
                           onClick={(e) => {
-                            const input = e.target.closest(".relative").querySelector("input");
+                            const input = e.target
+                              .closest(".relative")
+                              .querySelector("input");
                             if (input?.value.trim()) {
                               handleAddNote(input.value);
                               input.value = "";
@@ -974,7 +1144,9 @@ export default function LeadProfilePage({ params }) {
                         </Button>
                       </div>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">Press Enter or click Add to save</p>
+                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">
+                      Press Enter or click Add to save
+                    </p>
                   </div>
 
                   {/* Unified Activity Timeline with sorted data */}
@@ -1022,9 +1194,12 @@ export default function LeadProfilePage({ params }) {
       <Dialog open={attachDialogOpen} onOpenChange={setAttachDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Attach quotation to {lead?.name || "this lead"}</DialogTitle>
+            <DialogTitle>
+              Attach quotation to {lead?.name || "this lead"}
+            </DialogTitle>
             <DialogDescription>
-              Shows quotations you created that aren&apos;t linked to any lead. Pick the right one to attach it permanently.
+              Shows quotations you created that aren&apos;t linked to any lead.
+              Pick the right one to attach it permanently.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
@@ -1036,7 +1211,9 @@ export default function LeadProfilePage({ params }) {
             />
             <div className="flex-1 overflow-y-auto rounded-xl border border-slate-100">
               {orphanLoading ? (
-                <div className="p-6 text-center text-sm text-slate-400">Loading…</div>
+                <div className="p-6 text-center text-sm text-slate-400">
+                  Loading…
+                </div>
               ) : visibleOrphans.length === 0 ? (
                 <div className="p-6 text-center text-sm text-slate-400">
                   {orphanQuotations.length === 0
@@ -1046,7 +1223,10 @@ export default function LeadProfilePage({ params }) {
               ) : (
                 <ul className="divide-y divide-slate-100">
                   {visibleOrphans.map((q) => (
-                    <li key={q.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <li
+                      key={q.id}
+                      className="px-4 py-3 flex items-center justify-between gap-3"
+                    >
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-800 truncate">
                           {q.packageName || "Untitled package"}
@@ -1054,12 +1234,24 @@ export default function LeadProfilePage({ params }) {
                         <p className="text-xs text-slate-500 mt-0.5 truncate">
                           {q.customerName || q.leadName || "—"}
                           {q.refNumber && <span> · {q.refNumber}</span>}
-                          {q.customerMobile && <span> · {q.customerMobile}</span>}
+                          {q.customerMobile && (
+                            <span> · {q.customerMobile}</span>
+                          )}
                         </p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
                           {q.status || "Draft"}
                           {q.createdAt?.toDate && (
-                            <span> · {q.createdAt.toDate().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                            <span>
+                              {" "}
+                              ·{" "}
+                              {q.createdAt
+                                .toDate()
+                                .toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                            </span>
                           )}
                         </p>
                       </div>
@@ -1085,7 +1277,10 @@ export default function LeadProfilePage({ params }) {
         <QuotationPreviewModal
           quotation={previewQuotation}
           onClose={() => setPreviewQuotation(null)}
-          onEdit={(q) => { setPreviewQuotation(null); handleEditQuotation(q); }}
+          onEdit={(q) => {
+            setPreviewQuotation(null);
+            handleEditQuotation(q);
+          }}
         />
       )}
 
@@ -1100,16 +1295,19 @@ export default function LeadProfilePage({ params }) {
       {/* ── Direct Follow-Up Form (after quotation-sent prompt) ── */}
       <FollowUpForm
         open={showFollowUpFormDirect}
-        onClose={() => { setShowFollowUpFormDirect(false); setPendingFollowUpForQuotation(null); }}
+        onClose={() => {
+          setShowFollowUpFormDirect(false);
+          setPendingFollowUpForQuotation(null);
+        }}
         onSubmit={handleDirectFollowUpSubmit}
         leadQuotations={quotations}
         initialData={
           pendingFollowUpForQuotation
             ? {
-                dateTime:       "",
-                mode:           "Call",
-                notes:          `Follow-up for ${pendingFollowUpForQuotation.packageName || "quotation"} – awaiting customer response.`,
-                quotationIds:   [pendingFollowUpForQuotation.id],
+                dateTime: "",
+                mode: "Call",
+                notes: `Follow-up for ${pendingFollowUpForQuotation.packageName || "quotation"} – awaiting customer response.`,
+                quotationIds: [pendingFollowUpForQuotation.id],
                 quotationNames: [pendingFollowUpForQuotation.packageName || ""],
               }
             : null
