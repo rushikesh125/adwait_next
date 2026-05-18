@@ -28,6 +28,30 @@ const MEAL_PLAN_LABELS = {
   MAP: "Breakfast & Dinner",
   AP: "All Meals Included",
 };
+// ─── Multi-room helpers ───────────────────────────────────────────────────────
+/**
+ * Resolve the total price for a hotel entry from multi-room-categories or legacy flat field.
+ */
+const resolveEntryTotal = (entry) => {
+  if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
+    return entry.roomCategories.reduce((s, rc) => s + Number(rc.price || 0), 0);
+  }
+  return Number(entry.hotelTotal || 0);
+};
+
+const getPrimaryMealPlan = (entry) => {
+  if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
+    return entry.roomCategories[0]?.mealPlan || entry.selectedMealPlan || "";
+  }
+  return entry.selectedMealPlan || entry.mealPlan || "";
+};
+
+const getPrimaryRoomCategory = (entry) => {
+  if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
+    return entry.roomCategories[0]?.roomCategory || entry.selectedRoomCategory || "";
+  }
+  return entry.selectedRoomCategory || entry.roomCategory || "";
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatDate = (dateStr) => {
@@ -55,21 +79,18 @@ const calculateTotalMeals = (entries) => {
   let totalBreakfasts = 0,
     totalLunches = 0,
     totalDinners = 0;
-  entries?.forEach(({ selectedMealPlan, nights }) => {
-    const n = parseInt(nights, 10);
+  entries?.forEach((entry) => {
+    const n = parseInt(entry.nights, 10);
     if (isNaN(n)) return;
-    if (selectedMealPlan === "CP") {
-      totalBreakfasts += n;
-    }
-    if (selectedMealPlan === "MAP") {
-      totalBreakfasts += n;
-      totalDinners += n;
-    }
-    if (selectedMealPlan === "AP") {
-      totalBreakfasts += n;
-      totalLunches += n;
-      totalDinners += n;
-    }
+    const plans =
+      Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0
+        ? [...new Set(entry.roomCategories.map((rc) => rc.mealPlan).filter(Boolean))]
+        : [getPrimaryMealPlan(entry)].filter(Boolean);
+    plans.forEach((mp) => {
+      if (mp === "CP") { totalBreakfasts += n; }
+      if (mp === "MAP") { totalBreakfasts += n; totalDinners += n; }
+      if (mp === "AP") { totalBreakfasts += n; totalLunches += n; totalDinners += n; }
+    });
   });
   return { totalBreakfasts, totalLunches, totalDinners };
 };
@@ -659,10 +680,10 @@ export const exportPackagePDF = async ({
           if (data.section === "body" && data.column.index === 0) {
             const h = optHotels[data.row.index];
             const link =
-              h.GoogleListingURL ||
-              h.googleLink ||
-              h.tripAdvisorLink ||
-              h.TripAdvisorURL;
+              h?.GoogleListingURL ||
+              h?.googleLink ||
+              h?.tripAdvisorLink ||
+              h?.TripAdvisorURL;
             if (link) {
               pdfdoc.link(
                 data.cell.x,
@@ -674,33 +695,65 @@ export const exportPackagePDF = async ({
             }
           }
         },
-        body: optHotels.map((h) => {
-          const guestParts = [
-            `${h.numDouble || 0} Rm`,
-            ...(h.numExtraAdult > 0 ? [`${h.numExtraAdult} Ext.Adult`] : []),
-            ...(h.numExtraChild > 0 ? [`${h.numExtraChild} Child`] : []),
-            ...(h.numCNB > 0 ? [`${h.numCNB} CNB`] : []),
-          ];
+        body: optHotels.flatMap((h) => {
           const hotelLink =
             h.GoogleListingURL ||
             h.googleLink ||
             h.tripAdvisorLink ||
             h.TripAdvisorURL;
           const hotelCell = hotelLink
-            ? {
-                content: h.hotel,
-                styles: { textColor: [13, 71, 161], fontStyle: "bold" },
-              }
+            ? { content: h.hotel, styles: { textColor: [13, 71, 161], fontStyle: "bold" } }
             : h.hotel;
-          return [
+
+          const hasMultiRooms =
+            Array.isArray(h.roomCategories) && h.roomCategories.length > 1;
+
+          if (hasMultiRooms) {
+            // First row: hotel name spans visually via first room category
+            return h.roomCategories.map((rc, rcIdx) => {
+              const guestParts = [
+                `${rc.numDouble || 0} Rm`,
+                ...(rc.numExtraAdult > 0 ? [`${rc.numExtraAdult} Ext.Adult`] : []),
+                ...(rc.numExtraChild > 0 ? [`${rc.numExtraChild} Child`] : []),
+                ...(rc.numCNB > 0 ? [`${rc.numCNB} CNB`] : []),
+              ];
+              return [
+                rcIdx === 0
+                  ? hotelCell
+                  : { content: ` Room ${rcIdx + 1}`, styles: { textColor: [100, 100, 100], fontSize: FONT_TINY } },
+                rcIdx === 0 ? h.city : "",
+                rc.roomCategory || "—",
+                rcIdx === 0
+                  ? `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`
+                  : "",
+                rcIdx === 0 ? h.nights : "",
+                MEAL_PLAN_LABELS[rc.mealPlan] || rc.mealPlan || "—",
+                guestParts.join(", "),
+              ];
+            });
+          }
+
+          // Single room (legacy or single-category)
+          const primaryRoom = h.roomCategories?.[0];
+          const numDouble = primaryRoom?.numDouble ?? h.numDouble ?? 0;
+          const numExtraAdult = primaryRoom?.numExtraAdult ?? h.numExtraAdult ?? 0;
+          const numExtraChild = primaryRoom?.numExtraChild ?? h.numExtraChild ?? 0;
+          const numCNB = primaryRoom?.numCNB ?? h.numCNB ?? 0;
+          const guestParts = [
+            `${numDouble} Rm`,
+            ...(numExtraAdult > 0 ? [`${numExtraAdult} Ext.Adult`] : []),
+            ...(numExtraChild > 0 ? [`${numExtraChild} Child`] : []),
+            ...(numCNB > 0 ? [`${numCNB} CNB`] : []),
+          ];
+          return [[
             hotelCell,
             h.city,
-            h.selectedRoomCategory,
+            getPrimaryRoomCategory(h),
             `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`,
             h.nights,
-            MEAL_PLAN_LABELS[h.selectedMealPlan] || h.selectedMealPlan || "—",
+            MEAL_PLAN_LABELS[getPrimaryMealPlan(h)] || getPrimaryMealPlan(h) || "—",
             guestParts.join(", "),
-          ];
+          ]];
         }),
         theme: "grid",
         headStyles: {
@@ -727,7 +780,7 @@ export const exportPackagePDF = async ({
     const breakdownRows = [];
 
     const optionHotelTotal = optHotels.reduce(
-      (s, e) => s + Number(e.hotelTotal || 0),
+      (s, e) => s + resolveEntryTotal(e),
       0,
     );
     const optionMarkup = resolveOptionMarkup(

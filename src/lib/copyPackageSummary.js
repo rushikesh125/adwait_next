@@ -23,25 +23,63 @@ const formatDate = (dateStr) => {
       });
 };
 
+/**
+ * Resolve the effective hotel total from either multi-room-category or legacy flat structure.
+ */
+const resolveEntryTotal = (entry) => {
+  if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
+    return entry.roomCategories.reduce((s, rc) => s + Number(rc.price || 0), 0);
+  }
+  return Number(entry.hotelTotal || 0);
+};
+
+/**
+ * Get the primary meal plan for an entry (from first room category or legacy field).
+ */
+const getPrimaryMealPlan = (entry) => {
+  if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
+    return entry.roomCategories[0]?.mealPlan || entry.selectedMealPlan || "";
+  }
+  return entry.selectedMealPlan || entry.mealPlan || "";
+};
+
+/**
+ * Get the primary room category label for an entry.
+ */
+const getPrimaryRoomCategory = (entry) => {
+  if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
+    return entry.roomCategories[0]?.roomCategory || entry.selectedRoomCategory || "";
+  }
+  return entry.selectedRoomCategory || entry.roomCategory || "";
+};
+
 const calculateTotalMeals = (entries) => {
   let totalBreakfasts = 0,
     totalLunches = 0,
     totalDinners = 0;
-  entries.forEach(({ selectedMealPlan, nights }) => {
-    const n = parseInt(nights, 10);
+  entries.forEach((entry) => {
+    const n = parseInt(entry.nights, 10);
     if (isNaN(n)) return;
-    if (selectedMealPlan === "CP") {
-      totalBreakfasts += n;
-    }
-    if (selectedMealPlan === "MAP") {
-      totalBreakfasts += n;
-      totalDinners += n;
-    }
-    if (selectedMealPlan === "AP") {
-      totalBreakfasts += n;
-      totalLunches += n;
-      totalDinners += n;
-    }
+    // For multi-room entries, count meals per room category (since guests differ)
+    const plans = Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0
+      ? entry.roomCategories.map((rc) => rc.mealPlan).filter(Boolean)
+      : [getPrimaryMealPlan(entry)].filter(Boolean);
+    // Use unique meal plans (deduplicated) to avoid double-counting the same plan
+    const uniquePlans = [...new Set(plans)];
+    uniquePlans.forEach((mp) => {
+      if (mp === "CP") {
+        totalBreakfasts += n;
+      }
+      if (mp === "MAP") {
+        totalBreakfasts += n;
+        totalDinners += n;
+      }
+      if (mp === "AP") {
+        totalBreakfasts += n;
+        totalLunches += n;
+        totalDinners += n;
+      }
+    });
   });
   return { totalBreakfasts, totalLunches, totalDinners };
 };
@@ -66,7 +104,7 @@ export const resolveOptionMarkup = (
   // Fallback: recompute from raw inputs if percentage
   if (markupType === "percentage" && markupAmount > 0) {
     const hotelTotal = (opt.hotelEntries || []).reduce(
-      (s, e) => s + Number(e.hotelTotal || 0),
+      (s, e) => s + resolveEntryTotal(e),
       0,
     );
     const base = hotelTotal + transportTotal + activityTotal;
@@ -88,7 +126,7 @@ const calcOptionGrandTotal = (
   optionMarkup,
 ) => {
   const hotelTotal = (opt.hotelEntries || []).reduce(
-    (s, e) => s + Number(e.hotelTotal || 0),
+    (s, e) => s + resolveEntryTotal(e),
     0,
   );
   return hotelTotal + transportTotal + activityTotal + optionMarkup;
@@ -110,13 +148,6 @@ const buildOptionBlock = (
       ? `*${option.name}*\nNo hotels added.\n`
       : `No hotels added.\n`;
   }
-
-  const grandTotal = calcOptionGrandTotal(
-    option,
-    transportTotal,
-    activityTotal,
-    optionMarkup,
-  );
 
   let s = "";
 
@@ -143,15 +174,41 @@ const buildOptionBlock = (
       s += ` 🔗 View Hotel: ${link}\n`;
     }
     s += ` ⇒ ${e.city}, ${e.state}\n`;
-    s += ` ⇒ Rooms: ${e.numDouble || 0}`;
-    if ((e.numExtraAdult || 0) > 0) s += ` | Extra Adult: ${e.numExtraAdult}`;
-    if ((e.numExtraChild || 0) > 0) s += ` | Extra Child: ${e.numExtraChild}`;
-    if ((e.numCNB || 0) > 0) s += ` | CNB: ${e.numCNB}`;
-    s += ` | Category: ${(e.selectedRoomCategory || "").toUpperCase()}\n`;
-    s += ` ⇒ ${formatDate(e.checkInDate)} to ${formatDate(e.checkOutDate)} (${e.nights} Nights, ${MEAL_PLAN_LABELS[e.selectedMealPlan] || e.selectedMealPlan})\n\n`;
+
+    // Multi-room-category support: show each room category on its own line
+    const hasMultiRooms =
+      Array.isArray(e.roomCategories) && e.roomCategories.length > 1;
+
+    if (hasMultiRooms) {
+      e.roomCategories.forEach((rc, rcIdx) => {
+        s += ` ⇒ Room ${rcIdx + 1}: ${rc.numDouble || 0} Double`;
+        if ((rc.numExtraAdult || 0) > 0) s += ` | +${rc.numExtraAdult} Extra Adult`;
+        if ((rc.numExtraChild || 0) > 0) s += ` | +${rc.numExtraChild} Child`;
+        if ((rc.numCNB || 0) > 0) s += ` | +${rc.numCNB} CNB`;
+        s += ` | ${(rc.roomCategory || "").toUpperCase()} | ${MEAL_PLAN_LABELS[rc.mealPlan] || rc.mealPlan || "—"}\n`;
+      });
+    } else {
+      // Single room category (or legacy flat entry)
+      const primaryRoom = e.roomCategories?.[0];
+      const numDouble = primaryRoom?.numDouble ?? e.numDouble ?? 0;
+      const numExtraAdult = primaryRoom?.numExtraAdult ?? e.numExtraAdult ?? 0;
+      const numExtraChild = primaryRoom?.numExtraChild ?? e.numExtraChild ?? 0;
+      const numCNB = primaryRoom?.numCNB ?? e.numCNB ?? 0;
+      const roomCat = getPrimaryRoomCategory(e);
+      const mealPlan = getPrimaryMealPlan(e);
+
+      s += ` ⇒ Rooms: ${numDouble}`;
+      if (numExtraAdult > 0) s += ` | Extra Adult: ${numExtraAdult}`;
+      if (numExtraChild > 0) s += ` | Extra Child: ${numExtraChild}`;
+      if (numCNB > 0) s += ` | CNB: ${numCNB}`;
+      s += ` | Category: ${roomCat.toUpperCase()}\n`;
+      s += ` ⇒ Meal Plan: ${MEAL_PLAN_LABELS[mealPlan] || mealPlan || "—"}\n`;
+    }
+
+    s += ` ⇒ ${formatDate(e.checkInDate)} to ${formatDate(e.checkOutDate)} (${e.nights} Night${e.nights > 1 ? "s" : ""})\n\n`;
   });
 
-  // Grand total per option — no individual cost breakdown shown
+  // Grand total per option
   const preDiscountTotal = calcOptionGrandTotal(
     option,
     transportTotal,
