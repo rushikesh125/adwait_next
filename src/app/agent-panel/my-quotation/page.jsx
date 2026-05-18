@@ -150,6 +150,7 @@ const MyQuotations = () => {
   };
 
   // Step 2: actual conversion (now accepts a chosen option)
+  // Step 2: actual conversion (now accepts a chosen option)
   const handleConvertToBooking = async (quotation, chosenOption) => {
     if (quotation.convertedToBooking && quotation.bookingId) {
       try {
@@ -165,7 +166,6 @@ const MyQuotations = () => {
       }
     }
 
-    // Resolve which hotels/cost to use
     const finalOption =
       chosenOption ??
       (Array.isArray(quotation.packageOptions) &&
@@ -176,23 +176,138 @@ const MyQuotations = () => {
     const transport = quotation.transportSummary;
     const activities = quotation.activitySummary || [];
 
+    // ── Compute adults & children from roomCategories ──────────────────────
+    // Each roomCategory row: numDouble doubles = numDouble*2 adults
+    // numExtraAdult = extra adults on top, numExtraChild = children, numCNB = child no bed
+    const computeOccupancy = (hotelEntries) => {
+      let totalAdults = 0;
+      let totalChildren = 0;
+
+      for (const h of hotelEntries) {
+        const rooms = h.roomCategories || [];
+        if (rooms.length > 0) {
+          for (const rc of rooms) {
+            totalAdults += (rc.numDouble ?? 0) * 2 + (rc.numExtraAdult ?? 0);
+            totalChildren += (rc.numExtraChild ?? 0) + (rc.numCNB ?? 0);
+          }
+        } else {
+          // Legacy flat structure fallback
+          totalAdults += (h.numDouble ?? 1) * 2 + (h.numExtraAdult ?? 0);
+          totalChildren += (h.numExtraChild ?? 0) + (h.numCNB ?? 0);
+        }
+      }
+
+      // Deduplicate: if multiple hotels cover the same nights, take the max
+      // (since rooms repeat per hotel, not per night)
+      // Use the first hotel entry's occupancy as the "per-trip" count
+      if (hotelEntries.length > 1) {
+        const first = hotelEntries[0];
+        const firstRooms = first.roomCategories || [];
+        let firstAdults = 0;
+        let firstChildren = 0;
+        if (firstRooms.length > 0) {
+          for (const rc of firstRooms) {
+            firstAdults += (rc.numDouble ?? 0) * 2 + (rc.numExtraAdult ?? 0);
+            firstChildren += (rc.numExtraChild ?? 0) + (rc.numCNB ?? 0);
+          }
+        } else {
+          firstAdults = (first.numDouble ?? 1) * 2 + (first.numExtraAdult ?? 0);
+          firstChildren = (first.numExtraChild ?? 0) + (first.numCNB ?? 0);
+        }
+        return { adults: firstAdults || 1, children: firstChildren };
+      }
+
+      return {
+        adults: totalAdults || 1,
+        children: totalChildren,
+      };
+    };
+
+    const { adults, children } = computeOccupancy(hotels);
+
+    // ── Build services with structured hotel data ──────────────────────────
     const services = [
-      ...hotels.map((h) => ({
-        type: "Hotel",
-        description: [
-          h.hotel,
-          h.selectedRoomCategory,
-          h.selectedMealPlan,
-          h.nights ? `${h.nights} nights` : "",
-        ]
-          .filter(Boolean)
-          .join(" · "),
-        supplier: h.hotel || "",
-        confirmationRef: "",
-        amount: h.hotelTotal || "",
-        advance: "",
-        status: "Pending",
-      })),
+      ...hotels
+        .map((h) => {
+          // Support multi-room-category hotels — one service per room category row
+          const roomCategories = h.roomCategories || [];
+          if (roomCategories.length > 1) {
+            // Return one service per room category
+            return roomCategories.map((rc) => ({
+              type: "Hotel",
+              hotelData: {
+                hotelName: h.hotel || "",
+                city: h.city || "",
+                state: h.state || "",
+                checkIn: h.checkInDate || "",
+                checkOut: h.checkOutDate || "",
+                nights: h.nights || "",
+                roomCategory: rc.roomCategory || "",
+                mealPlan: rc.mealPlan || "",
+                numDouble: rc.numDouble ?? 0,
+                numExtraAdult: rc.numExtraAdult ?? 0,
+                numExtraChild: rc.numExtraChild ?? 0,
+                numCNB: rc.numCNB ?? 0,
+                GoogleListingURL: h.GoogleListingURL || "",
+              },
+              description: [
+                h.hotel,
+                h.city,
+                rc.roomCategory,
+                rc.mealPlan,
+                h.nights ? `${h.nights} nights` : "",
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              supplier: h.hotel || "",
+              confirmationRef: "",
+              amount: rc.price || "",
+              advance: "",
+              status: "Pending",
+            }));
+          }
+
+          // Single room category (or legacy)
+          const primaryRc = roomCategories[0] || {};
+          return {
+            type: "Hotel",
+            hotelData: {
+              hotelName: h.hotel || "",
+              city: h.city || "",
+              state: h.state || "",
+              checkIn: h.checkInDate || "",
+              checkOut: h.checkOutDate || "",
+              nights: h.nights || "",
+              roomCategory:
+                primaryRc.roomCategory ||
+                h.selectedRoomCategory ||
+                h.roomCategory ||
+                "",
+              mealPlan:
+                primaryRc.mealPlan || h.selectedMealPlan || h.mealPlan || "",
+              numDouble: primaryRc.numDouble ?? h.numDouble ?? 1,
+              numExtraAdult: primaryRc.numExtraAdult ?? h.numExtraAdult ?? 0,
+              numExtraChild: primaryRc.numExtraChild ?? h.numExtraChild ?? 0,
+              numCNB: primaryRc.numCNB ?? h.numCNB ?? 0,
+              GoogleListingURL: h.GoogleListingURL || "",
+            },
+            description: [
+              h.hotel,
+              h.city,
+              primaryRc.roomCategory || h.selectedRoomCategory,
+              primaryRc.mealPlan || h.selectedMealPlan,
+              h.nights ? `${h.nights} nights` : "",
+            ]
+              .filter(Boolean)
+              .join(" · "),
+            supplier: h.hotel || "",
+            confirmationRef: "",
+            amount: h.hotelTotal || "",
+            advance: "",
+            status: "Pending",
+          };
+        })
+        .flat(), // flat() because multi-room returns an array
       ...(transport?.vehicleName
         ? [
             {
@@ -224,8 +339,8 @@ const MyQuotations = () => {
       destination: state.getDestinationOfpkg(quotation) || "",
       startDate: toDateStr(hotels[0]?.checkInDate),
       endDate: toDateStr(hotels[hotels.length - 1]?.checkOutDate),
-      adults: 1,
-      children: 0,
+      adults,
+      children,
       status: "Pending",
       totalAmount: grandTotal,
       notes:

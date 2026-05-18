@@ -83,7 +83,7 @@ const SERVICE_ICONS = {
   Insurance: ShieldCheck,
   Other: MoreHorizontal,
 };
-
+const MEAL_PLANS = ["CP", "MAP", "AP", "EP", "BB", "AI"];
 // ─── Factory helpers ──────────────────────────────────────────────────────────
 
 const newVendorPayment = (type = "Installment") => ({
@@ -549,6 +549,86 @@ function VendorPaymentRow({ svc, payment, onUpdate, onDelete }) {
   );
 }
 
+// ─── Sub-component: Structured Hotel Fields ───────────────────────────────────
+
+// ─── Sub-component: Structured Hotel Fields ───────────────────────────────────
+
+function HotelServiceFields({ hotelData = {}, onChange }) {
+  const handle = (field, value) => onChange({ ...hotelData, [field]: value });
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
+      <div className="space-y-1 sm:col-span-2">
+        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          Hotel Name
+        </Label>
+        <Input
+          placeholder="e.g. The Taj Mahal Palace"
+          value={hotelData.hotelName || ""}
+          onChange={(e) => handle("hotelName", e.target.value)}
+          className="h-9 rounded-xl text-xs"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          City
+        </Label>
+        <Input
+          placeholder="e.g. Mumbai"
+          value={hotelData.city || ""}
+          onChange={(e) => handle("city", e.target.value)}
+          className="h-9 rounded-xl text-xs"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          Nights
+        </Label>
+        <Input
+          type="number"
+          min={1}
+          placeholder="1"
+          value={hotelData.nights || ""}
+          onChange={(e) =>
+            handle("nights", Math.max(1, Number(e.target.value) || 1))
+          }
+          className="h-9 rounded-xl text-xs"
+        />
+      </div>
+      <div className="space-y-1 sm:col-span-2">
+        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          Room Category
+        </Label>
+        <Input
+          placeholder="e.g. Deluxe Room, Suite"
+          value={hotelData.roomCategory || ""}
+          onChange={(e) => handle("roomCategory", e.target.value)}
+          className="h-9 rounded-xl text-xs"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          Meal Plan
+        </Label>
+        <Select
+          value={hotelData.mealPlan || ""}
+          onValueChange={(v) => handle("mealPlan", v)}
+        >
+          <SelectTrigger className="h-9 rounded-xl text-xs">
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            {MEAL_PLANS.map((m) => (
+              <SelectItem key={m} value={m} className="text-xs">
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
 // ─── Sub-component: Service Card (updated with status segments) ───────────────
 
 function ServiceCard({
@@ -676,17 +756,27 @@ function ServiceCard({
               className="h-9 rounded-xl text-xs"
             />
           </div>
-          <div className="space-y-1 col-span-2 sm:col-span-4">
-            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              Description
-            </Label>
-            <Input
-              placeholder="e.g. Hotel Taj Mahal Palace, Deluxe Room"
-              value={svc.description}
-              onChange={(e) => onUpdateField("description", e.target.value)}
-              className="h-9 rounded-xl text-xs"
-            />
-          </div>
+         {svc.type !== "Hotel" && (
+            <div className="space-y-1 col-span-2 sm:col-span-4">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Description
+              </Label>
+              <Input
+                placeholder="e.g. Flight AI-302, Economy Class"
+                value={svc.description}
+                onChange={(e) => onUpdateField("description", e.target.value)}
+                className="h-9 rounded-xl text-xs"
+              />
+            </div>
+          )}
+          {svc.type === "Hotel" && (
+            <div className="col-span-2 sm:col-span-4">
+              <HotelServiceFields
+                hotelData={svc.hotelData || {}}
+                onChange={(updated) => onUpdateField("hotelData", updated)}
+              />
+            </div>
+          )}
           <div className="space-y-1 sm:col-span-2">
             <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               Supplier
@@ -863,10 +953,11 @@ function CreateBookingInner() {
         services: (data.services || []).map((s) => ({
           ...s,
           _key: Math.random().toString(36).slice(2),
+          hotelData: s.hotelData || null,
           vendorPayments: (s.vendorPayments || []).map((p) => ({
             ...p,
             _key: Math.random().toString(36).slice(2),
-            status: p.status || "Paid", // backward compatibility
+            status: p.status || "Paid",
           })),
           _showPayments: false,
         })),
@@ -898,10 +989,11 @@ function CreateBookingInner() {
             services: (data.services || []).map((s) => ({
               ...s,
               _key: Math.random().toString(36).slice(2),
+              hotelData: s.hotelData || null,
               vendorPayments: (s.vendorPayments || []).map((p) => ({
                 ...p,
                 _key: Math.random().toString(36).slice(2),
-                status: p.status || "Paid", // backward compatibility
+                status: p.status || "Paid",
               })),
               _showPayments: false,
             })),
@@ -958,9 +1050,23 @@ function CreateBookingInner() {
   const updateServiceField = (svcKey, field, value) =>
     setForm((prev) => ({
       ...prev,
-      services: prev.services.map((s) =>
-        s._key === svcKey ? { ...s, [field]: value } : s,
-      ),
+      services: prev.services.map((s) => {
+        if (s._key !== svcKey) return s;
+        const updated = { ...s, [field]: value };
+         if (field === "type" && value === "Hotel" && !updated.hotelData) {
+          updated.hotelData = {
+            hotelName: "",
+            city: "",
+            nights: "",
+            roomCategory: "",
+            mealPlan: "",
+          };
+        }
+        if (field === "type" && value !== "Hotel") {
+          updated.hotelData = null;
+        }
+        return updated;
+      }),
     }));
   const toggleServicePayments = (svcKey) =>
     setForm((prev) => ({
@@ -1070,9 +1176,23 @@ function CreateBookingInner() {
     setLoading(true);
     try {
       // Strip UI-only fields before saving
-      const cleanServices = form.services.map(
+     const cleanServices = form.services.map(
         ({ _key, _showPayments, vendorPayments, ...rest }) => ({
           ...rest,
+          description:
+            rest.type === "Hotel" && rest.hotelData
+              ? [
+                  rest.hotelData.hotelName,
+                  rest.hotelData.city,
+                  rest.hotelData.roomCategory,
+                  rest.hotelData.mealPlan,
+                  rest.hotelData.nights
+                    ? `${rest.hotelData.nights} nights`
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : rest.description,
           vendorPayments: (vendorPayments || []).map(
             ({ _key: pk, ...vp }) => vp,
           ),
