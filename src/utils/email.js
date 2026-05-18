@@ -55,7 +55,5 @@ export const sendLeadNotificationToAgent = async ({
     );
 
     console.log("✅ Lead email sent to agent:", agent.email);
-  } catch (error) {
-    console.error("❌ EmailJS Error:", error);
-  }
+  } catch {}
 };

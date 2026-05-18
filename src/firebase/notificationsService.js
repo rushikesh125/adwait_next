@@ -126,6 +126,36 @@ export async function markNotificationRead(notificationId) {
   return updateDoc(doc(db, "notifications", notificationId), { read: true });
 }
 
+export async function acknowledgeLeadNotificationViaWhatsApp({
+  notificationId,
+  leadId,
+  agentName = "Agent",
+}) {
+  const tasks = [];
+
+  if (leadId) {
+    tasks.push(
+      addDoc(collection(db, "leads", leadId, "notes"), {
+        text: "LEAD ACKNOWLEDGEMENT – WhatsApp acknowledgement sent",
+        createdBy: agentName,
+        createdAt: serverTimestamp(),
+      }),
+    );
+  }
+
+  if (notificationId) {
+    tasks.push(
+      updateDoc(doc(db, "notifications", notificationId), {
+        acknowledgedViaWhatsApp: true,
+        acknowledgmentStatus: "Acknowledged via WhatsApp",
+        acknowledgedAt: serverTimestamp(),
+      }),
+    );
+  }
+
+  return Promise.allSettled(tasks);
+}
+
 export async function markAllNotificationsRead(userId) {
   const snap = await getDocs(query(
     collection(db, "notifications"),

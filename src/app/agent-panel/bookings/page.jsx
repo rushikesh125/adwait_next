@@ -735,7 +735,7 @@ export default function BookingsPage() {
         }}
         hotelData={selectedHotelForVoucher}
         quotation={{
-          id: activeVoucherBooking?.quotationId || activeVoucherBooking?.id,
+          id: activeVoucherBooking?.quotationId || null,
           customerName: activeVoucherBooking?.customerName || "",
           customerMobile:
             activeVoucherBooking?.customerMobile || activeVoucherBooking?.mobile || "",

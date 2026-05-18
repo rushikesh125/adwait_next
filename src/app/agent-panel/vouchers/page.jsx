@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { useSearchParams } from "next/navigation";
 import {
   FileText,
   Download,
@@ -112,6 +113,7 @@ const VoucherViewModal = ({ voucher, onClose }) => {
     voucher.voucherType === "Hotel"
       ? shareHotelVoucherWhatsApp(voucher)
       : shareFlightVoucherWhatsApp(voucher);
+      
 
   return (
     <Dialog open={!!voucher} onOpenChange={onClose}>
