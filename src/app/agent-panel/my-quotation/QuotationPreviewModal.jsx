@@ -1,18 +1,5 @@
 "use client";
 
-/**
- * QuotationPreviewModal
- * ─────────────────────────────────────────────────────────────────────────────
- * Props
- *   quotation           – the saved package object from Firestore
- *   onClose             – () => void
- *   onEdit              – (quotation) => void   optional
- *   onCopy              – (quotation) => void   optional  (WhatsApp summary)
- *   onPDF               – (quotation) => void   optional
- *   onConvertToBooking  – (quotation) => void   optional  (shown only when status === "Accepted")
- *   onSendReminder      – (quotation) => void   optional  (shown only when status === "Sent")
- */
-
 import React, { useState, useEffect } from "react";
 import {
   X,
@@ -20,7 +7,6 @@ import {
   Car,
   Palmtree,
   MapPin,
-  Moon,
   Copy,
   FileText,
   Edit3,
@@ -35,13 +21,14 @@ import {
   BedDouble,
   Utensils,
   Building2,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getBookingById } from "@/firebase/bookingsService";
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -67,13 +54,13 @@ const MEAL_LABELS = {
 };
 
 const STATUS_CONFIG = {
-  Draft:    { cls: "bg-slate-100 text-slate-600 border-slate-200",         dot: "bg-slate-400" },
-  Sent:     { cls: "bg-theme-muted text-theme-secondary border-theme-accent/30", dot: "bg-theme-primary" },
-  Accepted: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200",    dot: "bg-emerald-500" },
-  Rejected: { cls: "bg-red-50 text-red-600 border-red-200",                dot: "bg-red-500" },
+  Draft: { cls: "bg-slate-100 text-slate-600 border-slate-200", dot: "bg-slate-400" },
+  Sent: { cls: "bg-theme-muted text-theme-secondary border-theme-accent/30", dot: "bg-theme-primary" },
+  Accepted: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
+  Rejected: { cls: "bg-red-50 text-red-600 border-red-200", dot: "bg-red-500" },
 };
 
-// ── sub-components ────────────────────────────────────────────────────────────
+// ─── sub-components ──────────────────────────────────────────────────────────
 
 function Stars({ rating }) {
   const n = parseInt(rating) || 0;
@@ -104,22 +91,48 @@ function SectionHeading({ children, badge, action }) {
   );
 }
 
-// ── Hotel Card ─────────────────────────────────────────────────────────────────
+// ─── Hotel Card (updated for multi‑room categories) ──────────────────────────
 function HotelCard({ entry }) {
-  const mealIcon  = MEAL_ICONS[entry.selectedMealPlan]  || "🍽️";
-  const mealLabel = MEAL_LABELS[entry.selectedMealPlan] || entry.selectedMealPlan || "—";
+  // Build room categories array – legacy fallback if missing
+  const rooms =
+    entry.roomCategories && entry.roomCategories.length > 0
+      ? entry.roomCategories
+      : [
+          {
+            roomCategory:
+              entry.selectedRoomCategory || entry.roomCategory || "—",
+            mealPlan: entry.selectedMealPlan || entry.mealPlan || "—",
+            mealPlanOverridden: false,
+            numDouble: entry.numDouble ?? 1,
+            numExtraAdult: entry.numExtraAdult ?? 0,
+            numExtraChild: entry.numExtraChild ?? 0,
+            numCNB: entry.numCNB ?? 0,
+            price: entry.hotelTotal ?? 0,
+          },
+        ];
+
+  const hotelTotal =
+    entry.hotelTotal ??
+    rooms.reduce((s, r) => s + Number(r.price || 0), 0);
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden hover:border-theme-accent/60 hover:shadow-sm transition-all">
-      {/* Colored top strip */}
       <div className="h-1 bg-gradient-to-r from-theme-gradient-from to-theme-gradient-to" />
 
       <div className="p-4">
-        {/* Header row */}
+        {/* Hotel header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${entry.isCustom ? "bg-violet-100" : "bg-theme-muted"}`}>
-              <Hotel className={`h-4 w-4 ${entry.isCustom ? "text-violet-600" : "text-theme-primary"}`} />
+            <div
+              className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                entry.isCustom ? "bg-violet-100" : "bg-theme-muted"
+              }`}
+            >
+              <Hotel
+                className={`h-4 w-4 ${
+                  entry.isCustom ? "text-violet-600" : "text-theme-primary"
+                }`}
+              />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -135,7 +148,8 @@ function HotelCard({ entry }) {
               {entry.rating && <Stars rating={entry.rating} />}
               <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                 <MapPin className="h-3 w-3 flex-shrink-0 text-theme-accent" />
-                {entry.city}{entry.state ? `, ${entry.state}` : ""}
+                {entry.city}
+                {entry.state ? `, ${entry.state}` : ""}
               </p>
             </div>
           </div>
@@ -143,91 +157,108 @@ function HotelCard({ entry }) {
           {/* Nights badge */}
           <div className="flex-shrink-0 text-center">
             <div className="bg-theme-dark text-white text-xs font-bold px-2.5 py-1.5 rounded-lg leading-tight">
-              <span className="text-lg font-black leading-none">{entry.nights}</span>
-              <span className="block text-[9px] uppercase tracking-widest opacity-70">nights</span>
+              <span className="text-lg font-black leading-none">
+                {entry.nights}
+              </span>
+              <span className="block text-[9px] uppercase tracking-widest opacity-70">
+                nights
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Info grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3.5 pt-3.5 border-t border-slate-100">
-          <div className="space-y-0.5">
-            <p className="text-[9px] text-slate-400 uppercase tracking-widest font-semibold">Check-in</p>
-            <p className="text-xs font-semibold text-slate-700">{fmtDate(entry.checkInDate)}</p>
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-[9px] text-slate-400 uppercase tracking-widest font-semibold">Check-out</p>
-            <p className="text-xs font-semibold text-slate-700">{fmtDate(entry.checkOutDate)}</p>
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-[9px] text-slate-400 uppercase tracking-widest font-semibold">Room</p>
-            <p className="text-xs font-semibold text-slate-700 truncate">{entry.selectedRoomCategory || "—"}</p>
-          </div>
-          <div className="bg-theme-muted rounded-lg px-2.5 py-1.5 space-y-0.5">
-            <p className="text-[9px] text-theme-secondary uppercase tracking-widest font-semibold">Meals</p>
-            <p className="text-xs font-semibold text-theme-dark truncate">
-              {mealIcon} {entry.selectedMealPlan || "—"}
-            </p>
-            <p className="text-[9px] text-theme-secondary/70">{mealLabel}</p>
-          </div>
+        {/* Dates */}
+        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+          <span className="font-semibold">{fmtDate(entry.checkInDate)}</span>
+          <span className="text-slate-300">→</span>
+          <span className="font-semibold">{fmtDate(entry.checkOutDate)}</span>
         </div>
 
-        {/* Guests + Cost footer */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-          <div className="flex flex-wrap gap-1">
-            {entry.numDouble > 0 && (
-              <span className="inline-flex items-center gap-1 text-[10px] bg-slate-50 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full">
-                🛏️ {entry.numDouble} room{entry.numDouble > 1 ? "s" : ""}
-              </span>
-            )}
-            {entry.numExtraAdult > 0 && (
-              <span className="inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
-                👤 +{entry.numExtraAdult} adult{entry.numExtraAdult > 1 ? "s" : ""}
-              </span>
-            )}
-            {entry.numExtraChild > 0 && (
-              <span className="inline-flex items-center gap-1 text-[10px] bg-pink-50 text-pink-700 border border-pink-200 px-2 py-0.5 rounded-full">
-                👧 {entry.numExtraChild} child{entry.numExtraChild > 1 ? "ren" : ""}
-              </span>
-            )}
-            {entry.numCNB > 0 && (
-              <span className="inline-flex items-center gap-1 text-[10px] bg-slate-50 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full">
-                🛌 {entry.numCNB} CNB
-              </span>
-            )}
-          </div>
-          <div className="text-right ml-3 flex-shrink-0">
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Hotel cost</p>
-            <p className="text-base font-black text-theme-primary">₹{fmt(entry.hotelTotal)}</p>
-          </div>
+        {/* Room categories breakdown */}
+        <div className="mt-3 space-y-2">
+          {rooms.map((room, idx) => {
+            const mealIcon = MEAL_ICONS[room.mealPlan] || "🍽️";
+            const mealLabel = MEAL_LABELS[room.mealPlan] || room.mealPlan || "—";
+            const guests = [];
+            if (room.numDouble > 0)
+              guests.push(`${room.numDouble} DB`);
+            if (room.numExtraAdult > 0)
+              guests.push(`${room.numExtraAdult} ExA`);
+            if (room.numExtraChild > 0)
+              guests.push(`${room.numExtraChild} Ch`);
+            if (room.numCNB > 0) guests.push(`${room.numCNB} CNB`);
+
+            return (
+              <div
+                key={idx}
+                className="flex items-center justify-between py-2 border-t border-slate-100 text-xs"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-700 truncate">
+                    {room.roomCategory}
+                  </p>
+                  <p className="text-slate-400 flex items-center gap-1 mt-0.5">
+                    {mealIcon} {room.mealPlan}
+                    {room.mealPlanOverridden && (
+                      <span className="text-[10px] italic text-amber-600">
+                        (overridden)
+                      </span>
+                    )}
+                  </p>
+                  {guests.length > 0 && (
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {guests.join(", ")}
+                    </p>
+                  )}
+                </div>
+                <span className="font-bold text-slate-700 ml-2">
+                  ₹{fmt(room.price)}
+                </span>
+              </div>
+            );
+          })}
         </div>
+
+        {/* Hotel total (shown when multiple rooms) */}
+        {rooms.length > 1 && (
+          <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-200">
+            <span className="text-sm font-bold text-slate-700">
+              Hotel total
+            </span>
+            <span className="text-sm font-black text-theme-primary">
+              ₹{fmt(hotelTotal)}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ── Transport Card ─────────────────────────────────────────────────────────────
+// ─── Transport Card ───────────────────────────────────────────────────────────
 function TransportCard({ transport }) {
   if (!transport?.selectedVehicle && !transport?.vehicleName) return null;
 
-  const vehicleName = transport.selectedVehicle?.type || transport.vehicleName || "Vehicle";
-  const isAC        = transport.selectedVehicle?.ac ?? transport.ac ?? false;
-  const pkgName     = transport.name || transport.packageName || "Transport package";
-  const totalCost   = transport.totalTransportCost || transport.selectedVehicle?.price || 0;
+  const vehicleName =
+    transport.selectedVehicle?.type || transport.vehicleName || "Vehicle";
+  const isAC = transport.selectedVehicle?.ac ?? transport.ac ?? false;
+  const pkgName = transport.name || transport.packageName || "Transport package";
+  const totalCost =
+    transport.totalTransportCost || transport.selectedVehicle?.price || 0;
   const pricingType = transport.pricingType || "fixed";
-  const perKm       = transport.selectedVehicle?.perKmprice || transport.perKmprice || 0;
-  const toll        = transport.tollCharges     || 0;
-  const permit      = transport.permitCharges   || 0;
-  const other       = transport.otherCharges    || 0;
-  const driver      = transport.driverAllowance || 0;
-  const baseCost    = transport.vehicleCost     || 0;
+  const perKm = transport.selectedVehicle?.perKmprice || transport.perKmprice || 0;
+  const toll = transport.tollCharges || 0;
+  const permit = transport.permitCharges || 0;
+  const other = transport.otherCharges || 0;
+  const driver = transport.driverAllowance || 0;
+  const baseCost = transport.vehicleCost || 0;
 
   const breakdownItems = [
-    { label: "Base cost",        val: baseCost },
+    { label: "Base cost", val: baseCost },
     { label: "Driver allowance", val: driver },
-    { label: "Toll charges",     val: toll },
-    { label: "Permit",           val: permit },
-    { label: "Other",            val: other },
+    { label: "Toll charges", val: toll },
+    { label: "Permit", val: permit },
+    { label: "Other", val: other },
   ].filter((i) => i.val > 0);
 
   return (
@@ -240,25 +271,35 @@ function TransportCard({ transport }) {
               <Car className="h-5 w-5 text-theme-primary" />
             </div>
             <div>
-              <p className="font-semibold text-slate-800 text-sm">{vehicleName}</p>
+              <p className="font-semibold text-slate-800 text-sm">
+                {vehicleName}
+              </p>
               <p className="text-xs text-slate-400 mt-0.5">{pkgName}</p>
               <div className="flex flex-wrap gap-1.5 mt-1.5">
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                  isAC
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : "bg-slate-50 text-slate-500 border-slate-200"
-                }`}>
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                    isAC
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-slate-50 text-slate-500 border-slate-200"
+                  }`}
+                >
                   {isAC ? "✓ AC" : "Non-AC"}
                 </span>
                 <span className="text-[10px] bg-theme-muted text-theme-secondary border border-theme-accent/30 px-2 py-0.5 rounded-full font-semibold">
-                  {pricingType === "perKm" || perKm > 0 ? `₹${fmt(perKm)}/km` : "Fixed rate"}
+                  {pricingType === "perKm" || perKm > 0
+                    ? `₹${fmt(perKm)}/km`
+                    : "Fixed rate"}
                 </span>
               </div>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide mb-0.5">Total</p>
-            <p className="text-xl font-black text-theme-primary">₹{fmt(totalCost)}</p>
+            <p className="text-[9px] text-slate-400 uppercase tracking-wide mb-0.5">
+              Total
+            </p>
+            <p className="text-xl font-black text-theme-primary">
+              ₹{fmt(totalCost)}
+            </p>
           </div>
         </div>
 
@@ -266,8 +307,12 @@ function TransportCard({ transport }) {
           <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 gap-2">
             {breakdownItems.map(({ label, val }) => (
               <div key={label} className="bg-slate-50 rounded-lg px-2.5 py-2">
-                <p className="text-[9px] text-slate-400 uppercase tracking-wide">{label}</p>
-                <p className="text-xs font-semibold text-slate-700 mt-0.5">₹{fmt(val)}</p>
+                <p className="text-[9px] text-slate-400 uppercase tracking-wide">
+                  {label}
+                </p>
+                <p className="text-xs font-semibold text-slate-700 mt-0.5">
+                  ₹{fmt(val)}
+                </p>
               </div>
             ))}
           </div>
@@ -277,7 +322,7 @@ function TransportCard({ transport }) {
   );
 }
 
-// ── Activity Row ───────────────────────────────────────────────────────────────
+// ─── Activity Row ─────────────────────────────────────────────────────────────
 function ActivityRow({ act }) {
   return (
     <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 hover:border-theme-accent/50 hover:shadow-sm transition-all">
@@ -286,7 +331,9 @@ function ActivityRow({ act }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-semibold text-slate-800 truncate">{act.name}</p>
+          <p className="text-sm font-semibold text-slate-800 truncate">
+            {act.name}
+          </p>
           {act.isCustom && (
             <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex-shrink-0">
               Custom
@@ -301,20 +348,58 @@ function ActivityRow({ act }) {
           </p>
         )}
       </div>
-      <p className="text-sm font-black text-emerald-600 flex-shrink-0">₹{fmt(act.totalPrice)}</p>
+      <p className="text-sm font-black text-emerald-600 flex-shrink-0">
+        ₹{fmt(act.totalPrice)}
+      </p>
     </div>
   );
 }
 
-// ── Pricing Breakdown ──────────────────────────────────────────────────────────
-function PricingBreakdown({ hotelTotal, transportTotal, activitiesTotal, markup, grandTotal, optionName, isMulti }) {
-  const rows = [
-    { label: `Hotels`,     icon: <Hotel className="h-3.5 w-3.5 text-theme-primary" />,    val: hotelTotal,      show: hotelTotal > 0 },
-    { label: "Transport",  icon: <Car className="h-3.5 w-3.5 text-theme-primary" />,       val: transportTotal,  show: transportTotal > 0 },
-    { label: "Activities", icon: <Palmtree className="h-3.5 w-3.5 text-theme-primary" />,  val: activitiesTotal, show: activitiesTotal > 0 },
-  ].filter((r) => r.show);
+// ─── Pricing Breakdown (updated with discount) ──────────────────────────────
+function PricingBreakdown({
+  hotelTotal,
+  transportTotal,
+  activitiesTotal,
+  markup,
+  discountAmount,
+  discountType,
+  discountNotes,
+  finalTotal,
+  optionName,
+  isMulti,
+}) {
+  const subtotal = hotelTotal + transportTotal + activitiesTotal + markup;
 
-  const subtotal = hotelTotal + transportTotal + activitiesTotal;
+  const rows = [
+    {
+      label: "Hotels",
+      icon: <Hotel className="h-3.5 w-3.5 text-theme-primary" />,
+      val: hotelTotal,
+      show: hotelTotal > 0,
+    },
+    {
+      label: "Transport",
+      icon: <Car className="h-3.5 w-3.5 text-theme-primary" />,
+      val: transportTotal,
+      show: transportTotal > 0,
+    },
+    {
+      label: "Activities",
+      icon: <Palmtree className="h-3.5 w-3.5 text-theme-primary" />,
+      val: activitiesTotal,
+      show: activitiesTotal > 0,
+    },
+    ...(markup > 0
+      ? [
+          {
+            label: "Markup / service fee",
+            icon: <Wallet className="h-3.5 w-3.5 text-amber-600" />,
+            val: markup,
+            show: true,
+          },
+        ]
+      : []),
+  ].filter((r) => r.show);
 
   return (
     <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
@@ -331,45 +416,69 @@ function PricingBreakdown({ hotelTotal, transportTotal, activitiesTotal, markup,
 
       <div className="divide-y divide-slate-100">
         {rows.map(({ label, icon, val }) => (
-          <div key={label} className="flex items-center justify-between px-4 py-3">
+          <div
+            key={label}
+            className="flex items-center justify-between px-4 py-3"
+          >
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-theme-muted flex items-center justify-center">
                 {icon}
               </div>
               <span className="text-sm text-slate-600 font-medium">{label}</span>
             </div>
-            <span className="text-sm font-semibold text-slate-700">₹{fmt(val)}</span>
+            <span className="text-sm font-semibold text-slate-700">
+              ₹{fmt(val)}
+            </span>
           </div>
         ))}
 
-        {markup > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 bg-amber-50/60">
+        {/* Subtotal */}
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-50/50">
+          <span className="text-sm font-semibold text-slate-500">Subtotal</span>
+          <span className="text-sm font-semibold text-slate-700">
+            ₹{fmt(subtotal)}
+          </span>
+        </div>
+
+        {/* Discount (if applied) */}
+        {discountAmount > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 bg-rose-50/50">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Wallet className="h-3.5 w-3.5 text-amber-600" />
+              <div className="w-7 h-7 rounded-lg bg-rose-100 flex items-center justify-center">
+                <Tag className="h-3.5 w-3.5 text-rose-500" />
               </div>
-              <span className="text-sm text-amber-700 font-medium">Markup / service fee</span>
+              <span className="text-sm text-rose-700 font-medium">
+                {discountType === "percentage"
+                  ? `${discountNotes || "Discount"}`
+                  : discountNotes || "Discount"}
+              </span>
             </div>
-            <span className="text-sm font-semibold text-amber-700">+₹{fmt(markup)}</span>
+            <span className="text-sm font-semibold text-rose-700">
+              −₹{fmt(discountAmount)}
+            </span>
           </div>
         )}
       </div>
 
-      {/* Grand total bar */}
+      {/* Final total bar */}
       <div className="bg-gradient-to-r from-theme-dark to-theme-secondary px-4 py-4 flex items-center justify-between">
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-white/50 font-bold">Grand total</p>
-          {markup > 0 && (
-            <p className="text-[10px] text-white/30 mt-0.5">Incl. ₹{fmt(markup)} markup</p>
+          <p className="text-[10px] uppercase tracking-widest text-white/50 font-bold">
+            Grand Total
+          </p>
+          {discountAmount > 0 && (
+            <p className="text-[10px] text-white/30 mt-0.5">After discount</p>
           )}
         </div>
-        <p className="text-3xl font-black text-white tracking-tight">₹{fmt(grandTotal)}</p>
+        <p className="text-3xl font-black text-white tracking-tight">
+          ₹{fmt(finalTotal)}
+        </p>
       </div>
     </div>
   );
 }
 
-// ── MAIN COMPONENT ─────────────────────────────────────────────────────────────
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
 export default function QuotationPreviewModal({
   quotation,
@@ -400,9 +509,10 @@ export default function QuotationPreviewModal({
 
   if (!quotation) return null;
 
-  // ── Resolve package options ────────────────────────────────────────────────
+  // ── Resolve package options ──────────────────────────────────────────────
   const hasMultiOptions =
-    Array.isArray(quotation.packageOptions) && quotation.packageOptions.length > 0;
+    Array.isArray(quotation.packageOptions) &&
+    quotation.packageOptions.length > 0;
 
   const packageOptions = hasMultiOptions
     ? quotation.packageOptions
@@ -417,34 +527,56 @@ export default function QuotationPreviewModal({
         },
       ];
 
-  const activeOption    = packageOptions[activeOptionIdx] || packageOptions[0];
-  const hotels          = activeOption?.hotelEntries || [];
+  const activeOption = packageOptions[activeOptionIdx] || packageOptions[0];
+  const hotels = activeOption?.hotelEntries || [];
   const activeHotelTotal =
     activeOption.hotelTotal ??
     hotels.reduce((s, h) => s + Number(h.hotelTotal || 0), 0);
 
-  const transport       = quotation.transportSummary || null;
-  const activities      = quotation.activitySummary  || [];
-  const transportTotal  = Number(transport?.totalTransportCost || 0);
-  const activitiesTotal = activities.reduce((s, a) => s + Number(a.totalPrice || 0), 0);
-  const markup          = Number(quotation.markup || 0);
+  const transport = quotation.transportSummary || null;
+  const activities = quotation.activitySummary || [];
+  const transportTotal = Number(transport?.totalTransportCost || 0);
+  const activitiesTotal = activities.reduce(
+    (s, a) => s + Number(a.totalPrice || 0),
+    0,
+  );
+  const markup = Number(quotation.markup || 0);
 
-  const getOptionGrandTotal = (opt) => {
-    const hotelT =
+  // ── Discount / final totals ──────────────────────────────────────────────
+  const discount = quotation.discount || {};
+  const discountType = discount.type || "fixed";
+  const discountNotes = discount.notes || "";
+
+  const getOptionValues = (opt) => {
+    const hTotal =
       opt.hotelTotal ??
-      (opt.hotelEntries || []).reduce((s, h) => s + Number(h.hotelTotal || 0), 0);
-    return hotelT + transportTotal + activitiesTotal + markup;
+      (opt.hotelEntries || []).reduce(
+        (s, h) => s + Number(h.hotelTotal || 0),
+        0,
+      );
+    const preDiscount = hTotal + transportTotal + activitiesTotal + markup;
+    const optDiscount = opt.discountAmount ?? 0;
+    const finalTotal = opt.grandTotal ?? (preDiscount - optDiscount);
+    return { preDiscount, optDiscount, finalTotal };
   };
 
-  const activeGrandTotal = getOptionGrandTotal(activeOption);
-  const isMulti          = packageOptions.length > 1;
+  const activeValues = getOptionValues(activeOption);
+  const { preDiscount: preDiscountTotal, optDiscount: discountAmount, finalTotal } =
+    activeValues;
 
-  const statusCfg     = STATUS_CONFIG[quotation.status] || STATUS_CONFIG.Draft;
+  const isMulti = packageOptions.length > 1;
+
+  const statusCfg = STATUS_CONFIG[quotation.status] || STATUS_CONFIG.Draft;
   const customerLabel = quotation.customerName || quotation.leadName || "—";
-  const createdDate   = quotation.createdAt?.seconds
-    ? new Date(quotation.createdAt.seconds * 1000).toLocaleDateString("en-GB", {
-        day: "2-digit", month: "short", year: "numeric",
-      })
+  const createdDate = quotation.createdAt?.seconds
+    ? new Date(quotation.createdAt.seconds * 1000).toLocaleDateString(
+        "en-GB",
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        },
+      )
     : "—";
 
   return (
@@ -453,10 +585,8 @@ export default function QuotationPreviewModal({
       onClick={(e) => e.target === e.currentTarget && onClose?.()}
     >
       <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-
         {/* ── Header ── */}
         <div className="shrink-0">
-          {/* Gradient accent bar */}
           <div className="h-1 bg-gradient-to-r from-theme-gradient-from to-theme-gradient-to" />
 
           <div className="px-6 py-4 flex items-start justify-between gap-4">
@@ -465,8 +595,9 @@ export default function QuotationPreviewModal({
                 <h2 className="text-xl font-black text-slate-900 tracking-tight">
                   {quotation.packageName || "Package Preview"}
                 </h2>
-                {/* Status badge */}
-                <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide border px-2 py-0.5 rounded-full ${statusCfg.cls}`}>
+                <span
+                  className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide border px-2 py-0.5 rounded-full ${statusCfg.cls}`}
+                >
                   <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
                   {quotation.status || "Draft"}
                 </span>
@@ -510,9 +641,8 @@ export default function QuotationPreviewModal({
               <div className="w-px h-4 bg-slate-300 shrink-0" />
               <div className="flex items-center gap-1.5 flex-1 overflow-x-auto">
                 {packageOptions.map((opt, idx) => {
-                  const isActive   = idx === activeOptionIdx;
-                  const hotelCount = (opt.hotelEntries || []).length;
-                  const optTotal   = getOptionGrandTotal(opt);
+                  const isActive = idx === activeOptionIdx;
+                  const { finalTotal: optTotal } = getOptionValues(opt);
                   return (
                     <button
                       key={idx}
@@ -524,13 +654,13 @@ export default function QuotationPreviewModal({
                       }`}
                     >
                       {opt.name}
-                      {hotelCount > 0 ? (
-                        <span className={`text-[10px] font-bold ${isActive ? "text-white/60" : "text-theme-primary"}`}>
-                          ₹{fmt(optTotal)}
-                        </span>
-                      ) : (
-                        <AlertCircle className={`h-3 w-3 ${isActive ? "text-amber-300" : "text-amber-400"}`} />
-                      )}
+                      <span
+                        className={`text-[10px] font-bold ${
+                          isActive ? "text-white/60" : "text-theme-primary"
+                        }`}
+                      >
+                        ₹{fmt(optTotal)}
+                      </span>
                     </button>
                   );
                 })}
@@ -541,15 +671,15 @@ export default function QuotationPreviewModal({
 
         {/* ── Scrollable Body ── */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
-
-          {/* ── Hotels ── */}
+          {/* Hotels */}
           <section>
             <SectionHeading
               badge={isMulti ? activeOption.name : undefined}
               action={
                 hotels.length > 0 ? (
                   <span className="text-[10px] font-semibold text-theme-primary bg-theme-muted px-2 py-0.5 rounded-full">
-                    {hotels.reduce((s, h) => s + (parseInt(h.nights) || 0), 0)} nights total
+                    {hotels.reduce((s, h) => s + (parseInt(h.nights) || 0), 0)}{" "}
+                    nights total
                   </span>
                 ) : null
               }
@@ -566,24 +696,22 @@ export default function QuotationPreviewModal({
             ) : (
               <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
                 <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                <p className="text-sm text-amber-700">No hotels added to {activeOption.name}.</p>
+                <p className="text-sm text-amber-700">
+                  No hotels added to {activeOption.name}.
+                </p>
               </div>
             )}
           </section>
 
-          {/* ── Options Comparison (multi only) ── */}
+          {/* Options comparison (multi only) */}
           {isMulti && (
             <section>
               <SectionHeading>All options — comparison</SectionHeading>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {packageOptions.map((opt, idx) => {
-                  const isActive    = idx === activeOptionIdx;
-                  const optHotelTot =
-                    opt.hotelTotal ??
-                    (opt.hotelEntries || []).reduce(
-                      (s, h) => s + Number(h.hotelTotal || 0), 0,
-                    );
-                  const optTotal = getOptionGrandTotal(opt);
+                  const isActive = idx === activeOptionIdx;
+                  const { finalTotal: optTotal } = getOptionValues(opt);
+                  const hotelCount = (opt.hotelEntries || []).length;
                   return (
                     <button
                       key={idx}
@@ -595,29 +723,41 @@ export default function QuotationPreviewModal({
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs font-bold ${isActive ? "text-white" : "text-slate-800"}`}>
+                        <span
+                          className={`text-xs font-bold ${
+                            isActive ? "text-white" : "text-slate-800"
+                          }`}
+                        >
                           {opt.name}
                         </span>
-                        <span className={`text-sm font-black ${isActive ? "text-white" : "text-theme-primary"}`}>
+                        <span
+                          className={`text-sm font-black ${
+                            isActive ? "text-white" : "text-theme-primary"
+                          }`}
+                        >
                           ₹{fmt(optTotal)}
                         </span>
                       </div>
-                      {(opt.hotelEntries || []).length > 0 ? (
+                      {hotelCount > 0 ? (
                         <div className="space-y-0.5">
                           {(opt.hotelEntries || []).map((h, i) => (
-                            <p key={i} className={`text-[10px] truncate flex items-center gap-1 ${isActive ? "text-white/60" : "text-slate-500"}`}>
+                            <p
+                              key={i}
+                              className={`text-[10px] truncate flex items-center gap-1 ${
+                                isActive ? "text-white/60" : "text-slate-500"
+                              }`}
+                            >
                               <Building2 className="h-2.5 w-2.5 flex-shrink-0" />
                               {h.hotel} · {h.city} · {h.nights}N
                             </p>
                           ))}
-                          <div className={`flex gap-2 mt-1.5 text-[9px] font-semibold ${isActive ? "text-white/40" : "text-slate-400"}`}>
-                            <span>Hotels ₹{fmt(optHotelTot)}</span>
-                            {transportTotal > 0 && <span>· Trans ₹{fmt(transportTotal)}</span>}
-                            {activitiesTotal > 0 && <span>· Act ₹{fmt(activitiesTotal)}</span>}
-                          </div>
                         </div>
                       ) : (
-                        <p className={`text-[10px] flex items-center gap-1 ${isActive ? "text-amber-300" : "text-amber-500"}`}>
+                        <p
+                          className={`text-[10px] flex items-center gap-1 ${
+                            isActive ? "text-amber-300" : "text-amber-500"
+                          }`}
+                        >
                           <AlertCircle className="h-3 w-3" /> No hotels added
                         </p>
                       )}
@@ -628,17 +768,18 @@ export default function QuotationPreviewModal({
             </section>
           )}
 
-          {/* ── Transport ── */}
-          {transport && (transport.selectedVehicle || transport.vehicleName) && (
-            <section>
-              <SectionHeading badge={isMulti ? "Shared" : undefined}>
-                Transport
-              </SectionHeading>
-              <TransportCard transport={transport} />
-            </section>
-          )}
+          {/* Transport */}
+          {transport &&
+            (transport.selectedVehicle || transport.vehicleName) && (
+              <section>
+                <SectionHeading badge={isMulti ? "Shared" : undefined}>
+                  Transport
+                </SectionHeading>
+                <TransportCard transport={transport} />
+              </section>
+            )}
 
-          {/* ── Activities ── */}
+          {/* Activities */}
           {activities.length > 0 && (
             <section>
               <SectionHeading badge={isMulti ? "Shared" : undefined}>
@@ -652,19 +793,22 @@ export default function QuotationPreviewModal({
             </section>
           )}
 
-          {/* ── Pricing ── */}
+          {/* Pricing */}
           <section>
             <PricingBreakdown
               hotelTotal={activeHotelTotal}
               transportTotal={transportTotal}
               activitiesTotal={activitiesTotal}
               markup={markup}
-              grandTotal={activeGrandTotal}
+              discountAmount={discountAmount}
+              discountType={discountType}
+              discountNotes={discountNotes}
+              finalTotal={finalTotal}
               optionName={activeOption.name}
               isMulti={isMulti}
             />
 
-            {/* All-options totals (multi only) */}
+            {/* All‑options final totals (multi only) */}
             {isMulti && (
               <div className="mt-2 rounded-xl border border-slate-200 overflow-hidden">
                 <div className="px-4 py-2 bg-slate-50 border-b border-slate-100">
@@ -675,7 +819,7 @@ export default function QuotationPreviewModal({
                 <div className="divide-y divide-slate-100">
                   {packageOptions.map((opt, idx) => {
                     const isActive = idx === activeOptionIdx;
-                    const optTotal = getOptionGrandTotal(opt);
+                    const { finalTotal: optTotal } = getOptionValues(opt);
                     return (
                       <button
                         key={idx}
@@ -690,11 +834,19 @@ export default function QuotationPreviewModal({
                           {isActive && (
                             <CheckCircle2 className="h-3.5 w-3.5 text-theme-accent" />
                           )}
-                          <span className={`font-semibold ${isActive ? "text-white" : "text-slate-700"}`}>
+                          <span
+                            className={`font-semibold ${
+                              isActive ? "text-white" : "text-slate-700"
+                            }`}
+                          >
                             {opt.name}
                           </span>
                         </div>
-                        <span className={`font-black text-base ${isActive ? "text-white" : "text-theme-primary"}`}>
+                        <span
+                          className={`font-black text-base ${
+                            isActive ? "text-white" : "text-theme-primary"
+                          }`}
+                        >
                           ₹{fmt(optTotal)}
                         </span>
                       </button>
@@ -708,7 +860,6 @@ export default function QuotationPreviewModal({
 
         {/* ── Footer ── */}
         <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-between gap-3 bg-white shrink-0">
-          {/* Left — secondary actions */}
           <div className="flex items-center gap-2">
             {onCopy && (
               <Button
@@ -734,7 +885,6 @@ export default function QuotationPreviewModal({
             )}
           </div>
 
-          {/* Right — primary actions */}
           <div className="flex items-center gap-2">
             {onSendReminder && quotation.status === "Sent" && (
               <Button
@@ -748,8 +898,8 @@ export default function QuotationPreviewModal({
               </Button>
             )}
 
-            {onConvertToBooking && quotation.status === "Accepted" && (
-              linkedBookingExists ? (
+            {onConvertToBooking && quotation.status === "Accepted" &&
+              (linkedBookingExists ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 h-9">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Booking Created
@@ -763,8 +913,7 @@ export default function QuotationPreviewModal({
                   <CalendarCheck className="h-3.5 w-3.5" />
                   Convert to Booking
                 </Button>
-              )
-            )}
+              ))}
 
             {onEdit && (
               <Button
