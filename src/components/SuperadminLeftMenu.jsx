@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sparkles, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, Sparkles, ShieldAlert, Building2 } from "lucide-react";
 
 const menuItems = [
   {
     href: "/superadmin",
     label: "Dashboard",
     Icon: LayoutDashboard,
+  },
+  {
+    href: "/superadmin/organizations",
+    label: "Organizations",
+    Icon: Building2,
   },
   {
     href: "/superadmin/agent-permissions",
@@ -32,7 +37,6 @@ export default function SuperadminLeftMenu() {
       </p>
       <nav className="space-y-1">
         {menuItems.map(({ href, label, Icon }) => {
-          // Exact match for dashboard, prefix match for sub-pages
           const active =
             href === "/superadmin"
               ? pathname === "/superadmin"
