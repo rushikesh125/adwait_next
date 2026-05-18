@@ -325,31 +325,16 @@ export default function NotificationCenter({ userId }) {
     if (result !== "default") setShowPermBanner(false);
   };
   const recentNotifications = notifications
-    .filter((n) => {
-      // Keep follow-up reminders always visible
-      if (n.type === "follow_up_reminder") {
-        return !n.read;
-      }
-
-      // Keep payment reminders visible even after click
-      if (n.type === "vendor_payment_due") {
-        return true;
-      }
-
-      // Remove ALL OTHER notifications once read
-      return !n.read;
-    })
-    .sort((a, b) => {
-      const aTime = a.createdAt?.toDate
-        ? a.createdAt.toDate()
-        : new Date(a.createdAt || 0);
-
-      const bTime = b.createdAt?.toDate
-        ? b.createdAt.toDate()
-        : new Date(b.createdAt || 0);
-
-      return bTime - aTime;
-    });
+  .filter((n) => !n.read)
+  .sort((a, b) => {
+    const aTime = a.createdAt?.toDate
+      ? a.createdAt.toDate()
+      : new Date(a.createdAt || 0);
+    const bTime = b.createdAt?.toDate
+      ? b.createdAt.toDate()
+      : new Date(b.createdAt || 0);
+    return bTime - aTime;
+  });
 
   const overdueFollowUps = dueSoonFollowUps.filter((fu) =>
     isOverdue(fu.dateTime),
