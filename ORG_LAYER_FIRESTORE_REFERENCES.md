@@ -2,6 +2,8 @@
 
 Use this as the Ctrl+F checklist. Each entry gives a searchable code string and what should change for the org layer.
 
+Also read `ORG_LAYER_DIRECT_FIREBASE_CALLS.md`. It lists JSX/hooks/routes that call Firebase directly instead of going through `src/firebase`.
+
 ## Auth and User Membership
 
 ### `src/components/AuthSetup.jsx`
@@ -1711,4 +1713,3 @@ Ctrl+F:
 ```
 
 Commented old code. No org work unless revived.
-

@@ -1,6 +1,6 @@
 # Org Layer Implementation Map
 
-This file maps where `orgId` needs to enter the app. Use it as the high-level checklist, then use `ORG_LAYER_FIRESTORE_REFERENCES.md` for exact Ctrl+F strings.
+This file maps where `orgId` needs to enter the app. Use it as the high-level checklist, then use `ORG_LAYER_FIRESTORE_REFERENCES.md` and `ORG_LAYER_DIRECT_FIREBASE_CALLS.md` for exact Ctrl+F strings.
 
 ## Current State
 
@@ -11,6 +11,8 @@ The repo already has a partial organization feature:
 - `src/app/superadmin/organizations/page.jsx`
 
 That covers creating organizations and assigning `orgId` to `admins` / `agents`. The missing work is data isolation everywhere else.
+
+Important: Firestore is not only used through `src/firebase`. Many JSX pages/components/hooks call `db` directly. Those direct-call files are mapped separately in `ORG_LAYER_DIRECT_FIREBASE_CALLS.md`.
 
 ## Core Rule
 
@@ -77,6 +79,8 @@ Use this as the pattern for user membership.
 ## Main Service Layer Changes
 
 These are the highest value files to change first because many pages call them.
+
+After these service changes, still patch direct Firestore usage in components/pages. Do not assume the service layer catches everything.
 
 ### Leads
 
@@ -401,4 +405,3 @@ Also consider:
 6. Patch public flows by deriving org from owner/trip/quotation.
 7. Backfill existing data.
 8. Add Firestore rules that enforce org ownership.
-
