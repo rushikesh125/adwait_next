@@ -48,7 +48,9 @@ const getPrimaryMealPlan = (entry) => {
 
 const getPrimaryRoomCategory = (entry) => {
   if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
-    return entry.roomCategories[0]?.roomCategory || entry.selectedRoomCategory || "";
+    return (
+      entry.roomCategories[0]?.roomCategory || entry.selectedRoomCategory || ""
+    );
   }
   return entry.selectedRoomCategory || entry.roomCategory || "";
 };
@@ -84,12 +86,25 @@ const calculateTotalMeals = (entries) => {
     if (isNaN(n)) return;
     const plans =
       Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0
-        ? [...new Set(entry.roomCategories.map((rc) => rc.mealPlan).filter(Boolean))]
+        ? [
+            ...new Set(
+              entry.roomCategories.map((rc) => rc.mealPlan).filter(Boolean),
+            ),
+          ]
         : [getPrimaryMealPlan(entry)].filter(Boolean);
     plans.forEach((mp) => {
-      if (mp === "CP") { totalBreakfasts += n; }
-      if (mp === "MAP") { totalBreakfasts += n; totalDinners += n; }
-      if (mp === "AP") { totalBreakfasts += n; totalLunches += n; totalDinners += n; }
+      if (mp === "CP") {
+        totalBreakfasts += n;
+      }
+      if (mp === "MAP") {
+        totalBreakfasts += n;
+        totalDinners += n;
+      }
+      if (mp === "AP") {
+        totalBreakfasts += n;
+        totalLunches += n;
+        totalDinners += n;
+      }
     });
   });
   return { totalBreakfasts, totalLunches, totalDinners };
@@ -702,7 +717,10 @@ export const exportPackagePDF = async ({
             h.tripAdvisorLink ||
             h.TripAdvisorURL;
           const hotelCell = hotelLink
-            ? { content: h.hotel, styles: { textColor: [13, 71, 161], fontStyle: "bold" } }
+            ? {
+                content: h.hotel,
+                styles: { textColor: [13, 71, 161], fontStyle: "bold" },
+              }
             : h.hotel;
 
           const hasMultiRooms =
@@ -713,14 +731,22 @@ export const exportPackagePDF = async ({
             return h.roomCategories.map((rc, rcIdx) => {
               const guestParts = [
                 `${rc.numDouble || 0} Rm`,
-                ...(rc.numExtraAdult > 0 ? [`${rc.numExtraAdult} Ext.Adult`] : []),
+                ...(rc.numExtraAdult > 0
+                  ? [`${rc.numExtraAdult} Ext.Adult`]
+                  : []),
                 ...(rc.numExtraChild > 0 ? [`${rc.numExtraChild} Child`] : []),
                 ...(rc.numCNB > 0 ? [`${rc.numCNB} CNB`] : []),
               ];
               return [
                 rcIdx === 0
                   ? hotelCell
-                  : { content: ` Room ${rcIdx + 1}`, styles: { textColor: [100, 100, 100], fontSize: FONT_TINY } },
+                  : {
+                      content: ` Room ${rcIdx + 1}`,
+                      styles: {
+                        textColor: [100, 100, 100],
+                        fontSize: FONT_TINY,
+                      },
+                    },
                 rcIdx === 0 ? h.city : "",
                 rc.roomCategory || "—",
                 rcIdx === 0
@@ -736,8 +762,10 @@ export const exportPackagePDF = async ({
           // Single room (legacy or single-category)
           const primaryRoom = h.roomCategories?.[0];
           const numDouble = primaryRoom?.numDouble ?? h.numDouble ?? 0;
-          const numExtraAdult = primaryRoom?.numExtraAdult ?? h.numExtraAdult ?? 0;
-          const numExtraChild = primaryRoom?.numExtraChild ?? h.numExtraChild ?? 0;
+          const numExtraAdult =
+            primaryRoom?.numExtraAdult ?? h.numExtraAdult ?? 0;
+          const numExtraChild =
+            primaryRoom?.numExtraChild ?? h.numExtraChild ?? 0;
           const numCNB = primaryRoom?.numCNB ?? h.numCNB ?? 0;
           const guestParts = [
             `${numDouble} Rm`,
@@ -745,15 +773,19 @@ export const exportPackagePDF = async ({
             ...(numExtraChild > 0 ? [`${numExtraChild} Child`] : []),
             ...(numCNB > 0 ? [`${numCNB} CNB`] : []),
           ];
-          return [[
-            hotelCell,
-            h.city,
-            getPrimaryRoomCategory(h),
-            `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`,
-            h.nights,
-            MEAL_PLAN_LABELS[getPrimaryMealPlan(h)] || getPrimaryMealPlan(h) || "—",
-            guestParts.join(", "),
-          ]];
+          return [
+            [
+              hotelCell,
+              h.city,
+              getPrimaryRoomCategory(h),
+              `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`,
+              h.nights,
+              MEAL_PLAN_LABELS[getPrimaryMealPlan(h)] ||
+                getPrimaryMealPlan(h) ||
+                "—",
+              guestParts.join(", "),
+            ],
+          ];
         }),
         theme: "grid",
         headStyles: {
@@ -779,33 +811,49 @@ export const exportPackagePDF = async ({
 
     const breakdownRows = [];
 
-    const optionHotelTotal = optHotels.reduce(
-      (s, e) => s + resolveEntryTotal(e),
-      0,
-    );
-    const optionMarkup = resolveOptionMarkup(
-      opt,
-      transportTotalPrice || 0,
-      activityTotalPrice || 0,
-      confirmedMarkup || 0,
-      markupType,
-      markupAmount,
-    );
-    const preDiscountTotal =
-      optionHotelTotal +
-      (transportTotalPrice || 0) +
-      (activityTotalPrice || 0) +
-      optionMarkup;
+    // AFTER — prefer pre-stored totals, fall back to recomputation
+    const optionHotelTotal =
+      typeof opt.hotelTotal === "number"
+        ? opt.hotelTotal
+        : optHotels.reduce((s, e) => s + resolveEntryTotal(e), 0);
 
-    const discountAmount = (() => {
-      if (!appliedDiscount?.value || appliedDiscount.value <= 0) return 0;
-      if (appliedDiscount.type === "percentage") {
-        return Math.round((appliedDiscount.value / 100) * preDiscountTotal);
-      }
-      // Fixed: cap at this option's own pre-discount total
-      return Math.min(Number(appliedDiscount.value), preDiscountTotal);
-    })();
-    const optionGrandTotal = preDiscountTotal - discountAmount;
+    const optionMarkup =
+      typeof opt.markup === "number"
+        ? opt.markup
+        : resolveOptionMarkup(
+            opt,
+            transportTotalPrice || 0,
+            activityTotalPrice || 0,
+            confirmedMarkup || 0,
+            markupType,
+            markupAmount,
+          );
+
+    const preDiscountTotal =
+      typeof opt.preDiscountTotal === "number"
+        ? opt.preDiscountTotal
+        : optionHotelTotal +
+          (transportTotalPrice || 0) +
+          (activityTotalPrice || 0) +
+          optionMarkup;
+
+    const discountAmount =
+      typeof opt.discountAmount === "number" && opt.discountAmount > 0
+        ? opt.discountAmount
+        : (() => {
+            if (!appliedDiscount?.value || appliedDiscount.value <= 0) return 0;
+            if (appliedDiscount.type === "percentage") {
+              return Math.round(
+                (appliedDiscount.value / 100) * preDiscountTotal,
+              );
+            }
+            return Math.min(Number(appliedDiscount.value), preDiscountTotal);
+          })();
+
+    const optionGrandTotal =
+      typeof opt.grandTotal === "number"
+        ? opt.grandTotal
+        : preDiscountTotal - discountAmount;
 
     // Sub-total row (only show when discount is present so customer sees the before/after)
     if (discountAmount > 0) {

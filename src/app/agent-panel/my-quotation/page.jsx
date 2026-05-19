@@ -527,73 +527,72 @@ const MyQuotations = () => {
     openQuotation();
   }, [quoteId, state.quotations, state.user]);
 
-  const handleDownloadPDF = (quotation) => {
-    const packageOptions =
-      quotation.packageOptions?.length > 0
-        ? quotation.packageOptions
-        : [
-            {
-              name: "Option 1",
-              hotelEntries: quotation.hotelSummary || [],
-              grandTotal: quotation.grandTotal,
-              hotelTotal: (quotation.hotelSummary || []).reduce(
-                (s, h) => s + Number(h.hotelTotal || 0),
-                0,
-              ),
-            },
-          ];
-
-    const selectedTransport = quotation.transportSummary
-      ? {
-          selectedVehicle: {
-            type: quotation.transportSummary.vehicleName || "",
-            price: quotation.transportSummary.vehicleCost || 0,
-            perKmprice: quotation.transportSummary.perKmprice || 0,
-            ac: quotation.transportSummary.ac || false,
-            driverAllowance: quotation.transportSummary.driverAllowance || 0,
+const handleDownloadPDF = (quotation) => {
+  const packageOptions =
+    quotation.packageOptions?.length > 0
+      ? quotation.packageOptions  // already has hotelEntries, grandTotal, markup etc.
+      : [
+          {
+            name: "Option 1",
+            hotelEntries: quotation.hotelSummary || [],
+            grandTotal: quotation.grandTotal,
+            hotelTotal: (quotation.hotelSummary || []).reduce(
+              (s, h) => s + Number(h.hotelTotal || 0),
+              0,
+            ),
+            markup: quotation.markup || 0,
+            discountAmount: quotation.discount?.amount || 0,
           },
-          pricingType: quotation.transportSummary.pricingType || "fixed",
-          isCustom: quotation.transportSummary.isCustom || false,
-        }
-      : null;
+        ];
 
-    const selectedActivities = quotation.activitySummary || [];
-    const transportTotalPrice =
-      quotation.transportSummary?.totalTransportCost || 0;
-    const activityTotalPrice = selectedActivities.reduce(
-      (sum, a) => sum + Number(a.totalPrice || 0),
-      0,
-    );
+  const selectedTransport = quotation.transportSummary
+    ? {
+        selectedVehicle: {
+          type: quotation.transportSummary.vehicleName || "",
+          price: quotation.transportSummary.vehicleCost || 0,
+          perKmprice: quotation.transportSummary.perKmprice || 0,
+          ac: quotation.transportSummary.ac || false,
+          driverAllowance: quotation.transportSummary.driverAllowance || 0,
+        },
+        pricingType: quotation.transportSummary.pricingType || "fixed",
+        isCustom: quotation.transportSummary.isCustom || false,
+      }
+    : null;
 
-    // Read markup fields saved by the updated Create_new_package
-    const markupType = quotation.markupType || "lumpsum";
-    const markupAmount = quotation.markupAmount ?? quotation.markup ?? 0;
-    const confirmedMarkup = quotation.markup || 0;
+  const selectedActivities = quotation.activitySummary || [];
+  const transportTotalPrice =
+    quotation.transportSummary?.totalTransportCost || 0;
+  const activityTotalPrice = selectedActivities.reduce(
+    (sum, a) => sum + Number(a.totalPrice || 0),
+    0,
+  );
 
-    // Discount — saved in full by updated component
-    const appliedDiscount = quotation.discount ?? {
-      type: "fixed",
-      value: 0,
-      notes: "",
-      amount: 0,
-    };
-
-    exportPackagePDF({
-      packageOptions,
-      selectedTransport,
-      selectedActivities,
-      transportTotalPrice,
-      activityTotalPrice,
-      confirmedMarkup,
-      markupType,
-      markupAmount,
-      customerName: quotation.customerName || quotation.leadName || "",
-      packageName: quotation.packageName || "",
-      itineraryData: quotation.itinerarySummary || null,
-      refNumber: quotation.refNumber || null,
-      appliedDiscount,
-    });
+  const markupType = quotation.markupType || "lumpsum";
+  const markupAmount = quotation.markupAmount ?? quotation.markup ?? 0;
+  const confirmedMarkup = quotation.markup || 0;
+  const appliedDiscount = quotation.discount ?? {
+    type: "fixed",
+    value: 0,
+    notes: "",
+    amount: 0,
   };
+
+  exportPackagePDF({
+    packageOptions,
+    selectedTransport,
+    selectedActivities,
+    transportTotalPrice,
+    activityTotalPrice,
+    confirmedMarkup,
+    markupType,
+    markupAmount,
+    customerName: quotation.customerName || quotation.leadName || "",
+    packageName: quotation.packageName || "",
+    itineraryData: quotation.itinerarySummary || null,
+    refNumber: quotation.refNumber || null,
+    appliedDiscount,
+  });
+};
 
   const handleCopyToClipboard = (quotation) => {
     copyPackageSummary(
