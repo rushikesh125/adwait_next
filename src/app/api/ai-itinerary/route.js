@@ -28,7 +28,10 @@ async function checkItineraryPermission(uid, role) {
     if (!snap.exists) return false;
     return snap.data()?.itinerary_ai === true;
   } catch (err) {
-    console.error("[ai-itinerary] Permission check failed:", err.code ?? err.message);
+    console.error(
+      "[ai-itinerary] Permission check failed:",
+      err.code ?? err.message,
+    );
     return false;
   }
 }
@@ -37,19 +40,19 @@ async function checkItineraryPermission(uid, role) {
 // Zod Schemas — validation only, NOT passed to Gemini
 // ─────────────────────────────────────────────────────────────────────────────
 const DaySchema = z.object({
-  id:          z.string(),
-  dayNumber:   z.number(),
-  title:       z.string(),
+  id: z.string(),
+  dayNumber: z.number(),
+  title: z.string(),
   description: z.string(),
   activityIds: z.array(z.string()),
 });
 
 const ItineraryResponseSchema = z.object({
-  title:  z.string(),
-  state:  z.string(),
+  title: z.string(),
+  state: z.string(),
   cities: z.array(z.string()),
-  tags:   z.array(z.string()),
-  days:   z.array(DaySchema),
+  tags: z.array(z.string()),
+  days: z.array(DaySchema),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,9 +61,9 @@ const ItineraryResponseSchema = z.object({
 const daySchema = {
   type: "object",
   properties: {
-    id:          { type: "string" },
-    dayNumber:   { type: "number" },
-    title:       { type: "string" },
+    id: { type: "string" },
+    dayNumber: { type: "number" },
+    title: { type: "string" },
     description: { type: "string" },
     activityIds: { type: "array", items: { type: "string" } },
   },
@@ -70,11 +73,11 @@ const daySchema = {
 const geminiSchema = {
   type: "object",
   properties: {
-    title:  { type: "string" },
-    state:  { type: "string" },
+    title: { type: "string" },
+    state: { type: "string" },
     cities: { type: "array", items: { type: "string" } },
-    tags:   { type: "array", items: { type: "string" } },
-    days:   { type: "array", items: daySchema },
+    tags: { type: "array", items: { type: "string" } },
+    days: { type: "array", items: daySchema },
   },
   required: ["title", "state", "cities", "tags", "days"],
 };
@@ -103,7 +106,7 @@ note : no emojies is text
 - Destination(s): ${citiesList}
 - Total Days: ${numDays}
 - Transport Mode: ${transport}
-${arrivalTime   ? `- Check-in Date:  ${arrivalTime}`   : ""}
+${arrivalTime ? `- Check-in Date:  ${arrivalTime}` : ""}
 ${departureTime ? `- Check-out Date: ${departureTime}` : ""}
 ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
@@ -114,7 +117,7 @@ ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 - Pickup from airport/railway station upon arrival → transfer to hotel → check-in.
 - If arrival before 12:00 PM: include a nearby attraction or local orientation in the afternoon.
 - If arrival after 4:00 PM: check-in and rest only. No sightseeing.
-- Mention meal plan (typically "No Meals" on travel days).
+- Mention meal plan (accordingly mean plan choosen).
 
 ### Intermediate Days — Sightseeing
 - One full day per city. Use REAL, well-known attractions for each city.
@@ -126,7 +129,7 @@ ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 - Morning checkout. If departure after 12 PM: one short activity (max 2 hrs) before transfer.
 - If departure before 8 AM: checkout and direct transfer only — no activities.
 - Transfer back via ${transport}.
-- Meal plan: typically "No Meals" on travel days.
+- Mention meal plan (accordingly mean plan choosen)
 
 ### General Rules
 - Write descriptions in second-person ("proceed to...", "enjoy...", "check in at...").
@@ -193,14 +196,14 @@ export async function POST(req) {
   } catch {
     return Response.json(
       { error: "Invalid JSON in request body." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   const {
     packageContext,
-    chatHistory    = [],
-    userPrompt     = null,
+    chatHistory = [],
+    userPrompt = null,
     currentItinerary = null,
   } = body;
 
@@ -211,14 +214,14 @@ export async function POST(req) {
   } catch (error) {
     return Response.json(
       { error: error.message },
-      { status: error.status || 401 }
+      { status: error.status || 401 },
     );
   }
 
   if (!requester.uid) {
     return Response.json(
       { error: "Authenticated user is required to verify access." },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -226,32 +229,41 @@ export async function POST(req) {
   // NOTE: Do NOT return early here. checkItineraryPermission() returns a
   // boolean; only block if it's false. Admins read from adminPermissions
   // and still need the permission explicitly granted by superadmin.
-  const isAllowed = await checkItineraryPermission(requester.uid, requester.role);
+  const isAllowed = await checkItineraryPermission(
+    requester.uid,
+    requester.role,
+  );
 
   if (!isAllowed) {
     return Response.json(
       {
-        error: "You don't have access to AI Itinerary Creation. Please contact your super admin to enable this feature.",
-        code:  "PERMISSION_DENIED",
+        error:
+          "You don't have access to AI Itinerary Creation. Please contact your super admin to enable this feature.",
+        code: "PERMISSION_DENIED",
       },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
   // ── 4. Rate limit — 10 generations per minute per user ───────────────────
   const rl = rateLimit({
-    uid:      requester.uid,
-    action:   "ai-itinerary",
-    limit:    10,
+    uid: requester.uid,
+    action: "ai-itinerary",
+    limit: 10,
     windowMs: 60_000,
   });
   if (!rl.allowed) {
     return Response.json(
-      { error: "Too many requests. Please wait a moment before generating again." },
+      {
+        error:
+          "Too many requests. Please wait a moment before generating again.",
+      },
       {
         status: 429,
-        headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
-      }
+        headers: {
+          "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)),
+        },
+      },
     );
   }
 
@@ -259,7 +271,7 @@ export async function POST(req) {
   if (!packageContext) {
     return Response.json(
       { error: "packageContext is required." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -269,50 +281,53 @@ export async function POST(req) {
           m &&
           typeof m === "object" &&
           (m.role === "user" || m.role === "assistant") &&
-          typeof m.content === "string"
+          typeof m.content === "string",
       )
     : [];
 
   // ── 6. Destructure packageContext ─────────────────────────────────────────
   const {
-    hotelEntries      = [],
+    hotelEntries = [],
     selectedTransport = null,
     selectedActivities = [],
-    selectedState     = "",
-    checkInDate       = "",
-    checkOutDate      = "",
-    packageName       = "",
-    customerName      = "",
+    selectedState = "",
+    checkInDate = "",
+    checkOutDate = "",
+    packageName = "",
+    customerName = "",
   } = packageContext;
 
   // ── 7. Derive cities & destination ───────────────────────────────────────
-  const cities      = [...new Set(hotelEntries.map((e) => e.city).filter(Boolean))];
+  const cities = [...new Set(hotelEntries.map((e) => e.city).filter(Boolean))];
   const destination = cities[0] || selectedState || null;
 
   if (!destination) {
     return Response.json(
-      { error: "Could not determine destination. Please add at least one hotel." },
-      { status: 400 }
+      {
+        error:
+          "Could not determine destination. Please add at least one hotel.",
+      },
+      { status: 400 },
     );
   }
 
   // ── 8. Derive numDays ─────────────────────────────────────────────────────
   const totalNights = hotelEntries.reduce(
     (sum, e) => sum + (Number(e.nights) || 0),
-    0
+    0,
   );
   const numDays = totalNights > 0 ? totalNights + 1 : 3;
 
   // ── 9. Derive transport mode ──────────────────────────────────────────────
-  const vehicleType  = selectedTransport?.selectedVehicle?.type || "";
+  const vehicleType = selectedTransport?.selectedVehicle?.type || "";
   const vehicleLower = vehicleType.toLowerCase();
-  const transport    = vehicleLower.includes("train")
+  const transport = vehicleLower.includes("train")
     ? "train"
     : vehicleLower.includes("flight")
-    ? "flight"
-    : vehicleLower.includes("bus")
-    ? "bus"
-    : vehicleType || "private car";
+      ? "flight"
+      : vehicleLower.includes("bus")
+        ? "bus"
+        : vehicleType || "private car";
 
   // ── 10. Origin ────────────────────────────────────────────────────────────
   const origin = selectedState || "Origin City";
@@ -322,7 +337,7 @@ export async function POST(req) {
     .map((e) =>
       [e.hotel, e.city, e.nights ? `${e.nights}N` : null, e.selectedMealPlan]
         .filter(Boolean)
-        .join(" | ")
+        .join(" | "),
     )
     .join("; ");
 
@@ -332,12 +347,14 @@ export async function POST(req) {
     .join(", ");
 
   const additionalContext = [
-    hotelLines    ? `Hotels: ${hotelLines}`                           : null,
-    activityNames ? `Activities: ${activityNames}`                    : null,
-    packageName   ? `Package: ${packageName}`                         : null,
-    customerName  ? `Customer: ${customerName}`                       : null,
-    vehicleType   ? `Vehicle: ${vehicleType}`                         : null,
-    selectedTransport?.name ? `Transport package: ${selectedTransport.name}` : null,
+    hotelLines ? `Hotels: ${hotelLines}` : null,
+    activityNames ? `Activities: ${activityNames}` : null,
+    packageName ? `Package: ${packageName}` : null,
+    customerName ? `Customer: ${customerName}` : null,
+    vehicleType ? `Vehicle: ${vehicleType}` : null,
+    selectedTransport?.name
+      ? `Transport package: ${selectedTransport.name}`
+      : null,
   ]
     .filter(Boolean)
     .join(". ");
@@ -353,15 +370,15 @@ export async function POST(req) {
     cities,
     numDays,
     transport,
-    arrivalTime:       checkInDate   || undefined,
-    departureTime:     checkOutDate  || undefined,
+    arrivalTime: checkInDate || undefined,
+    departureTime: checkOutDate || undefined,
     additionalContext: additionalContext || undefined,
   });
 
   const fullPrompt = isRefinement
     ? `${basePrompt}\n\n${buildRefinementSuffix({
-        userPrompt:       userPrompt.trim(),
-        chatHistory:      safeChatHistory,
+        userPrompt: userPrompt.trim(),
+        chatHistory: safeChatHistory,
         currentItinerary,
       })}`
     : basePrompt;
@@ -371,7 +388,7 @@ export async function POST(req) {
     console.error("[ai-itinerary] GEMINI_API_KEY is not set.");
     return Response.json(
       { error: "AI service is not configured. Please contact support." },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -382,7 +399,7 @@ export async function POST(req) {
     console.error("[ai-itinerary] Failed to init GoogleGenAI:", initErr);
     return Response.json(
       { error: "Failed to initialise AI service." },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -390,10 +407,10 @@ export async function POST(req) {
   let rawText;
   try {
     const response = await ai.models.generateContent({
-      model:   "gemini-2.5-flash-lite",
+      model: "gemini-2.5-flash-lite",
       contents: fullPrompt,
       config: {
-        responseMimeType:   "application/json",
+        responseMimeType: "application/json",
         responseJsonSchema: geminiSchema,
       },
     });
@@ -405,28 +422,31 @@ export async function POST(req) {
     if (msg.includes("quota") || msg.includes("429")) {
       return Response.json(
         { error: "AI quota exceeded. Please try again in a moment." },
-        { status: 429 }
+        { status: 429 },
       );
     }
     if (msg.includes("safety") || msg.includes("blocked")) {
       return Response.json(
-        { error: "The AI blocked this request due to content policy. Try rephrasing your request." },
-        { status: 422 }
+        {
+          error:
+            "The AI blocked this request due to content policy. Try rephrasing your request.",
+        },
+        { status: 422 },
       );
     }
     if (msg.includes("deadline") || msg.includes("timeout")) {
       return Response.json(
         { error: "The AI took too long to respond. Please try again." },
-        { status: 504 }
+        { status: 504 },
       );
     }
 
     return Response.json(
       {
-        error:   "AI generation failed. Please try again.",
+        error: "AI generation failed. Please try again.",
         details: msg || "Unknown Gemini error",
       },
-      { status: 502 }
+      { status: 502 },
     );
   }
 
@@ -435,7 +455,7 @@ export async function POST(req) {
     console.error("[ai-itinerary] Gemini returned empty text.");
     return Response.json(
       { error: "AI returned an empty response. Please try again." },
-      { status: 502 }
+      { status: 502 },
     );
   }
 
@@ -451,13 +471,16 @@ export async function POST(req) {
     parsed = JSON.parse(cleanedText);
   } catch (jsonErr) {
     console.error("[ai-itinerary] JSON parse failed:", jsonErr);
-    console.error("[ai-itinerary] Raw output (first 500 chars):", rawText.slice(0, 500));
+    console.error(
+      "[ai-itinerary] Raw output (first 500 chars):",
+      rawText.slice(0, 500),
+    );
     return Response.json(
       {
-        error:   "AI returned malformed data. Please try again.",
+        error: "AI returned malformed data. Please try again.",
         details: `JSON parse error: ${jsonErr.message}`,
       },
-      { status: 422 }
+      { status: 422 },
     );
   }
 
@@ -467,11 +490,14 @@ export async function POST(req) {
     validated = ItineraryResponseSchema.parse(parsed);
   } catch (zodErr) {
     console.error("[ai-itinerary] Zod validation failed:", zodErr);
-    console.warn("[ai-itinerary] Returning unvalidated parsed data as fallback.");
+    console.warn(
+      "[ai-itinerary] Returning unvalidated parsed data as fallback.",
+    );
     return Response.json(parsed, {
       status: 200,
       headers: {
-        "X-Validation-Warning": "Schema validation failed; data may be incomplete.",
+        "X-Validation-Warning":
+          "Schema validation failed; data may be incomplete.",
       },
     });
   }

@@ -712,7 +712,7 @@ export const exportPackagePDF = async ({
             // First row: hotel name spans visually via first room category
             return h.roomCategories.map((rc, rcIdx) => {
               const guestParts = [
-                `${rc.numDouble || 0} Rm`,
+                `${rc.numDouble || 0} Room`,
                 ...(rc.numExtraAdult > 0 ? [`${rc.numExtraAdult} Ext.Adult`] : []),
                 ...(rc.numExtraChild > 0 ? [`${rc.numExtraChild} Child`] : []),
                 ...(rc.numCNB > 0 ? [`${rc.numCNB} CNB`] : []),
@@ -740,7 +740,7 @@ export const exportPackagePDF = async ({
           const numExtraChild = primaryRoom?.numExtraChild ?? h.numExtraChild ?? 0;
           const numCNB = primaryRoom?.numCNB ?? h.numCNB ?? 0;
           const guestParts = [
-            `${numDouble} Rm`,
+            `${numDouble} Room`,
             ...(numExtraAdult > 0 ? [`${numExtraAdult} Ext.Adult`] : []),
             ...(numExtraChild > 0 ? [`${numExtraChild} Child`] : []),
             ...(numCNB > 0 ? [`${numCNB} CNB`] : []),
@@ -1020,14 +1020,14 @@ export const exportPackagePDF = async ({
     );
     y += 6;
 
-    // ── Cities ──
-    if (itin.cities?.length) {
-      pdfdoc.setFont("helvetica", "normal");
-      pdfdoc.setFontSize(FONT_BODY);
-      pdfdoc.setTextColor("#555");
-      pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
-      y += 8;
-    }
+    // // ── Cities ──
+    // if (itin.cities?.length) {
+    //   pdfdoc.setFont("helvetica", "normal");
+    //   pdfdoc.setFontSize(FONT_BODY);
+    //   pdfdoc.setTextColor("#555");
+    //   pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
+    //   y += 8;
+    // }
 
     // ✅ Filter valid days (ONLY for rendering days)
     const validDays = itin.days.filter((d) => d && (d.title || d.description));
