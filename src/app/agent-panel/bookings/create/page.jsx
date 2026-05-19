@@ -83,7 +83,7 @@ const SERVICE_ICONS = {
   Insurance: ShieldCheck,
   Other: MoreHorizontal,
 };
-const MEAL_PLANS = ["CP", "MAP", "AP", "EP",];
+const MEAL_PLANS = ["CP", "MAP", "AP", "EP"];
 // ─── Factory helpers ──────────────────────────────────────────────────────────
 
 const newVendorPayment = (type = "Installment") => ({
@@ -131,7 +131,26 @@ const emptyForm = () => ({
   payments: [],
   quotationId: "",
 });
-
+// ── Migration helper: ensure hotelData uses the new multi-room structure ───
+const migrateHotelData = (hd) => {
+  if (!hd) return hd;
+  if (hd.rooms) return hd; // already new shape
+  // Convert old flat fields to rooms array
+  return {
+    ...hd,
+    rooms: [
+      {
+        _key: Math.random().toString(36).slice(2),
+        roomCategory: hd.roomCategory || "",
+        mealPlan: hd.mealPlan || "",
+        numDouble: hd.numDouble || 1,
+        numExtraAdult: hd.numExtraAdult || 0,
+        numExtraChild: hd.numExtraChild || 0,
+        numCNB: hd.numCNB || 0,
+      },
+    ],
+  };
+};
 // ─── Service financial helpers (status‑aware) ─────────────────────────────────
 
 /** Sum of vendor payments with status "Paid" */
@@ -553,78 +572,221 @@ function VendorPaymentRow({ svc, payment, onUpdate, onDelete }) {
 
 // ─── Sub-component: Structured Hotel Fields ───────────────────────────────────
 
+// ─── Sub-component: Structured Hotel Fields (multi-room + dates) ───────────
 function HotelServiceFields({ hotelData = {}, onChange }) {
-  const handle = (field, value) => onChange({ ...hotelData, [field]: value });
+  // Migrate old flat hotelData to new shape on mount
+  useEffect(() => {
+    if (!hotelData.rooms) {
+      // Legacy single-room structure → convert to rooms array
+      const singleRoom = {
+        _key: Math.random().toString(36).slice(2),
+        roomCategory: hotelData.roomCategory || "",
+        mealPlan: hotelData.mealPlan || "",
+        numDouble: hotelData.numDouble || 1,
+        numExtraAdult: hotelData.numExtraAdult || 0,
+        numExtraChild: hotelData.numExtraChild || 0,
+        numCNB: hotelData.numCNB || 0,
+      };
+      onChange({
+        hotelName: hotelData.hotelName || "",
+        city: hotelData.city || "",
+        state: hotelData.state || "",
+        checkInDate: hotelData.checkInDate || "",
+        checkOutDate: hotelData.checkOutDate || "",
+        nights: hotelData.nights || "",
+        rooms: [singleRoom],
+        // Keep GoogleListingURL if present
+        GoogleListingURL: hotelData.GoogleListingURL || "",
+      });
+    }
+  }, []); // only on mount – safe because onChange is stable
+
+  const rooms = hotelData.rooms || [];
+
+  const handleField = (field, value) => {
+    onChange({ ...hotelData, [field]: value });
+  };
+
+  const updateRoom = (index, patch) => {
+    const updatedRooms = rooms.map((room, i) =>
+      i === index ? { ...room, ...patch } : room,
+    );
+    onChange({ ...hotelData, rooms: updatedRooms });
+  };
+
+  const addRoom = () => {
+    const newRoom = {
+      _key: Math.random().toString(36).slice(2),
+      roomCategory: "",
+      mealPlan: "",
+      numDouble: 0,
+      numExtraAdult: 0,
+      numExtraChild: 0,
+      numCNB: 0,
+    };
+    onChange({ ...hotelData, rooms: [...rooms, newRoom] });
+  };
+
+  const removeRoom = (index) => {
+    if (rooms.length <= 1) {
+      toast.error("At least one room category is required.");
+      return;
+    }
+    onChange({
+      ...hotelData,
+      rooms: rooms.filter((_, i) => i !== index),
+    });
+  };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
-      <div className="space-y-1 sm:col-span-2">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Hotel Name
-        </Label>
-        <Input
-          placeholder="e.g. The Taj Mahal Palace"
-          value={hotelData.hotelName || ""}
-          onChange={(e) => handle("hotelName", e.target.value)}
-          className="h-9 rounded-xl text-xs"
-        />
+    <div className="space-y-4">
+      {/* Dates and basic info */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Check-in
+          </Label>
+          <Input
+            type="date"
+            value={hotelData.checkInDate || ""}
+            onChange={(e) => handleField("checkInDate", e.target.value)}
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Check-out
+          </Label>
+          <Input
+            type="date"
+            value={hotelData.checkOutDate || ""}
+            onChange={(e) => handleField("checkOutDate", e.target.value)}
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Nights
+          </Label>
+          <Input
+            type="number"
+            min={1}
+            value={hotelData.nights || ""}
+            onChange={(e) =>
+              handleField("nights", Math.max(1, Number(e.target.value) || 1))
+            }
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Hotel Name
+          </Label>
+          <Input
+            value={hotelData.hotelName || ""}
+            onChange={(e) => handleField("hotelName", e.target.value)}
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            City
+          </Label>
+          <Input
+            value={hotelData.city || ""}
+            onChange={(e) => handleField("city", e.target.value)}
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            State (optional)
+          </Label>
+          <Input
+            value={hotelData.state || ""}
+            onChange={(e) => handleField("state", e.target.value)}
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
       </div>
-      <div className="space-y-1">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          City
-        </Label>
-        <Input
-          placeholder="e.g. Mumbai"
-          value={hotelData.city || ""}
-          onChange={(e) => handle("city", e.target.value)}
-          className="h-9 rounded-xl text-xs"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Nights
-        </Label>
-        <Input
-          type="number"
-          min={1}
-          placeholder="1"
-          value={hotelData.nights || ""}
-          onChange={(e) =>
-            handle("nights", Math.max(1, Number(e.target.value) || 1))
-          }
-          className="h-9 rounded-xl text-xs"
-        />
-      </div>
-      <div className="space-y-1 sm:col-span-2">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Room Category
-        </Label>
-        <Input
-          placeholder="e.g. Deluxe Room, Suite"
-          value={hotelData.roomCategory || ""}
-          onChange={(e) => handle("roomCategory", e.target.value)}
-          className="h-9 rounded-xl text-xs"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Meal Plan
-        </Label>
-        <Select
-          value={hotelData.mealPlan || ""}
-          onValueChange={(v) => handle("mealPlan", v)}
-        >
-          <SelectTrigger className="h-9 rounded-xl text-xs">
-            <SelectValue placeholder="Select" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl">
-            {MEAL_PLANS.map((m) => (
-              <SelectItem key={m} value={m} className="text-xs">
-                {m}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+      {/* Room Categories */}
+      <div className="border-t pt-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+            <Hotel className="h-3.5 w-3.5 text-theme-primary" /> Room Categories
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={addRoom}
+            className="text-xs h-7 text-theme-primary hover:text-theme-dark"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add Room
+          </Button>
+        </div>
+
+        {rooms.map((room, idx) => (
+          <div
+            key={room._key}
+            className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-700 uppercase">
+                Room {idx + 1}
+              </span>
+              {rooms.length > 1 && (
+                <button
+                  onClick={() => removeRoom(idx)}
+                  className="text-slate-400 hover:text-red-500 p-0.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  Room Category
+                </Label>
+                <Input
+                  value={room.roomCategory || ""}
+                  onChange={(e) =>
+                    updateRoom(idx, { roomCategory: e.target.value })
+                  }
+                  placeholder="e.g. Deluxe"
+                  className="h-8 rounded-lg text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  Meal Plan
+                </Label>
+                <Select
+                  value={room.mealPlan || ""}
+                  onValueChange={(v) => updateRoom(idx, { mealPlan: v })}
+                >
+                  <SelectTrigger className="h-8 rounded-lg text-xs">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {MEAL_PLANS.map((plan) => (
+                      <SelectItem key={plan} value={plan} className="text-xs">
+                        {plan}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Show total rooms count */}
+        <div className="flex justify-end text-[10px] text-slate-500">
+          {rooms.length} room{rooms.length > 1 ? "s" : ""} configured
+        </div>
       </div>
     </div>
   );
@@ -756,7 +918,7 @@ function ServiceCard({
               className="h-9 rounded-xl text-xs"
             />
           </div>
-         {svc.type !== "Hotel" && (
+          {svc.type !== "Hotel" && (
             <div className="space-y-1 col-span-2 sm:col-span-4">
               <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Description
@@ -953,7 +1115,10 @@ function CreateBookingInner() {
         services: (data.services || []).map((s) => ({
           ...s,
           _key: Math.random().toString(36).slice(2),
-          hotelData: s.hotelData || null,
+          hotelData:
+            s.type === "Hotel"
+              ? migrateHotelData(s.hotelData || {})
+              : s.hotelData || null,
           vendorPayments: (s.vendorPayments || []).map((p) => ({
             ...p,
             _key: Math.random().toString(36).slice(2),
@@ -969,6 +1134,7 @@ function CreateBookingInner() {
     }
   }, [isEdit, searchParams]);
 
+  // Load edit data
   // Load edit data
   useEffect(() => {
     if (!isEdit) return;
@@ -989,7 +1155,10 @@ function CreateBookingInner() {
             services: (data.services || []).map((s) => ({
               ...s,
               _key: Math.random().toString(36).slice(2),
-              hotelData: s.hotelData || null,
+              hotelData:
+                s.type === "Hotel"
+                  ? migrateHotelData(s.hotelData || {})
+                  : s.hotelData || null,
               vendorPayments: (s.vendorPayments || []).map((p) => ({
                 ...p,
                 _key: Math.random().toString(36).slice(2),
@@ -1053,7 +1222,7 @@ function CreateBookingInner() {
       services: prev.services.map((s) => {
         if (s._key !== svcKey) return s;
         const updated = { ...s, [field]: value };
-         if (field === "type" && value === "Hotel" && !updated.hotelData) {
+        if (field === "type" && value === "Hotel" && !updated.hotelData) {
           updated.hotelData = {
             hotelName: "",
             city: "",
@@ -1176,7 +1345,7 @@ function CreateBookingInner() {
     setLoading(true);
     try {
       // Strip UI-only fields before saving
-     const cleanServices = form.services.map(
+      const cleanServices = form.services.map(
         ({ _key, _showPayments, vendorPayments, ...rest }) => ({
           ...rest,
           description:
