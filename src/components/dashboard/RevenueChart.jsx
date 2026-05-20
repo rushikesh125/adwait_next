@@ -56,18 +56,22 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-export default function RevenueChart({ agentId }) {
+export default function RevenueChart({ agentId, orgId = null }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState({ revenue: 0, paid: 0, due: 0 });
   const year = new Date().getFullYear();
 
   useEffect(() => {
-    if (!agentId) return;
+    if (!agentId || !orgId) return;
     (async () => {
       try {
         const snap = await getDocs(
-          query(collection(db, "invoices"), where("agentId", "==", agentId))
+          query(
+            collection(db, "invoices"),
+            where("orgId", "==", orgId),
+            where("agentId", "==", agentId),
+          )
         );
         const invoices = snap.docs.map((d) => d.data());
         const monthly = buildMonthlyData(invoices, year);
@@ -82,7 +86,7 @@ export default function RevenueChart({ agentId }) {
         setLoading(false);
       }
     })();
-  }, [agentId, year]);
+  }, [agentId, orgId, year]);
 
   if (loading) {
     return (

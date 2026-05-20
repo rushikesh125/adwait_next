@@ -131,13 +131,13 @@ export const getQuotationsByAdmin = async (agentIds, orgId = null) => {
 
 // ── Invoice fan-out (by agentId) ─────────────────────────────────────────────
 
-export const getInvoicesByAdmin = async (agentIds) => {
+export const getInvoicesByAdmin = async (agentIds, orgId = null) => {
   if (!agentIds?.length) return [];
   const results = await Promise.all(
     agentIds.map((uid) =>
-      getDocs(query(collection(db, "invoices"), where("agentId", "==", uid))).then(
-        (snap) => snap.docs.map((d) => ({ id: d.id, agentId: uid, ...d.data() }))
-      )
+      getDocs(
+        query(collection(db, "invoices"), ...orgFilter(orgId), where("agentId", "==", uid))
+      ).then((snap) => snap.docs.map((d) => ({ id: d.id, agentId: uid, ...d.data() })))
     )
   );
   return results

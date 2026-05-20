@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   runTransaction,
 } from "firebase/firestore";
+import { belongsToOrg, orgFilter } from "./orgScope";
 
 const COLLECTION = "invoices";
 
@@ -111,10 +112,11 @@ export const createInvoice = async (data) => {
   }
 };
 
-export const getInvoicesByAgent = async (agentId) => {
+export const getInvoicesByAgent = async (agentId, orgId = null) => {
   try {
     const q = query(
       collection(db, COLLECTION),
+      ...orgFilter(orgId),
       where("agentId", "==", agentId)
     );
     const snap = await getDocs(q);
@@ -132,18 +134,24 @@ export const getInvoicesByAgent = async (agentId) => {
   }
 };
 
-export const getInvoiceById = async (id) => {
+export const getInvoiceById = async (id, orgId = null) => {
   try {
     const snap = await getDoc(doc(db, COLLECTION, id));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    if (!snap.exists()) return null;
+    const invoice = { id: snap.id, ...snap.data() };
+    return belongsToOrg(invoice, orgId) ? invoice : null;
   } catch (e) {
     logError("getInvoiceById", e);
     throw e;
   }
 };
 
-export const updateInvoice = async (id, data) => {
+export const updateInvoice = async (id, data, orgId = null) => {
   try {
+    if (orgId) {
+      const existing = await getInvoiceById(id, orgId);
+      if (!existing) throw new Error("Invoice not found");
+    }
     const totals = computeInvoiceTotals(data.lineItems || [], data.gstType);
     const amountReceived = Number(data.amountReceived) || 0;
     const paymentStatus = computePaymentStatus(totals.grandTotal, amountReceived);
@@ -162,9 +170,9 @@ export const updateInvoice = async (id, data) => {
   }
 };
 
-export const addPaymentToInvoice = async (id, payment) => {
+export const addPaymentToInvoice = async (id, payment, orgId = null) => {
   try {
-    const invoice = await getInvoiceById(id);
+    const invoice = await getInvoiceById(id, orgId);
     if (!invoice) throw new Error("Invoice not found");
 
     const payments = [...(invoice.payments || []), { ...payment, id: `pay_${Date.now()}` }];
@@ -187,9 +195,9 @@ export const addPaymentToInvoice = async (id, payment) => {
   }
 };
 
-export const updatePaymentInInvoice = async (invoiceId, paymentId, updatedPayment) => {
+export const updatePaymentInInvoice = async (invoiceId, paymentId, updatedPayment, orgId = null) => {
   try {
-    const invoice = await getInvoiceById(invoiceId);
+    const invoice = await getInvoiceById(invoiceId, orgId);
     if (!invoice) throw new Error("Invoice not found");
 
     const payments = (invoice.payments || []).map((p) =>
@@ -214,9 +222,9 @@ export const updatePaymentInInvoice = async (invoiceId, paymentId, updatedPaymen
   }
 };
 
-export const deletePaymentFromInvoice = async (id, paymentId) => {
+export const deletePaymentFromInvoice = async (id, paymentId, orgId = null) => {
   try {
-    const invoice = await getInvoiceById(id);
+    const invoice = await getInvoiceById(id, orgId);
     if (!invoice) throw new Error("Invoice not found");
 
     const payments = (invoice.payments || []).filter((p) => p.id !== paymentId);
@@ -239,8 +247,12 @@ export const deletePaymentFromInvoice = async (id, paymentId) => {
   }
 };
 
-export const deleteInvoice = async (id) => {
+export const deleteInvoice = async (id, orgId = null) => {
   try {
+    if (orgId) {
+      const existing = await getInvoiceById(id, orgId);
+      if (!existing) throw new Error("Invoice not found");
+    }
     await deleteDoc(doc(db, COLLECTION, id));
   } catch (e) {
     logError("deleteInvoice", e);
@@ -248,9 +260,13 @@ export const deleteInvoice = async (id) => {
   }
 };
 
-export const getInvoicesByBooking = async (bookingId) => {
+export const getInvoicesByBooking = async (bookingId, orgId = null) => {
   try {
-    const q = query(collection(db, COLLECTION), where("bookingId", "==", bookingId));
+    const q = query(
+      collection(db, COLLECTION),
+      ...orgFilter(orgId),
+      where("bookingId", "==", bookingId),
+    );
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) {

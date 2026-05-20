@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import { getAuth } from "firebase/auth";
 import { ArrowLeft, CheckCircle2, Mail, Plane, Plus, Search, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -70,6 +71,7 @@ export default function CreateFlightVoucherPage({
   onSaved,
 }) {
   const router = useRouter();
+  const { user } = useSelector((s) => s.auth);
   const { quotations } = useQuotationState();
   const isEditMode = Boolean(initialVoucher);
   const isDialogMode = typeof isOpen === "boolean";
@@ -131,8 +133,9 @@ export default function CreateFlightVoucherPage({
     }
     const matches = (quotations || []).filter(
       (quotation) =>
-        quotation.id?.toLowerCase().includes(trimmed) ||
-        quotation.customerName?.toLowerCase().includes(trimmed),
+        (!user?.orgId || quotation.orgId === user.orgId) &&
+        (quotation.id?.toLowerCase().includes(trimmed) ||
+        quotation.customerName?.toLowerCase().includes(trimmed)),
     );
     setQuotationSuggestions(matches.slice(0, 6));
   }, [linkedQuotation, quotationInput, quotations]);
@@ -197,6 +200,7 @@ export default function CreateFlightVoucherPage({
   const buildVoucherData = () => ({
     voucherNumber: voucherNo,
     voucherType: "Flight",
+    orgId: user?.orgId || initialVoucher?.orgId || linkedQuotation?.orgId || null,
     quotationId: initialVoucher?.quotationId || linkedQuotation?.id || null,
     customerName:
       linkedQuotation?.customerName ||
@@ -226,12 +230,20 @@ export default function CreateFlightVoucherPage({
       alert("Not authenticated");
       return;
     }
+    if (!user?.orgId) {
+      alert("Organization is not assigned");
+      return;
+    }
+    if (linkedQuotation?.orgId && linkedQuotation.orgId !== user.orgId) {
+      alert("Quotation does not belong to your organization");
+      return;
+    }
 
     setLoading(true);
     try {
       const voucherData = buildVoucherData();
       if (isEditMode) {
-        await updateVoucherDocument(agentId, initialVoucher, voucherData);
+        await updateVoucherDocument(agentId, initialVoucher, voucherData, user.orgId);
       } else {
         await saveVoucherToFirestore(agentId, linkedQuotation?.id || null, voucherData);
       }
@@ -243,7 +255,7 @@ export default function CreateFlightVoucherPage({
           voucherType: "Flight",
           issueDate: voucherData.issueDate,
           latestFlightVoucherRef: voucherNo,
-        });
+        }, { orgId: user.orgId });
       }
       alert(isEditMode ? "Flight voucher updated successfully." : "Flight voucher created successfully.");
       onSaved?.();

@@ -215,8 +215,9 @@ const CreateHotelVoucherPage = () => {
     }
     const matches = (quotations || []).filter(
       (q) =>
-        q.id?.toLowerCase().includes(trimmed) ||
-        q.customerName?.toLowerCase().includes(trimmed)
+        (!user?.orgId || q.orgId === user.orgId) &&
+        (q.id?.toLowerCase().includes(trimmed) ||
+        q.customerName?.toLowerCase().includes(trimmed))
     );
     setQuotationSuggestions(matches.slice(0, 6));
     setShowSuggestions(true);
@@ -417,12 +418,18 @@ const handleAiFetch = async () => {
     const authUser = auth.currentUser;
     const agentId = authUser?.uid;
     if (!agentId) return alert("Not authenticated");
+    if (!user?.orgId) return alert("Organization is not assigned");
+
+    if (linkedQuotation?.orgId && linkedQuotation.orgId !== user.orgId) {
+      return alert("Quotation does not belong to your organization");
+    }
 
     setLoading(true);
     try {
       const data = {
         voucherNumber: voucherNo,
         voucherType: "Hotel",
+        orgId: user.orgId,
         quotationId: linkedQuotation?.id || null,
         customerName:
           linkedQuotation?.customerName || form.guests[0]?.name || "",
@@ -458,7 +465,7 @@ const handleAiFetch = async () => {
           isVoucherGenerated: true,
           voucherType: "Hotel",
           issueDate: new Date().toISOString(),
-        });
+        }, { orgId: user.orgId });
       }
 
       alert("Voucher created successfully ✅");

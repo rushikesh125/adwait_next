@@ -218,9 +218,10 @@ export default function HotelVoucherDrawer({
 
     const matches = (quotations || []).filter(
       (q) =>
-        q.id?.toLowerCase().includes(trimmed) ||
+        (!user?.orgId || q.orgId === user.orgId) &&
+        (q.id?.toLowerCase().includes(trimmed) ||
         q.customerName?.toLowerCase().includes(trimmed) ||
-        q.voucherNumber?.toLowerCase().includes(trimmed),
+        q.voucherNumber?.toLowerCase().includes(trimmed)),
     );
     setQuotationSuggestions(matches.slice(0, 6));
   }, [isDashboardFlow, quotationInput, quotations]);
@@ -333,6 +334,11 @@ export default function HotelVoucherDrawer({
     destination:
       initialVoucher?.destination || effectiveQuotation?.destination || "",
     quotationId: initialVoucher?.quotationId || effectiveQuotation?.id || null,
+    orgId:
+      user?.orgId ||
+      initialVoucher?.orgId ||
+      effectiveQuotation?.orgId ||
+      null,
     issueDate: initialVoucher?.issueDate || new Date().toISOString(),
     status: initialVoucher?.status || "Generated",
   });
@@ -346,10 +352,18 @@ export default function HotelVoucherDrawer({
     if (!validate()) return;
 
     const auth = getAuth();
-    const user = auth.currentUser;
-    const finalAgentId = agentId || user?.uid;
+    const authUser = auth.currentUser;
+    const finalAgentId = agentId || authUser?.uid;
     if (!finalAgentId) {
       alert("Not authenticated");
+      return;
+    }
+    if (!user?.orgId) {
+      alert("Organization is not assigned");
+      return;
+    }
+    if (effectiveQuotation?.orgId && effectiveQuotation.orgId !== user.orgId) {
+      alert("Quotation does not belong to your organization");
       return;
     }
 
@@ -388,7 +402,12 @@ export default function HotelVoucherDrawer({
       };
 
       if (isEditMode) {
-        await updateVoucherDocument(finalAgentId, initialVoucher, voucherData);
+        await updateVoucherDocument(
+          finalAgentId,
+          initialVoucher,
+          voucherData,
+          user.orgId,
+        );
       } else {
         await saveVoucherToFirestore(
           finalAgentId,
@@ -397,12 +416,17 @@ export default function HotelVoucherDrawer({
         );
 
         if (finalQuotation?.id) {
-          await updateQuotation(finalAgentId, finalQuotation.id, {
-            voucherNumber: voucherNo,
-            isVoucherGenerated: true,
-            voucherType: "Hotel",
-            issueDate: voucherData.issueDate,
-          });
+          await updateQuotation(
+            finalAgentId,
+            finalQuotation.id,
+            {
+              voucherNumber: voucherNo,
+              isVoucherGenerated: true,
+              voucherType: "Hotel",
+              issueDate: voucherData.issueDate,
+            },
+            { orgId: user.orgId },
+          );
         }
       }
 

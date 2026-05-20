@@ -534,7 +534,7 @@ export default function BookingDetailPage() {
       const editedPayment = booking.payments[editingPaymentIdx];
       if (editedPayment?.invoicePaymentId) {
         try {
-          const invoices = await getInvoicesByBooking(id);
+          const invoices = await getInvoicesByBooking(id, user?.orgId);
           for (const inv of invoices) {
             const match = (inv.payments || []).find(
               (p) => p.id === editedPayment.invoicePaymentId,
@@ -551,6 +551,7 @@ export default function BookingDetailPage() {
                   reference: editPaymentForm.reference,
                   notes: editPaymentForm.notes,
                 },
+                user?.orgId,
               );
               break;
             }

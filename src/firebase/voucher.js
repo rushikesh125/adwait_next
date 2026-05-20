@@ -6,10 +6,13 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   deleteDoc,
   updateDoc,
+  query,
   serverTimestamp,
 } from "firebase/firestore";
+import { belongsToOrg, orgFilter } from "./orgScope";
 
 export async function getNextVoucherNumber(type) {
   const ref = doc(db, "config", "voucher_counters");
@@ -25,6 +28,30 @@ export async function getNextVoucherNumber(type) {
   });
 }
 
+async function assertVoucherBelongsToOrg(agentId, voucherRecord, orgId) {
+  if (!orgId) return;
+
+  if (voucherRecord.orgId !== undefined) {
+    if (!belongsToOrg(voucherRecord, orgId)) {
+      throw new Error("Voucher not found");
+    }
+    return;
+  }
+
+  let path;
+  if (voucherRecord._collection === "standalone") {
+    path = `saved_packages_by_agents/${agentId}/standalone_vouchers/${voucherRecord.id}`;
+  } else {
+    const quotationDocId = voucherRecord._quotationDocId || voucherRecord.quotationId;
+    if (!quotationDocId) throw new Error("Missing quotationDocId for linked voucher");
+    path = `saved_packages_by_agents/${agentId}/packages/${quotationDocId}/vouchers/${voucherRecord.id}`;
+  }
+
+  const snap = await getDoc(doc(db, path));
+  if (!snap.exists() || !belongsToOrg(snap.data(), orgId)) {
+    throw new Error("Voucher not found");
+  }
+}
 
 export async function saveVoucherToFirestore(agentId, quotationId, voucherData) {
   if (!agentId) throw new Error("Missing agentId");
@@ -33,29 +60,23 @@ export async function saveVoucherToFirestore(agentId, quotationId, voucherData) 
     ? `saved_packages_by_agents/${agentId}/packages/${quotationId}/vouchers`
     : `saved_packages_by_agents/${agentId}/standalone_vouchers`;
 
-  console.log("[voucher] saving to path:", path);
-
   const docRef = await addDoc(collection(db, path), {
     ...voucherData,
     agentId,
     quotationId: quotationId || null,
+    orgId: voucherData.orgId || null,
     createdAt: serverTimestamp(),
-    status: "Generated",
+    status: voucherData.status || "Generated",
   });
 
-  console.log("[voucher] saved with id:", docRef.id);
   return docRef;
 }
 
 /**
- * Fetch ALL vouchers for an agent.
- *
- * Strategy (no orderBy on subcollections — avoids index errors on new collections):
- *  1. Read standalone_vouchers  (no orderBy)
- *  2. Read every package doc, then its vouchers subcollection  (no orderBy)
- *  3. Sort the merged array in JS by createdAt descending
+ * Fetch ALL vouchers for an agent (standalone + quotation-linked).
+ * Filters by orgId when provided.
  */
-export async function fetchAllVouchersForAgent(agentId) {
+export async function fetchAllVouchersForAgent(agentId, orgId = null) {
   if (!agentId) {
     console.warn("[voucher] fetchAllVouchersForAgent called without agentId");
     return [];
@@ -66,46 +87,51 @@ export async function fetchAllVouchersForAgent(agentId) {
   // ── 1. Standalone vouchers ──────────────────────────────────────────────
   try {
     const snap = await getDocs(
-      collection(db, `saved_packages_by_agents/${agentId}/standalone_vouchers`)
+      query(
+        collection(db, `saved_packages_by_agents/${agentId}/standalone_vouchers`),
+        ...orgFilter(orgId),
+      ),
     );
     snap.docs.forEach((d) => {
-      results.push({ id: d.id, _collection: "standalone", ...d.data() });
+      const data = d.data();
+      if (belongsToOrg(data, orgId)) {
+        results.push({ id: d.id, _collection: "standalone", ...data });
+      }
     });
-    console.log("[voucher] standalone vouchers found:", snap.docs.length);
   } catch (e) {
-    // Collection simply doesn't exist yet — not an error
     console.log("[voucher] no standalone_vouchers collection yet:", e.code);
   }
 
-  // ── 2. Vouchers inside every quotation package ──────────────────────────
+  // ── 2. Vouchers inside org-scoped quotation packages ────────────────────
   try {
     const packagesSnap = await getDocs(
-      collection(db, `saved_packages_by_agents/${agentId}/packages`)
+      query(
+        collection(db, `saved_packages_by_agents/${agentId}/packages`),
+        ...orgFilter(orgId),
+      ),
     );
-    console.log("[voucher] total packages to scan:", packagesSnap.docs.length);
 
-    // Use Promise.allSettled so one bad package doesn't abort the rest
     const tasks = packagesSnap.docs.map(async (pkgDoc) => {
       try {
         const vSnap = await getDocs(
           collection(
             db,
-            `saved_packages_by_agents/${agentId}/packages/${pkgDoc.id}/vouchers`
-          )
+            `saved_packages_by_agents/${agentId}/packages/${pkgDoc.id}/vouchers`,
+          ),
         );
         vSnap.docs.forEach((d) => {
-          results.push({
-            id: d.id,
-            _collection: "quotation",
-            _quotationDocId: pkgDoc.id,
-            ...d.data(),
-          });
+          const data = d.data();
+          if (belongsToOrg(data, orgId)) {
+            results.push({
+              id: d.id,
+              _collection: "quotation",
+              _quotationDocId: pkgDoc.id,
+              ...data,
+            });
+          }
         });
-        if (vSnap.docs.length > 0) {
-          console.log(`[voucher] package ${pkgDoc.id}: ${vSnap.docs.length} voucher(s)`);
-        }
-      } catch (e) {
-        // Subcollection doesn't exist for this package — skip silently
+      } catch {
+        // Subcollection may not exist for this package
       }
     });
 
@@ -114,23 +140,18 @@ export async function fetchAllVouchersForAgent(agentId) {
     console.error("[voucher] error reading packages:", e);
   }
 
-  // ── 3. Sort by createdAt descending (JS-side, no Firestore index needed) ─
   results.sort((a, b) => {
     const ta = a.createdAt?.seconds ?? a.createdAt?.toMillis?.() / 1000 ?? 0;
     const tb = b.createdAt?.seconds ?? b.createdAt?.toMillis?.() / 1000 ?? 0;
     return tb - ta;
   });
 
-  console.log("[voucher] total vouchers fetched:", results.length);
   return results;
 }
 
-/**
- * Delete a voucher document.
- * Works for both standalone and quotation-linked vouchers.
- */
-export async function deleteVoucherDocument(agentId, voucherRecord) {
+export async function deleteVoucherDocument(agentId, voucherRecord, orgId = null) {
   if (!agentId) throw new Error("Missing agentId");
+  await assertVoucherBelongsToOrg(agentId, voucherRecord, orgId);
 
   let path;
   if (voucherRecord._collection === "standalone") {
@@ -141,12 +162,12 @@ export async function deleteVoucherDocument(agentId, voucherRecord) {
     path = `saved_packages_by_agents/${agentId}/packages/${quotationDocId}/vouchers/${voucherRecord.id}`;
   }
 
-  console.log("[voucher] deleting:", path);
   await deleteDoc(doc(db, path));
 }
 
-export async function updateVoucherDocument(agentId, voucherRecord, voucherData) {
+export async function updateVoucherDocument(agentId, voucherRecord, voucherData, orgId = null) {
   if (!agentId) throw new Error("Missing agentId");
+  await assertVoucherBelongsToOrg(agentId, voucherRecord, orgId);
 
   let path;
   if (voucherRecord._collection === "standalone") {
@@ -157,9 +178,9 @@ export async function updateVoucherDocument(agentId, voucherRecord, voucherData)
     path = `saved_packages_by_agents/${agentId}/packages/${quotationDocId}/vouchers/${voucherRecord.id}`;
   }
 
-  console.log("[voucher] updating:", path);
   await updateDoc(doc(db, path), {
     ...voucherData,
+    orgId: voucherData.orgId ?? voucherRecord.orgId ?? null,
     updatedAt: serverTimestamp(),
   });
 }

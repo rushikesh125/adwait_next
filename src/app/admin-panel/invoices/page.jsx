@@ -53,15 +53,18 @@ export default function AdminInvoicesPage() {
   const [downloadingId, setDownloadingId] = useState(null);
 
   const load = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid || !user?.orgId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const agents = await getAgentsByAdmin(user.uid);
+      const agents = await getAgentsByAdmin(user.uid, user.orgId);
       const map = {};
       agents.forEach((a) => { map[a.id] = a.name || a.email || "Agent"; });
       setAgentMap(map);
       const agentIds = agents.map((a) => a.id);
-      const inv = await getInvoicesByAdmin(agentIds);
+      const inv = await getInvoicesByAdmin(agentIds, user.orgId);
       setInvoices(inv);
     } catch (e) {
       console.error(e);
@@ -71,7 +74,7 @@ export default function AdminInvoicesPage() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.uid]);
+  useEffect(() => { load(); }, [user?.uid, user?.orgId]);
 
   const filtered = useMemo(() => {
     let list = invoices;
@@ -91,7 +94,7 @@ export default function AdminInvoicesPage() {
     if (!confirm("Delete this invoice permanently?")) return;
     setDeletingId(id);
     try {
-      await deleteInvoice(id);
+      await deleteInvoice(id, user.orgId);
       setInvoices((prev) => prev.filter((i) => i.id !== id));
       toast.success("Invoice deleted");
     } catch { toast.error("Delete failed"); }

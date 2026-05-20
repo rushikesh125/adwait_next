@@ -53,10 +53,13 @@ export default function InvoicesPage() {
   const [downloadingId, setDownloadingId] = useState(null);
 
   useEffect(() => {
-    if (!agentId) return;
+    if (!agentId || !user?.orgId) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
-        const data = await getInvoicesByAgent(agentId);
+        const data = await getInvoicesByAgent(agentId, user.orgId);
         setInvoices(data);
       } catch (err) {
         toast.error("Failed to load invoices");
@@ -64,7 +67,7 @@ export default function InvoicesPage() {
         setLoading(false);
       }
     })();
-  }, [agentId]);
+  }, [agentId, user?.orgId]);
 
   const filtered = useMemo(() => {
     let list = invoices;
@@ -85,7 +88,7 @@ export default function InvoicesPage() {
     if (!confirm("Delete this invoice permanently?")) return;
     setDeletingId(id);
     try {
-      await deleteInvoice(id);
+      await deleteInvoice(id, user.orgId);
       setInvoices((prev) => prev.filter((i) => i.id !== id));
       toast.success("Invoice deleted");
     } catch {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   FileText,
@@ -332,6 +333,7 @@ const VoucherViewModal = ({ voucher, onClose }) => {
 const VoucherDashboard = () => {
   const router = useRouter();
   const state = useQuotationState();
+  const { user: authProfile } = useSelector((s) => s.auth);
   const [pageSize, setPageSize] = useState(50);
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -359,11 +361,11 @@ const VoucherDashboard = () => {
 
   const loadVouchers = useCallback(async () => {
     const uid = authUser?.uid;
-    if (!uid) return;
+    if (!uid || !authProfile?.orgId) return;
     setIsFetching(true);
     setFetchError(null);
     try {
-      const data = await fetchAllVouchersForAgent(uid);
+      const data = await fetchAllVouchersForAgent(uid, authProfile.orgId);
       setAllVouchers(data);
     } catch (err) {
       setFetchError(err.message);
@@ -371,11 +373,11 @@ const VoucherDashboard = () => {
     } finally {
       setIsFetching(false);
     }
-  }, [authUser?.uid]);
+  }, [authUser?.uid, authProfile?.orgId]);
 
   useEffect(() => {
-    if (!authLoading && authUser?.uid) loadVouchers();
-  }, [authLoading, authUser?.uid, loadVouchers]);
+    if (!authLoading && authUser?.uid && authProfile?.orgId) loadVouchers();
+  }, [authLoading, authUser?.uid, authProfile?.orgId, loadVouchers]);
 
   // 3. Filtered Logic (useMemo) with sorting
   const processedData = useMemo(() => {
@@ -447,7 +449,7 @@ const VoucherDashboard = () => {
   const handleDeleteVoucher = async (voucherRecord) => {
     if (!window.confirm("Delete this voucher?")) return;
     try {
-      await deleteVoucherDocument(authUser.uid, voucherRecord);
+      await deleteVoucherDocument(authUser.uid, voucherRecord, authProfile?.orgId);
       setAllVouchers((prev) => prev.filter((v) => v.id !== voucherRecord.id));
     } catch (err) {
       alert("Failed to delete: " + err.message);
@@ -464,7 +466,7 @@ const VoucherDashboard = () => {
       try {
         await updateQuotation(authUser.uid, voucherRecord.quotationId, {
           voucherStatus: newStatus,
-        });
+        }, { orgId: authProfile?.orgId });
       } catch (e) {
         console.error(e);
       }

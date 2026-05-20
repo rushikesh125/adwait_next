@@ -97,9 +97,9 @@ function CreateInvoiceInner() {
 
   // Load customers
   useEffect(() => {
-    if (!agentId) return;
-    getAllCustomers().catch(() => []).then(setCustomers);
-  }, [agentId]);
+    if (!agentId || !user?.orgId) return;
+    getAllCustomers(user.orgId).catch(() => []).then(setCustomers);
+  }, [agentId, user?.orgId]);
 
   // FIX: Close customer dropdown when clicking outside
   useEffect(() => {
@@ -114,26 +114,26 @@ function CreateInvoiceInner() {
 
   // Load booking data if creating from booking
   useEffect(() => {
-    if (!bookingIdParam || isEdit) return;
+    if (!bookingIdParam || isEdit || !user?.orgId) return;
     (async () => {
       try {
-        const booking = await getBookingById(bookingIdParam);
+        const booking = await getBookingById(bookingIdParam, user.orgId);
         if (!booking) { toast.error("Booking not found"); return; }
 
         let quotation = null;
         if (booking.quotationId && booking.agentId) {
-          quotation = await getQuotationById(booking.agentId, booking.quotationId).catch(() => null);
+          quotation = await getQuotationById(booking.agentId, booking.quotationId, user.orgId).catch(() => null);
         }
 
         const customerId = quotation?.customerId || booking.customerId || null;
         let customer = null;
         if (customerId) {
-          customer = await getCustomerById(customerId).catch(() => null);
+          customer = await getCustomerById(customerId, user.orgId).catch(() => null);
         }
         let lead = null;
         if (!customer) {
           const leadId = quotation?.leadId || booking.leadId || null;
-          if (leadId) lead = await getLeadById(leadId).catch(() => null);
+          if (leadId) lead = await getLeadById(leadId, user.orgId).catch(() => null);
         }
 
         const lineItems = [];
@@ -194,14 +194,14 @@ function CreateInvoiceInner() {
         setFetching(false);
       }
     })();
-  }, [bookingIdParam, isEdit]);
+  }, [bookingIdParam, isEdit, user?.orgId]);
 
   // Load existing invoice for editing
   useEffect(() => {
-    if (!editId) return;
+    if (!editId || !user?.orgId) return;
     (async () => {
       try {
-        const inv = await getInvoiceById(editId);
+        const inv = await getInvoiceById(editId, user.orgId);
         if (!inv) { toast.error("Invoice not found"); router.push("/agent-panel/invoices"); return; }
         setForm({
           customerName: inv.customerName || "",
@@ -234,7 +234,7 @@ function CreateInvoiceInner() {
         setFetching(false);
       }
     })();
-  }, [editId]);
+  }, [editId, user?.orgId]);
 
   // Recompute totals whenever line items or gstType change
   useEffect(() => {
@@ -282,6 +282,7 @@ function CreateInvoiceInner() {
   // This eliminates the race condition where "Save as Draft" read form.status before
   // the setState from setField("status", "Draft") had flushed.
   const handleSubmit = async (overrideStatus = null) => {
+    if (!user?.orgId) { toast.error("Organization is not assigned"); return; }
     if (!form.customerName.trim()) { toast.error("Customer name is required"); return; }
     if (!form.invoiceDate) { toast.error("Invoice date is required"); return; }
     if (form.lineItems.length === 0) { toast.error("Add at least one line item"); return; }
@@ -293,11 +294,13 @@ function CreateInvoiceInner() {
         // Use overrideStatus if provided, otherwise keep form.status
         status: overrideStatus ?? form.status,
         agentId,
+        orgId: user.orgId,
+        adminId: user.adminId || null,
         lineItems: form.lineItems.map(({ _key, ...rest }) => rest),
       };
 
       if (isEdit) {
-        await updateInvoice(editId, payload);
+        await updateInvoice(editId, payload, user.orgId);
         toast.success("Invoice updated");
         router.push(`/agent-panel/invoices/${editId}`);
       } else {
@@ -306,7 +309,7 @@ function CreateInvoiceInner() {
         // Back-fill invoicePaymentId on booking payments
         if (payload.bookingId && (form.payments || []).length > 0) {
           try {
-            const booking = await getBookingById(payload.bookingId);
+            const booking = await getBookingById(payload.bookingId, user.orgId);
             if (booking?.payments?.length) {
               let filteredIdx = 0;
               const updatedBookingPayments = booking.payments.map((p) => {
@@ -316,7 +319,7 @@ function CreateInvoiceInner() {
                 }
                 return p;
               });
-              await updateBooking(payload.bookingId, { payments: updatedBookingPayments });
+              await updateBooking(payload.bookingId, { payments: updatedBookingPayments }, user.orgId);
             }
           } catch (e) {
             console.warn("[CreateInvoice] Could not back-fill invoicePaymentId:", e);

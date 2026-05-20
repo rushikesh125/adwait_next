@@ -94,10 +94,14 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+    if (!user?.orgId) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
         const [inv, accounts] = await Promise.all([
-          getInvoiceById(id),
+          getInvoiceById(id, user.orgId),
           agentId ? getPaymentAccountsByAgent(agentId) : Promise.resolve([]),
         ]);
         if (!inv) {
@@ -113,13 +117,13 @@ export default function InvoiceDetailPage() {
         setLoading(false);
       }
     })();
-  }, [id, agentId]);
+  }, [id, agentId, user?.orgId]);
 
   const handleDelete = async () => {
     if (!confirm("Permanently delete this invoice?")) return;
     setDeleting(true);
     try {
-      await deleteInvoice(id);
+      await deleteInvoice(id, user?.orgId);
       toast.success("Invoice deleted");
       router.push(`${panelBase}/invoices`);
     } catch {
@@ -211,12 +215,12 @@ const handleDownload = async () => {
     try {
       if (editingPaymentId) {
         // ── EDIT existing payment ──────────────────────────────────────────
-        const result = await updatePaymentInInvoice(id, editingPaymentId, paymentData);
+        const result = await updatePaymentInInvoice(id, editingPaymentId, paymentData, user?.orgId);
         setInvoice((prev) => ({ ...prev, ...result }));
 
         if (invoice.bookingId) {
           try {
-            const booking = await getBookingById(invoice.bookingId);
+            const booking = await getBookingById(invoice.bookingId, user?.orgId);
             if (booking) {
               const newPaidAmount = result.amountReceived;
               const paymentStatus =
@@ -241,7 +245,7 @@ const handleDownload = async () => {
                 paidAmount: newPaidAmount,
                 paymentStatus,
                 payments: syncedBookingPayments,
-              });
+              }, user?.orgId);
             }
           } catch (e) {
             console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
@@ -250,12 +254,12 @@ const handleDownload = async () => {
         toast.success("Payment updated");
       } else {
         // ── ADD new payment ────────────────────────────────────────────────
-        const result = await addPaymentToInvoice(id, paymentData);
+        const result = await addPaymentToInvoice(id, paymentData, user?.orgId);
         setInvoice((prev) => ({ ...prev, ...result }));
 
         if (invoice.bookingId) {
           try {
-            const booking = await getBookingById(invoice.bookingId);
+            const booking = await getBookingById(invoice.bookingId, user?.orgId);
             if (booking) {
               const newPaidAmount = result.amountReceived;
               const paymentStatus =
@@ -286,7 +290,7 @@ const handleDownload = async () => {
                 paidAmount: newPaidAmount,
                 paymentStatus,
                 payments: syncedBookingPayments,
-              });
+              }, user?.orgId);
             }
           } catch (e) {
             console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);
@@ -308,12 +312,12 @@ const handleDownload = async () => {
     if (!confirm("Remove this payment record?")) return;
     setDeletingPaymentId(paymentId);
     try {
-      const result = await deletePaymentFromInvoice(id, paymentId);
+      const result = await deletePaymentFromInvoice(id, paymentId, user?.orgId);
       setInvoice((prev) => ({ ...prev, ...result }));
 
       if (invoice.bookingId) {
         try {
-          const booking = await getBookingById(invoice.bookingId);
+          const booking = await getBookingById(invoice.bookingId, user?.orgId);
           if (booking) {
             const newPaidAmount = result.amountReceived;
             const paymentStatus =
@@ -329,7 +333,7 @@ const handleDownload = async () => {
               paidAmount: newPaidAmount,
               paymentStatus,
               payments: syncedBookingPayments,
-            });
+            }, user?.orgId);
           }
         } catch (e) {
           console.warn("[InvoiceDetail] Could not sync booking payment (non-critical):", e);

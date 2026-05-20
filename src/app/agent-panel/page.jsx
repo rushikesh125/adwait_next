@@ -326,7 +326,7 @@ export default function AgentDashboard() {
         </section>
 
         <section>
-          <RevenueChart agentId={user?.uid} />
+          <RevenueChart agentId={user?.uid} orgId={user?.orgId} />
         </section>
 
         <section>
