@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import {
   Bell,
   CheckCheck,
@@ -24,10 +25,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  acknowledgeLeadNotificationViaWhatsApp,
   markNotificationRead,
   markAllNotificationsRead,
 } from "@/firebase/notificationsService";
 import { useNotifications } from "@/hooks/useNotifications";
+import {
+  buildLeadAcknowledgementWhatsAppUrl,
+} from "@/lib/leadWhatsApp";
 
 const TYPE_META = {
   vendor_payment_due: {
@@ -127,6 +132,42 @@ function buildWhatsAppUrl(mobile, leadName) {
   return `${base}?text=${encodeURIComponent(msg)}`;
 }
 
+function getLeadIdFromNotification(n) {
+  if (n.metadata?.leadId || n.leadId) return n.metadata?.leadId || n.leadId;
+  const match = n.link?.match(/\/leads\/([^/?#]+)/);
+  return match?.[1] || "";
+}
+
+function getLeadNameFromNotification(n) {
+  if (n.metadata?.leadName || n.metadata?.customerName || n.leadName) {
+    return n.metadata?.leadName || n.metadata?.customerName || n.leadName;
+  }
+
+  const match = n.message?.match(/^(.+?)\s+enquired\s+about/i);
+  return match?.[1] || "Customer";
+}
+
+function getDestinationFromNotification(n) {
+  if (n.metadata?.destination || n.destination) {
+    return n.metadata?.destination || n.destination;
+  }
+
+  const match = n.message?.match(/enquired\s+about\s+(.+?)\s+for/i);
+  return match?.[1] || "your trip";
+}
+
+function getPhoneFromNotification(n) {
+  return (
+    n.metadata?.customerPhone ||
+    n.metadata?.mobile ||
+    n.metadata?.phone ||
+    n.customerPhone ||
+    n.mobile ||
+    n.phone ||
+    ""
+  );
+}
+
 function SkeletonRow() {
   return (
     <div className="flex items-start gap-3 px-4 py-3">
@@ -175,6 +216,7 @@ function PermissionBanner({ onAllow, onDismiss }) {
 }
 
 export default function NotificationCenter({ userId }) {
+  const { user } = useSelector((state) => state.auth);
   const {
     notifications,
     setNotifications,
@@ -190,6 +232,7 @@ export default function NotificationCenter({ userId }) {
   const [open, setOpen] = useState(false);
   const [showPermBanner, setShowPermBanner] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [ackSaving, setAckSaving] = useState({});
   const bellWrapRef = useRef(null);
   const router = useRouter();
 
@@ -323,6 +366,49 @@ export default function NotificationCenter({ userId }) {
   const handleAllowNotifications = async () => {
     const result = await askPermission();
     if (result !== "default") setShowPermBanner(false);
+  };
+
+  const handleLeadWhatsAppAcknowledge = async (event, n) => {
+    event.stopPropagation();
+
+    const phone = getPhoneFromNotification(n);
+    const leadId = getLeadIdFromNotification(n);
+    const url = buildLeadAcknowledgementWhatsAppUrl({
+      phone,
+      leadName: getLeadNameFromNotification(n),
+      destination: getDestinationFromNotification(n),
+    });
+
+    const whatsAppWindow = window.open(url, "_blank");
+    if (!whatsAppWindow) return;
+
+    setAckSaving((prev) => ({ ...prev, [n.id]: true }));
+
+    const results = await acknowledgeLeadNotificationViaWhatsApp({
+      notificationId: n.id,
+      leadId,
+      agentName: user?.name || user?.displayName || "Agent",
+    });
+
+    const failed = results.some((result) => result.status === "rejected");
+
+    if (!failed) {
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === n.id
+            ? {
+                ...item,
+                acknowledgedViaWhatsApp: true,
+                acknowledgmentStatus: "Acknowledged via WhatsApp",
+              }
+            : item,
+        ),
+      );
+    } else {
+      console.warn("[Notifications] WhatsApp sent confirmation log failed");
+    }
+
+    setAckSaving((prev) => ({ ...prev, [n.id]: false }));
   };
   const recentNotifications = notifications
   .filter((n) => !n.read)
@@ -638,6 +724,74 @@ export default function NotificationCenter({ userId }) {
                       {recentNotifications.map((n) => {
                         const meta = TYPE_META[n.type] ?? TYPE_META.default;
                         const Icon = meta.icon;
+                        const canAcknowledgeLead = n.type === "lead_assigned";
+                        const isAcknowledged =
+                          n.acknowledgedViaWhatsApp ||
+                          n.acknowledgmentStatus ===
+                            "Acknowledged via WhatsApp";
+
+                        if (canAcknowledgeLead) {
+                          return (
+                            <div
+                              key={n.id}
+                              onClick={() => handleNotificationClick(n)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  handleNotificationClick(n);
+                                }
+                              }}
+                              className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 active:bg-slate-100 cursor-pointer ${!n.read ? "bg-blue-50/40" : ""}`}
+                            >
+                              <div
+                                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${meta.bg}`}
+                              >
+                                <Icon className={`h-4 w-4 ${meta.color}`} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className={`text-sm text-slate-800 ${!n.read ? "font-semibold" : "font-medium"}`}
+                                >
+                                  {n.title}
+                                </p>
+                                <p className="mt-0.5 text-xs text-slate-500 line-clamp-2">
+                                  {n.message}
+                                </p>
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  {!isAcknowledged && (
+                                    <button
+                                      type="button"
+                                      disabled={ackSaving[n.id]}
+                                      onClick={(event) =>
+                                        handleLeadWhatsAppAcknowledge(event, n)
+                                      }
+                                      className="flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-green-600 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      <MessageCircle className="h-3 w-3" />
+                                      {ackSaving[n.id]
+                                        ? "Saving..."
+                                        : "WhatsApp Acknowledge"}
+                                    </button>
+                                  )}
+                                  {isAcknowledged && (
+                                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                      Acknowledged via WhatsApp
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-[10px] text-slate-400">
+                                  {timeAgo(n.createdAt)}
+                                </p>
+                              </div>
+                              {!n.read && (
+                                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                              )}
+                            </div>
+                          );
+                        }
+
                         return (
                           <button
                             key={n.id}

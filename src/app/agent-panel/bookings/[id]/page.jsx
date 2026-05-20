@@ -675,10 +675,12 @@ export default function BookingDetailPage() {
   const deletedVouchers = (booking.vouchers || []).filter((v) => v.deleted);
 
   const bookingAsQuotation = {
-    id: booking.quotationId || booking.id,
+    id: booking.quotationId || null,
     customerName: booking.customerName || "",
     customerMobile: booking.customerMobile || booking.mobile || "",
     destination: booking.destination || "",
+    bookingReference: booking.bookingRef || "",
+    bookingRef: booking.bookingRef || "",
     leadName: booking.customerName || "",
   };
 
@@ -770,8 +772,19 @@ export default function BookingDetailPage() {
                 <p className="text-slate-400 text-sm text-center py-4">No vouchers created yet. Use the buttons above to generate one.</p>
               ) : (
                 <div className="space-y-3">
-                  {activeVouchers.map((v) => (
-                    <div key={v.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  {activeVouchers.map((v) => (<div
+  key={v.id}
+  
+  
+  className="
+    flex items-center justify-between
+    p-3 rounded-xl
+    bg-slate-50 border border-slate-100
+    hover:bg-blue-50 hover:border-blue-200
+    transition cursor-pointer
+  "
+>
+                 
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-white border border-slate-200">
                           <Hotel className="w-4 h-4 text-theme-primary" />

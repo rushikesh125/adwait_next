@@ -197,9 +197,14 @@ if (
       }
     }
   } else {
-    // If quotation doesn't exist yet, just update it normally
-    await updateDoc(ref, data);
+    console.warn(
+      "[quotations] update skipped because quotation document does not exist:",
+      { agentId, quotationId },
+    );
+    return false;
   }
+
+  return true;
 }
 
 /**

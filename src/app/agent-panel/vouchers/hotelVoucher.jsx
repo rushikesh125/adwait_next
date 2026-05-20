@@ -38,7 +38,7 @@ import {
   saveVoucherToFirestore,
   updateVoucherDocument,
 } from "@/firebase/voucher";
-import { updateQuotation } from "@/firebase/quotations";
+import { getQuotationById, updateQuotation } from "@/firebase/quotations";
 import { generateHotelVoucherPDF } from "@/lib/generateHotelVoucher";
 
 function formatDate(dateStr) {
@@ -368,9 +368,25 @@ export default function HotelVoucherDrawer({
 
     setLoading(true);
     try {
+      let linkedQuotationId = initialVoucher?.quotationId || finalQuotation?.id || null;
+      if (!isEditMode && linkedQuotationId) {
+        const existingQuotation = await getQuotationById(
+          finalAgentId,
+          linkedQuotationId,
+        );
+
+        if (!existingQuotation) {
+          console.warn(
+            "[HotelVoucher] Linked quotation not found; saving voucher as standalone:",
+            linkedQuotationId,
+          );
+          linkedQuotationId = null;
+        }
+      }
+
       const voucherData = {
         ...buildVoucherData(),
-        quotationId: initialVoucher?.quotationId || finalQuotation?.id || null,
+        quotationId: linkedQuotationId,
         customerName:
           finalQuotation?.customerName ||
           initialVoucher?.customerName ||
@@ -392,12 +408,12 @@ export default function HotelVoucherDrawer({
       } else {
         await saveVoucherToFirestore(
           finalAgentId,
-          finalQuotation?.id || null,
+          linkedQuotationId,
           voucherData,
         );
 
-        if (finalQuotation?.id) {
-          await updateQuotation(finalAgentId, finalQuotation.id, {
+        if (linkedQuotationId) {
+          await updateQuotation(finalAgentId, linkedQuotationId, {
             voucherNumber: voucherNo,
             isVoucherGenerated: true,
             voucherType: "Hotel",

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
-
+import { Toaster } from "react-hot-toast";
 import {
   LayoutDashboard, Map, Users, LogOut, Menu, X, Bell,
   Briefcase, Component, Tickets, BookAIcon, CalendarCheck, FileText,
@@ -131,6 +131,8 @@ const AgentPanelLayout = ({ children }) => {
 
   return (
     <RequireAuth allowedRoles={["agent"]}>
+        <>
+    <Toaster position="top-center" />
       <div className="h-screen bg-[#FDFCFE] flex overflow-hidden">
 
         {/* Mobile sidebar overlay — z-[100] so it's above header but below notification sheet */}
@@ -190,6 +192,7 @@ const AgentPanelLayout = ({ children }) => {
           </main>
         </div>
       </div>
+      </>
     </RequireAuth>
   );
 };

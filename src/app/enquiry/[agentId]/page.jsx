@@ -187,6 +187,14 @@ export default function PublicEnquiryPage() {
           title: "New Lead Received! 🔔",
           message: `${form.name.trim()} enquired about ${form.destination} for ${form.adults} adult(s).`,
            link: `/agent-panel/leads/${leadId}`,
+          metadata: {
+            leadId,
+            leadName: form.name.trim(),
+            customerName: form.name.trim(),
+            destination: form.destination,
+            mobile: cleanMobile,
+            customerPhone: cleanMobile,
+          },
           priority: "high",
         }).catch((err) =>
           console.warn("[Push] Lead notification failed:", err),
