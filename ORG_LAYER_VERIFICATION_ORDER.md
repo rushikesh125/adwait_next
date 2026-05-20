@@ -2,7 +2,7 @@
 
 Use this after implementing `orgId` writes, filters, public-flow derivation, migration, and rules.
 
-## 1. Login And Auth State
+## 1. Login And Auth State (DONE)
 
 Test first:
 
@@ -211,4 +211,3 @@ Expected:
 - Org B users cannot see or modify Org A data.
 - Superadmin can see global admin/agent/org management data.
 - Firestore rules reject cross-org reads/writes even if the frontend is bypassed.
-
