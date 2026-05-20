@@ -20,7 +20,7 @@ const FONT_BODY = 9;
 const FONT_SMALL = 8;
 const FONT_TINY = 7;
 const FONT_HEADING = 10;
-const FONT_DAY = 11;
+const FONT_DAY = 12;
 
 const MEAL_PLAN_LABELS = {
   EP: "Accommodation Only",
@@ -331,7 +331,7 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
   pdfdoc.setFillColor(BRAND);
   pdfdoc.roundedRect(15, y - 4, 32, 7, 1, 1, "F");
   pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setFontSize(FONT_DAY);
   pdfdoc.setTextColor("#FFFFFF");
   pdfdoc.text(`Day ${day.dayNumber}`, 18, y + 0.5);
   pdfdoc.setTextColor("#000000");
@@ -727,10 +727,9 @@ export const exportPackagePDF = async ({
             Array.isArray(h.roomCategories) && h.roomCategories.length > 1;
 
           if (hasMultiRooms) {
-            // First row: hotel name spans visually via first room category
             return h.roomCategories.map((rc, rcIdx) => {
               const guestParts = [
-                `${rc.numDouble || 0} Rm`,
+                `${rc.numDouble || 0} Room`,
                 ...(rc.numExtraAdult > 0
                   ? [`${rc.numExtraAdult} Ext.Adult`]
                   : []),
@@ -740,25 +739,16 @@ export const exportPackagePDF = async ({
               return [
                 rcIdx === 0
                   ? hotelCell
-                  : {
-                      content: ` Room ${rcIdx + 1}`,
-                      styles: {
-                        textColor: [100, 100, 100],
-                        fontSize: FONT_TINY,
-                      },
-                    },
-                rcIdx === 0 ? h.city : "",
+                  : { content: "", styles: { textColor: [100, 100, 100] } },
+                h.city,
                 rc.roomCategory || "—",
-                rcIdx === 0
-                  ? `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`
-                  : "",
-                rcIdx === 0 ? h.nights : "",
+                `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`,
+                h.nights,
                 MEAL_PLAN_LABELS[rc.mealPlan] || rc.mealPlan || "—",
                 guestParts.join(", "),
               ];
             });
           }
-
           // Single room (legacy or single-category)
           const primaryRoom = h.roomCategories?.[0];
           const numDouble = primaryRoom?.numDouble ?? h.numDouble ?? 0;
@@ -768,7 +758,7 @@ export const exportPackagePDF = async ({
             primaryRoom?.numExtraChild ?? h.numExtraChild ?? 0;
           const numCNB = primaryRoom?.numCNB ?? h.numCNB ?? 0;
           const guestParts = [
-            `${numDouble} Rm`,
+            `${numDouble} Room`,
             ...(numExtraAdult > 0 ? [`${numExtraAdult} Ext.Adult`] : []),
             ...(numExtraChild > 0 ? [`${numExtraChild} Child`] : []),
             ...(numCNB > 0 ? [`${numCNB} CNB`] : []),
@@ -1069,13 +1059,13 @@ export const exportPackagePDF = async ({
     y += 6;
 
     // ── Cities ──
-    if (itin.cities?.length) {
-      pdfdoc.setFont("helvetica", "normal");
-      pdfdoc.setFontSize(FONT_BODY);
-      pdfdoc.setTextColor("#555");
-      pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
-      y += 8;
-    }
+    // if (itin.cities?.length) {
+    //   pdfdoc.setFont("helvetica", "normal");
+    //   pdfdoc.setFontSize(FONT_BODY);
+    //   pdfdoc.setTextColor("#555");
+    //   pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
+    //   y += 8;
+    // }
 
     // ✅ Filter valid days (ONLY for rendering days)
     const validDays = itin.days.filter((d) => d && (d.title || d.description));
