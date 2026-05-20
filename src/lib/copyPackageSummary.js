@@ -209,20 +209,28 @@ const buildOptionBlock = (
   });
 
   // Grand total per option
-  const preDiscountTotal = calcOptionGrandTotal(
-    option,
-    transportTotal,
-    activityTotal,
-    optionMarkup,
-  );
-  const discountAmount = (() => {
-    if (!appliedDiscount?.value || appliedDiscount.value <= 0) return 0;
-    if (appliedDiscount.type === "percentage") {
-      return Math.round((appliedDiscount.value / 100) * preDiscountTotal);
-    }
-    return Math.min(Number(appliedDiscount.value), preDiscountTotal);
-  })();
-  const finalTotal = preDiscountTotal - discountAmount;
+// AFTER
+// Prefer pre-stored totals (saved by Create_new_package) over recomputation
+const preDiscountTotal =
+  typeof option.preDiscountTotal === "number"
+    ? option.preDiscountTotal
+    : calcOptionGrandTotal(option, transportTotal, activityTotal, optionMarkup);
+
+const discountAmount =
+  typeof option.discountAmount === "number" && option.discountAmount > 0
+    ? option.discountAmount
+    : (() => {
+        if (!appliedDiscount?.value || appliedDiscount.value <= 0) return 0;
+        if (appliedDiscount.type === "percentage") {
+          return Math.round((appliedDiscount.value / 100) * preDiscountTotal);
+        }
+        return Math.min(Number(appliedDiscount.value), preDiscountTotal);
+      })();
+
+const finalTotal =
+  typeof option.grandTotal === "number"
+    ? option.grandTotal
+    : preDiscountTotal - discountAmount;
 
   if (discountAmount > 0) {
     s += `Package Cost: ₹${preDiscountTotal.toLocaleString("en-IN")}/-\n`;

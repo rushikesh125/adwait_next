@@ -462,9 +462,14 @@ const MultiRoomCategoryEditor = ({
             nights={nights}
             onTotalChange={(price) => {
               console.log("ROOM", index, "PRICE:", price);
-              // FIX: store latest price in the ref immediately
+              // Always keep ref in sync; remove stale entry when price resets to 0
+              // (e.g. meal plan changed to one with no available rate)
               if (roomPriceRefs?.current) {
-                roomPriceRefs.current[row.id] = price;
+                if (price > 0) {
+                  roomPriceRefs.current[row.id] = price;
+                } else {
+                  delete roomPriceRefs.current[row.id];
+                }
               }
               updateRow(index, { price });
             }}
@@ -766,7 +771,11 @@ const Create_new_package = ({
   const roomPriceRefs = useRef({});
   // Helper to get total from refs
   const getLatestTotal = useCallback(
-    () => Object.values(roomPriceRefs.current).reduce((sum, p) => sum + (p || 0), 0),
+    () =>
+      Object.values(roomPriceRefs.current).reduce(
+        (sum, p) => sum + (p || 0),
+        0,
+      ),
     [],
   );
 
@@ -1311,8 +1320,11 @@ const Create_new_package = ({
       return;
     }
 
-    // FIX: use ref-based total that is always synchronous
-    const totalForEntry = getLatestTotal();
+    // Recompute total directly from refs+state at save time (refs are always synchronous)
+    const totalForEntry = roomCategoryRows.reduce(
+      (sum, r) => sum + (roomPriceRefs.current?.[r.id] ?? r.price ?? 0),
+      0,
+    );
     if (totalForEntry <= 0) {
       alert("No valid hotel rate is available for the selected stay dates.");
       return;
@@ -1349,7 +1361,8 @@ const Create_new_package = ({
         numExtraAdult: r.numExtraAdult,
         numExtraChild: r.numExtraChild,
         numCNB: r.numCNB,
-        price: r.price || roomPriceRefs.current?.[r.id] || 0, // fallback to ref if state lagged
+        // Ref is always most up-to-date (synchronous); fall back to state only if ref is missing
+        price: roomPriceRefs.current?.[r.id] ?? r.price ?? 0,
       })),
     };
 
@@ -1369,6 +1382,8 @@ const Create_new_package = ({
   };
 
   const handleEditHotel = (index) => {
+    roomPriceRefs.current = {};
+
     const entry = hotelEntries[index];
     if (entry?.isCustom) {
       updateActiveOption({
@@ -1381,20 +1396,23 @@ const Create_new_package = ({
         roomCategoryRows: [createEmptyRoomCategory(0)],
       });
     } else {
-      // When editing, pre-populate roomCategoryRows from the entry's roomCategories
+     // Generate stable IDs once so row IDs and ref keys always match
       const existingRows =
         Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0
-          ? entry.roomCategories.map((rc, i) => ({
-              id: rc.id || Date.now() + i,
-              roomCategory: rc.roomCategory || "",
-              mealPlan: rc.mealPlan || "",
-              mealPlanOverridden: rc.mealPlanOverridden || false,
-              numDouble: rc.numDouble ?? (i === 0 ? 1 : 0),
-              numExtraAdult: rc.numExtraAdult ?? 0,
-              numExtraChild: rc.numExtraChild ?? 0,
-              numCNB: rc.numCNB ?? 0,
-              price: rc.price ?? 0,
-            }))
+          ? entry.roomCategories.map((rc, i) => {
+              const stableId = rc.id || (Date.now() + i);
+              return {
+                id: stableId,
+                roomCategory: rc.roomCategory || "",
+                mealPlan: rc.mealPlan || "",
+                mealPlanOverridden: rc.mealPlanOverridden || false,
+                numDouble: rc.numDouble ?? (i === 0 ? 1 : 0),
+                numExtraAdult: rc.numExtraAdult ?? 0,
+                numExtraChild: rc.numExtraChild ?? 0,
+                numCNB: rc.numCNB ?? 0,
+                price: rc.price ?? 0,
+              };
+            })
           : [
               {
                 id: Date.now(),
@@ -1410,6 +1428,22 @@ const Create_new_package = ({
               },
             ];
 
+      updateActiveOption({
+        selectedState: entry.state,
+        checkInDate: entry.checkInDate,
+        nights: entry.nights,
+        selectedHotelId:
+          hotels.find((h) => h.name === entry.hotel && h.city === entry.city)
+            ?.id || null,
+        editingIndex: index,
+        showCustomHotelForm: false,
+        roomCategoryRows: existingRows,
+      });
+      // Fully reset refs then repopulate from the finalized stable rows
+      roomPriceRefs.current = {};
+      existingRows.forEach((r) => {
+        if (r.price > 0) roomPriceRefs.current[r.id] = r.price;
+      });
       updateActiveOption({
         selectedState: entry.state,
         checkInDate: entry.checkInDate,
@@ -1527,10 +1561,72 @@ const Create_new_package = ({
     });
     toast.success("Discount applied!");
   };
+  const getPackageOptionsForExport = () => {
+    // Nothing being edited — return as-is
+    if (editingIndex === null && !selectedHotelId) return packageOptions;
+
+    return packageOptions.map((opt) => {
+      if (opt.id !== activeOptionId) return opt;
+
+      // If a hotel is selected but not yet saved, inject the live roomCategoryRows
+      // into the matching entry (editingIndex) or as a preview for a new entry
+      const liveRows = (opt.roomCategoryRows || []).map((r) => ({
+        ...r,
+        price: roomPriceRefs.current?.[r.id] ?? r.price ?? 0,
+      }));
+      const liveTotal = liveRows.reduce((s, r) => s + r.price, 0);
+
+      if (editingIndex !== null) {
+        // Updating an existing entry — replace it with live values
+        const updatedEntries = opt.hotelEntries.map((entry, i) => {
+          if (i !== editingIndex) return entry;
+          return {
+            ...entry,
+            roomCategories: liveRows,
+            hotelTotal: liveTotal,
+          };
+        });
+        return { ...opt, hotelEntries: sortEntriesByCheckIn(updatedEntries) };
+      }
+
+      // New hotel not yet saved — append a preview entry if there is a price
+      if (selectedHotelData && liveTotal > 0) {
+        const primaryRow = liveRows[0] || {};
+        const previewEntry = {
+          checkInDate,
+          nights,
+          checkOutDate,
+          state: selectedState,
+          hotel: selectedHotelData.name,
+          city: selectedHotelData.city,
+          GoogleListingURL: selectedHotelData.GoogleListingURL || null,
+          numDouble: primaryRow.numDouble ?? 1,
+          numExtraAdult: primaryRow.numExtraAdult ?? 0,
+          numExtraChild: primaryRow.numExtraChild ?? 0,
+          numCNB: primaryRow.numCNB ?? 0,
+          selectedMealPlan: primaryRow.mealPlan ?? "",
+          selectedRoomCategory: primaryRow.roomCategory ?? "",
+          hotelTotal: liveTotal,
+          isCustom: false,
+          roomCategories: liveRows,
+        };
+        return {
+          ...opt,
+          hotelEntries: sortEntriesByCheckIn([
+            ...opt.hotelEntries,
+            previewEntry,
+          ]),
+        };
+      }
+
+      return opt;
+    });
+  };
+
 
   const handleCopyToClipboard = () =>
     copyPackageSummary({
-      packageOptions,
+      packageOptions:getPackageOptionsForExport(),
       selectedTransport,
       selectedActivities,
       transportTotalPrice,
@@ -1544,7 +1640,7 @@ const Create_new_package = ({
 
   const handleExportToPDF = () =>
     exportPackagePDF({
-      packageOptions,
+      packageOptions:getPackageOptionsForExport(),
       selectedTransport,
       selectedActivities,
       transportTotalPrice,
