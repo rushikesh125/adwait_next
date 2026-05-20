@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSelector } from "react-redux";
 import { auth } from "@/firebase/config";
 import {
   checkInstallmentAlerts,
@@ -1093,6 +1094,7 @@ function ServiceCard({
 function CreateBookingInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useSelector((state) => state.auth);
   const editId = searchParams.get("id");
   const isEdit = !!editId;
 
@@ -1140,7 +1142,7 @@ function CreateBookingInner() {
     if (!isEdit) return;
     (async () => {
       try {
-        const data = await getBookingById(editId);
+        const data = await getBookingById(editId, user?.orgId);
         if (data) {
           setForm({
             customerName: data.customerName || "",
@@ -1179,7 +1181,7 @@ function CreateBookingInner() {
         setFetching(false);
       }
     })();
-  }, [editId, isEdit]);
+  }, [editId, isEdit, user?.orgId]);
 
   // ── Form field helpers ───────────────────────────────────────────────────
 
@@ -1320,7 +1322,7 @@ function CreateBookingInner() {
     if (!form.customerName.trim())
       return toast.error("Customer name is required");
     if (!form.destination.trim()) return toast.error("Destination is required");
-    if (!auth.currentUser) return toast.error("Not authenticated");
+    if (!auth.currentUser || !user?.orgId) return toast.error("Not authenticated");
 
     // Validate all vendor payments (total allocated cannot exceed cost)
     for (const svc of form.services) {
@@ -1381,10 +1383,11 @@ function CreateBookingInner() {
         totalVendorPaid,
         totalVendorBalance,
         agentId: auth.currentUser.uid,
+        orgId: user.orgId,
       };
 
       if (isEdit) {
-        await updateBooking(editId, payload);
+        await updateBooking(editId, payload, user.orgId);
         toast.success("Booking updated");
       } else {
         const newBookingId = await createBooking(payload);
@@ -1393,7 +1396,7 @@ function CreateBookingInner() {
             await updateQuotation(auth.currentUser.uid, form.quotationId, {
               convertedToBooking: true,
               bookingId: newBookingId,
-            });
+            }, { orgId: user.orgId });
           } catch {
             /* non-critical */
           }

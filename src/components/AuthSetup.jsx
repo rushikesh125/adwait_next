@@ -7,6 +7,7 @@ import { useDispatch } from "react-redux";
 import { collection, doc, getDoc, getDocs, limit, query, updateDoc, where } from "firebase/firestore";
 import { clearUser, setUser, setInitialized } from "@/store/authSlice";
 import { backfillAdminReferences } from "@/firebase/adminService";
+import { getOrganization } from "@/firebase/organizationService";
 
 const ROLE_COLLECTIONS = [
   { name: "super_admins", role: "superadmin" },
@@ -74,8 +75,13 @@ const AuthSetup = () => {
             if (resolved.role === "admin" && resolved.docId !== currentUser.uid) {
               await backfillAdminReferences(resolved.docId, currentUser.uid).catch(() => {});
             }
+            let organization = null;
+            if (resolved.data.orgId) {
+              organization = await getOrganization(resolved.data.orgId).catch(() => null);
+            }
             dispatch(setUser({
               ...resolved.data,
+              orgName: organization?.name || resolved.data.orgName || null,
               uid: currentUser.uid,
               role: resolved.role,
               providerIds: currentUser.providerData?.map((p) => p.providerId) || [],

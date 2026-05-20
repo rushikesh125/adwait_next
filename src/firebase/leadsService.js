@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   collectionGroup,
 } from "firebase/firestore";
+import { belongsToOrg, orgFilter } from "./orgScope";
 
 const leadsRef = collection(db, "leads");
 
@@ -34,8 +35,8 @@ export const addLead = async (data) => {
 // GET LEADS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const getAllLeads = async () => {
-  const q = query(leadsRef, orderBy("createdAt", "desc"));
+export const getAllLeads = async (orgId = null) => {
+  const q = query(leadsRef, ...orgFilter(orgId), orderBy("createdAt", "desc"));
 
   const snap = await getDocs(q);
 
@@ -45,9 +46,10 @@ export const getAllLeads = async () => {
   }));
 };
 
-export const getLeadsByAgent = async (agentId) => {
+export const getLeadsByAgent = async (agentId, orgId = null) => {
   const q = query(
     leadsRef,
+    ...orgFilter(orgId),
     where("agentId", "==", agentId)
   );
 
@@ -95,12 +97,12 @@ export const createAssignedLead = async ({
 // QUOTATIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const getQuotationsForLead = async (leadId) => {
+export const getQuotationsForLead = async (leadId, orgId = null) => {
   if (!leadId) return [];
 
   try {
     const snap = await getDocs(
-      query(collectionGroup(db, "packages"), where("leadId", "==", leadId))
+      query(collectionGroup(db, "packages"), ...orgFilter(orgId), where("leadId", "==", leadId))
     );
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (error) {
@@ -212,8 +214,13 @@ export const markLeadAsCold = async (
 
 export const updateLeadDetails = async (
   id,
-  data
+  data,
+  orgId = null,
 ) => {
+  if (orgId) {
+    const existing = await getLeadById(id, orgId);
+    if (!existing) throw new Error("Lead not found");
+  }
   const ref = doc(db, "leads", id);
 
   await updateDoc(ref, data);
@@ -223,17 +230,14 @@ export const updateLeadDetails = async (
 // PROFILE PAGE HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const getLeadById = async (id) => {
+export const getLeadById = async (id, orgId = null) => {
   const ref = doc(db, "leads", id);
 
   const snap = await getDoc(ref);
 
-  return snap.exists()
-    ? {
-        id: snap.id,
-        ...snap.data(),
-      }
-    : null;
+  if (!snap.exists()) return null;
+  const data = { id: snap.id, ...snap.data() };
+  return belongsToOrg(data, orgId) ? data : null;
 };
 
 export const getLeadNotes = async (lid) => {
@@ -302,7 +306,8 @@ export const updateLeadNote = async (
 
 export const getAgentQuotationsForLead = async (
   uid,
-  lid
+  lid,
+  orgId = null
 ) => {
   const q = query(
     collection(
@@ -311,6 +316,7 @@ export const getAgentQuotationsForLead = async (
       uid,
       "packages"
     ),
+    ...orgFilter(orgId),
     where("leadId", "==", lid)
   );
 
@@ -380,10 +386,11 @@ export const deleteQuotation = async (
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const rejectAllQuotationsForLead =
-  async (leadId) => {
+  async (leadId, orgId = null) => {
     try {
       const q = query(
         collectionGroup(db, "packages"),
+        ...orgFilter(orgId),
         where("leadId", "==", leadId)
       );
 

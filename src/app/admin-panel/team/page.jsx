@@ -24,11 +24,11 @@ export default function AdminTeamPage() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    getAdminDashboardStats(user.uid)
+    getAdminDashboardStats(user.uid, user.orgId)
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [user?.uid]);
+  }, [user?.uid, user?.orgId]);
 
   if (loading) {
     return (

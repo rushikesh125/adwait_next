@@ -11,6 +11,7 @@ import {
   doc,
   serverTimestamp,
 } from "firebase/firestore";
+import { belongsToOrg, orgFilter } from "./orgScope";
 
 const COLLECTION = "bookings";
 
@@ -47,10 +48,11 @@ export const createBooking = async (data) => {
   }
 };
 
-export const getBookingsByAgent = async (agentId) => {
+export const getBookingsByAgent = async (agentId, orgId = null) => {
   try {
     const q = query(
       collection(db, COLLECTION),
+      ...orgFilter(orgId),
       where("agentId", "==", agentId),
     );
     const snap = await getDocs(q);
@@ -61,18 +63,24 @@ export const getBookingsByAgent = async (agentId) => {
   }
 };
 
-export const getBookingById = async (id) => {
+export const getBookingById = async (id, orgId = null) => {
   try {
     const snap = await getDoc(doc(db, COLLECTION, id));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    if (!snap.exists()) return null;
+    const data = { id: snap.id, ...snap.data() };
+    return belongsToOrg(data, orgId) ? data : null;
   } catch (e) {
     logError("getBookingById", e);
     throw e;
   }
 };
 
-export const updateBooking = async (id, data) => {
+export const updateBooking = async (id, data, orgId = null) => {
   try {
+    if (orgId) {
+      const existing = await getBookingById(id, orgId);
+      if (!existing) throw new Error("Booking not found");
+    }
     await updateDoc(doc(db, COLLECTION, id), {
       ...data,
       updatedAt: serverTimestamp(),
@@ -83,8 +91,12 @@ export const updateBooking = async (id, data) => {
   }
 };
 
-export const updateBookingStatus = async (id, status) => {
+export const updateBookingStatus = async (id, status, orgId = null) => {
   try {
+    if (orgId) {
+      const existing = await getBookingById(id, orgId);
+      if (!existing) throw new Error("Booking not found");
+    }
     await updateDoc(doc(db, COLLECTION, id), {
       status,
       updatedAt: serverTimestamp(),
@@ -95,8 +107,12 @@ export const updateBookingStatus = async (id, status) => {
   }
 };
 
-export const deleteBooking = async (id) => {
+export const deleteBooking = async (id, orgId = null) => {
   try {
+    if (orgId) {
+      const existing = await getBookingById(id, orgId);
+      if (!existing) throw new Error("Booking not found");
+    }
     await deleteDoc(doc(db, COLLECTION, id));
   } catch (e) {
     logError("deleteBooking", e);

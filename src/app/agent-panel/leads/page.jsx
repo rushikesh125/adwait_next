@@ -34,7 +34,7 @@ import {
 } from "@/firebase/leadsService";
 import { addCustomer } from "@/firebase/customersService";
 import { db } from "@/firebase/config";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import toast, { Toaster } from "react-hot-toast";
@@ -187,7 +187,7 @@ export default function LeadsPage() {
     if (!user?.uid) return;
     try {
       setLoading(true);
-      const data = await getLeadsByAgent(user.uid);
+      const data = await getLeadsByAgent(user.uid, user.orgId);
       setLeads(data);
     } catch (error) {
       toast.error("Failed to fetch leads");
@@ -198,7 +198,9 @@ export default function LeadsPage() {
 
   const loadCustomers = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "customers"));
+      const querySnapshot = await getDocs(
+        query(collection(db, "customers"), where("orgId", "==", user.orgId))
+      );
       const customerData = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -212,7 +214,7 @@ export default function LeadsPage() {
   useEffect(() => {
     loadLeads();
     loadCustomers();
-  }, [user?.uid]);
+  }, [user?.uid, user?.orgId]);
 
   useEffect(() => {
     if (searchParams.get("open") === "new") {
@@ -256,6 +258,7 @@ export default function LeadsPage() {
     try {
       await addCustomer({
         ...customerForm,
+        orgId: user.orgId,
         status: "New",
         date: new Date().toLocaleDateString(),
       });
@@ -277,6 +280,7 @@ export default function LeadsPage() {
       // ✅ Create lead and get ID
       const leadId = await addLead({
         ...form,
+        orgId: user.orgId,
         email: form.email || "",
         mobile: form.mobile ? normalizeMobile(form.mobile) : "",
 
@@ -361,7 +365,7 @@ export default function LeadsPage() {
     }
 
     if (status === "Closed Lost") {
-      await rejectAllQuotationsForLead(id);
+      await rejectAllQuotationsForLead(id, user.orgId);
     }
 
     toast.success(`Status updated to ${status}`, { id: tid });

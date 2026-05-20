@@ -31,10 +31,10 @@ export default function AdminTeamQuotationsPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const agentList = await getAgentsByAdmin(user.uid);
+      const agentList = await getAgentsByAdmin(user.uid, user.orgId);
       setAgents(agentList);
       const agentIds = agentList.map((a) => a.id);
-      const q = await getQuotationsByAdmin(agentIds);
+      const q = await getQuotationsByAdmin(agentIds, user.orgId);
       setQuotations(q);
     } catch (e) {
       console.error(e);
@@ -44,7 +44,7 @@ export default function AdminTeamQuotationsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.uid]);
+  useEffect(() => { load(); }, [user?.uid, user?.orgId]);
 
   const agentMap = useMemo(() => Object.fromEntries(agents.map((a) => [a.id, a.name])), [agents]);
 

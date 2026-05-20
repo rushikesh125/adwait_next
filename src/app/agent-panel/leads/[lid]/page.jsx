@@ -224,8 +224,8 @@ export default function LeadProfilePage({ params }) {
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (lid && user?.uid) loadAll();
-  }, [lid, user]);
+    if (lid && user?.uid && user?.orgId) loadAll();
+  }, [lid, user?.uid, user?.orgId]);
 
   useEffect(() => {
     if (!lead) return;
@@ -257,8 +257,8 @@ export default function LeadProfilePage({ params }) {
     try {
       setLoading(true);
       const [leadData, quotesData, notesData, fuData] = await Promise.all([
-        getLeadById(lid),
-        getQuotationsForLead(lid),
+        getLeadById(lid, user?.orgId),
+        getQuotationsForLead(lid, user?.orgId),
         getLeadNotes(lid),
         getFollowUpsForLead(lid),
       ]);
@@ -363,7 +363,7 @@ export default function LeadProfilePage({ params }) {
     setOrphanLoading(true);
     setAttachSearch("");
     try {
-      const orphans = await fetchUnlinkedQuotationsByAgent(user.uid);
+      const orphans = await fetchUnlinkedQuotationsByAgent(user.uid, user.orgId);
       setOrphanQuotations(orphans);
     } catch (err) {
       console.error("[LeadProfilePage] fetchUnlinked error:", err);
@@ -439,7 +439,7 @@ export default function LeadProfilePage({ params }) {
     if (quote.status === "Sent") return;
     const tid = toast.loading("Marking as sent…");
     try {
-      await updateQuotation(user.uid, quote.id, { status: "Sent" });
+      await updateQuotation(user.uid, quote.id, { status: "Sent" }, { orgId: user.orgId });
       setQuotations((prev) =>
         prev.map((q) => (q.id === quote.id ? { ...q, status: "Sent" } : q)),
       );
@@ -465,7 +465,7 @@ export default function LeadProfilePage({ params }) {
   const handleUpdateLead = async (e) => {
     e.preventDefault();
     try {
-      await updateLeadDetails(lid, leadForm);
+      await updateLeadDetails(lid, leadForm, user?.orgId);
       toast.success("Lead updated");
       setIsLeadEditOpen(false);
       loadAll();

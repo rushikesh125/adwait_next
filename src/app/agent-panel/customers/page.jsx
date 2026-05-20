@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useSelector } from "react-redux";
 import { Users, UserPlus, Search, X, RefreshCw, Filter } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ function logError(context, error) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
+  const { user } = useSelector((state) => state.auth);
   // ── Server-pagination state ──────────────────────────────────────────────
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -71,7 +73,7 @@ export default function CustomersPage() {
     logInfo("loadAllCustomers", "fetching entire collection for search");
     setLoading(true);
     try {
-      const data = await getAllCustomers();
+      const data = await getAllCustomers(user?.orgId);
       setAllCustomers(data);
       setAllCustomersLoaded(true);
       logInfo("loadAllCustomers", `fetched ${data.length} total records`);
@@ -188,6 +190,7 @@ export default function CustomersPage() {
       } else {
         const newId = await addCustomer({
           ...form,
+          orgId: user?.orgId,
           status: "New",
           date: new Date().toLocaleDateString(),
         });
@@ -256,14 +259,14 @@ export default function CustomersPage() {
   const loadCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getAllCustomers();
+      const data = await getAllCustomers(user?.orgId);
       setAllCustomers(data);
     } catch (error) {
       toast.error("Failed to load customers");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.orgId]);
   const hardRefresh = useCallback(async () => {
     logInfo("hardRefresh", "reloading customers");
 

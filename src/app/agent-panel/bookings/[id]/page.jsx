@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams, usePathname } from "next/navigation";
+import { useSelector } from "react-redux";
 import {
   getBookingById,
   deleteBooking,
@@ -422,6 +423,7 @@ export default function BookingDetailPage() {
   const router = useRouter();
   const { id } = useParams();
   const pathname = usePathname();
+  const { user } = useSelector((state) => state.auth);
   const panelBase = pathname.startsWith("/admin")
     ? "/admin-panel"
     : "/agent-panel";
@@ -460,7 +462,7 @@ export default function BookingDetailPage() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await getBookingById(id);
+        const data = await getBookingById(id, user?.orgId);
         setBooking(data);
       } catch (err) {
         console.error("[BookingDetail] Failed to load booking:", err);
@@ -469,7 +471,7 @@ export default function BookingDetailPage() {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, user?.orgId]);
 
   const handleOpenEditPayment = (idx) => {
     const pay = booking.payments[idx];
@@ -521,7 +523,7 @@ export default function BookingDetailPage() {
         payments: updatedPayments,
         paidAmount,
         paymentStatus,
-      });
+      }, user?.orgId);
       setBooking((prev) => ({
         ...prev,
         payments: updatedPayments,
@@ -632,7 +634,7 @@ export default function BookingDetailPage() {
         );
         return { ...s, vendorPayments: updatedPayments };
       });
-      await updateBooking(id, { services: updatedServices });
+      await updateBooking(id, { services: updatedServices }, user?.orgId);
       setBooking((prev) => ({ ...prev, services: updatedServices }));
       toast.success("Payment updated");
       setEditingVendorPayment(null);
@@ -653,7 +655,7 @@ export default function BookingDetailPage() {
         );
         return { ...s, vendorPayments: updatedPayments };
       });
-      await updateBooking(id, { services: updatedServices });
+      await updateBooking(id, { services: updatedServices }, user?.orgId);
       setBooking((prev) => ({ ...prev, services: updatedServices }));
       toast.success("Payment deleted");
     } catch (err) {
@@ -664,13 +666,13 @@ export default function BookingDetailPage() {
   const handleDelete = async () => {
     if (!confirm("Permanently delete this booking?")) return;
     try {
-      await deleteBooking(id);
+      await deleteBooking(id, user?.orgId);
       if (booking?.quotationId && booking?.agentId) {
         try {
           await updateQuotation(booking.agentId, booking.quotationId, {
             convertedToBooking: false,
             bookingId: null,
-          });
+          }, { orgId: user?.orgId });
         } catch (e) {
           console.warn(
             "[BookingDetail] Could not un-mark quotation (non-critical):",
@@ -737,7 +739,7 @@ export default function BookingDetailPage() {
 
   const handleVoucherSaved = async () => {
     try {
-      const fresh = await getBookingById(id);
+      const fresh = await getBookingById(id, user?.orgId);
       const hotel = selectedHotelForVoucher;
       const existing = fresh?.vouchers || [];
       const key = hotelVoucherKey(hotel?.hotelName, hotel?.checkIn);
@@ -756,7 +758,7 @@ export default function BookingDetailPage() {
           createdAt: new Date().toISOString(),
         };
         const updatedVouchers = [...existing, entry];
-        await updateBooking(id, { vouchers: updatedVouchers });
+        await updateBooking(id, { vouchers: updatedVouchers }, user?.orgId);
         setBooking((prev) => ({ ...prev, vouchers: updatedVouchers }));
       } else {
         setBooking(fresh);
@@ -781,7 +783,7 @@ export default function BookingDetailPage() {
           ? { ...v, deleted: true, deletedAt: new Date().toISOString() }
           : v,
       );
-      await updateBooking(id, { vouchers: updated });
+      await updateBooking(id, { vouchers: updated }, user?.orgId);
       setBooking((prev) => ({ ...prev, vouchers: updated }));
       toast.success("Voucher record removed. You can now create a new one.");
     } catch (err) {

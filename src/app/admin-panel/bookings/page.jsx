@@ -57,8 +57,8 @@ export default function AdminBookingsPage() {
     setLoading(true);
     try {
       const [b, a] = await Promise.all([
-        getBookingsByAdmin(user.uid),
-        getAgentsByAdmin(user.uid),
+        getBookingsByAdmin(user.uid, user.orgId),
+        getAgentsByAdmin(user.uid, user.orgId),
       ]);
       setBookings(b);
       const map = {};
@@ -72,7 +72,7 @@ export default function AdminBookingsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.uid]);
+  useEffect(() => { load(); }, [user?.uid, user?.orgId]);
 
   const handleSort = (key) =>
     setSortConfig((prev) => ({ key, direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc" }));
@@ -106,7 +106,7 @@ export default function AdminBookingsPage() {
 
   const handleStatusChange = async (id, status) => {
     try {
-      await updateBookingStatus(id, status);
+      await updateBookingStatus(id, status, user.orgId);
       setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
       toast.success(`Status updated to ${status}`);
     } catch { toast.error("Status update failed"); }
@@ -115,7 +115,7 @@ export default function AdminBookingsPage() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this booking?")) return;
     try {
-      await deleteBooking(id);
+      await deleteBooking(id, user.orgId);
       setBookings((prev) => prev.filter((b) => b.id !== id));
       toast.success("Booking deleted");
     } catch { toast.error("Delete failed"); }

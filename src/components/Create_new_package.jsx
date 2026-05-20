@@ -667,7 +667,7 @@ const Create_new_package = ({
     if (v && isEditMode && user?.uid) {
       setSaveAsLeadId(leadId || "");
       setIsLoadingLeads(true);
-      getLeadsByAgent(user.uid)
+      getLeadsByAgent(user.uid, user.orgId)
         .then(setAgentLeads)
         .catch(() => {})
         .finally(() => setIsLoadingLeads(false));
@@ -812,10 +812,13 @@ const Create_new_package = ({
 
   // ── Load customers ────────────────────────────────────────────────────────
   useEffect(() => {
-    getDocs(collection(db, "customers")).then((snap) => {
+    if (!user?.orgId) return;
+    getDocs(
+      query(collection(db, "customers"), where("orgId", "==", user.orgId)),
+    ).then((snap) => {
       setCustomers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
-  }, []);
+  }, [user?.orgId]);
 
   const customerSuggestions = useMemo(() => {
     const term = customerSearchText.trim().toLowerCase();
@@ -861,18 +864,22 @@ const Create_new_package = ({
   }, [reduxCustomerName]);
 
   useEffect(() => {
-    if (!customerId) return;
+    if (!customerId || !user?.orgId) return;
     getDoc(doc(db, "customers", customerId)).then((snap) => {
-      if (snap.exists()) setCustomerName(snap.data().name);
+      if (snap.exists() && snap.data().orgId === user.orgId) {
+        setCustomerName(snap.data().name);
+      }
     });
-  }, [customerId]);
+  }, [customerId, user?.orgId]);
 
   useEffect(() => {
-    if (!leadId) return;
+    if (!leadId || !user?.orgId) return;
     getDoc(doc(db, "leads", leadId)).then((snap) => {
-      if (snap.exists()) setCustomerName(snap.data().name);
+      if (snap.exists() && snap.data().orgId === user.orgId) {
+        setCustomerName(snap.data().name);
+      }
     });
-  }, [leadId]);
+  }, [leadId, user?.orgId]);
 
   const hydratedRef = useRef(false);
   useEffect(() => {
@@ -1678,6 +1685,7 @@ const Create_new_package = ({
     try {
       const agentId = user?.uid;
       if (!agentId) throw new Error("Not logged in");
+      if (!user?.orgId) throw new Error("Organization is not assigned");
       const effectiveLeadId = isEditMode ? saveAsLeadId || null : leadId;
       const linkedLead = effectiveLeadId
         ? agentLeads.find((l) => l.id === effectiveLeadId)
@@ -1783,13 +1791,14 @@ const Create_new_package = ({
       if (isOverwrite) {
         await updateDoc(
           doc(db, "saved_packages_by_agents", agentId, "packages", quotationId),
-          { ...packagePayload, updatedAt: serverTimestamp() },
+          { ...packagePayload, orgId: user.orgId, updatedAt: serverTimestamp() },
         );
       } else {
         await addDoc(
           collection(doc(db, "saved_packages_by_agents", agentId), "packages"),
           {
             ...packagePayload,
+            orgId: user.orgId,
             status: "Draft",
             createdAt: serverTimestamp(),
           },
@@ -3310,6 +3319,7 @@ const Create_new_package = ({
                                 collection(db, "customers"),
                                 {
                                   ...newCustomerDraft,
+                                  orgId: user?.orgId,
                                   status: "New",
                                   date: new Date().toLocaleDateString(),
                                 },

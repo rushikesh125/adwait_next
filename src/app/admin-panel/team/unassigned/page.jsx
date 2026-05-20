@@ -47,8 +47,8 @@ export default function UnassignedLeadsPage() {
     setLoading(true);
     try {
       const [l, a] = await Promise.all([
-        getUnassignedLeadsByAdmin(user.uid),
-        getAgentsByAdmin(user.uid),
+        getUnassignedLeadsByAdmin(user.uid, user.orgId),
+        getAgentsByAdmin(user.uid, user.orgId),
       ]);
       setLeads(l);
       setAgents(a.filter((ag) => ag.approved === "accepted"));
@@ -60,7 +60,7 @@ export default function UnassignedLeadsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.uid]);
+  useEffect(() => { load(); }, [user?.uid, user?.orgId]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

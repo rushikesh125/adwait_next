@@ -166,7 +166,7 @@ const EditQuotationPage = () => {
 
   useEffect(() => {
     const fetchQuotation = async () => {
-      if (!params.cid || !user?.uid) return;
+      if (!params.cid || !user?.uid || !user?.orgId) return;
 
       try {
         setIsLoadingQuotation(true);
@@ -178,6 +178,7 @@ const EditQuotationPage = () => {
         );
         const q = query(
           packagesRef,
+          where("orgId", "==", user.orgId),
           or(
             where("leadId", "==", params.cid),
             where("customerId", "==", params.cid),
@@ -209,7 +210,7 @@ const EditQuotationPage = () => {
     };
 
     fetchQuotation();
-  }, [params.cid, user?.uid, router]);
+  }, [params.cid, user?.uid, user?.orgId, router]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -717,9 +718,14 @@ setToggleValue(prev => !prev)
       toast.error("Not logged in.");
       throw new Error("Not logged in.");
     }
+    if (!user?.orgId) {
+      toast.error("Organization is not assigned.");
+      throw new Error("Organization is not assigned.");
+    }
 
     await updateQuotation(agentId, quotationData.id, quotationData, {
       agentName: user?.displayName || user?.email || "Agent",
+      orgId: user?.orgId,
     });
     setEditingQuotation(quotationData);
     setOriginalQuotationStatus(quotationData.status || "Draft");
@@ -781,7 +787,7 @@ setToggleValue(prev => !prev)
     setSaveAsLeadId(editingQuotation.leadId || "");
     if (user?.uid) {
       setIsLoadingLeads(true);
-      getLeadsByAgent(user.uid)
+      getLeadsByAgent(user.uid, user.orgId)
         .then(setAgentLeads)
         .catch(() => {})
         .finally(() => setIsLoadingLeads(false));
@@ -796,6 +802,7 @@ setToggleValue(prev => !prev)
 
     const agentId = user?.uid;
     if (!agentId) return toast.error("Not logged in.");
+    if (!user?.orgId) return toast.error("Organization is not assigned.");
 
     const copy = { ...editingQuotation };
     delete copy.id;
@@ -816,7 +823,7 @@ setToggleValue(prev => !prev)
     try {
       await addDoc(
         collection(db, "saved_packages_by_agents", agentId, "packages"),
-        copy,
+        { ...copy, orgId: user?.orgId },
       );
       toast.success("New quotation saved!");
       setShowSaveAsModal(false);

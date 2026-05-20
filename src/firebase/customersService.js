@@ -15,6 +15,7 @@ import {
   startAfter,
   getCountFromServer,
 } from "firebase/firestore";
+import { belongsToOrg, orgFilter } from "./orgScope";
 
 const customersRef = collection(db, "customers");
 const COLLECTION = "customers";
@@ -88,9 +89,9 @@ export const deleteCustomer = async (id) => {
  * Ordered by createdAt descending to match original behaviour.
  * @returns {Promise<Array>}
  */
-export const getAllCustomers = async () => {
+export const getAllCustomers = async (orgId = null) => {
   try {
-    const q = query(customersRef, orderBy("createdAt", "desc"));
+    const q = query(customersRef, ...orgFilter(orgId), orderBy("createdAt", "desc"));
     const snapshot = await getDocs(q);
     const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     console.info(`[customersService] getAllCustomers: fetched ${data.length} records`);
@@ -108,26 +109,28 @@ export const getAllCustomers = async () => {
  * @param {string} id
  * @returns {Promise<Object|null>}
  */
-export const getCustomerById = async (id) => {
+export const getCustomerById = async (id, orgId = null) => {
   try {
     const ref = doc(db, COLLECTION, id);
     const snapshot = await getDoc(ref);
-    return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+    if (!snapshot.exists()) return null;
+    const data = { id: snapshot.id, ...snapshot.data() };
+    return belongsToOrg(data, orgId) ? data : null;
   } catch (error) {
     logError("getCustomerById", error);
     throw error;
   }
 };
 
-export const findExistingCustomerByEmailOrMobile = async ({ email, mobile }) => {
+export const findExistingCustomerByEmailOrMobile = async ({ email, mobile, orgId = null }) => {
   try {
     const cleanEmail = normalizeEmail(email);
     const cleanMobile = normalizeMobile(mobile);
 
     if (cleanEmail) {
       const emailMatches = await Promise.all([
-        getDocs(query(customersRef, where("normalizedEmail", "==", cleanEmail), limit(1))),
-        getDocs(query(customersRef, where("email", "==", cleanEmail), limit(1))),
+        getDocs(query(customersRef, ...orgFilter(orgId), where("normalizedEmail", "==", cleanEmail), limit(1))),
+        getDocs(query(customersRef, ...orgFilter(orgId), where("email", "==", cleanEmail), limit(1))),
       ]);
 
       for (const snapshot of emailMatches) {
@@ -140,8 +143,8 @@ export const findExistingCustomerByEmailOrMobile = async ({ email, mobile }) => 
 
     if (cleanMobile) {
       const mobileMatches = await Promise.all([
-        getDocs(query(customersRef, where("normalizedMobile", "==", cleanMobile), limit(1))),
-        getDocs(query(customersRef, where("mobile", "==", cleanMobile), limit(1))),
+        getDocs(query(customersRef, ...orgFilter(orgId), where("normalizedMobile", "==", cleanMobile), limit(1))),
+        getDocs(query(customersRef, ...orgFilter(orgId), where("mobile", "==", cleanMobile), limit(1))),
       ]);
 
       for (const snapshot of mobileMatches) {
@@ -167,11 +170,12 @@ export const findExistingCustomerByEmailOrMobile = async ({ email, mobile }) => 
  * @param {string} customerId
  * @returns {Promise<Array>}
  */
-export const getAgentQuotationsForCustomer = async (agentUid, customerId) => {
+export const getAgentQuotationsForCustomer = async (agentUid, customerId, orgId = null) => {
   try {
     const quotesRef = collection(db, "saved_packages_by_agents", agentUid, "packages");
     const q = query(
       quotesRef,
+      ...orgFilter(orgId),
       where("customerId", "==", customerId),
       orderBy("createdAt", "desc")
     );
@@ -183,9 +187,9 @@ export const getAgentQuotationsForCustomer = async (agentUid, customerId) => {
   }
 };
 
-export const getCustomerLeads = async (customerId) => {
+export const getCustomerLeads = async (customerId, orgId = null) => {
   try {
-    const q = query(collection(db, "leads"), where("customerId", "==", customerId));
+    const q = query(collection(db, "leads"), ...orgFilter(orgId), where("customerId", "==", customerId));
     const snapshot = await getDocs(q);
     return snapshot.docs
       .map((d) => ({ id: d.id, ...d.data() }))
@@ -276,9 +280,9 @@ export const updateCustomerNote = async (cid, noteId, newText) => {
  * Does NOT download any documents — very cheap.
  * @returns {Promise<number>}
  */
-export const getCustomersCount = async () => {
+export const getCustomersCount = async (orgId = null) => {
   try {
-    const snap = await getCountFromServer(collection(db, COLLECTION));
+    const snap = await getCountFromServer(query(collection(db, COLLECTION), ...orgFilter(orgId)));
     const count = snap.data().count;
     console.info(`[customersService] getCustomersCount: ${count}`);
     return count;
@@ -296,9 +300,10 @@ export const getCustomersCount = async () => {
  * @param {number} [pageSize=PAGE_SIZE] - Records per page.
  * @returns {Promise<{ customers: Array, lastDoc: QueryDocumentSnapshot|null, hasMore: boolean }>}
  */
-export const getCustomersPage = async (cursorDoc = null, pageSize = PAGE_SIZE) => {
+export const getCustomersPage = async (cursorDoc = null, pageSize = PAGE_SIZE, orgId = null) => {
   try {
     const constraints = [
+      ...orgFilter(orgId),
       orderBy("createdAt", "desc"),
       ...(cursorDoc ? [startAfter(cursorDoc)] : []),
       limit(pageSize + 1), // +1 to detect whether a next page exists
@@ -331,10 +336,11 @@ export const getCustomersPage = async (cursorDoc = null, pageSize = PAGE_SIZE) =
  * @param {string} id
  * @returns {Promise<import("firebase/firestore").DocumentSnapshot>}
  */
-export const getCustomerDocSnapshot = async (id) => {
+export const getCustomerDocSnapshot = async (id, orgId = null) => {
   try {
     const snap = await getDoc(doc(db, COLLECTION, id));
     if (!snap.exists()) throw new Error(`Customer ${id} not found`);
+    if (!belongsToOrg(snap.data(), orgId)) throw new Error(`Customer ${id} not found`);
     return snap;
   } catch (error) {
     logError("getCustomerDocSnapshot", error);

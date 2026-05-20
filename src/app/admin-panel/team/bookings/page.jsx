@@ -33,8 +33,8 @@ export default function AdminTeamBookingsPage() {
     setLoading(true);
     try {
       const [b, a] = await Promise.all([
-        getBookingsByAdmin(user.uid),
-        getAgentsByAdmin(user.uid),
+        getBookingsByAdmin(user.uid, user.orgId),
+        getAgentsByAdmin(user.uid, user.orgId),
       ]);
       setBookings(b);
       setAgents(a);
@@ -46,7 +46,7 @@ export default function AdminTeamBookingsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.uid]);
+  useEffect(() => { load(); }, [user?.uid, user?.orgId]);
 
   const agentMap = useMemo(() => Object.fromEntries(agents.map((a) => [a.id, a.name])), [agents]);
 

@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import { auth } from "@/firebase/config";
 import {
   getBookingsByAgent,
@@ -158,6 +159,7 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
 
 export default function BookingsPage() {
   const router = useRouter();
+  const { user } = useSelector((state) => state.auth);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -180,9 +182,9 @@ export default function BookingsPage() {
   // ── Data fetching ────────────────────────────────────────────────────────────
 
   const fetchBookings = async () => {
-    if (!auth.currentUser) { setLoading(false); return; }
+    if (!auth.currentUser || !user?.orgId) { setLoading(false); return; }
     try {
-      const data = await getBookingsByAgent(auth.currentUser.uid);
+      const data = await getBookingsByAgent(auth.currentUser.uid, user.orgId);
       setBookings(data);
     } catch {
       toast.error("Failed to load bookings");
@@ -191,7 +193,7 @@ export default function BookingsPage() {
     }
   };
 
-  useEffect(() => { fetchBookings(); }, []);
+  useEffect(() => { fetchBookings(); }, [user?.orgId]);
   useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter, sortConfig, pageSize]);
 
   // ── Sorting & filtering ──────────────────────────────────────────────────────
@@ -243,7 +245,7 @@ export default function BookingsPage() {
 
   const handleStatusChange = async (id, status) => {
     try {
-      await updateBookingStatus(id, status);
+      await updateBookingStatus(id, status, user.orgId);
       setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
       setEditingStatusId(null);
       toast.success(`Status updated to ${status}`);
@@ -256,7 +258,7 @@ export default function BookingsPage() {
     if (!confirm("Permanently delete this booking?")) return;
     setOpenMenuId(null);
     try {
-      await deleteBooking(id);
+      await deleteBooking(id, user.orgId);
       setBookings((prev) => prev.filter((b) => b.id !== id));
       toast.success("Booking deleted");
     } catch {
@@ -391,7 +393,7 @@ export default function BookingsPage() {
           createdAt: new Date().toISOString(),
         };
         const updatedVouchers = [...existing, entry];
-        await updateBooking(bookingId, { vouchers: updatedVouchers });
+        await updateBooking(bookingId, { vouchers: updatedVouchers }, user.orgId);
         // Update local state so the same booking row reflects the new voucher immediately
         setBookings((prev) =>
           prev.map((b) =>

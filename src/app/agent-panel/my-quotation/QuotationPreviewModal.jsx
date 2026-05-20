@@ -488,6 +488,7 @@ export default function QuotationPreviewModal({
   onPDF,
   onConvertToBooking,
   onSendReminder,
+  orgId,
 }) {
   const [activeOptionIdx, setActiveOptionIdx] = useState(0);
   const [linkedBookingExists, setLinkedBookingExists] = useState(true);
@@ -502,10 +503,10 @@ export default function QuotationPreviewModal({
       return;
     }
     setLinkedBookingExists(true);
-    getBookingById(quotation.bookingId)
+    getBookingById(quotation.bookingId, orgId)
       .then((b) => setLinkedBookingExists(!!b))
       .catch(() => setLinkedBookingExists(false));
-  }, [quotation?.bookingId, quotation?.convertedToBooking]);
+  }, [quotation?.bookingId, quotation?.convertedToBooking, orgId]);
 
   if (!quotation) return null;
 

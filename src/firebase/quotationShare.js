@@ -258,6 +258,7 @@ export async function respondToQuotationByToken(token, action) {
     const bookingId = await createBooking({
       ...bookingPayload,
       agentId, // ✅ FIXED
+      orgId: data.orgId || null,
     });
 
     // ✅ Update quotation

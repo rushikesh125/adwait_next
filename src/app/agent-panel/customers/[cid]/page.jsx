@@ -100,10 +100,10 @@ export default function CustomerProfilePage({ params }) {
       setLoading(true);
       const [customerData, quotesData, notesData, leadsData] =
         await Promise.all([
-          getCustomerById(cid),
-          getAgentQuotationsForCustomer(user.uid, cid),
+          getCustomerById(cid, user.orgId),
+          getAgentQuotationsForCustomer(user.uid, cid, user.orgId),
           getCustomerNotes(cid),
-          getCustomerLeads(cid),
+          getCustomerLeads(cid, user.orgId),
         ]);
       setCustomer(customerData);
       setQuotations(quotesData);

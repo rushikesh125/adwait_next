@@ -15,6 +15,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./config";
+import { belongsToOrg, orgFilter } from "./orgScope";
 import { updateLeadStatus } from "./leadsService";
 import { buildQuotationRejectionNote } from "@/lib/quotationRejection";
 import { createNotification } from "./notificationsService";
@@ -26,13 +27,13 @@ import { createNotification } from "./notificationsService";
 /**
  * Fetch quotations for an agent
  */
-export async function fetchQuotationsByAgent(agentId) {
+export async function fetchQuotationsByAgent(agentId, orgId = null) {
   if (!agentId) return [];
 
   try {
     const ref = collection(db, "saved_packages_by_agents", agentId, "packages");
 
-    const q = query(ref, orderBy("createdAt", "desc"));
+    const q = query(ref, ...orgFilter(orgId), orderBy("createdAt", "desc"));
     const snapshot = await getDocs(q);
     const total = snapshot.docs.length;
 
@@ -49,7 +50,7 @@ export async function fetchQuotationsByAgent(agentId) {
   }
 }
 
-export async function getQuotationById(agentId, quotationId) {
+export async function getQuotationById(agentId, quotationId, orgId = null) {
   if (!agentId || !quotationId) return null;
   const ref = doc(
     db,
@@ -59,7 +60,9 @@ export async function getQuotationById(agentId, quotationId) {
     quotationId,
   );
   const snap = await getDoc(ref);
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  if (!snap.exists()) return null;
+  const data = { id: snap.id, ...snap.data() };
+  return belongsToOrg(data, orgId) ? data : null;
 }
 /**
  * Update existing quotation
@@ -85,6 +88,9 @@ export async function updateQuotation(
   const snap = await getDoc(ref);
   if (snap.exists()) {
     const quotation = snap.data();
+    if (options.orgId && quotation.orgId && quotation.orgId !== options.orgId) {
+      throw new Error("Quotation not found");
+    }
     const leadId = data.leadId !== undefined ? data.leadId : quotation.leadId;
     const previousStatus = quotation.status || "Draft";
 
@@ -171,7 +177,7 @@ if (
             leadAgentId,
             "packages",
           );
-          const q = query(packagesRef, where("leadId", "==", leadId));
+          const q = query(packagesRef, ...orgFilter(options.orgId || quotation.orgId), where("leadId", "==", leadId));
           const packageSnap = await getDocs(q);
           const leadQuotations = packageSnap.docs.map((doc) => ({
             id: doc.id,
@@ -219,12 +225,12 @@ export async function deleteQuotation(agentId, quotationId) {
  * Fetch this agent's quotations that have no leadId set yet —
  * candidates an agent can attach to a lead from the lead detail page.
  */
-export async function fetchUnlinkedQuotationsByAgent(agentId) {
+export async function fetchUnlinkedQuotationsByAgent(agentId, orgId = null) {
   if (!agentId) return [];
 
   try {
     const ref = collection(db, "saved_packages_by_agents", agentId, "packages");
-    const snap = await getDocs(query(ref, orderBy("createdAt", "desc")));
+    const snap = await getDocs(query(ref, ...orgFilter(orgId), orderBy("createdAt", "desc")));
     return snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((q) => q.packageName !== null)
@@ -265,7 +271,7 @@ export async function attachQuotationToLead(agentId, quotationId, lead) {
 /**
  * Save quotation as new (Save As)
  */
-export async function saveQuotationAs(agentId, quotationData) {
+export async function saveQuotationAs(agentId, quotationData, orgId = null) {
   if (!agentId) {
     throw new Error("Agent not authenticated");
   }
@@ -274,6 +280,7 @@ export async function saveQuotationAs(agentId, quotationData) {
 
   return await addDoc(ref, {
     ...quotationData,
+    ...(orgId && !quotationData.orgId ? { orgId } : {}),
     createdAt: new Date(),
   });
 }

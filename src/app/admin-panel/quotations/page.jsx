@@ -46,12 +46,12 @@ export default function AdminQuotationsPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const agents = await getAgentsByAdmin(user.uid);
+      const agents = await getAgentsByAdmin(user.uid, user.orgId);
       const map = {};
       agents.forEach((a) => { map[a.id] = a.name || a.email || "Agent"; });
       setAgentMap(map);
       const agentIds = agents.map((a) => a.id);
-      const q = await getQuotationsByAdmin(agentIds);
+      const q = await getQuotationsByAdmin(agentIds, user.orgId);
       setQuotations(q);
     } catch (e) {
       console.error(e);
@@ -61,7 +61,7 @@ export default function AdminQuotationsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.uid]);
+  useEffect(() => { load(); }, [user?.uid, user?.orgId]);
 
   const filtered = useMemo(() => {
     let data = quotations;

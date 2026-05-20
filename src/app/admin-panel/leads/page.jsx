@@ -70,8 +70,8 @@ export default function AdminLeadsPage() {
     setLoading(true);
     try {
       const [l, a] = await Promise.all([
-        getLeadsByAdmin(user.uid),
-        getAgentsByAdmin(user.uid),
+        getLeadsByAdmin(user.uid, user.orgId),
+        getAgentsByAdmin(user.uid, user.orgId),
       ]);
       setLeads(l);
       setAgents(a);
@@ -86,7 +86,7 @@ export default function AdminLeadsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.uid]);
+  useEffect(() => { load(); }, [user?.uid, user?.orgId]);
 
   const filtered = useMemo(() => {
     let result = leads;
@@ -127,7 +127,7 @@ export default function AdminLeadsPage() {
     if (!agent) return;
     setSaving(true);
     try {
-      await assignLeadToAgent(assigningLead.id, agent);
+      await assignLeadToAgent(assigningLead.id, agent, user.orgId);
       setLeads((prev) => prev.map((l) =>
         l.id === assigningLead.id ? { ...l, agentId: agent.id, assignedAgentName: agent.name } : l
       ));
@@ -144,6 +144,7 @@ export default function AdminLeadsPage() {
     try {
       const leadId = await addLead({
         ...form,
+        orgId: user.orgId,
         agentId: agent?.id || null,
         assignedAgentId: agent?.id || null,
         assignedAgentName: agent?.name || "",

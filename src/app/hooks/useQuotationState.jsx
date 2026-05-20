@@ -215,7 +215,7 @@ export function useQuotationState() {
   // ─── Data fetching ────────────────────────────────────────────────────────
   const fetchQuotations = useCallback(async () => {
     const agentId = user?.uid;
-    if (!agentId) return;
+    if (!agentId || !user?.orgId) return;
     setIsFetchingQuotations(true);
     try {
       const packagesRef = collection(
@@ -224,7 +224,11 @@ export function useQuotationState() {
         agentId,
         "packages",
       );
-      const q = query(packagesRef, orderBy("createdAt", "desc"));
+      const q = query(
+        packagesRef,
+        where("orgId", "==", user.orgId),
+        orderBy("createdAt", "desc"),
+      );
       const snapshot = await getDocs(q);
       const total = snapshot.docs.length;
       const list = snapshot.docs
@@ -236,7 +240,7 @@ export function useQuotationState() {
     } finally {
       setIsFetchingQuotations(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, user?.orgId]);
 
   useEffect(() => {
     const fetchAllHotels = async () => {
@@ -1002,6 +1006,10 @@ export function useQuotationState() {
       alert("Must be logged in.");
       return;
     }
+    if (!user?.orgId) {
+      alert("Organization is not assigned.");
+      return;
+    }
     const ref = doc(
       db,
       "saved_packages_by_agents",
@@ -1010,7 +1018,7 @@ export function useQuotationState() {
       editingQuotation.id,
     );
     try {
-      await updateDoc(ref, editingQuotation);
+      await updateDoc(ref, { ...editingQuotation, orgId: user.orgId });
       alert("Quotation updated successfully! ✅");
       setIsEditModalOpen(false);
       fetchQuotations();
@@ -1037,7 +1045,10 @@ export function useQuotationState() {
 
   try {
     const updateData = { status: nextStatus, ...extraData };
-    await updateQuotation(agentId, quotationId, updateData, options);
+    await updateQuotation(agentId, quotationId, updateData, {
+      ...options,
+      orgId: user?.orgId,
+    });
 
     setQuotations((prev) =>
       prev.map((q) =>
@@ -1094,7 +1105,7 @@ export function useQuotationState() {
     );
     setSaveAsLeadId(editingQuotation.leadId || "");
     if (user?.uid) {
-      getLeadsByAgent(user.uid)
+      getLeadsByAgent(user.uid, user.orgId)
         .then(setAgentLeads)
         .catch(() => {});
     }
@@ -1138,7 +1149,7 @@ export function useQuotationState() {
         agentId,
         "packages",
       );
-      await addDoc(ref, newData);
+      await addDoc(ref, { ...newData, orgId: user?.orgId });
       alert("New quotation saved! ✅");
       setIsEditModalOpen(false);
       setShowSaveAsModal(false);

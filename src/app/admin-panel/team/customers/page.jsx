@@ -31,7 +31,7 @@ export default function AdminTeamCustomersPage() {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const c = await getCustomersByAdmin(user.uid);
+      const c = await getCustomersByAdmin(user.uid, user.orgId);
       setCustomers(c);
     } catch (e) {
       console.error(e);
@@ -41,7 +41,7 @@ export default function AdminTeamCustomersPage() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.uid]);
+  useEffect(() => { load(); }, [user?.uid, user?.orgId]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

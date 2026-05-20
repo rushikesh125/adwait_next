@@ -35,18 +35,18 @@ function OrgAssignmentRequired({ role }) {
           Organization not assigned
         </h1>
         <Link href="/login">
-  <Button
-    className="
+          <Button
+            className="
       mt-5 w-full rounded-xl
       bg-gradient-to-r from-slate-900 to-slate-700
       text-white shadow-lg
       hover:scale-[1.02] hover:from-slate-800 hover:to-slate-600
       transition-all duration-200
     "
-  >
-    Go to Login
-  </Button>
-</Link>
+          >
+            Go to Login
+          </Button>
+        </Link>
 
         <p className="mt-2 text-sm leading-6 text-slate-600">
           Your {roleLabel} account is not assigned to any organization yet.

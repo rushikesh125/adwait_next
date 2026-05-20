@@ -99,7 +99,7 @@ const MyQuotations = () => {
     setPreviewQuotation(q);
     // Re-fetch from Firestore so convertedToBooking reflects latest state
     try {
-      const fresh = await getQuotationById(state.user?.uid, q.id);
+      const fresh = await getQuotationById(state.user?.uid, q.id, state.user?.orgId);
       if (fresh)
         setPreviewQuotation((prev) =>
           prev?.id === q.id ? { ...prev, ...fresh } : prev,
@@ -154,7 +154,10 @@ const MyQuotations = () => {
   const handleConvertToBooking = async (quotation, chosenOption) => {
     if (quotation.convertedToBooking && quotation.bookingId) {
       try {
-        const existing = await getBookingById(quotation.bookingId);
+        const existing = await getBookingById(
+          quotation.bookingId,
+          state.user?.orgId,
+        );
         if (existing) {
           toast.error(
             "This quotation has already been converted to a booking.",
@@ -487,7 +490,7 @@ const services = [
       // If not found → fetch from Firestore
       if (!quotation) {
         try {
-          const fresh = await getQuotationById(state.user.uid, quoteId);
+          const fresh = await getQuotationById(state.user.uid, quoteId, state.user?.orgId);
           if (fresh) quotation = { ...fresh, id: quoteId };
         } catch (err) {
           console.error("Failed to fetch quotation:", err);
@@ -581,7 +584,10 @@ const handleDownloadPDF = (quotation) => {
     if (!guestPhone && quotation?.leadId) {
       try {
         const leadSnap = await getDoc(doc(db, "leads", quotation.leadId));
-        if (leadSnap.exists()) {
+        if (
+          leadSnap.exists() &&
+          leadSnap.data()?.orgId === state.user?.orgId
+        ) {
           guestPhone = leadSnap.data()?.mobile || "";
         }
       } catch (error) {
@@ -594,7 +600,10 @@ const handleDownloadPDF = (quotation) => {
         const customerSnap = await getDoc(
           doc(db, "customers", quotation.customerId),
         );
-        if (customerSnap.exists()) {
+        if (
+          customerSnap.exists() &&
+          customerSnap.data()?.orgId === state.user?.orgId
+        ) {
           guestPhone = customerSnap.data()?.mobile || "";
         }
       } catch (error) {
@@ -617,7 +626,11 @@ const handleDownloadPDF = (quotation) => {
     if (!guestPhone && quotation?.leadId) {
       try {
         const leadSnap = await getDoc(doc(db, "leads", quotation.leadId));
-        if (leadSnap.exists()) guestPhone = leadSnap.data()?.mobile || "";
+        if (
+          leadSnap.exists() &&
+          leadSnap.data()?.orgId === state.user?.orgId
+        )
+          guestPhone = leadSnap.data()?.mobile || "";
       } catch {
         /* continue without phone */
       }
@@ -627,7 +640,10 @@ const handleDownloadPDF = (quotation) => {
         const customerSnap = await getDoc(
           doc(db, "customers", quotation.customerId),
         );
-        if (customerSnap.exists())
+        if (
+          customerSnap.exists() &&
+          customerSnap.data()?.orgId === state.user?.orgId
+        )
           guestPhone = customerSnap.data()?.mobile || "";
       } catch {
         /* continue without phone */
@@ -827,6 +843,7 @@ const handleDownloadPDF = (quotation) => {
           onPDF={handleDownloadPDF}
           onConvertToBooking={handleConvertToBooking}
           onSendReminder={handleSendReminder}
+          orgId={state.user?.orgId}
         />
       )}
 

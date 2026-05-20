@@ -9,6 +9,7 @@ import {
   KeyRound,
   Link2,
   Mail,
+  Building2,
   ShieldCheck,
   UserCircle2,
   BadgeCheck,
@@ -306,6 +307,17 @@ export default function UserProfilePanel({ user }) {
                   </p>
                   <p className="mt-2 text-base font-semibold capitalize text-slate-900">
                     {user?.approved || "Accepted"}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                    <Building2 className="h-3.5 w-3.5" />
+                    Organization
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">
+                    {user?.role === "superadmin"
+                      ? "Global access"
+                      : user?.orgName || user?.orgId || "Not assigned"}
                   </p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">

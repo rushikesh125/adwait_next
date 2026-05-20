@@ -21,7 +21,7 @@ Expected:
 - Superadmin can work without `orgId`.
 - Admin/agent without `orgId` is blocked or shown a clear setup state.
 
-## 2. Customers And Leads
+## 2. Customers And Leads (DONE)
 
 Test:
 
@@ -42,7 +42,7 @@ Expected:
 - Admin sees only their org/team leads.
 - Agent sees only their org/own leads.
 
-## 3. Quotations Create, Edit, Share
+## 3. Quotations Create, Edit, Share (DONE)
 
 Test:
 
@@ -63,7 +63,7 @@ Expected:
 - Public preview derives `orgId` from quotation/package.
 - Accepted quotation creates org-scoped booking/notification.
 
-## 4. Bookings
+## 4. Bookings (DONE)
 
 Test:
 
