@@ -16,11 +16,11 @@ const SLATE_LIGHT = "#94A3B8";
 const PAGE_W = 210;
 const PAGE_H = 297;
 
-const FONT_BODY = 9;
-const FONT_SMALL = 8;
-const FONT_TINY = 7;
-const FONT_HEADING = 10;
-const FONT_DAY = 12;
+const FONT_BODY = 10;     // was 9 — body, descriptions, table rows
+const FONT_SMALL = 9;     // was 8 — footer, contact info, captions
+const FONT_TINY = 7;      // unchanged — only used on small frame-pill labels
+const FONT_HEADING = 13;  // was 10 — sharper contrast vs body
+const FONT_DAY = 13;      // was 12 — parity with section heading
 
 const MEAL_PLAN_LABELS = {
   EP: "Accommodation Only",
@@ -28,6 +28,169 @@ const MEAL_PLAN_LABELS = {
   MAP: "Breakfast & Dinner",
   AP: "All Meals Included",
 };
+
+// ─── Custom font loader (graceful fallback to Helvetica) ─────────────────────
+// To use a richer typeface, drop these two TTFs into /public/fonts/:
+//   Inter-Regular.ttf
+//   Inter-Bold.ttf
+// They'll be auto-loaded on the next export. If the files are missing,
+// PDF generation still works — it just falls back to Helvetica silently.
+let FONT_FAMILY = "helvetica";
+const tryLoadFont = async (pdfdoc, url, fontName, style) => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return false;
+    const buf = await res.arrayBuffer();
+    let bin = "";
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+    const base64 = btoa(bin);
+    const filename = `${fontName}-${style}.ttf`;
+    pdfdoc.addFileToVFS(filename, base64);
+    pdfdoc.addFont(filename, fontName, style);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const installCustomFonts = async (pdfdoc) => {
+  const okR = await tryLoadFont(pdfdoc, "/fonts/Inter-Regular.ttf", "Inter", "normal");
+  const okB = await tryLoadFont(pdfdoc, "/fonts/Inter-Bold.ttf", "Inter", "bold");
+  if (okR && okB) FONT_FAMILY = "Inter";
+};
+
+// ─── Framed section helper ───────────────────────────────────────────────────
+// Wraps a section with a thin rounded outer border + uppercase tracking-wider
+// label at top-left. Returns the inner Y where the section's content begins.
+// The caller passes the section's full *outer* height so the border encloses
+// all child rendering.
+const drawFramedSection = (pdfdoc, label, y, height) => {
+  pdfdoc.setDrawColor("#E2E8F0"); // slate-200
+  pdfdoc.setLineWidth(0.3);
+  pdfdoc.roundedRect(15, y, 180, height, 2, 2, "S");
+
+  // Label pill on the top border
+  const labelText = (label || "").toUpperCase();
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_TINY);
+  const tw = pdfdoc.getTextWidth(labelText);
+  pdfdoc.setFillColor("#FFFFFF");
+  pdfdoc.rect(19, y - 1.5, tw + 4, 3, "F");
+  pdfdoc.setTextColor(SLATE);
+  pdfdoc.text(labelText, 21, y + 0.5);
+  pdfdoc.setTextColor("#000000");
+
+  return y + 6; // content starts 6mm below top border
+};
+
+// ─── Tiny inline icons drawn with jsPDF primitives (no PNG assets) ───────────
+// All icons render at a 4x4mm box at (x, y) top-left, in the given color.
+const Icon = {
+  calendar(pdfdoc, x, y, color = SLATE) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setLineWidth(0.3);
+    pdfdoc.roundedRect(x + 0.3, y + 0.7, 3.4, 3, 0.4, 0.4, "S");
+    pdfdoc.line(x + 0.3, y + 1.7, x + 3.7, y + 1.7);
+    pdfdoc.line(x + 1, y + 0.3, x + 1, y + 1);
+    pdfdoc.line(x + 3, y + 0.3, x + 3, y + 1);
+  },
+  hotel(pdfdoc, x, y, color = SLATE) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setFillColor(color);
+    pdfdoc.setLineWidth(0.3);
+    pdfdoc.rect(x + 0.4, y + 0.5, 3.2, 3, "S");
+    // tiny windows
+    pdfdoc.rect(x + 1, y + 1.1, 0.6, 0.6, "F");
+    pdfdoc.rect(x + 2.4, y + 1.1, 0.6, 0.6, "F");
+    pdfdoc.rect(x + 1, y + 2.2, 0.6, 0.6, "F");
+    pdfdoc.rect(x + 2.4, y + 2.2, 0.6, 0.6, "F");
+  },
+  bus(pdfdoc, x, y, color = SLATE) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setLineWidth(0.3);
+    pdfdoc.roundedRect(x + 0.3, y + 0.8, 3.4, 2.4, 0.4, 0.4, "S");
+    pdfdoc.line(x + 0.3, y + 2, x + 3.7, y + 2);
+    pdfdoc.circle(x + 1.1, y + 3.3, 0.35, "F");
+    pdfdoc.circle(x + 2.9, y + 3.3, 0.35, "F");
+  },
+  sparkle(pdfdoc, x, y, color = BRAND) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setLineWidth(0.4);
+    pdfdoc.line(x + 2, y + 0.3, x + 2, y + 3.7);
+    pdfdoc.line(x + 0.3, y + 2, x + 3.7, y + 2);
+    pdfdoc.line(x + 0.7, y + 0.7, x + 3.3, y + 3.3);
+    pdfdoc.line(x + 3.3, y + 0.7, x + 0.7, y + 3.3);
+  },
+  pin(pdfdoc, x, y, color = SLATE) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setFillColor(color);
+    pdfdoc.setLineWidth(0.3);
+    pdfdoc.circle(x + 2, y + 1.6, 1.2, "S");
+    pdfdoc.circle(x + 2, y + 1.6, 0.4, "F");
+    pdfdoc.line(x + 2, y + 2.8, x + 2, y + 3.7);
+  },
+  // Filled circle with white checkmark inside — for "included" lines.
+  check(pdfdoc, x, y, color = "#10B981") {
+    pdfdoc.setFillColor(color);
+    pdfdoc.circle(x + 2, y + 2, 1.6, "F");
+    pdfdoc.setDrawColor("#FFFFFF");
+    pdfdoc.setLineWidth(0.4);
+    pdfdoc.line(x + 1.2, y + 2.05, x + 1.85, y + 2.65);
+    pdfdoc.line(x + 1.85, y + 2.65, x + 2.85, y + 1.35);
+  },
+  // Filled circle with white X inside — for "excluded" lines.
+  cross(pdfdoc, x, y, color = "#DC2626") {
+    pdfdoc.setFillColor(color);
+    pdfdoc.circle(x + 2, y + 2, 1.6, "F");
+    pdfdoc.setDrawColor("#FFFFFF");
+    pdfdoc.setLineWidth(0.4);
+    pdfdoc.line(x + 1.2, y + 1.2, x + 2.8, y + 2.8);
+    pdfdoc.line(x + 2.8, y + 1.2, x + 1.2, y + 2.8);
+  },
+};
+
+// ─── Decorative section divider ───────────────────────────────────────────────
+// Tapered line + small brand-color diamond in the middle, used to separate
+// major sections without the heaviness of a hard rule.
+const drawDecorativeDivider = (pdfdoc, y) => {
+  const midX = PAGE_W / 2;
+  pdfdoc.setDrawColor("#CBD5E1"); // slate-300
+  pdfdoc.setLineWidth(0.4);
+  pdfdoc.line(30, y, midX - 6, y);
+  pdfdoc.line(midX + 6, y, PAGE_W - 30, y);
+  // Diamond marker
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.triangle(midX, y - 2, midX - 2, y, midX + 2, y, "F");
+  pdfdoc.triangle(midX, y + 2, midX - 2, y, midX + 2, y, "F");
+  return y + 4;
+};
+
+// ─── Pricing summary card ────────────────────────────────────────────────────
+// Tinted bordered box with a brand-colored left stripe and the grand total
+// in large brand-dark type on the right. Designed to be drawn right after
+// the breakdown autoTable so the final price reads as a self-contained card.
+const drawPricingSummaryCard = (pdfdoc, label, amount, y) => {
+  const cardH = 16;
+  pdfdoc.setFillColor("#F8FAFC"); // slate-50
+  pdfdoc.setDrawColor("#E2E8F0"); // slate-200
+  pdfdoc.setLineWidth(0.3);
+  pdfdoc.roundedRect(15, y, 180, cardH, 2, 2, "FD");
+  // Left brand stripe
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.rect(15, y, 2.5, cardH, "F");
+  // Label (left)
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setTextColor(SLATE);
+  pdfdoc.text((label || "").toUpperCase(), 22, y + 6.5);
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_HEADING + 2);
+  pdfdoc.setTextColor(BRAND_DARK);
+  pdfdoc.text(`Rs. ${Number(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`, 22, y + 12.5);
+  pdfdoc.setTextColor("#000000");
+  return y + cardH + 4;
+};
+
 // ─── Multi-room helpers ───────────────────────────────────────────────────────
 /**
  * Resolve the total price for a hotel entry from multi-room-categories or legacy flat field.
@@ -201,7 +364,7 @@ const addFooter = (pdfdoc) => {
 const drawSectionHeading = (pdfdoc, text, y) => {
   pdfdoc.setFillColor(BRAND);
   pdfdoc.rect(15, y - 5, 180, 8, "F");
-  pdfdoc.setFont("helvetica", "bold");
+  pdfdoc.setFont(FONT_FAMILY, "bold");
   pdfdoc.setFontSize(FONT_HEADING);
   pdfdoc.setTextColor("#FFFFFF");
   pdfdoc.text(text, 18, y + 0.5);
@@ -236,11 +399,15 @@ const drawChecklist = (
   pdfdoc.setFontSize(FONT_BODY);
   pdfdoc.setTextColor("#333");
 
+  // Small filled bullet dot, color-matched to the section heading.
+  const textX = 22;
   const maxW = 175;
   filtered.forEach((item) => {
     y = ensureSpace(pdfdoc, logoImg, y, 8);
-    const lines = pdfdoc.splitTextToSize(`• ${item.text}`, maxW);
-    pdfdoc.text(lines, 18, y);
+    const lines = pdfdoc.splitTextToSize(item.text, maxW);
+    pdfdoc.setFillColor(dotColor);
+    pdfdoc.circle(18, y - 1.4, 0.9, "F");
+    pdfdoc.text(lines, textX, y);
     y += lines.length * 5;
   });
 
@@ -319,87 +486,109 @@ const drawServiceIcon = async (pdfdoc, iconPath, x, y, size) => {
   }
 };
 
-// ─── Day card renderer ────────────────────────────────────────────────────────
+// ─── Day card renderer (two-column card) ──────────────────────────────────────
+// Layout (mm):
+//   [15 ─── 38] vertical accent stripe + "DAY N" badge
+//   [40 ─── 195] title, description, image strip
+// The card has a soft slate background and a brand-colored left stripe.
 const drawDay = async (pdfdoc, logoImg, day, y) => {
+  const innerContentLeft = 42;
+  const innerContentW = 153; // 195 - 42
+
   const descLines = day.description
-    ? pdfdoc.splitTextToSize(day.description, 155).length
-    : 0;
-  const needed = 8 + descLines * 6 + 10;
-
-  y = ensureSpace(pdfdoc, logoImg, y, needed);
-
-  pdfdoc.setFillColor(BRAND);
-  pdfdoc.roundedRect(15, y - 4, 32, 7, 1, 1, "F");
-  pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(FONT_DAY);
-  pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(`Day ${day.dayNumber}`, 18, y + 0.5);
-  pdfdoc.setTextColor("#000000");
-
-  if (day.title) {
-    pdfdoc.setFont("helvetica", "bold");
-    pdfdoc.setFontSize(FONT_DAY);
-    pdfdoc.setTextColor(BRAND_DARK);
-    pdfdoc.text(day.title, 52, y + 0.5);
-  }
-
-  y += 8;
-
-  if (day.description) {
-    pdfdoc.setFont("helvetica", "normal");
-    pdfdoc.setFontSize(FONT_DAY);
-    pdfdoc.setTextColor("#333");
-    const lines = pdfdoc.splitTextToSize(day.description, 168);
-    lines.forEach((line) => {
-      y = ensureSpace(pdfdoc, logoImg, y, 7);
-      pdfdoc.text(line, 18, y);
-      y += 6;
-    });
-  }
+    ? pdfdoc.splitTextToSize(day.description, innerContentW)
+    : [];
+  const titleLines = day.title
+    ? pdfdoc.splitTextToSize(day.title, innerContentW)
+    : [];
 
   const dayImages = (day.images || []).filter(Boolean).slice(0, 2);
-  if (dayImages.length > 0) {
-    const boxH = 45; // Slightly increased height for better visibility
-    const boxW = dayImages.length === 2 ? 82 : 170;
-    const gap = 6;
+  const imageStripH = dayImages.length > 0 ? 45 + 6 : 0;
 
-    y = ensureSpace(pdfdoc, logoImg, y, boxH + 6);
-    y += 3;
+  const textBlockH =
+    titleLines.length * 5 + 2 + descLines.length * 5 + (descLines.length ? 4 : 0);
+
+  const cardH = Math.max(28, 8 + textBlockH + imageStripH + 4);
+
+  y = ensureSpace(pdfdoc, logoImg, y, cardH + 6);
+
+  // Card background
+  pdfdoc.setFillColor("#F8FAFC"); // slate-50
+  pdfdoc.setDrawColor("#E2E8F0"); // slate-200
+  pdfdoc.setLineWidth(0.3);
+  pdfdoc.roundedRect(15, y, 180, cardH, 2, 2, "FD");
+
+  // Left accent stripe
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.rect(15, y, 2.2, cardH, "F");
+
+  // DAY N badge (left column, vertically anchored near top)
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.roundedRect(19, y + 3.5, 19, 6, 1, 1, "F");
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setTextColor("#FFFFFF");
+  pdfdoc.text(`DAY ${day.dayNumber}`, 28.5, y + 7.5, { align: "center" });
+
+  // Inline calendar icon below the day badge (decorative)
+  Icon.calendar(pdfdoc, 27, y + 12, SLATE_LIGHT);
+
+  // ── Right column: title + description ──
+  let textY = y + 5;
+  if (day.title) {
+    pdfdoc.setFont(FONT_FAMILY, "bold");
+    pdfdoc.setFontSize(FONT_HEADING);
+    pdfdoc.setTextColor(BRAND_DARK);
+    titleLines.forEach((line) => {
+      pdfdoc.text(line, innerContentLeft, textY);
+      textY += 5;
+    });
+    textY += 1;
+  }
+
+  if (descLines.length > 0) {
+    pdfdoc.setFont(FONT_FAMILY, "normal");
+    pdfdoc.setFontSize(FONT_BODY);
+    pdfdoc.setTextColor("#334155"); // slate-700
+    descLines.forEach((line) => {
+      pdfdoc.text(line, innerContentLeft, textY);
+      textY += 5;
+    });
+    textY += 3;
+  }
+
+  // ── Image strip (full width below text) ──
+  if (dayImages.length > 0) {
+    const boxH = 45;
+    const stripW = 180 - 6 * 2; // card width minus internal padding
+    const boxW = dayImages.length === 2 ? (stripW - 6) / 2 : stripW;
+    const gap = 6;
 
     for (let i = 0; i < dayImages.length; i++) {
       const imgObj = await loadImage(dayImages[i]);
       if (!imgObj) continue;
       const fmt = detectImgFormat(dayImages[i]);
-      const x = 15 + i * (boxW + gap); // Calculate aspect ratio to prevent distortion (object-fit: contain)
+      const baseX = 15 + 6 + i * (boxW + gap);
 
       const imgAspect = imgObj.width / imgObj.height;
       const boxAspect = boxW / boxH;
-
       let renderW, renderH;
       if (imgAspect > boxAspect) {
-        // Image is wider than the box
         renderW = boxW;
         renderH = boxW / imgAspect;
       } else {
-        // Image is taller than the box
         renderH = boxH;
         renderW = boxH * imgAspect;
-      } // Center the image inside the uniform bounding box
-
-      const imgX = x + (boxW - renderW) / 2;
-      const imgY = y + (boxH - renderH) / 2;
-
-      pdfdoc.addImage(imgObj, fmt, imgX, imgY, renderW, renderH); // Draw a consistent border frame
+      }
+      const imgX = baseX + (boxW - renderW) / 2;
+      const imgY = textY + (boxH - renderH) / 2;
+      pdfdoc.addImage(imgObj, fmt, imgX, imgY, renderW, renderH);
     }
-    y += boxH + 4;
+    textY += boxH + 2;
   }
 
-  pdfdoc.setDrawColor("#E0E0E0");
-  pdfdoc.setLineWidth(0.3);
-  pdfdoc.line(15, y + 1, 200, y + 1);
-  y += 6;
-
-  return y;
+  pdfdoc.setTextColor("#000000");
+  return y + cardH + 5;
 };
 
 // ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
@@ -613,6 +802,10 @@ export const exportPackagePDF = async ({
   }
 
   const pdfdoc = new jsPDF();
+
+  // Best-effort: register Inter as the document font. Silently no-ops if the
+  // TTFs aren't present in /public/fonts/ — Helvetica remains the fallback.
+  await installCustomFonts(pdfdoc);
 
   const logoImg = await loadImage("/adwait-logo.jpg");
   if (!logoImg) {
@@ -849,7 +1042,7 @@ export const exportPackagePDF = async ({
     if (discountAmount > 0) {
       breakdownRows.push([
         {
-          content: "Package Cost (Before Discount)",
+          content: "Package Cost",
           styles: { fontStyle: "normal", fontSize: FONT_SMALL },
         },
         {
@@ -859,7 +1052,7 @@ export const exportPackagePDF = async ({
       ]);
       breakdownRows.push([
         {
-          content: `Special Discount${appliedDiscount.notes ? ` — ${appliedDiscount.notes}` : ""}${appliedDiscount.type === "percentage" ? ` (${appliedDiscount.value}%)` : ""}`,
+          content: `Special Discount${appliedDiscount.notes ? ` — ${appliedDiscount.notes}` : ""}`,
           styles: {
             fontStyle: "italic",
             textColor: [185, 28, 28],
@@ -878,28 +1071,8 @@ export const exportPackagePDF = async ({
       ]);
     }
 
-    // Grand total row
-    breakdownRows.push([
-      {
-        content: `${opt.name} — Total Tour Cost`,
-        styles: {
-          fontStyle: "bold",
-          textColor: [13, 71, 161],
-          fontSize: FONT_BODY,
-          fillColor: [232, 240, 254],
-        },
-      },
-      {
-        content: `Rs. ${optionGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
-        styles: {
-          halign: "right",
-          fontStyle: "bold",
-          textColor: [13, 71, 161],
-          fontSize: FONT_BODY,
-          fillColor: [232, 240, 254],
-        },
-      },
-    ]);
+    // Grand total now rendered as a separate, visually distinct card below
+    // the breakdown table — no longer mixed in as a plain table row.
 
     y = ensureSpace(pdfdoc, logoImg, y, breakdownRows.length * 8 + 6);
 
@@ -913,7 +1086,18 @@ export const exportPackagePDF = async ({
       didDrawPage: () => addHeader(pdfdoc, logoImg),
     });
 
-    y = pdfdoc.lastAutoTable.finalY + 14;
+    y = pdfdoc.lastAutoTable.finalY + 4;
+
+    // Pricing summary card — replaces the old in-table grand-total row.
+    y = ensureSpace(pdfdoc, logoImg, y, 22);
+    y = drawPricingSummaryCard(
+      pdfdoc,
+      `${opt.name} — Total Tour Cost`,
+      optionGrandTotal,
+      y,
+    );
+
+    y += 10;
   }
   // ── MOVED: INCLUSIONS & EXCLUSIONS ──
   // ✅ Detect multi option
@@ -981,7 +1165,9 @@ export const exportPackagePDF = async ({
   if (allIncluded.length || allExcluded.length) {
     // Check if we need a new page before drawing this section
     y = ensureSpace(pdfdoc, logoImg, y, 40);
-    y += 10;
+    // Decorative section divider before this section's heading
+    y = drawDecorativeDivider(pdfdoc, y + 4);
+    y += 4;
     y = drawSectionHeading(pdfdoc, "Inclusions & Exclusions", y);
     y += 8;
 
@@ -1017,11 +1203,24 @@ export const exportPackagePDF = async ({
       theme: "grid",
       styles: {
         fontSize: FONT_BODY,
-        cellPadding: 3,
+        cellPadding: { top: 3, right: 3, bottom: 3, left: 8 },
         valign: "top",
         font: "helvetica",
       },
       columnStyles: { 0: { cellWidth: 90 }, 1: { cellWidth: 90 } },
+      // Draw a check icon (col 0) or a cross icon (col 1) inside the cell's
+      // left padding zone, next to each non-empty line.
+      didDrawCell: (data) => {
+        if (data.section !== "body") return;
+        const text = Array.isArray(data.cell.text)
+          ? data.cell.text.join(" ").trim()
+          : (data.cell.text || "").trim();
+        if (!text) return;
+        const iconX = data.cell.x + 1.5;
+        const iconY = data.cell.y + 1.8;
+        if (data.column.index === 0) Icon.check(pdfdoc, iconX, iconY);
+        else if (data.column.index === 1) Icon.cross(pdfdoc, iconX, iconY);
+      },
       didDrawPage: function () {
         addHeader(pdfdoc, logoImg);
       },
@@ -1049,6 +1248,10 @@ export const exportPackagePDF = async ({
     addHeader(pdfdoc, logoImg);
 
     y = 42;
+
+    // Decorative divider above the section heading
+    y = drawDecorativeDivider(pdfdoc, y);
+    y += 4;
 
     // ── Heading ──
     y = drawSectionHeading(
@@ -1103,6 +1306,7 @@ export const exportPackagePDF = async ({
 
     if (selectedTnc.length || selectedCan.length) {
       y = ensureSpace(pdfdoc, logoImg, y, 16);
+      y = drawDecorativeDivider(pdfdoc, y + 2);
       y += 4;
 
       y = drawSectionHeading(
@@ -1119,7 +1323,7 @@ export const exportPackagePDF = async ({
           "Terms & Conditions",
           itin.tnc,
           y,
-          AMBER,
+          BRAND,
           true,
         );
       }
@@ -1131,7 +1335,7 @@ export const exportPackagePDF = async ({
           "Cancellation Policy",
           itin.cancellation,
           y,
-          "#C62828",
+          BRAND,
           true,
         );
       }
@@ -1139,6 +1343,7 @@ export const exportPackagePDF = async ({
 
     if (itin.impInfo?.some((i) => i.selected)) {
       y = ensureSpace(pdfdoc, logoImg, y, 16);
+      y = drawDecorativeDivider(pdfdoc, y + 2);
       y += 4;
 
       y = drawSectionHeading(pdfdoc, "Important Information", y);

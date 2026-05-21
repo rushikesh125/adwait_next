@@ -251,6 +251,7 @@ export function ChecklistSection({
   onSelectAll,
   onAdd,
   onRemove,
+  onToggleDefault,
   addLabel = "Add Item",
 }) {
   const [newItem, setNewItem] = useState("");
@@ -297,13 +298,23 @@ export function ChecklistSection({
               {item.text}
             </label>
             {item.isDefault ? (
-              <button
-                type="button"
-                onClick={() => onRemove(item.id)}
-                className="text-[10px] text-red-500 border border-red-300 rounded px-2 py-0.5 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-              >
-                Remove Default
-              </button>
+              item.isMarkedAsDefault !== false ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleDefault?.(item, true)}
+                  className="text-[10px] text-red-500 border border-red-300 rounded px-2 py-0.5 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                >
+                  Remove Default
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onToggleDefault?.(item, false)}
+                  className="text-[10px] text-emerald-600 border border-emerald-300 rounded px-2 py-0.5 hover:bg-emerald-50 transition-opacity flex-shrink-0"
+                >
+                  Mark as Default
+                </button>
+              )
             ) : (
               <button
                 type="button"

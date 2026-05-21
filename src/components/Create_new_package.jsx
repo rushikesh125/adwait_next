@@ -1410,7 +1410,8 @@ const Create_new_package = ({
       })),
     };
 
-    if (editingIndex !== null) {
+    const wasEditing = editingIndex !== null;
+    if (wasEditing) {
       updateHotelEntryInOption(editingIndex, entry);
     } else {
       addHotelEntryToOption(entry);
@@ -1419,8 +1420,13 @@ const Create_new_package = ({
     setSaveChanges(true);
     setIsReadyToAddAnother(true);
     setEditingIndex(null);
-    // Reset room category rows for next hotel
-    updateActiveOption({ roomCategoryRows: [createEmptyRoomCategory(0)] });
+    // Reset room category rows for next hotel. When updating an existing
+    // entry, also clear selectedHotelId so the edit form closes (mirrors
+    // the custom-hotel close behaviour via setShowCustomHotelForm(false)).
+    updateActiveOption({
+      roomCategoryRows: [createEmptyRoomCategory(0)],
+      ...(wasEditing ? { selectedHotelId: null } : {}),
+    });
     // FIX: clear refs after save
     roomPriceRefs.current = {};
   };

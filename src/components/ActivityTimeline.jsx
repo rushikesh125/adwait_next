@@ -347,24 +347,34 @@ function FollowUpCard({ item, onEdit, onDelete, onMarkComplete }) {
 
 function NoteCard({ item, onDelete }) {
   const isFollowUpNote = item.text?.startsWith("FOLLOW-UP");
+  const isStatusNote = item.text?.startsWith("STATUS:");
   return (
     <div className={`rounded-xl border p-4 transition-all group ${
-      isFollowUpNote
-        ? "bg-emerald-50/40 border-emerald-100 hover:border-emerald-200"
-        : "bg-blue-50/30 border-blue-100 hover:border-blue-200"
+      isStatusNote
+        ? "bg-slate-50 border-slate-200 hover:border-slate-300"
+        : isFollowUpNote
+          ? "bg-emerald-50/40 border-emerald-100 hover:border-emerald-200"
+          : "bg-blue-50/30 border-blue-100 hover:border-blue-200"
     }`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0 flex-1">
           <div className={`p-1.5 rounded-lg shrink-0 ${
-            isFollowUpNote ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
+            isStatusNote
+              ? "bg-slate-200 text-slate-600"
+              : isFollowUpNote ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
           }`}>
-            {isFollowUpNote ? <CheckCircle2 className="h-3.5 w-3.5" /> : <StickyNote className="h-3.5 w-3.5" />}
+            {isStatusNote
+              ? <Activity className="h-3.5 w-3.5" />
+              : isFollowUpNote ? <CheckCircle2 className="h-3.5 w-3.5" /> : <StickyNote className="h-3.5 w-3.5" />}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <ActivityTypeBadge kind="note" />
               {isFollowUpNote && (
                 <span className="text-[10px] font-bold text-emerald-700">Auto-generated</span>
+              )}
+              {isStatusNote && (
+                <span className="text-[10px] font-bold text-slate-600">Status change</span>
               )}
             </div>
             <p className="text-xs text-slate-700 leading-relaxed mt-1.5 break-words">{item.text}</p>
