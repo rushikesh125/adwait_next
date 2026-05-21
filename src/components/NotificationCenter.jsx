@@ -608,15 +608,15 @@ export default function NotificationCenter({ userId }) {
                                   View Lead →
                                 </button>
 
-                                {/* {waUrl && (
-                  <button
-                    onClick={() => window.open(waUrl, "_blank")}
-                    className="flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-[11px] font-bold text-white hover:bg-green-600 transition-colors"
-                  >
-                    <MessageCircle className="h-3 w-3" />
-                    WhatsApp
-                  </button>
-                )} */}
+                                {waUrl && (
+                                  <button
+                                    onClick={() => window.open(waUrl, "_blank")}
+                                    className="flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-[11px] font-bold text-white hover:bg-green-600 transition-colors"
+                                  >
+                                    <MessageCircle className="h-3 w-3" />
+                                    WhatsApp
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>

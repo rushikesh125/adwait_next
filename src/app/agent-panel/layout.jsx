@@ -6,8 +6,9 @@ import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 import { Toaster } from "react-hot-toast";
 import {
-  LayoutDashboard, Map, Users, LogOut, Menu, X, Bell,
-  Briefcase, Component, Tickets, BookAIcon, CalendarCheck, FileText,
+  LayoutDashboard, LogOut, Menu, X, Bell,
+  UserPlus, FileSpreadsheet, Ticket, Route, CalendarCheck, Receipt,
+  UserRound, TrainFront,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/firebase/config";
@@ -61,14 +62,14 @@ const AgentPanelLayout = ({ children }) => {
 
   const navItems = [
     { name: "Dashboard",      href: "/agent-panel",               icon: LayoutDashboard },
-    { name: "Lead",           href: "/agent-panel/leads",          icon: Briefcase       },
-    { name: "Quotation",      href: "/agent-panel/my-quotation",   icon: Map             },
+    { name: "Lead",           href: "/agent-panel/leads",          icon: UserPlus        },
+    { name: "Quotation",      href: "/agent-panel/my-quotation",   icon: FileSpreadsheet },
     { name: "Booking",        href: "/agent-panel/bookings",       icon: CalendarCheck   },
-    { name: "Invoices",       href: "/agent-panel/invoices",       icon: FileText        },
-    { name: "Vouchers",       href: "/agent-panel/vouchers",       icon: Tickets         },
-    { name: "Customer",       href: "/agent-panel/customers",      icon: Users           },
-    { name: "Itinerary",      href: "/agent-panel/itinerary",      icon: BookAIcon       },
-    { name: "Railway Booking",href: "/agent-panel/bookingform",    icon: Component       },
+    { name: "Invoices",       href: "/agent-panel/invoices",       icon: Receipt         },
+    { name: "Vouchers",       href: "/agent-panel/vouchers",       icon: Ticket          },
+    { name: "Customer",       href: "/agent-panel/customers",      icon: UserRound       },
+    { name: "Itinerary",      href: "/agent-panel/itinerary",      icon: Route           },
+    { name: "Railway Booking",href: "/agent-panel/bookingform",    icon: TrainFront      },
   ];
 
   const SidebarContent = ({ mobile = false }) => (

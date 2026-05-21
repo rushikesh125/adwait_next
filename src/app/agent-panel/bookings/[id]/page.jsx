@@ -969,8 +969,21 @@ export default function BookingDetailPage() {
                       </span>
                       <span className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                         {formatCurrency(estMargin)}
+                        <span className="ml-1.5 text-[11px] font-semibold opacity-80">
+                          ({((estMargin / totalAmount) * 100).toFixed(1)}%)
+                        </span>
                       </span>
                     </div>
+                    {totalVendorCost > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <TrendingUp className="w-3.5 h-3.5" /> Markup
+                        </span>
+                        <span className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                          {((estMargin / totalVendorCost) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
               </CardContent>

@@ -59,6 +59,7 @@ const MAX_NOTES = 1000;
 export default function FollowUpCompleteModal({ open, followUp, onClose, onConfirm }) {
   const [notes, setNotes]         = useState("");
   const [isColdLead, setIsColdLead] = useState(false);
+  const [scheduleNext, setScheduleNext] = useState(true);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState("");
   const textareaRef               = useRef(null);
@@ -68,6 +69,7 @@ export default function FollowUpCompleteModal({ open, followUp, onClose, onConfi
     if (open) {
       setNotes("");
       setIsColdLead(false);
+      setScheduleNext(true);
       setError("");
       setLoading(false);
       // Auto-focus textarea after transition
@@ -103,7 +105,9 @@ export default function FollowUpCompleteModal({ open, followUp, onClose, onConfi
     setError("");
     setLoading(true);
     try {
-      await onConfirm(trimmed, isColdLead);
+      // Cold lead supersedes scheduling — don't queue another follow-up
+      // for a lead that's being archived
+      await onConfirm(trimmed, isColdLead, isColdLead ? false : scheduleNext);
       // parent closes modal via setCompleting(false) in FollowUpCard
     } catch (err) {
       // Validation errors are already toasted upstream; only show unexpected ones
@@ -224,6 +228,49 @@ export default function FollowUpCompleteModal({ open, followUp, onClose, onConfi
               </p>
             )}
           </div>
+
+          {/* Schedule-next toggle — hidden once Cold Lead is enabled */}
+          {!isColdLead && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => setScheduleNext((v) => !v)}
+              className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all group ${
+                scheduleNext
+                  ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
+                  : "bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+              } disabled:opacity-50`}
+            >
+              <div
+                className={`shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  scheduleNext
+                    ? "bg-blue-500 border-blue-500"
+                    : "border-slate-300 group-hover:border-slate-400"
+                }`}
+              >
+                {scheduleNext && <CalendarClock className="h-3 w-3 text-white" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-700">
+                  Schedule next follow-up
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Open the new follow-up form after marking this one complete
+                </p>
+              </div>
+              <div
+                className={`h-4 w-7 rounded-full transition-all relative shrink-0 ${
+                  scheduleNext ? "bg-blue-500" : "bg-slate-200"
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${
+                    scheduleNext ? "left-3.5" : "left-0.5"
+                  }`}
+                />
+              </div>
+            </button>
+          )}
 
           {/* Cold lead toggle */}
           <button

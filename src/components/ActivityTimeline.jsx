@@ -333,8 +333,8 @@ function FollowUpCard({ item, onEdit, onDelete, onMarkComplete }) {
           open={completing}
           followUp={item}
           onClose={() => setCompleting(false)}
-          onConfirm={async (notes, isCold) => {
-            await onMarkComplete(item, notes, isCold);
+          onConfirm={async (notes, isCold, scheduleNext) => {
+            await onMarkComplete(item, notes, isCold, scheduleNext);
             setCompleting(false);
           }}
         />
@@ -615,12 +615,17 @@ export default function ActivityTimeline({
     await onDeleteNote(id);
   };
 
-  const handleMarkComplete = async (followUp, notes, isCold) => {
+  const handleMarkComplete = async (followUp, notes, isCold, scheduleNext) => {
     if (!notes?.trim()) {
       toast.error("Please enter completion notes");
       throw new Error("validation");
     }
     await onFollowUpMarkComplete(followUp, notes, isCold);
+    if (scheduleNext) {
+      // Open a fresh follow-up form right after the current one is marked complete
+      setEditingFollowUp(null);
+      setShowFollowUpForm(true);
+    }
   };
 
   // Overdue & pending counts for header badges
