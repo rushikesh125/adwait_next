@@ -201,12 +201,13 @@ const drawStarRow = (pdfdoc, x, y, rating = 0, max = 5, size = 1.4) => {
 // ─── Decorative section divider ───────────────────────────────────────────────
 // Tapered line + small brand-color diamond in the middle, used to separate
 // major sections without the heaviness of a hard rule.
-// Padding is asymmetric: drawSectionHeading renders its bar from (y - 5) to
-// (y + 3), i.e. it stretches 5mm UP from the y it's called with. So the
-// trailing pad needs to cover that 5mm pull-up plus a visible gap.
+// Padding is asymmetric and "trailing-weighted" — the divider visually closes
+// the PREVIOUS section (small gap above, hugs content) while leaving a clear
+// breathing space before the NEXT section's heading bar (which itself
+// stretches 5mm upward from the y it's called with).
 const drawDecorativeDivider = (pdfdoc, y) => {
-  const PAD_TOP = 5;     // ~1 body line above the divider
-  const PAD_BOTTOM = 11; // 5mm to cover heading bar's upward stretch + 6mm gap
+  const PAD_TOP = 2;     // tight to the previous section
+  const PAD_BOTTOM = 14; // 5mm for heading-bar pull-up + 9mm visible gap
   const drawY = y + PAD_TOP;
   const midX = PAGE_W / 2;
   pdfdoc.setDrawColor("#CBD5E1"); // slate-300
@@ -475,7 +476,35 @@ const ensureSpace = (pdfdoc, logoImg, currentY, needed = 20) => {
 
 // ─── Header / Footer ─────────────────────────────────────────────────────────
 // ─── Header / Footer ─────────────────────────────────────────────────────────
+// Subtle brand-logo watermark for inner pages. Drawn at low opacity in the
+// center of the page beneath all content. Skipped on the cover (the cover
+// uses its own hero treatment with the logo as a circular badge).
+const drawWatermark = (pdfdoc, img) => {
+  if (!img) return;
+  try {
+    const w = 110;
+    const aspect = img.width / img.height;
+    const h = w / aspect;
+    const x = (PAGE_W - w) / 2;
+    const y = (PAGE_H - h) / 2;
+    // jsPDF v2/v3: setGState + GState — wrap in try/catch in case the
+    // installed version differs slightly. If GState isn't available we
+    // silently skip the watermark rather than blowing up the PDF.
+    if (typeof pdfdoc.setGState === "function" && pdfdoc.GState) {
+      const gs = new pdfdoc.GState({ opacity: 0.06 });
+      pdfdoc.setGState(gs);
+      pdfdoc.addImage(img, "PNG", x, y, w, h);
+      pdfdoc.setGState(new pdfdoc.GState({ opacity: 1 }));
+    }
+  } catch {
+    // ignore
+  }
+};
+
 const addHeader = (pdfdoc, img) => {
+  // 0. Watermark first so all subsequent content draws on top
+  drawWatermark(pdfdoc, img);
+
   // 1. Logo Scaling (Cap height to 16 to prevent layout break, adjust width proportionally)
   const maxLogoHeight = 16;
   let lh = maxLogoHeight;
@@ -664,7 +693,28 @@ const drawServiceIcon = async (pdfdoc, iconPath, x, y, size) => {
 //   [15 ─── 38] vertical accent stripe + "DAY N" badge
 //   [40 ─── 195] title, description, image strip
 // The card has a soft slate background and a brand-colored left stripe.
-const drawDay = async (pdfdoc, logoImg, day, y) => {
+// Format a date like "Mon, 18 May" (no year — fits in the narrow left column).
+const formatDayDate = (date) => {
+  if (!date) return "";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d?.getTime())) return "";
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+};
+
+const drawDay = async (pdfdoc, logoImg, day, y, options = {}) => {
+  const { tripStartDate } = options;
+  let dayDate = null;
+  if (tripStartDate && day.dayNumber) {
+    const base = new Date(tripStartDate);
+    if (!isNaN(base.getTime())) {
+      base.setDate(base.getDate() + (day.dayNumber - 1));
+      dayDate = base;
+    }
+  }
   const innerContentLeft = 42;
   const innerContentW = 153; // 195 - 42
 
@@ -703,8 +753,17 @@ const drawDay = async (pdfdoc, logoImg, day, y) => {
   pdfdoc.setTextColor("#FFFFFF");
   pdfdoc.text(`DAY ${day.dayNumber}`, 28.5, y + 7.5, { align: "center" });
 
-  // Inline calendar icon below the day badge (decorative)
-  Icon.calendar(pdfdoc, 27, y + 12, SLATE_LIGHT);
+  // Date subtitle ("Mon, 18 May") under the badge — replaces the
+  // decorative calendar icon when we know the trip start date.
+  if (dayDate) {
+    pdfdoc.setFont(FONT_FAMILY, "normal");
+    pdfdoc.setFontSize(FONT_TINY);
+    pdfdoc.setTextColor(SLATE);
+    pdfdoc.text(formatDayDate(dayDate), 28.5, y + 13.5, { align: "center" });
+  } else {
+    // Keep the decorative icon if no date is known
+    Icon.calendar(pdfdoc, 27, y + 12, SLATE_LIGHT);
+  }
 
   // ── Right column: title + description ──
   let textY = y + 5;
@@ -1081,11 +1140,29 @@ export const exportPackagePDF = async ({
 
       const bodyStartY = tableStartY + headerH;
 
+      // Pre-compute body-row → hotel mapping so didDrawCell can resolve the
+      // correct hotel even for multi-room-category rows where successive
+      // rows belong to the same hotel.
+      const rowHotelMap = [];
+      for (const h of optHotels) {
+        const rcCount =
+          Array.isArray(h.roomCategories) && h.roomCategories.length > 0
+            ? h.roomCategories.length
+            : 1;
+        for (let i = 0; i < rcCount; i++) {
+          rowHotelMap.push({ hotel: h, isFirstRow: i === 0 });
+        }
+      }
+
       autoTable(pdfdoc, {
         startY: bodyStartY,
         didDrawCell: function (data) {
-          if (data.section === "body" && data.column.index === 0) {
-            const h = optHotels[data.row.index];
+          if (data.section !== "body" || data.column.index !== 0) return;
+          const mapping = rowHotelMap[data.row.index];
+          if (!mapping) return;
+          const { hotel: h, isFirstRow } = mapping;
+          // Hotel link — only on rows where the hotel name actually appears
+          if (isFirstRow) {
             const link =
               h?.GoogleListingURL ||
               h?.googleLink ||
@@ -1099,6 +1176,18 @@ export const exportPackagePDF = async ({
                 data.cell.height,
                 { url: link },
               );
+            }
+            // Star rating row below the hotel name (only when known)
+            const rating = Number(h.rating || h.starRating) || 0;
+            if (rating > 0) {
+              const size = 1.0;
+              const starsW = 5 * (size * 2 + 0.5);
+              const sx = data.cell.x + 2;
+              const sy = data.cell.y + data.cell.height - 2.5;
+              // Guard against width clipping for very narrow cells
+              if (starsW < data.cell.width - 4) {
+                drawStarRow(pdfdoc, sx, sy, rating, 5, size);
+              }
             }
           }
         },
@@ -1498,6 +1587,13 @@ export const exportPackagePDF = async ({
       pdfdoc.text("Day-wise Program", 15, y);
       y += 7;
 
+      // Trip start date for per-day date subtitles. Falls back to the
+      // first hotel's check-in.
+      const tripStartDate =
+        allHotelEntries[0]?.checkInDate ||
+        itineraryData?.startDate ||
+        null;
+
       for (let di = 0; di < validDays.length; di++) {
         const day = validDays[di];
         const originalIndex = itin.days.indexOf(day);
@@ -1512,7 +1608,9 @@ export const exportPackagePDF = async ({
             .map((x) => x.src),
         };
 
-        y = await drawDay(pdfdoc, logoImg, enrichedDay, y);
+        y = await drawDay(pdfdoc, logoImg, enrichedDay, y, {
+          tripStartDate,
+        });
       }
     }
 

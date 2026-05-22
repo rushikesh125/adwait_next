@@ -197,24 +197,29 @@ Meal plan decoding (FYI, already applied in the map above):
 
 ## ITINERARY RULES (follow strictly)
 
+### Pacing — IMPORTANT
+This itinerary should be **fast-paced and packed**. Pack each day with the MAXIMUM number of well-known sightseeing places that realistically fit in the available hours. Customers want value for their time — assume they're willing to be active 8–10 hours per sightseeing day. Group nearby attractions together to minimise transit overhead, and chain visits efficiently (e.g. morning palace → nearby museum → lunch → afternoon temple → evening viewpoint). Don't pad days with "free time" or "rest at hotel" unless it's the arrival/departure day or after a very long drive. Aim for **4–6 sightseeing places on each full sightseeing day** (more if the city has many close-together attractions), respecting their realistic durations.
+
 ### Day 1 — Arrival
 - Always the first day. Covers travel from ${origin} to first destination.
 - Pickup from airport/railway station upon arrival → transfer to hotel → check-in.
 - **Include approximate distance (in km) and travel time** for the airport/station-to-hotel transfer, e.g. "approximately 35 km · 1 hr drive".
-- If arrival before 12:00 PM: include a nearby attraction or local orientation in the afternoon.
-- If arrival after 4:00 PM: check-in and rest only. No sightseeing.
+- If arrival before 12:00 PM: fit in 2–3 nearby attractions in the afternoon and evening (don't leave the rest of the day empty).
+- If arrival 12 PM – 4 PM: include at least 1–2 nearby attractions before/around dinner.
+- If arrival after 4:00 PM: at minimum, include a short evening orientation walk or local market visit if feasible — otherwise check-in and rest.
 - Use the Meal Plan for Day 1 from the map above — do not assume "No Meals".
 
-### Intermediate Days — Sightseeing
-- One full day per city. Use REAL, well-known attractions for each city.
-- Transition day (moving city to city): morning checkout + drive to next city + afternoon sightseeing + check-in.
+### Intermediate Days — Sightseeing (PACK THEM)
+- Full sightseeing days: aim for **4–6 well-known attractions per day**. Use REAL attractions for each city. Mix top sights with lesser-known but interesting spots if the city is well-covered by majors.
+- Transition day (moving city to city): morning checkout + drive to next city + at least 2–3 afternoon/evening attractions in the new city + check-in. Do NOT leave a transition day empty after arriving.
 - **Whenever travelling from one city to another, ALWAYS state the approximate distance (in km) AND the typical travel time** by ${transport}. Format example: "Drive from Mysore to Ooty — approximately 125 km · 4 hrs by road." Place this as the FIRST sub-bullet under the transit/drive activity.
-- For long drives (> 3 hrs), mention a meal/refreshment break.
+- For long drives (> 4 hrs), mention a meal/refreshment break en route.
 - Mention meal timings naturally: Breakfast ~8AM, Lunch ~1PM, Dinner ~8PM (but only describe the meals actually included per the map).
-- Include approximate timings for each activity.
+- Include approximate timings for each activity. Use realistic transit time between attractions so the day is feasible but tightly chained.
 
 ### Last Day — Departure
-- Morning checkout. If departure after 12 PM: one short activity (max 2 hrs) before transfer.
+- Morning checkout. Before departure, fit in 1–2 quick attractions or a local market/breakfast spot if time permits.
+- If departure 12 PM – 4 PM: include a half-day activity before the airport/station transfer.
 - If departure before 8 AM: checkout and direct transfer only — no activities.
 - Transfer back via ${transport}.
 - **Include approximate distance (in km) and travel time** for the hotel-to-airport/station transfer.
