@@ -175,35 +175,43 @@ const buildOptionBlock = (
     }
     s += ` ⇒ ${e.city}, ${e.state}\n`;
 
-    // Multi-room-category support: show each room category on its own line
-    const hasMultiRooms =
-      Array.isArray(e.roomCategories) && e.roomCategories.length > 1;
+    // One-liner: "<N Room(s) — CATEGORY> | <Meal Plan> | <Occupancy>"
+    // Occupancy collapses N rooms × 2 adults plus any extras into a phrase
+    // like "2 Adults" or "4 Adults + 1 Extra Adult + 2 Children + 1 CNB".
+    const formatRoomLine = (rc, mealLabel) => {
+      const rooms = Number(rc.numDouble) || 0;
+      const adults = rooms * 2;
+      const category = (rc.roomCategory || "—").toUpperCase();
+      const occupancyParts = [`${adults} Adult${adults !== 1 ? "s" : ""}`];
+      if ((rc.numExtraAdult || 0) > 0)
+        occupancyParts.push(`${rc.numExtraAdult} Extra Adult${rc.numExtraAdult !== 1 ? "s" : ""}`);
+      if ((rc.numExtraChild || 0) > 0)
+        occupancyParts.push(`${rc.numExtraChild} Child${rc.numExtraChild !== 1 ? "ren" : ""}`);
+      if ((rc.numCNB || 0) > 0) occupancyParts.push(`${rc.numCNB} CNB`);
+      const roomsPart = `${rooms} Room${rooms !== 1 ? "s" : ""} — ${category}`;
+      return `${roomsPart} | ${mealLabel} | ${occupancyParts.join(" + ")}`;
+    };
 
-    if (hasMultiRooms) {
-      e.roomCategories.forEach((rc, rcIdx) => {
-        s += ` ⇒ Room ${rcIdx + 1}: ${rc.numDouble || 0} Double`;
-        if ((rc.numExtraAdult || 0) > 0) s += ` | +${rc.numExtraAdult} Extra Adult`;
-        if ((rc.numExtraChild || 0) > 0) s += ` | +${rc.numExtraChild} Child`;
-        if ((rc.numCNB || 0) > 0) s += ` | +${rc.numCNB} CNB`;
-        s += ` | ${(rc.roomCategory || "").toUpperCase()} | ${MEAL_PLAN_LABELS[rc.mealPlan] || rc.mealPlan || "—"}\n`;
-      });
-    } else {
-      // Single room category (or legacy flat entry)
-      const primaryRoom = e.roomCategories?.[0];
-      const numDouble = primaryRoom?.numDouble ?? e.numDouble ?? 0;
-      const numExtraAdult = primaryRoom?.numExtraAdult ?? e.numExtraAdult ?? 0;
-      const numExtraChild = primaryRoom?.numExtraChild ?? e.numExtraChild ?? 0;
-      const numCNB = primaryRoom?.numCNB ?? e.numCNB ?? 0;
-      const roomCat = getPrimaryRoomCategory(e);
-      const mealPlan = getPrimaryMealPlan(e);
+    // Single line per room category — same shape whether the hotel has one
+    // room category or several. Each category is its own self-contained line.
+    const categories =
+      Array.isArray(e.roomCategories) && e.roomCategories.length > 0
+        ? e.roomCategories
+        : [
+            {
+              roomCategory: getPrimaryRoomCategory(e),
+              mealPlan: getPrimaryMealPlan(e),
+              numDouble: e.numDouble || 0,
+              numExtraAdult: e.numExtraAdult || 0,
+              numExtraChild: e.numExtraChild || 0,
+              numCNB: e.numCNB || 0,
+            },
+          ];
 
-      s += ` ⇒ Rooms: ${numDouble}`;
-      if (numExtraAdult > 0) s += ` | Extra Adult: ${numExtraAdult}`;
-      if (numExtraChild > 0) s += ` | Extra Child: ${numExtraChild}`;
-      if (numCNB > 0) s += ` | CNB: ${numCNB}`;
-      s += ` | Category: ${roomCat.toUpperCase()}\n`;
-      s += ` ⇒ Meal Plan: ${MEAL_PLAN_LABELS[mealPlan] || mealPlan || "—"}\n`;
-    }
+    categories.forEach((rc) => {
+      const mealLabel = MEAL_PLAN_LABELS[rc.mealPlan] || rc.mealPlan || "—";
+      s += ` ⇒ ${formatRoomLine(rc, mealLabel)}\n`;
+    });
 
     s += ` ⇒ ${formatDate(e.checkInDate)} to ${formatDate(e.checkOutDate)} (${e.nights} Night${e.nights > 1 ? "s" : ""})\n\n`;
   });

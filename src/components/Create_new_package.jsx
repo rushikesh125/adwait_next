@@ -36,6 +36,7 @@ import toast from "react-hot-toast";
 
 import { exportPackagePDF } from "@/lib/exportPackagePDF";
 import { copyPackageSummary } from "@/lib/copyPackageSummary";
+import { getQuotationById } from "@/firebase/quotations";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -617,8 +618,15 @@ const Create_new_package = ({
 
   const quotationId = searchParams.get("quotationId");
   const isEditMode = !!quotationId;
+  // Overwriting in place is allowed for everything EXCEPT the finalized
+  // statuses below. Drafts (explicit, missing, lowercase) all qualify; only
+  // Sent / Accepted / Rejected force "Save As New" to avoid mutating a
+  // quotation that's already been shared with a customer or downstream booking.
+  const FINAL_STATUSES = ["Sent", "Accepted", "Rejected"];
   const canOverwrite =
-    isEditMode && !!editingQuotation && editingQuotation.status === "Draft";
+    isEditMode &&
+    !!editingQuotation &&
+    !FINAL_STATUSES.includes(editingQuotation.status);
   const customerId =
     searchParams.get("customerId") || searchParams.get("customerid");
   const leadId = searchParams.get("leadId");
@@ -881,6 +889,23 @@ const Create_new_package = ({
     });
   }, [leadId, user?.orgId]);
 
+  // Fallback: if the user landed on the edit page via a direct URL or page
+  // reload, Redux has no editingQuotation. Fetch from Firestore and populate
+  // it so the rest of the edit flow (hydration, canOverwrite, etc.) works.
+  useEffect(() => {
+    if (!isEditMode || editingQuotation || !user?.uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = await getQuotationById(user.uid, quotationId);
+        if (!cancelled && q) dispatch(setEditingQuotation(q));
+      } catch (err) {
+        console.error("[Create_new_package] Failed to load quotation:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isEditMode, editingQuotation, user?.uid, quotationId, dispatch]);
+
   const hydratedRef = useRef(false);
   useEffect(() => {
     if (!isEditMode || !editingQuotation || hydratedRef.current) return;
@@ -914,6 +939,25 @@ const Create_new_package = ({
 
     if (q.transportSummary) {
       const t = q.transportSummary;
+
+      // Recover the per-day driver allowance for both new and legacy formats:
+      //   - New format: t.driverAllowance is the per-day rate (and
+      //     t.totalDriverAllowance holds the multiplied total).
+      //   - Legacy format (pre-fix): t.driverAllowance was the multiplied
+      //     total. Divide by the original day count to recover the rate.
+      const savedNights =
+        (q.packageOptions?.[0]?.hotelEntries || q.hotelSummary || []).reduce(
+          (sum, e) => sum + (Number(e.nights) || 0),
+          0,
+        );
+      const savedDays = savedNights > 0 ? savedNights + 1 : 1;
+      const rawDriverAllowance = Number(t.driverAllowance || 0);
+      const isLegacyTotal =
+        t.totalDriverAllowance === undefined && rawDriverAllowance > 0;
+      const hydratedDriverAllowancePerDay = isLegacyTotal
+        ? rawDriverAllowance / savedDays
+        : rawDriverAllowance;
+
       dispatch(
         setSelectedTransport({
           name: t.packageName || "Custom",
@@ -925,7 +969,7 @@ const Create_new_package = ({
             price: t.vehicleCost || 0,
             perKmprice: t.perKmprice || 0,
             isCustom: t.isCustom || false,
-            driverAllowance: t.driverAllowance || 0,
+            driverAllowance: hydratedDriverAllowancePerDay,
           },
         }),
       );
@@ -1373,7 +1417,8 @@ const Create_new_package = ({
       })),
     };
 
-    if (editingIndex !== null) {
+    const wasEditing = editingIndex !== null;
+    if (wasEditing) {
       updateHotelEntryInOption(editingIndex, entry);
     } else {
       addHotelEntryToOption(entry);
@@ -1382,8 +1427,13 @@ const Create_new_package = ({
     setSaveChanges(true);
     setIsReadyToAddAnother(true);
     setEditingIndex(null);
-    // Reset room category rows for next hotel
-    updateActiveOption({ roomCategoryRows: [createEmptyRoomCategory(0)] });
+    // Reset room category rows for next hotel. When updating an existing
+    // entry, also clear selectedHotelId so the edit form closes (mirrors
+    // the custom-hotel close behaviour via setShowCustomHotelForm(false)).
+    updateActiveOption({
+      roomCategoryRows: [createEmptyRoomCategory(0)],
+      ...(wasEditing ? { selectedHotelId: null } : {}),
+    });
     // FIX: clear refs after save
     roomPriceRefs.current = {};
   };
@@ -1774,7 +1824,11 @@ const Create_new_package = ({
               perKmprice: selectedTransport.selectedVehicle?.perKmprice || 0,
               minKm: minKm || 0,
               vehicleCost: transportBreakdown?.baseCost || 0,
-              driverAllowance: transportBreakdown?.driverAllowance || 0,
+              // Per-day rate (so hydration restores selectedVehicle correctly).
+              // The multiplied total is preserved separately in totalDriverAllowance.
+              driverAllowance:
+                selectedTransport.selectedVehicle?.driverAllowance || 0,
+              totalDriverAllowance: transportBreakdown?.driverAllowance || 0,
               tollCharges: transportBreakdown?.toll || 0,
               permitCharges: transportBreakdown?.permit || 0,
               otherCharges: transportBreakdown?.other || 0,

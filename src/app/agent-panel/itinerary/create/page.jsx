@@ -54,6 +54,11 @@ import {
   MultiStateDropdown,
 } from "./../ItinerarySubComponents";
 import { ImageSearchPanel } from "../ImageSearchPanel";
+import {
+  getAgentPreferences,
+  setRemovedDefault,
+  applyRemovedDefaults,
+} from "@/firebase/agentPreferences";
 
 // NEW: Image Search Panel
 // import { ImageSearchPanel } from "./ImageSearchPanel";
@@ -547,6 +552,56 @@ export default function ItineraryForm() {
   const tncH = makeHandlers(setTnc);
   const canH = makeHandlers(setCancellation);
   const impH = makeHandlers(setImpInfo);
+
+  // ── Apply per-agent removed-default preferences on mount ──────────────────
+  useEffect(() => {
+    if (!user?.uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const prefs = await getAgentPreferences(user.uid);
+        if (cancelled) return;
+        const rd = prefs.removedDefaults || {};
+        setInclusions((prev) => applyRemovedDefaults(prev, rd.inclusions));
+        setExclusions((prev) => applyRemovedDefaults(prev, rd.exclusions));
+        setTnc((prev) => applyRemovedDefaults(prev, rd.tnc));
+        setCancellation((prev) => applyRemovedDefaults(prev, rd.cancellation));
+        setImpInfo((prev) => applyRemovedDefaults(prev, rd.impinfo));
+      } catch (err) {
+        console.error("[itinerary/create] failed to load agent prefs:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid]);
+
+  // Toggle a default item's "marked as default" state AND persist the
+  // preference. Selection (the checkbox) is also flipped for the current
+  // quotation so the UI immediately reflects the agent's intent — but the
+  // persisted bit is independent: the agent can still uncheck a default
+  // for one quotation without removing it as a default.
+  //
+  // `removed === true` → no longer a default (isMarkedAsDefault=false, unchecked)
+  // `removed === false` → restored as a default (isMarkedAsDefault=true, checked)
+  const makeToggleDefault = (setter, category) => (item, removed) => {
+    setter((prev) =>
+      prev.map((i) =>
+        i.text === item.text && i.isDefault
+          ? { ...i, isMarkedAsDefault: !removed, selected: !removed }
+          : i,
+      ),
+    );
+    if (user?.uid) {
+      setRemovedDefault(user.uid, category, item.text, removed).catch((err) =>
+        console.error(`[itinerary/create] persist ${category} pref failed:`, err),
+      );
+    }
+  };
+
+  const incToggleDefault = makeToggleDefault(setInclusions, "inclusions");
+  const excToggleDefault = makeToggleDefault(setExclusions, "exclusions");
+  const tncToggleDefault = makeToggleDefault(setTnc, "tnc");
+  const canToggleDefault = makeToggleDefault(setCancellation, "cancellation");
+  const impToggleDefault = makeToggleDefault(setImpInfo, "impinfo");
 
   // ── City handlers (unchanged) ──────────────────────────────────────────────
   const handleAddCity = (e) => {
@@ -1268,6 +1323,7 @@ export default function ItineraryForm() {
                   onSelectAll={incH.selectAll}
                   onAdd={incH.add}
                   onRemove={incH.remove}
+                  onToggleDefault={incToggleDefault}
                   addLabel="Add Inclusion"
                 />
               </div>
@@ -1281,6 +1337,7 @@ export default function ItineraryForm() {
                   onSelectAll={excH.selectAll}
                   onAdd={excH.add}
                   onRemove={excH.remove}
+                  onToggleDefault={excToggleDefault}
                   addLabel="Add Exclusion"
                 />
               </div>
@@ -1303,6 +1360,7 @@ export default function ItineraryForm() {
                   onSelectAll={tncH.selectAll}
                   onAdd={tncH.add}
                   onRemove={tncH.remove}
+                  onToggleDefault={tncToggleDefault}
                   addLabel="Add Terms"
                 />
               </CardContent>
@@ -1320,6 +1378,7 @@ export default function ItineraryForm() {
                   onSelectAll={canH.selectAll}
                   onAdd={canH.add}
                   onRemove={canH.remove}
+                  onToggleDefault={canToggleDefault}
                   addLabel="Add Cancellation Policy"
                 />
               </CardContent>
@@ -1341,6 +1400,7 @@ export default function ItineraryForm() {
                 onSelectAll={impH.selectAll}
                 onAdd={impH.add}
                 onRemove={impH.remove}
+                onToggleDefault={impToggleDefault}
                 addLabel="Add Important Information"
               />
             </CardContent>

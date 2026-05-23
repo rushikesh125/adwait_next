@@ -5,9 +5,9 @@ import { useSelector } from "react-redux";
 import RequireAuth from "@/components/RequireAuth";
 
 import {
-  LayoutDashboard, ShieldCheck, LogOut, Menu, X, Lock,
-  TruckElectric, ActivityIcon, BookPlus,
-  Users, Briefcase, FileText, CalendarCheck, UserCircle,
+  LayoutDashboard, LogOut, Menu, X, Lock,
+  Hotel, Bus, MapPinned, Route,
+  Users, UserPlus, FileSpreadsheet, CalendarCheck, UserCircle,
   Inbox, Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,15 +39,15 @@ const AdminPanelLayout = ({ children }) => {
 
   const contentNav = [
     { name: "Overview", href: "/admin-panel", icon: LayoutDashboard },
-    { name: "Accommodations", href: "/admin-panel/accommodations", icon: ShieldCheck },
-    { name: "Transports", href: "/admin-panel/transports", icon: TruckElectric },
-    { name: "Tour activities", href: "/admin-panel/activities", icon: ActivityIcon },
-    { name: "Itinerary", href: "/admin-panel/itinerary", icon: BookPlus },
+    { name: "Accommodations", href: "/admin-panel/accommodations", icon: Hotel },
+    { name: "Transports", href: "/admin-panel/transports", icon: Bus },
+    { name: "Tour activities", href: "/admin-panel/activities", icon: MapPinned },
+    { name: "Itinerary", href: "/admin-panel/itinerary", icon: Route },
   ];
 
   const workNav = [
-    { name: "Leads", href: "/admin-panel/leads", icon: Briefcase },
-    { name: "Quotations", href: "/admin-panel/quotations", icon: FileText },
+    { name: "Leads", href: "/admin-panel/leads", icon: UserPlus },
+    { name: "Quotations", href: "/admin-panel/quotations", icon: FileSpreadsheet },
     { name: "Bookings", href: "/admin-panel/bookings", icon: CalendarCheck },
     { name: "Invoices", href: "/admin-panel/invoices", icon: Receipt },
   ];

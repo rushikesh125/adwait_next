@@ -1103,68 +1103,21 @@ export default function LeadProfilePage({ params }) {
               </Card>
             )}
 
-            {/* ── ACTIVITIES TAB (with note input at top + sorted timeline) ── */}
+            {/* ── ACTIVITIES TAB ── */}
             {activeTab === "activities" && (
-              <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
-                <CardContent className="p-0">
-                  {/* Note Input at Top */}
-                  <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                    <div className="flex gap-3">
-                      <div className="flex-1 relative">
-                        <Input
-                          placeholder="Add a quick note..."
-                          className="pr-20 rounded-xl border-slate-200 focus:border-theme-primary focus:ring-theme-primary/20"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && e.target.value.trim()) {
-                              handleAddNote(e.target.value);
-                              e.target.value = "";
-                            }
-                          }}
-                          onBlur={(e) => {
-                            if (e.target.value.trim()) {
-                              handleAddNote(e.target.value);
-                              e.target.value = "";
-                            }
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 px-3 rounded-lg bg-theme-primary hover:bg-theme-secondary text-white text-xs"
-                          onClick={(e) => {
-                            const input = e.target
-                              .closest(".relative")
-                              .querySelector("input");
-                            if (input?.value.trim()) {
-                              handleAddNote(input.value);
-                              input.value = "";
-                            }
-                          }}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">
-                      Press Enter or click Add to save
-                    </p>
-                  </div>
-
-                  {/* Unified Activity Timeline with sorted data */}
-                  <ActivityTimeline
-                    followUps={sortedFollowUps}
-                    notes={sortedNotes}
-                    systemEvents={[]}
-                    leadQuotations={quotations}
-                    lead={lead}
-                    onAddNote={handleAddNote}
-                    onDeleteNote={handleDeleteNote}
-                    onFollowUpAdd={handleFollowUpAdd}
-                    onFollowUpEdit={handleFollowUpEdit}
-                    onFollowUpDelete={handleFollowUpDelete}
-                    onFollowUpMarkComplete={handleFollowUpMarkComplete}
-                  />
-                </CardContent>
-              </Card>
+              <ActivityTimeline
+                followUps={sortedFollowUps}
+                notes={sortedNotes}
+                systemEvents={[]}
+                leadQuotations={quotations}
+                lead={lead}
+                onAddNote={handleAddNote}
+                onDeleteNote={handleDeleteNote}
+                onFollowUpAdd={handleFollowUpAdd}
+                onFollowUpEdit={handleFollowUpEdit}
+                onFollowUpDelete={handleFollowUpDelete}
+                onFollowUpMarkComplete={handleFollowUpMarkComplete}
+              />
             )}
           </div>
         </div>

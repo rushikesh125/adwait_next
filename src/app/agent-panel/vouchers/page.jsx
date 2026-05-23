@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { useSearchParams } from "next/navigation";
 import {
   FileText,
   Download,
@@ -113,6 +114,7 @@ const VoucherViewModal = ({ voucher, onClose }) => {
     voucher.voucherType === "Hotel"
       ? shareHotelVoucherWhatsApp(voucher)
       : shareFlightVoucherWhatsApp(voucher);
+      
 
   return (
     <Dialog open={!!voucher} onOpenChange={onClose}>
@@ -529,20 +531,21 @@ const VoucherDashboard = () => {
                 />
                 Refresh
               </Button>
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm w-full sm:w-auto"
-                onClick={() => router.push("/agent-panel/vouchers/create-flight")}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Create Flight Voucher
-              </Button>
-              <Button
-  className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm w-full sm:w-auto"
-                  onClick={() =>
-                  router.push("/agent-panel/vouchers/create-hotel")
-                }
-              >
-                <Plus className="mr-2 h-4 w-4" /> Create Hotel Voucher
-              </Button>
+              {/* Adjacent on mobile (flex-row inside), flatten back into the parent flex on sm+ via sm:contents */}
+              <div className="flex flex-row gap-2 w-full sm:contents">
+                <Button
+                  className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white shadow-sm sm:w-auto"
+                  onClick={() => router.push("/agent-panel/vouchers/create-flight")}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Create Flight Voucher
+                </Button>
+                <Button
+                  className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white shadow-sm sm:w-auto"
+                  onClick={() => router.push("/agent-panel/vouchers/create-hotel")}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Create Hotel Voucher
+                </Button>
+              </div>
             </div>
           </div>
 

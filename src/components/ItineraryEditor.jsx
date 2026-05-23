@@ -34,6 +34,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/firebase/config";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import {
+  getAgentPreferences,
+  setRemovedDefault,
+  applyRemovedDefaults,
+} from "@/firebase/agentPreferences";
 
 async function uploadToImgBB(file, idToken) {
   const formData = new FormData();
@@ -292,6 +297,7 @@ function ChecklistSection({
   onSelectAll,
   onAdd,
   onRemove,
+  onToggleDefault,
   addLabel = "Add Item",
 }) {
   const [newItem, setNewItem] = useState("");
@@ -341,13 +347,23 @@ function ChecklistSection({
               {item.text}
             </label>
             {item.isDefault ? (
-              <button
-                type="button"
-                onClick={() => onRemove(item.id)}
-                className="text-[10px] text-red-500 border border-red-300 rounded px-2 py-0.5 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-              >
-                Remove Default
-              </button>
+              item.isMarkedAsDefault !== false ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleDefault?.(item, true)}
+                  className="text-[10px] text-red-500 border border-red-300 rounded px-2 py-0.5 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                >
+                  Remove Default
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onToggleDefault?.(item, false)}
+                  className="text-[10px] text-emerald-600 border border-emerald-300 rounded px-2 py-0.5 hover:bg-emerald-50 transition-opacity flex-shrink-0"
+                >
+                  Mark as Default
+                </button>
+              )
             ) : (
               <button
                 type="button"
@@ -952,6 +968,54 @@ const [localTitle, setLocalTitle] = useState(title || "");
   const canH = makeHandlers(setCancellation);
   const impH = makeHandlers(setImpInfo);
 
+  // ── Per-agent removed-default preferences ────────────────────────────────
+  const authUser = useSelector((state) => state.auth?.user);
+  useEffect(() => {
+    if (!authUser?.uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const prefs = await getAgentPreferences(authUser.uid);
+        if (cancelled) return;
+        const rd = prefs.removedDefaults || {};
+        setInclusions((prev) => applyRemovedDefaults(prev, rd.inclusions));
+        setExclusions((prev) => applyRemovedDefaults(prev, rd.exclusions));
+        setTnc((prev) => applyRemovedDefaults(prev, rd.tnc));
+        setCancellation((prev) => applyRemovedDefaults(prev, rd.cancellation));
+        setImpInfo((prev) => applyRemovedDefaults(prev, rd.impinfo));
+      } catch (err) {
+        console.error("[ItineraryEditor] load agent prefs failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authUser?.uid]);
+
+  // See note in itinerary/create/page.jsx — flips both the persisted
+  // "is default" flag and the current-quotation selection. They are
+  // independent fields so the checkbox state and the persisted default
+  // can diverge mid-quotation if the agent wants.
+  const makeToggleDefault = (setter, category) => (item, removed) => {
+    setter((prev) =>
+      prev.map((i) =>
+        i.text === item.text && i.isDefault
+          ? { ...i, isMarkedAsDefault: !removed, selected: !removed }
+          : i,
+      ),
+    );
+    if (authUser?.uid) {
+      setRemovedDefault(authUser.uid, category, item.text, removed).catch(
+        (err) =>
+          console.error(`[ItineraryEditor] persist ${category} pref failed:`, err),
+      );
+    }
+  };
+
+  const incToggleDefault = makeToggleDefault(setInclusions, "inclusions");
+  const excToggleDefault = makeToggleDefault(setExclusions, "exclusions");
+  const tncToggleDefault = makeToggleDefault(setTnc, "tnc");
+  const canToggleDefault = makeToggleDefault(setCancellation, "cancellation");
+  const impToggleDefault = makeToggleDefault(setImpInfo, "impinfo");
+
   // ── City tag input ────────────────────────────────────────────────────────
   const handleCityKey = (e) => {
     if (e.key === "Enter" && cityInput.trim()) {
@@ -1352,6 +1416,7 @@ const [localTitle, setLocalTitle] = useState(title || "");
                 onSelectAll={incH.selectAll}
                 onAdd={incH.add}
                 onRemove={incH.remove}
+                onToggleDefault={incToggleDefault}
                 addLabel="Add Inclusion"
               />
             </div>
@@ -1365,6 +1430,7 @@ const [localTitle, setLocalTitle] = useState(title || "");
                 onSelectAll={excH.selectAll}
                 onAdd={excH.add}
                 onRemove={excH.remove}
+                onToggleDefault={excToggleDefault}
                 addLabel="Add Exclusion"
               />
             </div>
@@ -1390,6 +1456,7 @@ const [localTitle, setLocalTitle] = useState(title || "");
                 onSelectAll={tncH.selectAll}
                 onAdd={tncH.add}
                 onRemove={tncH.remove}
+                onToggleDefault={tncToggleDefault}
                 addLabel="Add Term"
               />
             </CardContent>
@@ -1407,6 +1474,7 @@ const [localTitle, setLocalTitle] = useState(title || "");
                 onSelectAll={canH.selectAll}
                 onAdd={canH.add}
                 onRemove={canH.remove}
+                onToggleDefault={canToggleDefault}
                 addLabel="Add Cancellation Policy"
               />
             </CardContent>
@@ -1431,6 +1499,7 @@ const [localTitle, setLocalTitle] = useState(title || "");
               onSelectAll={impH.selectAll}
               onAdd={impH.add}
               onRemove={impH.remove}
+              onToggleDefault={impToggleDefault}
               addLabel="Add Important Info"
             />
           </CardContent>

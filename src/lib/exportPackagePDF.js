@@ -16,11 +16,11 @@ const SLATE_LIGHT = "#94A3B8";
 const PAGE_W = 210;
 const PAGE_H = 297;
 
-const FONT_BODY = 9;
-const FONT_SMALL = 8;
-const FONT_TINY = 7;
-const FONT_HEADING = 10;
-const FONT_DAY = 11;
+const FONT_BODY = 10;     // was 9 — body, descriptions, table rows
+const FONT_SMALL = 9;     // was 8 — footer, contact info, captions
+const FONT_TINY = 7;      // unchanged — only used on small frame-pill labels
+const FONT_HEADING = 13;  // was 10 — sharper contrast vs body
+const FONT_DAY = 13;      // was 12 — parity with section heading
 
 const MEAL_PLAN_LABELS = {
   EP: "Accommodation Only",
@@ -28,6 +28,352 @@ const MEAL_PLAN_LABELS = {
   MAP: "Breakfast & Dinner",
   AP: "All Meals Included",
 };
+
+// ─── Custom font loader (graceful fallback to Helvetica) ─────────────────────
+// To use a richer typeface, drop these two TTFs into /public/fonts/:
+//   Inter-Regular.ttf
+//   Inter-Bold.ttf
+// They'll be auto-loaded on the next export. If the files are missing,
+// PDF generation still works — it just falls back to Helvetica silently.
+let FONT_FAMILY = "helvetica";
+const tryLoadFont = async (pdfdoc, url, fontName, style) => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return false;
+    const buf = await res.arrayBuffer();
+    let bin = "";
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+    const base64 = btoa(bin);
+    const filename = `${fontName}-${style}.ttf`;
+    pdfdoc.addFileToVFS(filename, base64);
+    pdfdoc.addFont(filename, fontName, style);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const installCustomFonts = async (pdfdoc) => {
+  const okR = await tryLoadFont(pdfdoc, "/fonts/Inter-Regular.ttf", "Inter", "normal");
+  const okB = await tryLoadFont(pdfdoc, "/fonts/Inter-Bold.ttf", "Inter", "bold");
+  if (okR && okB) FONT_FAMILY = "Inter";
+};
+
+// ─── Framed section helper ───────────────────────────────────────────────────
+// Wraps a section with a thin rounded outer border + uppercase tracking-wider
+// label at top-left. Returns the inner Y where the section's content begins.
+// The caller passes the section's full *outer* height so the border encloses
+// all child rendering.
+const drawFramedSection = (pdfdoc, label, y, height) => {
+  pdfdoc.setDrawColor("#E2E8F0"); // slate-200
+  pdfdoc.setLineWidth(0.3);
+  pdfdoc.roundedRect(15, y, 180, height, 2, 2, "S");
+
+  // Label pill on the top border
+  const labelText = (label || "").toUpperCase();
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_TINY);
+  const tw = pdfdoc.getTextWidth(labelText);
+  pdfdoc.setFillColor("#FFFFFF");
+  pdfdoc.rect(19, y - 1.5, tw + 4, 3, "F");
+  pdfdoc.setTextColor(SLATE);
+  pdfdoc.text(labelText, 21, y + 0.5);
+  pdfdoc.setTextColor("#000000");
+
+  return y + 6; // content starts 6mm below top border
+};
+
+// ─── Tiny inline icons drawn with jsPDF primitives (no PNG assets) ───────────
+// All icons render at a 4x4mm box at (x, y) top-left, in the given color.
+const Icon = {
+  calendar(pdfdoc, x, y, color = SLATE) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setLineWidth(0.3);
+    pdfdoc.roundedRect(x + 0.3, y + 0.7, 3.4, 3, 0.4, 0.4, "S");
+    pdfdoc.line(x + 0.3, y + 1.7, x + 3.7, y + 1.7);
+    pdfdoc.line(x + 1, y + 0.3, x + 1, y + 1);
+    pdfdoc.line(x + 3, y + 0.3, x + 3, y + 1);
+  },
+  hotel(pdfdoc, x, y, color = SLATE) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setFillColor(color);
+    pdfdoc.setLineWidth(0.3);
+    pdfdoc.rect(x + 0.4, y + 0.5, 3.2, 3, "S");
+    // tiny windows
+    pdfdoc.rect(x + 1, y + 1.1, 0.6, 0.6, "F");
+    pdfdoc.rect(x + 2.4, y + 1.1, 0.6, 0.6, "F");
+    pdfdoc.rect(x + 1, y + 2.2, 0.6, 0.6, "F");
+    pdfdoc.rect(x + 2.4, y + 2.2, 0.6, 0.6, "F");
+  },
+  bus(pdfdoc, x, y, color = SLATE) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setLineWidth(0.3);
+    pdfdoc.roundedRect(x + 0.3, y + 0.8, 3.4, 2.4, 0.4, 0.4, "S");
+    pdfdoc.line(x + 0.3, y + 2, x + 3.7, y + 2);
+    pdfdoc.circle(x + 1.1, y + 3.3, 0.35, "F");
+    pdfdoc.circle(x + 2.9, y + 3.3, 0.35, "F");
+  },
+  sparkle(pdfdoc, x, y, color = BRAND) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setLineWidth(0.4);
+    pdfdoc.line(x + 2, y + 0.3, x + 2, y + 3.7);
+    pdfdoc.line(x + 0.3, y + 2, x + 3.7, y + 2);
+    pdfdoc.line(x + 0.7, y + 0.7, x + 3.3, y + 3.3);
+    pdfdoc.line(x + 3.3, y + 0.7, x + 0.7, y + 3.3);
+  },
+  pin(pdfdoc, x, y, color = SLATE) {
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setFillColor(color);
+    pdfdoc.setLineWidth(0.3);
+    pdfdoc.circle(x + 2, y + 1.6, 1.2, "S");
+    pdfdoc.circle(x + 2, y + 1.6, 0.4, "F");
+    pdfdoc.line(x + 2, y + 2.8, x + 2, y + 3.7);
+  },
+  // Filled circle with white checkmark inside — for "included" lines.
+  check(pdfdoc, x, y, color = "#10B981") {
+    pdfdoc.setFillColor(color);
+    pdfdoc.circle(x + 2, y + 2, 1.6, "F");
+    pdfdoc.setDrawColor("#FFFFFF");
+    pdfdoc.setLineWidth(0.4);
+    pdfdoc.line(x + 1.2, y + 2.05, x + 1.85, y + 2.65);
+    pdfdoc.line(x + 1.85, y + 2.65, x + 2.85, y + 1.35);
+  },
+  // Filled circle with white X inside — for "excluded" lines.
+  cross(pdfdoc, x, y, color = "#DC2626") {
+    pdfdoc.setFillColor(color);
+    pdfdoc.circle(x + 2, y + 2, 1.6, "F");
+    pdfdoc.setDrawColor("#FFFFFF");
+    pdfdoc.setLineWidth(0.4);
+    pdfdoc.line(x + 1.2, y + 1.2, x + 2.8, y + 2.8);
+    pdfdoc.line(x + 2.8, y + 1.2, x + 1.2, y + 2.8);
+  },
+  // Approximate filled 5-point star at (x, y) center, radius `r`.
+  star(pdfdoc, cx, cy, r = 1.4, color = "#F59E0B") {
+    // Pentagram via 10 alternating outer/inner vertices
+    const inner = r * 0.42;
+    const points = [];
+    for (let i = 0; i < 10; i++) {
+      const angle = (Math.PI / 5) * i - Math.PI / 2;
+      const rad = i % 2 === 0 ? r : inner;
+      points.push([cx + rad * Math.cos(angle), cy + rad * Math.sin(angle)]);
+    }
+    pdfdoc.setFillColor(color);
+    // Draw as triangles fan from first point (jsPDF lacks polygon)
+    for (let i = 1; i < points.length - 1; i++) {
+      pdfdoc.triangle(
+        points[0][0], points[0][1],
+        points[i][0], points[i][1],
+        points[i + 1][0], points[i + 1][1],
+        "F",
+      );
+    }
+  },
+  // Outline-only star (for empty slots in a rating row).
+  starOutline(pdfdoc, cx, cy, r = 1.4, color = "#CBD5E1") {
+    const inner = r * 0.42;
+    pdfdoc.setDrawColor(color);
+    pdfdoc.setLineWidth(0.25);
+    let prevX = null, prevY = null;
+    const firstX = cx + r * Math.cos(-Math.PI / 2);
+    const firstY = cy + r * Math.sin(-Math.PI / 2);
+    for (let i = 0; i < 10; i++) {
+      const angle = (Math.PI / 5) * i - Math.PI / 2;
+      const rad = i % 2 === 0 ? r : inner;
+      const px = cx + rad * Math.cos(angle);
+      const py = cy + rad * Math.sin(angle);
+      if (prevX !== null) pdfdoc.line(prevX, prevY, px, py);
+      prevX = px; prevY = py;
+    }
+    pdfdoc.line(prevX, prevY, firstX, firstY);
+  },
+};
+
+// Draws a row of N stars at a fixed Y; rating in [0, max].
+const drawStarRow = (pdfdoc, x, y, rating = 0, max = 5, size = 1.4) => {
+  const filled = Math.max(0, Math.min(max, Math.round(Number(rating) || 0)));
+  for (let i = 0; i < max; i++) {
+    const cx = x + size + i * (size * 2 + 0.5);
+    if (i < filled) Icon.star(pdfdoc, cx, y, size);
+    else Icon.starOutline(pdfdoc, cx, y, size);
+  }
+};
+
+// ─── Decorative section divider ───────────────────────────────────────────────
+// Tapered line + small brand-color diamond in the middle, used to separate
+// major sections without the heaviness of a hard rule.
+// Padding is asymmetric and "trailing-weighted" — the divider visually closes
+// the PREVIOUS section (small gap above, hugs content) while leaving a clear
+// breathing space before the NEXT section's heading bar (which itself
+// stretches 5mm upward from the y it's called with).
+const drawDecorativeDivider = (pdfdoc, y) => {
+  const PAD_TOP = 2;     // tight to the previous section
+  const PAD_BOTTOM = 14; // 5mm for heading-bar pull-up + 9mm visible gap
+  const drawY = y + PAD_TOP;
+  const midX = PAGE_W / 2;
+  pdfdoc.setDrawColor("#CBD5E1"); // slate-300
+  pdfdoc.setLineWidth(0.4);
+  pdfdoc.line(30, drawY, midX - 6, drawY);
+  pdfdoc.line(midX + 6, drawY, PAGE_W - 30, drawY);
+  // Diamond marker
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.triangle(midX, drawY - 2, midX - 2, drawY, midX + 2, drawY, "F");
+  pdfdoc.triangle(midX, drawY + 2, midX - 2, drawY, midX + 2, drawY, "F");
+  return drawY + PAD_BOTTOM;
+};
+
+// ─── Pricing summary card ────────────────────────────────────────────────────
+// Tinted bordered box with a brand-colored left stripe and the grand total
+// in large brand-dark type on the right. Designed to be drawn right after
+// the breakdown autoTable so the final price reads as a self-contained card.
+const drawPricingSummaryCard = (pdfdoc, label, amount, y) => {
+  const cardH = 16;
+  pdfdoc.setFillColor("#F8FAFC"); // slate-50
+  pdfdoc.setDrawColor("#E2E8F0"); // slate-200
+  pdfdoc.setLineWidth(0.3);
+  pdfdoc.roundedRect(15, y, 180, cardH, 2, 2, "FD");
+  // Left brand stripe
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.rect(15, y, 2.5, cardH, "F");
+  // Label (left)
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setTextColor(SLATE);
+  pdfdoc.text((label || "").toUpperCase(), 22, y + 6.5);
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_HEADING + 2);
+  pdfdoc.setTextColor(BRAND_DARK);
+  pdfdoc.text(`Rs. ${Number(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`, 22, y + 12.5);
+  pdfdoc.setTextColor("#000000");
+  return y + cardH + 4;
+};
+
+// ─── Hotel card renderer (modern, brochure-style) ────────────────────────────
+// Each hotel entry is rendered as a self-contained bordered card:
+//
+//   ┌────────────────────────────────────────────────────────────┐
+//   │ Hotel Name (link if URL)                  ★★★★☆            │
+//   │ City                                                       │
+//   │ ──────────────────────────────────────────────────────────  │
+//   │ 📅 18 May → 20 May · 2N             [Meal Plan badge]       │
+//   │                                                            │
+//   │ Room: Deluxe Sea-Facing                                    │
+//   │ Guests: 2 Rooms, 1 Ext.Adult                               │
+//   └────────────────────────────────────────────────────────────┘
+//
+// For multi-room-category hotels, each category is listed under "Rooms:".
+const drawHotelCard = (pdfdoc, logoImg, hotel, y) => {
+  const cardX = 15;
+  const cardW = 180;
+  const padX = 6;
+  const innerX = cardX + padX;
+
+  // Decide room lines
+  const rooms = Array.isArray(hotel.roomCategories) && hotel.roomCategories.length > 0
+    ? hotel.roomCategories
+    : [{
+        roomCategory: hotel.selectedRoomCategory || hotel.roomCategory || "",
+        mealPlan: hotel.selectedMealPlan || "",
+        numDouble: hotel.numDouble || 0,
+        numExtraAdult: hotel.numExtraAdult || 0,
+        numExtraChild: hotel.numExtraChild || 0,
+        numCNB: hotel.numCNB || 0,
+      }];
+
+  // Pre-compute card height
+  const roomLineCount = rooms.length;
+  const cardH = 28 + roomLineCount * 8;
+
+  y = ensureSpace(pdfdoc, logoImg, y, cardH + 4);
+
+  // Background + border
+  pdfdoc.setFillColor("#FFFFFF");
+  pdfdoc.setDrawColor("#E2E8F0");
+  pdfdoc.setLineWidth(0.3);
+  pdfdoc.roundedRect(cardX, y, cardW, cardH, 2.5, 2.5, "FD");
+  // Brand left accent stripe
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.rect(cardX, y, 2.2, cardH, "F");
+
+  // Hotel name + city
+  const headerY = y + 6.5;
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_HEADING);
+  const hotelLink =
+    hotel.GoogleListingURL ||
+    hotel.googleLink ||
+    hotel.tripAdvisorLink ||
+    hotel.TripAdvisorURL;
+  pdfdoc.setTextColor(hotelLink ? BRAND : "#0F172A");
+  pdfdoc.text(hotel.hotel || "Hotel", innerX, headerY);
+  if (hotelLink) {
+    const nameW = pdfdoc.getTextWidth(hotel.hotel || "Hotel");
+    pdfdoc.link(innerX, headerY - 4, nameW, 5, { url: hotelLink });
+  }
+
+  pdfdoc.setFont(FONT_FAMILY, "normal");
+  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setTextColor(SLATE);
+  pdfdoc.text(hotel.city || "", innerX, headerY + 5);
+
+  // Star rating on the right (if hotel.rating set)
+  const ratingRaw = hotel.rating || hotel.starRating;
+  const rating = Number(ratingRaw) || 0;
+  if (rating > 0) {
+    const starsW = 5 * (1.4 * 2 + 0.5);
+    drawStarRow(pdfdoc, cardX + cardW - padX - starsW, headerY - 1.2, rating, 5, 1.4);
+  }
+
+  // Divider line under header
+  pdfdoc.setDrawColor("#E2E8F0");
+  pdfdoc.setLineWidth(0.2);
+  pdfdoc.line(innerX, y + 13.5, cardX + cardW - padX, y + 13.5);
+
+  // Dates row + nights + meal plan
+  const datesY = y + 18.5;
+  Icon.calendar(pdfdoc, innerX, datesY - 3, SLATE);
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setTextColor("#1E293B");
+  const dateStr = `${formatDate(hotel.checkInDate)} → ${formatDate(hotel.checkOutDate)}  ·  ${hotel.nights || 0}N`;
+  pdfdoc.text(dateStr, innerX + 6, datesY);
+
+  // Primary meal plan label (right-aligned)
+  const primaryPlan = rooms[0]?.mealPlan || hotel.selectedMealPlan || "";
+  const mealLabel = primaryPlan
+    ? `${primaryPlan} — ${MEAL_PLAN_LABELS[primaryPlan] || primaryPlan}`
+    : "";
+  if (mealLabel) {
+    pdfdoc.setFont(FONT_FAMILY, "bold");
+    pdfdoc.setFontSize(FONT_TINY);
+    pdfdoc.setTextColor(BRAND_DARK);
+    const w = pdfdoc.getTextWidth(mealLabel);
+    pdfdoc.text(mealLabel, cardX + cardW - padX - w, datesY);
+  }
+
+  // Room lines
+  let lineY = y + 25;
+  pdfdoc.setFont(FONT_FAMILY, "normal");
+  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setTextColor("#334155");
+  rooms.forEach((rc, idx) => {
+    const guestParts = [
+      `${rc.numDouble || 0} Room`,
+      ...(rc.numExtraAdult > 0 ? [`${rc.numExtraAdult} Ext.Adult`] : []),
+      ...(rc.numExtraChild > 0 ? [`${rc.numExtraChild} Child`] : []),
+      ...(rc.numCNB > 0 ? [`${rc.numCNB} CNB`] : []),
+    ];
+    const roomLabel =
+      (rooms.length > 1 ? `Room ${idx + 1}: ` : "Room: ") +
+      (rc.roomCategory || "—") +
+      "  ·  " + guestParts.join(", ");
+    pdfdoc.text(roomLabel, innerX, lineY);
+    lineY += 5;
+  });
+
+  pdfdoc.setTextColor("#000000");
+  return y + cardH + 5;
+};
+
 // ─── Multi-room helpers ───────────────────────────────────────────────────────
 /**
  * Resolve the total price for a hotel entry from multi-room-categories or legacy flat field.
@@ -44,15 +390,6 @@ const getPrimaryMealPlan = (entry) => {
     return entry.roomCategories[0]?.mealPlan || entry.selectedMealPlan || "";
   }
   return entry.selectedMealPlan || entry.mealPlan || "";
-};
-
-const getPrimaryRoomCategory = (entry) => {
-  if (Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0) {
-    return (
-      entry.roomCategories[0]?.roomCategory || entry.selectedRoomCategory || ""
-    );
-  }
-  return entry.selectedRoomCategory || entry.roomCategory || "";
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -139,7 +476,35 @@ const ensureSpace = (pdfdoc, logoImg, currentY, needed = 20) => {
 
 // ─── Header / Footer ─────────────────────────────────────────────────────────
 // ─── Header / Footer ─────────────────────────────────────────────────────────
+// Subtle brand-logo watermark for inner pages. Drawn at low opacity in the
+// center of the page beneath all content. Skipped on the cover (the cover
+// uses its own hero treatment with the logo as a circular badge).
+const drawWatermark = (pdfdoc, img) => {
+  if (!img) return;
+  try {
+    const w = 110;
+    const aspect = img.width / img.height;
+    const h = w / aspect;
+    const x = (PAGE_W - w) / 2;
+    const y = (PAGE_H - h) / 2;
+    // jsPDF v2/v3: setGState + GState — wrap in try/catch in case the
+    // installed version differs slightly. If GState isn't available we
+    // silently skip the watermark rather than blowing up the PDF.
+    if (typeof pdfdoc.setGState === "function" && pdfdoc.GState) {
+      const gs = new pdfdoc.GState({ opacity: 0.06 });
+      pdfdoc.setGState(gs);
+      pdfdoc.addImage(img, "PNG", x, y, w, h);
+      pdfdoc.setGState(new pdfdoc.GState({ opacity: 1 }));
+    }
+  } catch {
+    // ignore
+  }
+};
+
 const addHeader = (pdfdoc, img) => {
+  // 0. Watermark first so all subsequent content draws on top
+  drawWatermark(pdfdoc, img);
+
   // 1. Logo Scaling (Cap height to 16 to prevent layout break, adjust width proportionally)
   const maxLogoHeight = 16;
   let lh = maxLogoHeight;
@@ -201,7 +566,7 @@ const addFooter = (pdfdoc) => {
 const drawSectionHeading = (pdfdoc, text, y) => {
   pdfdoc.setFillColor(BRAND);
   pdfdoc.rect(15, y - 5, 180, 8, "F");
-  pdfdoc.setFont("helvetica", "bold");
+  pdfdoc.setFont(FONT_FAMILY, "bold");
   pdfdoc.setFontSize(FONT_HEADING);
   pdfdoc.setTextColor("#FFFFFF");
   pdfdoc.text(text, 18, y + 0.5);
@@ -236,11 +601,15 @@ const drawChecklist = (
   pdfdoc.setFontSize(FONT_BODY);
   pdfdoc.setTextColor("#333");
 
+  // Small filled bullet dot, color-matched to the section heading.
+  const textX = 22;
   const maxW = 175;
   filtered.forEach((item) => {
     y = ensureSpace(pdfdoc, logoImg, y, 8);
-    const lines = pdfdoc.splitTextToSize(`• ${item.text}`, maxW);
-    pdfdoc.text(lines, 18, y);
+    const lines = pdfdoc.splitTextToSize(item.text, maxW);
+    pdfdoc.setFillColor(dotColor);
+    pdfdoc.circle(18, y - 1.4, 0.9, "F");
+    pdfdoc.text(lines, textX, y);
     y += lines.length * 5;
   });
 
@@ -319,87 +688,139 @@ const drawServiceIcon = async (pdfdoc, iconPath, x, y, size) => {
   }
 };
 
-// ─── Day card renderer ────────────────────────────────────────────────────────
-const drawDay = async (pdfdoc, logoImg, day, y) => {
+// ─── Day card renderer (two-column card) ──────────────────────────────────────
+// Layout (mm):
+//   [15 ─── 38] vertical accent stripe + "DAY N" badge
+//   [40 ─── 195] title, description, image strip
+// The card has a soft slate background and a brand-colored left stripe.
+// Format a date like "Mon, 18 May" (no year — fits in the narrow left column).
+const formatDayDate = (date) => {
+  if (!date) return "";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d?.getTime())) return "";
+  return d.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+};
+
+const drawDay = async (pdfdoc, logoImg, day, y, options = {}) => {
+  const { tripStartDate } = options;
+  let dayDate = null;
+  if (tripStartDate && day.dayNumber) {
+    const base = new Date(tripStartDate);
+    if (!isNaN(base.getTime())) {
+      base.setDate(base.getDate() + (day.dayNumber - 1));
+      dayDate = base;
+    }
+  }
+  const innerContentLeft = 42;
+  const innerContentW = 153; // 195 - 42
+
   const descLines = day.description
-    ? pdfdoc.splitTextToSize(day.description, 155).length
-    : 0;
-  const needed = 8 + descLines * 6 + 10;
-
-  y = ensureSpace(pdfdoc, logoImg, y, needed);
-
-  pdfdoc.setFillColor(BRAND);
-  pdfdoc.roundedRect(15, y - 4, 32, 7, 1, 1, "F");
-  pdfdoc.setFont("helvetica", "bold");
-  pdfdoc.setFontSize(FONT_SMALL);
-  pdfdoc.setTextColor("#FFFFFF");
-  pdfdoc.text(`Day ${day.dayNumber}`, 18, y + 0.5);
-  pdfdoc.setTextColor("#000000");
-
-  if (day.title) {
-    pdfdoc.setFont("helvetica", "bold");
-    pdfdoc.setFontSize(FONT_DAY);
-    pdfdoc.setTextColor(BRAND_DARK);
-    pdfdoc.text(day.title, 52, y + 0.5);
-  }
-
-  y += 8;
-
-  if (day.description) {
-    pdfdoc.setFont("helvetica", "normal");
-    pdfdoc.setFontSize(FONT_DAY);
-    pdfdoc.setTextColor("#333");
-    const lines = pdfdoc.splitTextToSize(day.description, 168);
-    lines.forEach((line) => {
-      y = ensureSpace(pdfdoc, logoImg, y, 7);
-      pdfdoc.text(line, 18, y);
-      y += 6;
-    });
-  }
+    ? pdfdoc.splitTextToSize(day.description, innerContentW)
+    : [];
+  const titleLines = day.title
+    ? pdfdoc.splitTextToSize(day.title, innerContentW)
+    : [];
 
   const dayImages = (day.images || []).filter(Boolean).slice(0, 2);
-  if (dayImages.length > 0) {
-    const boxH = 45; // Slightly increased height for better visibility
-    const boxW = dayImages.length === 2 ? 82 : 170;
-    const gap = 6;
+  const imageStripH = dayImages.length > 0 ? 45 + 6 : 0;
 
-    y = ensureSpace(pdfdoc, logoImg, y, boxH + 6);
-    y += 3;
+  const textBlockH =
+    titleLines.length * 5 + 2 + descLines.length * 5 + (descLines.length ? 4 : 0);
+
+  const cardH = Math.max(28, 8 + textBlockH + imageStripH + 4);
+
+  y = ensureSpace(pdfdoc, logoImg, y, cardH + 6);
+
+  // Card background
+  pdfdoc.setFillColor("#F8FAFC"); // slate-50
+  pdfdoc.setDrawColor("#E2E8F0"); // slate-200
+  pdfdoc.setLineWidth(0.3);
+  pdfdoc.roundedRect(15, y, 180, cardH, 2, 2, "FD");
+
+  // Left accent stripe
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.rect(15, y, 2.2, cardH, "F");
+
+  // DAY N badge (left column, vertically anchored near top)
+  pdfdoc.setFillColor(BRAND);
+  pdfdoc.roundedRect(19, y + 3.5, 19, 6, 1, 1, "F");
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_SMALL);
+  pdfdoc.setTextColor("#FFFFFF");
+  pdfdoc.text(`DAY ${day.dayNumber}`, 28.5, y + 7.5, { align: "center" });
+
+  // Date subtitle ("Mon, 18 May") under the badge — replaces the
+  // decorative calendar icon when we know the trip start date.
+  if (dayDate) {
+    pdfdoc.setFont(FONT_FAMILY, "normal");
+    pdfdoc.setFontSize(FONT_TINY);
+    pdfdoc.setTextColor(SLATE);
+    pdfdoc.text(formatDayDate(dayDate), 28.5, y + 13.5, { align: "center" });
+  } else {
+    // Keep the decorative icon if no date is known
+    Icon.calendar(pdfdoc, 27, y + 12, SLATE_LIGHT);
+  }
+
+  // ── Right column: title + description ──
+  let textY = y + 5;
+  if (day.title) {
+    pdfdoc.setFont(FONT_FAMILY, "bold");
+    pdfdoc.setFontSize(FONT_HEADING);
+    pdfdoc.setTextColor(BRAND_DARK);
+    titleLines.forEach((line) => {
+      pdfdoc.text(line, innerContentLeft, textY);
+      textY += 5;
+    });
+    textY += 1;
+  }
+
+  if (descLines.length > 0) {
+    pdfdoc.setFont(FONT_FAMILY, "normal");
+    pdfdoc.setFontSize(FONT_BODY);
+    pdfdoc.setTextColor("#334155"); // slate-700
+    descLines.forEach((line) => {
+      pdfdoc.text(line, innerContentLeft, textY);
+      textY += 5;
+    });
+    textY += 3;
+  }
+
+  // ── Image strip (full width below text) ──
+  if (dayImages.length > 0) {
+    const boxH = 45;
+    const stripW = 180 - 6 * 2; // card width minus internal padding
+    const boxW = dayImages.length === 2 ? (stripW - 6) / 2 : stripW;
+    const gap = 6;
 
     for (let i = 0; i < dayImages.length; i++) {
       const imgObj = await loadImage(dayImages[i]);
       if (!imgObj) continue;
       const fmt = detectImgFormat(dayImages[i]);
-      const x = 15 + i * (boxW + gap); // Calculate aspect ratio to prevent distortion (object-fit: contain)
+      const baseX = 15 + 6 + i * (boxW + gap);
 
       const imgAspect = imgObj.width / imgObj.height;
       const boxAspect = boxW / boxH;
-
       let renderW, renderH;
       if (imgAspect > boxAspect) {
-        // Image is wider than the box
         renderW = boxW;
         renderH = boxW / imgAspect;
       } else {
-        // Image is taller than the box
         renderH = boxH;
         renderW = boxH * imgAspect;
-      } // Center the image inside the uniform bounding box
-
-      const imgX = x + (boxW - renderW) / 2;
-      const imgY = y + (boxH - renderH) / 2;
-
-      pdfdoc.addImage(imgObj, fmt, imgX, imgY, renderW, renderH); // Draw a consistent border frame
+      }
+      const imgX = baseX + (boxW - renderW) / 2;
+      const imgY = textY + (boxH - renderH) / 2;
+      pdfdoc.addImage(imgObj, fmt, imgX, imgY, renderW, renderH);
     }
-    y += boxH + 4;
+    textY += boxH + 2;
   }
 
-  pdfdoc.setDrawColor("#E0E0E0");
-  pdfdoc.setLineWidth(0.3);
-  pdfdoc.line(15, y + 1, 200, y + 1);
-  y += 6;
-
-  return y;
+  pdfdoc.setTextColor("#000000");
+  return y + cardH + 5;
 };
 
 // ─── PAGE 1 COVER ─────────────────────────────────────────────────────────────
@@ -614,6 +1035,10 @@ export const exportPackagePDF = async ({
 
   const pdfdoc = new jsPDF();
 
+  // Best-effort: register Inter as the document font. Silently no-ops if the
+  // TTFs aren't present in /public/fonts/ — Helvetica remains the fallback.
+  await installCustomFonts(pdfdoc);
+
   const logoImg = await loadImage("/adwait-logo.jpg");
   if (!logoImg) {
     alert("Could not load company logo.");
@@ -678,22 +1103,66 @@ export const exportPackagePDF = async ({
 
     // ── Hotel table for this option ──
     if (optHotels.length > 0) {
+      const tableStartY = y;
+      const R = 2.8;
+      const tableXL = 15;
+      const tableW = 180;
+      const colWidths = [38, 22, 25, 28, 13, 28, 25]; // sums to 179
+      const headerLabels = [
+        "Hotel Name",
+        "City",
+        "Room Type",
+        "Dates",
+        "Nights",
+        "Meal Plan",
+        "Guests",
+      ];
+      const headerH = 9;
+
+      // ── Manual rounded-top header strip ──
+      // Step 1: rounded rect (all 4 corners) in brand color.
+      pdfdoc.setFillColor(BRAND);
+      pdfdoc.roundedRect(tableXL, tableStartY, tableW, headerH, R, R, "F");
+      // Step 2: cover the bottom rounded corners with a flat rect so the header
+      // sits flush against the body cells below.
+      pdfdoc.rect(tableXL, tableStartY + headerH - R, tableW, R, "F");
+
+      // Step 3: header text
+      pdfdoc.setFont(FONT_FAMILY, "bold");
+      pdfdoc.setFontSize(FONT_SMALL);
+      pdfdoc.setTextColor("#FFFFFF");
+      let labelX = tableXL;
+      headerLabels.forEach((label, i) => {
+        pdfdoc.text(label, labelX + 2.5, tableStartY + headerH * 0.62);
+        labelX += colWidths[i];
+      });
+      pdfdoc.setTextColor("#000000");
+
+      const bodyStartY = tableStartY + headerH;
+
+      // Pre-compute body-row → hotel mapping so didDrawCell can resolve the
+      // correct hotel even for multi-room-category rows where successive
+      // rows belong to the same hotel.
+      const rowHotelMap = [];
+      for (const h of optHotels) {
+        const rcCount =
+          Array.isArray(h.roomCategories) && h.roomCategories.length > 0
+            ? h.roomCategories.length
+            : 1;
+        for (let i = 0; i < rcCount; i++) {
+          rowHotelMap.push({ hotel: h, isFirstRow: i === 0 });
+        }
+      }
+
       autoTable(pdfdoc, {
-        startY: y,
-        head: [
-          [
-            "Hotel Name",
-            "City",
-            "Room Type",
-            "Dates",
-            "Nights",
-            "Meal Plan",
-            "Guests",
-          ],
-        ],
+        startY: bodyStartY,
         didDrawCell: function (data) {
-          if (data.section === "body" && data.column.index === 0) {
-            const h = optHotels[data.row.index];
+          if (data.section !== "body" || data.column.index !== 0) return;
+          const mapping = rowHotelMap[data.row.index];
+          if (!mapping) return;
+          const { hotel: h, isFirstRow } = mapping;
+          // Hotel link — only on rows where the hotel name actually appears
+          if (isFirstRow) {
             const link =
               h?.GoogleListingURL ||
               h?.googleLink ||
@@ -707,6 +1176,18 @@ export const exportPackagePDF = async ({
                 data.cell.height,
                 { url: link },
               );
+            }
+            // Star rating row below the hotel name (only when known)
+            const rating = Number(h.rating || h.starRating) || 0;
+            if (rating > 0) {
+              const size = 1.0;
+              const starsW = 5 * (size * 2 + 0.5);
+              const sx = data.cell.x + 2;
+              const sy = data.cell.y + data.cell.height - 2.5;
+              // Guard against width clipping for very narrow cells
+              if (starsW < data.cell.width - 4) {
+                drawStarRow(pdfdoc, sx, sy, rating, 5, size);
+              }
             }
           }
         },
@@ -727,10 +1208,9 @@ export const exportPackagePDF = async ({
             Array.isArray(h.roomCategories) && h.roomCategories.length > 1;
 
           if (hasMultiRooms) {
-            // First row: hotel name spans visually via first room category
             return h.roomCategories.map((rc, rcIdx) => {
               const guestParts = [
-                `${rc.numDouble || 0} Rm`,
+                `${rc.numDouble || 0} Room`,
                 ...(rc.numExtraAdult > 0
                   ? [`${rc.numExtraAdult} Ext.Adult`]
                   : []),
@@ -740,32 +1220,20 @@ export const exportPackagePDF = async ({
               return [
                 rcIdx === 0
                   ? hotelCell
-                  : {
-                      content: ` Room ${rcIdx + 1}`,
-                      styles: {
-                        textColor: [100, 100, 100],
-                        fontSize: FONT_TINY,
-                      },
-                    },
-                rcIdx === 0 ? h.city : "",
+                  : { content: "", styles: { textColor: [100, 100, 100] } },
+                h.city,
                 rc.roomCategory || "—",
-                rcIdx === 0
-                  ? `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`
-                  : "",
-                rcIdx === 0 ? h.nights : "",
+                `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`,
+                h.nights,
                 MEAL_PLAN_LABELS[rc.mealPlan] || rc.mealPlan || "—",
                 guestParts.join(", "),
               ];
             });
           }
-
-          // Single room (legacy or single-category)
           const primaryRoom = h.roomCategories?.[0];
           const numDouble = primaryRoom?.numDouble ?? h.numDouble ?? 0;
-          const numExtraAdult =
-            primaryRoom?.numExtraAdult ?? h.numExtraAdult ?? 0;
-          const numExtraChild =
-            primaryRoom?.numExtraChild ?? h.numExtraChild ?? 0;
+          const numExtraAdult = primaryRoom?.numExtraAdult ?? h.numExtraAdult ?? 0;
+          const numExtraChild = primaryRoom?.numExtraChild ?? h.numExtraChild ?? 0;
           const numCNB = primaryRoom?.numCNB ?? h.numCNB ?? 0;
           const guestParts = [
             `${numDouble} Room`,
@@ -777,7 +1245,7 @@ export const exportPackagePDF = async ({
             [
               hotelCell,
               h.city,
-              getPrimaryRoomCategory(h),
+              primaryRoom?.roomCategory || h.selectedRoomCategory || h.roomCategory || "—",
               `${formatDate(h.checkInDate)}\n${formatDate(h.checkOutDate)}`,
               h.nights,
               MEAL_PLAN_LABELS[getPrimaryMealPlan(h)] ||
@@ -793,7 +1261,17 @@ export const exportPackagePDF = async ({
           fontSize: FONT_SMALL,
           fontStyle: "bold",
         },
-        styles: { fontSize: FONT_SMALL, cellPadding: 2.5, font: "helvetica" },
+        // Subtle slate-50 background tint on every row + matching alt row.
+        styles: {
+          fontSize: FONT_SMALL,
+          cellPadding: 2.5,
+          font: FONT_FAMILY,
+          fillColor: [248, 250, 252],
+          lineColor: [226, 232, 240], // slate-200 inner gridlines
+        },
+        alternateRowStyles: { fillColor: [241, 245, 249] },
+        // Suppress the table's outer border so we can draw our own rounded one.
+        tableLineWidth: 0,
         columnStyles: {
           0: { cellWidth: 38 },
           1: { cellWidth: 22 },
@@ -806,7 +1284,20 @@ export const exportPackagePDF = async ({
         margin: { left: 15, right: 15 },
         didDrawPage: () => addHeader(pdfdoc, logoImg),
       });
-      y = pdfdoc.lastAutoTable.finalY + 4;
+      const tableEndY = pdfdoc.lastAutoTable.finalY;
+
+      // Top corners are already rounded by the manual header strip.
+      // Mask only the BOTTOM-left and BOTTOM-right corners of the body, then
+      // stroke a rounded outer outline around the whole (header + body).
+      const xR = tableXL + tableW;
+      pdfdoc.setFillColor(255, 255, 255);
+      pdfdoc.triangle(tableXL, tableEndY, tableXL + R, tableEndY, tableXL, tableEndY - R, "F");
+      pdfdoc.triangle(xR, tableEndY, xR - R, tableEndY, xR, tableEndY - R, "F");
+
+      pdfdoc.setDrawColor(BRAND);
+      pdfdoc.setLineWidth(0.4);
+      pdfdoc.roundedRect(tableXL, tableStartY, tableW, tableEndY - tableStartY, R, R, "S");
+      y = tableEndY + 4;
     }
 
     const breakdownRows = [];
@@ -859,7 +1350,7 @@ export const exportPackagePDF = async ({
     if (discountAmount > 0) {
       breakdownRows.push([
         {
-          content: "Package Cost (Before Discount)",
+          content: "Package Cost",
           styles: { fontStyle: "normal", fontSize: FONT_SMALL },
         },
         {
@@ -869,7 +1360,7 @@ export const exportPackagePDF = async ({
       ]);
       breakdownRows.push([
         {
-          content: `Special Discount${appliedDiscount.notes ? ` — ${appliedDiscount.notes}` : ""}${appliedDiscount.type === "percentage" ? ` (${appliedDiscount.value}%)` : ""}`,
+          content: `Special Discount${appliedDiscount.notes ? ` — ${appliedDiscount.notes}` : ""}`,
           styles: {
             fontStyle: "italic",
             textColor: [185, 28, 28],
@@ -888,28 +1379,8 @@ export const exportPackagePDF = async ({
       ]);
     }
 
-    // Grand total row
-    breakdownRows.push([
-      {
-        content: `${opt.name} — Total Tour Cost`,
-        styles: {
-          fontStyle: "bold",
-          textColor: [13, 71, 161],
-          fontSize: FONT_BODY,
-          fillColor: [232, 240, 254],
-        },
-      },
-      {
-        content: `Rs. ${optionGrandTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
-        styles: {
-          halign: "right",
-          fontStyle: "bold",
-          textColor: [13, 71, 161],
-          fontSize: FONT_BODY,
-          fillColor: [232, 240, 254],
-        },
-      },
-    ]);
+    // Grand total now rendered as a separate, visually distinct card below
+    // the breakdown table — no longer mixed in as a plain table row.
 
     y = ensureSpace(pdfdoc, logoImg, y, breakdownRows.length * 8 + 6);
 
@@ -923,7 +1394,18 @@ export const exportPackagePDF = async ({
       didDrawPage: () => addHeader(pdfdoc, logoImg),
     });
 
-    y = pdfdoc.lastAutoTable.finalY + 14;
+    y = pdfdoc.lastAutoTable.finalY + 4;
+
+    // Pricing summary card — replaces the old in-table grand-total row.
+    y = ensureSpace(pdfdoc, logoImg, y, 22);
+    y = drawPricingSummaryCard(
+      pdfdoc,
+      `${opt.name} — Total Tour Cost`,
+      optionGrandTotal,
+      y,
+    );
+
+    y += 10;
   }
   // ── MOVED: INCLUSIONS & EXCLUSIONS ──
   // ✅ Detect multi option
@@ -991,7 +1473,8 @@ export const exportPackagePDF = async ({
   if (allIncluded.length || allExcluded.length) {
     // Check if we need a new page before drawing this section
     y = ensureSpace(pdfdoc, logoImg, y, 40);
-    y += 10;
+    // Decorative section divider before this section's heading
+    y = drawDecorativeDivider(pdfdoc, y);
     y = drawSectionHeading(pdfdoc, "Inclusions & Exclusions", y);
     y += 8;
 
@@ -1027,11 +1510,24 @@ export const exportPackagePDF = async ({
       theme: "grid",
       styles: {
         fontSize: FONT_BODY,
-        cellPadding: 3,
+        cellPadding: { top: 3, right: 3, bottom: 3, left: 8 },
         valign: "top",
         font: "helvetica",
       },
       columnStyles: { 0: { cellWidth: 90 }, 1: { cellWidth: 90 } },
+      // Draw a check icon (col 0) or a cross icon (col 1) inside the cell's
+      // left padding zone, next to each non-empty line.
+      didDrawCell: (data) => {
+        if (data.section !== "body") return;
+        const text = Array.isArray(data.cell.text)
+          ? data.cell.text.join(" ").trim()
+          : (data.cell.text || "").trim();
+        if (!text) return;
+        const iconX = data.cell.x + 1.5;
+        const iconY = data.cell.y + 1.8;
+        if (data.column.index === 0) Icon.check(pdfdoc, iconX, iconY);
+        else if (data.column.index === 1) Icon.cross(pdfdoc, iconX, iconY);
+      },
       didDrawPage: function () {
         addHeader(pdfdoc, logoImg);
       },
@@ -1060,6 +1556,9 @@ export const exportPackagePDF = async ({
 
     y = 42;
 
+    // Decorative divider above the section heading
+    y = drawDecorativeDivider(pdfdoc, y);
+
     // ── Heading ──
     y = drawSectionHeading(
       pdfdoc,
@@ -1068,14 +1567,14 @@ export const exportPackagePDF = async ({
     );
     y += 6;
 
-    // // ── Cities ──
-    // if (itin.cities?.length) {
-    //   pdfdoc.setFont("helvetica", "normal");
-    //   pdfdoc.setFontSize(FONT_BODY);
-    //   pdfdoc.setTextColor("#555");
-    //   pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
-    //   y += 8;
-    // }
+    // ── Cities ──
+    if (itin.cities?.length) {
+      pdfdoc.setFont("helvetica", "normal");
+      pdfdoc.setFontSize(FONT_BODY);
+      pdfdoc.setTextColor("#555");
+      pdfdoc.text(`Cities: ${itin.cities.join("  •  ")}`, 15, y);
+      y += 8;
+    }
 
     // ✅ Filter valid days (ONLY for rendering days)
     const validDays = itin.days.filter((d) => d && (d.title || d.description));
@@ -1087,6 +1586,13 @@ export const exportPackagePDF = async ({
       pdfdoc.setTextColor(BRAND_DARK);
       pdfdoc.text("Day-wise Program", 15, y);
       y += 7;
+
+      // Trip start date for per-day date subtitles. Falls back to the
+      // first hotel's check-in.
+      const tripStartDate =
+        allHotelEntries[0]?.checkInDate ||
+        itineraryData?.startDate ||
+        null;
 
       for (let di = 0; di < validDays.length; di++) {
         const day = validDays[di];
@@ -1102,7 +1608,9 @@ export const exportPackagePDF = async ({
             .map((x) => x.src),
         };
 
-        y = await drawDay(pdfdoc, logoImg, enrichedDay, y);
+        y = await drawDay(pdfdoc, logoImg, enrichedDay, y, {
+          tripStartDate,
+        });
       }
     }
 
@@ -1113,7 +1621,7 @@ export const exportPackagePDF = async ({
 
     if (selectedTnc.length || selectedCan.length) {
       y = ensureSpace(pdfdoc, logoImg, y, 16);
-      y += 4;
+      y = drawDecorativeDivider(pdfdoc, y);
 
       y = drawSectionHeading(
         pdfdoc,
@@ -1129,7 +1637,7 @@ export const exportPackagePDF = async ({
           "Terms & Conditions",
           itin.tnc,
           y,
-          AMBER,
+          BRAND,
           true,
         );
       }
@@ -1141,7 +1649,7 @@ export const exportPackagePDF = async ({
           "Cancellation Policy",
           itin.cancellation,
           y,
-          "#C62828",
+          BRAND,
           true,
         );
       }
@@ -1149,7 +1657,7 @@ export const exportPackagePDF = async ({
 
     if (itin.impInfo?.some((i) => i.selected)) {
       y = ensureSpace(pdfdoc, logoImg, y, 16);
-      y += 4;
+      y = drawDecorativeDivider(pdfdoc, y);
 
       y = drawSectionHeading(pdfdoc, "Important Information", y);
       y += 4;

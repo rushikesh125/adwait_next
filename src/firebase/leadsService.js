@@ -117,7 +117,8 @@ export const getQuotationsForLead = async (leadId, orgId = null) => {
 
 export const updateLeadStatus = async (
   leadId,
-  newStatus
+  newStatus,
+  options = {}
 ) => {
   if (!leadId) return;
 
@@ -159,6 +160,23 @@ export const updateLeadStatus = async (
 
     await updateDoc(leadRef, payload);
 
+    // Record the change in the lead's notes (Activity timeline).
+    // Uses "STATUS:" prefix so the timeline can style it distinctly if needed.
+    try {
+      const notesRef = collection(db, "leads", leadId, "notes");
+      const fromLabel = currentStatus || "—";
+      const reasonSuffix = options.reason ? ` (${options.reason})` : "";
+      await addDoc(notesRef, {
+        text: `STATUS: Lead moved from "${fromLabel}" to "${newStatus}"${reasonSuffix}`,
+        createdBy: options.changedBy || "System",
+        createdAt: serverTimestamp(),
+      });
+    } catch (noteErr) {
+      console.warn(
+        "[updateLeadStatus] failed to record status note (non-fatal):",
+        noteErr?.message,
+      );
+    }
   } catch (error) {
     console.error(
       "Error updating lead status:",

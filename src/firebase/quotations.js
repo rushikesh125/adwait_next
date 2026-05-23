@@ -119,7 +119,10 @@ export async function updateQuotation(
 
     // Check if status is being set to Accepted
     if (data.status === "Accepted" && leadId) {
-      await updateLeadStatus(leadId, "Closed Won");
+      await updateLeadStatus(leadId, "Closed Won", {
+        changedBy: options.agentName || "Agent",
+        reason: `Quotation "${quotation.packageName || quotation.refNumber || quotationId}" accepted`,
+      });
     }
     // ── Create quotation status notification ─────────────────────
 if (
@@ -196,16 +199,24 @@ if (
 
             // Check if current quotation is the latest (regardless of status)
             if (latestQuotationId === quotationId) {
-              await updateLeadStatus(leadId, "Quotation Sent");
+              await updateLeadStatus(leadId, "Quotation Sent", {
+                changedBy: options.agentName || "Agent",
+                reason: `Quotation "${quotation.packageName || quotation.refNumber || quotationId}" sent`,
+              });
             }
           }
         }
       }
     }
   } else {
-    // If quotation doesn't exist yet, just update it normally
-    await updateDoc(ref, data);
+    console.warn(
+      "[quotations] update skipped because quotation document does not exist:",
+      { agentId, quotationId },
+    );
+    return false;
   }
+
+  return true;
 }
 
 /**

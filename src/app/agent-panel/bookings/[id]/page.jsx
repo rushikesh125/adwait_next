@@ -884,10 +884,12 @@ export default function BookingDetailPage() {
   const deletedVouchers = (booking.vouchers || []).filter((v) => v.deleted);
 
   const bookingAsQuotation = {
-    id: booking.quotationId || booking.id,
+    id: booking.quotationId || null,
     customerName: booking.customerName || "",
     customerMobile: booking.customerMobile || booking.mobile || "",
     destination: booking.destination || "",
+    bookingReference: booking.bookingRef || "",
+    bookingRef: booking.bookingRef || "",
     leadName: booking.customerName || "",
   };
 
@@ -1049,11 +1051,19 @@ export default function BookingDetailPage() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {activeVouchers.map((v) => (
-                    <div
-                      key={v.id}
-                      className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100"
-                    >
+                  {activeVouchers.map((v) => (<div
+  key={v.id}
+  
+  
+  className="
+    flex items-center justify-between
+    p-3 rounded-xl
+    bg-slate-50 border border-slate-100
+    hover:bg-blue-50 hover:border-blue-200
+    transition cursor-pointer
+  "
+>
+                 
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-white border border-slate-200">
                           <Hotel className="w-4 h-4 text-theme-primary" />
@@ -1424,8 +1434,21 @@ export default function BookingDetailPage() {
                         className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}
                       >
                         {formatCurrency(estMargin)}
+                        <span className="ml-1.5 text-[11px] font-semibold opacity-80">
+                          ({((estMargin / totalAmount) * 100).toFixed(1)}%)
+                        </span>
                       </span>
                     </div>
+                    {totalVendorCost > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <TrendingUp className="w-3.5 h-3.5" /> Markup
+                        </span>
+                        <span className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                          {((estMargin / totalVendorCost) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
               </CardContent>

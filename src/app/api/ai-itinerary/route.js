@@ -83,6 +83,80 @@ const geminiSchema = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Daily meal plan map builder
+// ─────────────────────────────────────────────────────────────────────────────
+// Each hotel entry has selectedMealPlan ∈ { EP, CP, MAP, AP }. We allocate
+// meals per *day* (not per night), modelling how guests actually consume them:
+//
+//   For each hotel night N (arrival day = N):
+//     EP  → nothing
+//     CP  → Breakfast on day N+1 (morning after)
+//     MAP → Dinner on day N, Breakfast on day N+1
+//     AP  → Lunch + Dinner on day N, Breakfast on day N+1
+//
+// Examples:
+//   1N MAP →  Day 1: Dinner | Day 2: Breakfast
+//   1N AP  →  Day 1: Lunch and Dinner | Day 2: Breakfast
+//   2N AP  →  Day 1: Lunch and Dinner | Day 2: Breakfast, Lunch and Dinner | Day 3: Breakfast
+function buildDailyMealMap(hotelEntries = [], numDays = 0) {
+  if (numDays <= 0) return "";
+  // Per-day meal slots
+  const meals = Array.from({ length: numDays }, () => ({
+    breakfast: false,
+    lunch: false,
+    dinner: false,
+    hotel: null,
+    city: null,
+  }));
+
+  let day = 1;
+  for (const h of hotelEntries) {
+    const nights = Number(h.nights) || 0;
+    const code = (h.selectedMealPlan || "EP").toUpperCase();
+    const hasBreakfast = ["CP", "MAP", "AP"].includes(code);
+    const hasLunch     = code === "AP";
+    const hasDinner    = ["MAP", "AP"].includes(code);
+
+    for (let i = 0; i < nights; i++) {
+      const tonight  = day;     // 1-based day of arrival to this night's hotel
+      const tomorrow = day + 1; // morning after sleeping
+
+      if (tonight <= numDays) {
+        if (!meals[tonight - 1].hotel) meals[tonight - 1].hotel = h.hotel;
+        if (!meals[tonight - 1].city)  meals[tonight - 1].city  = h.city;
+        // AP "starts with Lunch" — included on the arrival day along with Dinner.
+        if (hasLunch)  meals[tonight - 1].lunch  = true;
+        if (hasDinner) meals[tonight - 1].dinner = true;
+      }
+      if (tomorrow <= numDays) {
+        if (hasBreakfast) meals[tomorrow - 1].breakfast = true;
+      }
+      day++;
+    }
+  }
+
+  // Format: "Breakfast", "Breakfast and Dinner", "Breakfast, Lunch and Dinner"
+  const labelFor = (m) => {
+    const parts = [];
+    if (m.breakfast) parts.push("Breakfast");
+    if (m.lunch)     parts.push("Lunch");
+    if (m.dinner)    parts.push("Dinner");
+    if (parts.length === 0) return "No Meals";
+    if (parts.length === 1) return parts[0];
+    return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  };
+  const lines = meals.map((m, idx) => {
+    const dayNum = idx + 1;
+    const where  = m.hotel
+      ? `Stay at ${m.hotel}${m.city ? ` (${m.city})` : ""}`
+      : (dayNum === numDays ? "Departure" : "");
+    const prefix = where ? `${where} — ` : "";
+    return `Day ${dayNum}: ${prefix}Meal Plan: ${labelFor(m)}`;
+  });
+  return lines.join("\n");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Base prompt builder
 // ─────────────────────────────────────────────────────────────────────────────
 function buildBasePrompt({
@@ -94,6 +168,7 @@ function buildBasePrompt({
   arrivalTime,
   departureTime,
   additionalContext,
+  dailyMealMap,
 }) {
   const citiesList = cities.length > 0 ? cities.join(", ") : destination;
 
@@ -110,41 +185,85 @@ ${arrivalTime ? `- Check-in Date:  ${arrivalTime}` : ""}
 ${departureTime ? `- Check-out Date: ${departureTime}` : ""}
 ${additionalContext ? `- Additional Context: ${additionalContext}` : ""}
 
+## DAILY MEAL PLAN MAP (CRITICAL — use these EXACTLY)
+The agent has already booked these hotels with these meal plans. For each
+day's "Meal Plan:" bullet you MUST use the value from this map verbatim.
+DO NOT invent meals, do not "round up", do not infer based on the time of day.
+
+${dailyMealMap || "(No hotel context available — use 'No Meals' as the default.)"}
+
+Meal plan decoding (FYI, already applied in the map above):
+- EP  = No Meals
+- CP  = Breakfast
+- MAP = Breakfast and Dinner
+- AP  = Breakfast, Lunch and Dinner
+
 ## ITINERARY RULES (follow strictly)
+
+### Pacing — IMPORTANT
+This itinerary should be **fast-paced and packed**. Pack each day with the MAXIMUM number of well-known sightseeing places that realistically fit in the available hours. Customers want value for their time — assume they're willing to be active 8–10 hours per sightseeing day. Group nearby attractions together to minimise transit overhead, and chain visits efficiently (e.g. morning palace → nearby museum → lunch → afternoon temple → evening viewpoint). Don't pad days with "free time" or "rest at hotel" unless it's the arrival/departure day or after a very long drive. Aim for **4–6 sightseeing places on each full sightseeing day** (more if the city has many close-together attractions), respecting their realistic durations.
 
 ### Day 1 — Arrival
 - Always the first day. Covers travel from ${origin} to first destination.
 - Pickup from airport/railway station upon arrival → transfer to hotel → check-in.
-- If arrival before 12:00 PM: include a nearby attraction or local orientation in the afternoon.
-- If arrival after 4:00 PM: check-in and rest only. No sightseeing.
-- Mention meal plan (accordingly mean plan choosen).
+- **Include approximate distance (in km) and travel time** for the airport/station-to-hotel transfer, e.g. "approximately 35 km · 1 hr drive".
+- If arrival before 12:00 PM: fit in 2–3 nearby attractions in the afternoon and evening (don't leave the rest of the day empty).
+- If arrival 12 PM – 4 PM: include at least 1–2 nearby attractions before/around dinner.
+- If arrival after 4:00 PM: at minimum, include a short evening orientation walk or local market visit if feasible — otherwise check-in and rest.
+- Use the Meal Plan for Day 1 from the map above — do not assume "No Meals".
 
-### Intermediate Days — Sightseeing
-- One full day per city. Use REAL, well-known attractions for each city.
-- Transition day (moving city to city): morning checkout + drive to next city + afternoon sightseeing + check-in.
-- Mention meal timings naturally: Breakfast ~8AM, Lunch ~1PM, Dinner ~8PM.
-- Include approximate timings for each activity.
+### Intermediate Days — Sightseeing (PACK THEM)
+- Full sightseeing days: aim for **4–6 well-known attractions per day**. Use REAL attractions for each city. Mix top sights with lesser-known but interesting spots if the city is well-covered by majors.
+- Transition day (moving city to city): morning checkout + drive to next city + at least 2–3 afternoon/evening attractions in the new city + check-in. Do NOT leave a transition day empty after arriving.
+- **Whenever travelling from one city to another, ALWAYS state the approximate distance (in km) AND the typical travel time** by ${transport}. Format example: "Drive from Mysore to Ooty — approximately 125 km · 4 hrs by road." Place this as the FIRST sub-bullet under the transit/drive activity.
+- For long drives (> 4 hrs), mention a meal/refreshment break en route.
+- Mention meal timings naturally: Breakfast ~8AM, Lunch ~1PM, Dinner ~8PM (but only describe the meals actually included per the map).
+- Include approximate timings for each activity. Use realistic transit time between attractions so the day is feasible but tightly chained.
 
 ### Last Day — Departure
-- Morning checkout. If departure after 12 PM: one short activity (max 2 hrs) before transfer.
+- Morning checkout. Before departure, fit in 1–2 quick attractions or a local market/breakfast spot if time permits.
+- If departure 12 PM – 4 PM: include a half-day activity before the airport/station transfer.
 - If departure before 8 AM: checkout and direct transfer only — no activities.
 - Transfer back via ${transport}.
-- Mention meal plan (accordingly mean plan choosen)
+- Meal plan: typically "No Meals" on travel days.
 
 ### General Rules
 - Write descriptions in second-person ("proceed to...", "enjoy...", "check in at...").
 - Use bullet points with '•' prefix for each activity/step, starting each on a new line.
-- Include meal plan at the end of each day: " Meal Plan: [Breakfast / Lunch / Dinner / No Meals]"
+- **Sightseeing places MUST be listed as sub-bullets under their parent activity**, indented by TWO SPACES and prefixed with "– " (en-dash + space). This makes attractions easy to scan.
+- **Every sightseeing sub-bullet MUST include BOTH:**
+  - A duration estimate in parentheses immediately after the place name, like "(~2 hrs)" or "(~45 min)". This helps customers gauge time at each spot.
+  - A short one-line descriptor (3–8 words) explaining what to expect there, separated by an em-dash (—).
+- Include meal plan at the end of each day: "Meal Plan: <value from the DAILY MEAL PLAN MAP for that day>"
 - Be specific about timings (approximate is fine).
 - Vehicle type is "${transport}" — mention it naturally in transfer descriptions.
 - Generate EXACTLY ${numDays} day objects in the days array.
+
+### Sightseeing Sub-bullet Example (REQUIRED FORMAT)
+For any activity that involves visiting attractions, list each attraction as a sub-bullet using the exact format:
+  – <Place Name> (~<duration>) — <3–8 word descriptor of what to expect>
+
+Example:
+
+• Morning: Begin your Mysore sightseeing tour after breakfast.
+  – Mysore Palace (~2 hrs) — iconic Indo-Saracenic royal residence
+  – Chamundi Hills (~1.5 hrs) — hilltop temple, panoramic city views
+  – Brindavan Gardens (~1 hr) — illuminated musical fountain at dusk
+• Lunch at a local restaurant (~1:00 PM).
+• Evening: Return to hotel and rest.
+• Meal Plan: Breakfast and Dinner
+
+Do NOT inline the attractions in prose (e.g. "visit Mysore Palace, Chamundi Hills, and Brindavan Gardens"). Always break them out as sub-bullets so each attraction is on its own line.
+
+Use realistic durations (e.g. major temples & palaces 1.5–2 hrs, viewpoints 30–45 min, gardens 1 hr, museums 1–2 hrs). For attractions you're unsure about, prefer "~1 hr" as a safe default rather than skipping it.
 
 ## OUTPUT FORMAT
 Return valid JSON matching the provided schema exactly.
 - IDs: use short slugs like "day-001", "day-002", etc.
 - Keep language simple and friendly.
 - Day descriptions: start each bullet point on a new line.
-- Include day-wise meals for each day as a final bullet point in the description 
+- Sightseeing attractions: ALWAYS as indented sub-bullets in the exact format "  – <Place> (~<duration>) — <descriptor>".
+- Include day-wise meals for each day as a final bullet point in the description
 
 `.trim();
 }
@@ -364,6 +483,7 @@ export async function POST(req) {
     typeof userPrompt === "string" && userPrompt.trim().length > 0;
 
   // ── 13. Build prompt ──────────────────────────────────────────────────────
+  const dailyMealMap = buildDailyMealMap(hotelEntries, numDays);
   const basePrompt = buildBasePrompt({
     origin,
     destination,
@@ -373,6 +493,7 @@ export async function POST(req) {
     arrivalTime: checkInDate || undefined,
     departureTime: checkOutDate || undefined,
     additionalContext: additionalContext || undefined,
+    dailyMealMap,
   });
 
   const fullPrompt = isRefinement
