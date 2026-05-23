@@ -243,9 +243,12 @@ export function useQuotationState() {
   }, [user?.uid, user?.orgId]);
 
   useEffect(() => {
+    if (!user?.orgId) return;
     const fetchAllHotels = async () => {
       try {
-        const snap = await getDocs(collection(db, "hotels"));
+        const snap = await getDocs(
+          query(collection(db, "hotels"), where("orgId", "==", user.orgId)),
+        );
         setAllHotels(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
@@ -253,7 +256,9 @@ export function useQuotationState() {
     };
     const fetchAllTransportStates = async () => {
       try {
-        const snap = await getDocs(collection(db, "transport"));
+        const snap = await getDocs(
+          query(collection(db, "transport"), where("orgId", "==", user.orgId)),
+        );
         setTransportStates(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
@@ -270,7 +275,7 @@ export function useQuotationState() {
     fetchAllHotels();
     fetchAllTransportStates();
     fetchAllDestinations();
-  }, []);
+  }, [user?.orgId]);
 
   useEffect(() => {
     fetchQuotations();
@@ -302,6 +307,7 @@ export function useQuotationState() {
           const q = query(
             collection(db, "activities"),
             where("state", "==", currentActivityState),
+            where("orgId", "==", user.orgId),
           );
           const snap = await getDocs(q);
           setAvailableActivities(
@@ -317,16 +323,20 @@ export function useQuotationState() {
     } else {
       setAvailableActivities([]);
     }
-    if (selectedTransportStateId) {
+    if (selectedTransportStateId && user?.orgId) {
       const fetchTransportPackages = async () => {
         try {
-          const ref = collection(
-            db,
-            "transport",
-            selectedTransportStateId,
-            "packages",
+          const snap = await getDocs(
+            query(
+              collection(
+                db,
+                "transport",
+                selectedTransportStateId,
+                "packages",
+              ),
+              where("orgId", "==", user.orgId),
+            ),
           );
-          const snap = await getDocs(ref);
           setAvailableTransportPackagesForSelectedState(
             snap.docs.map((d) => ({ id: d.id, ...d.data() })),
           );
@@ -345,6 +355,7 @@ export function useQuotationState() {
     SelectedDestination,
     selectedTransportStateId,
     isFirstEdit,
+    user?.orgId,
   ]);
 
   // ─── Filtered list ────────────────────────────────────────────────────────

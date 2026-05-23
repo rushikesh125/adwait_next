@@ -303,8 +303,10 @@ export async function saveQuotationAs(agentId, quotationData, orgId = null) {
 /**
  * Fetch all hotels
  */
-export async function fetchAllHotels() {
-  const snapshot = await getDocs(collection(db, "hotels"));
+export async function fetchAllHotels(orgId = null) {
+  const snapshot = await getDocs(
+    query(collection(db, "hotels"), ...orgFilter(orgId)),
+  );
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
@@ -319,19 +321,31 @@ export async function fetchAllDestinations() {
 /**
  * Fetch transport states
  */
-export async function fetchTransportStates() {
-  const snapshot = await getDocs(collection(db, "transport"));
+export async function fetchTransportStates(orgId = null) {
+  const snapshot = await getDocs(
+    query(collection(db, "transport"), ...orgFilter(orgId)),
+  );
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 /**
  * Fetch transport packages for a state
  */
-export async function fetchTransportPackagesByState(stateId) {
+export async function fetchTransportPackagesByState(stateId, orgId = null) {
   if (!stateId) return [];
 
+  if (orgId) {
+    const stateSnap = await getDoc(doc(db, "transport", stateId));
+    if (!stateSnap.exists() || !belongsToOrg(stateSnap.data(), orgId)) {
+      return [];
+    }
+  }
+
   const snapshot = await getDocs(
-    collection(db, "transport", stateId, "packages"),
+    query(
+      collection(db, "transport", stateId, "packages"),
+      ...orgFilter(orgId),
+    ),
   );
 
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -360,10 +374,14 @@ export async function deleteVoucherFromQuotation(agentId, quotationId) {
 /**
  * Fetch activities by state
  */
-export async function fetchActivitiesByState(state) {
+export async function fetchActivitiesByState(state, orgId = null) {
   if (!state) return [];
 
-  const q = query(collection(db, "activities"), where("state", "==", state));
+  const q = query(
+    collection(db, "activities"),
+    where("state", "==", state),
+    ...orgFilter(orgId),
+  );
 
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));

@@ -13,8 +13,11 @@ import {
   AlertCircle 
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
+import { belongsToOrg } from "@/firebase/orgScope";
 
 const EditActivity = ({ onClose, activityId, onSave }) => {
+    const { user } = useSelector((state) => state.auth);
     const [activityData, setActivityData] = useState(null);
     const [states, setStates] = useState([]);
     const [cities, setCities] = useState([]);
@@ -43,7 +46,7 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
                 setLoading(true);
                 const docRef = doc(db, "activities", activityId);
                 const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
+                if (docSnap.exists() && belongsToOrg(docSnap.data(), user?.orgId)) {
                     const data = docSnap.data();
                     setActivityData(data);
                     setActivityName(data.name);
@@ -133,13 +136,23 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
             return;
         }
 
+        if (!user?.orgId) {
+            toast.error("Organization is not assigned");
+            return;
+        }
         setIsSubmitting(true);
         try {
             const activityRef = doc(db, "activities", activityId);
+            const existing = await getDoc(activityRef);
+            if (!existing.exists() || !belongsToOrg(existing.data(), user.orgId)) {
+                toast.error("Activity not found");
+                return;
+            }
             await updateDoc(activityRef, {
                 name: activityName,
                 state: selectedState,
                 city: selectedCity,
+                orgId: user.orgId,
                 pricingTiers: pricingTiers.map(tier => ({
                     minPax: tier.minPax,
                     maxPax: tier.maxPax,
@@ -160,6 +173,11 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
     const handleDelete = async () => {
         if (!window.confirm("Are you sure you want to remove this experience permanently?")) return;
         try {
+            const existing = await getDoc(doc(db, "activities", activityId));
+            if (!existing.exists() || !belongsToOrg(existing.data(), user?.orgId)) {
+                toast.error("Activity not found");
+                return;
+            }
             await deleteDoc(doc(db, "activities", activityId));
             toast.success("Experience removed");
             onSave();

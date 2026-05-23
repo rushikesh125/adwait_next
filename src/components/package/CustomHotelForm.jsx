@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import {
   MEAL_PLANS,
   PLAN_DESCRIPTIONS,
@@ -278,6 +279,7 @@ const CustomHotelForm = ({
   onAdd,
   onCancel,
 }) => {
+  const { user } = useSelector((state) => state.auth);
   const isEditing = !!initial;
 
   // ── Hotel-level state ──
@@ -305,12 +307,13 @@ const CustomHotelForm = ({
     const name = hotelName.trim();
     const c = city.trim();
     const s = state.trim();
-    if (!name || !c || !s) return;
+    if (!name || !c || !s || !user?.orgId) return;
     let cancelled = false;
     (async () => {
       try {
         const q = query(
           collection(db, "custom_hotels"),
+          where("orgId", "==", user.orgId),
           where("name", "==", name),
           where("city", "==", c),
           where("state", "==", s),
@@ -345,7 +348,7 @@ const CustomHotelForm = ({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelName, city, state]);
+  }, [hotelName, city, state, user?.orgId]);
 
   const totalPricePerNight = categories.reduce(
     (sum, c) => sum + calcCategoryNightPrice(c),
@@ -384,10 +387,15 @@ const CustomHotelForm = ({
       }));
 
       const first = persistedCategories[0];
+      if (!user?.orgId) {
+        alert("Organization is not assigned.");
+        return;
+      }
       const payload = {
         name: hotelName.trim(),
         city: city.trim(),
         state: state.trim(),
+        orgId: user.orgId,
         rating,
         // Legacy fields preserved for back-compat (use first category)
         roomType: first.roomCategory,

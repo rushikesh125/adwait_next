@@ -23,8 +23,10 @@ import {
     PlusCircle 
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
 
 const AddActivity = ({ onClose }) => {
+    const { user } = useSelector((state) => state.auth);
     const [states, setStates] = useState([]);
     const [selectedState, setSelectedState] = useState("");
     const [cities, setCities] = useState([]);
@@ -176,10 +178,15 @@ const AddActivity = ({ onClose }) => {
 
         setIsSubmitting(true);
         try {
+            if (!user?.orgId) {
+                toast.error("Organization is not assigned");
+                return;
+            }
             const activityData = {
                 name: activityName.trim(),
                 state: selectedState,
                 city: selectedCity.name,
+                orgId: user.orgId,
                 pricingTiers: pricingTiers.map(tier => ({
                     minPax: tier.minPax,
                     maxPax: tier.maxPax,

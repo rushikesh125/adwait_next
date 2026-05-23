@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { useSelector } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 
 const TransportSelector = ({ onTransportSelect }) => {
+  const { user } = useSelector((state) => state.auth);
   const [transportStates, setTransportStates] = useState([]);
   const [selectedStateId, setSelectedStateId] = useState("");
   const [packages, setPackages] = useState([]);
@@ -31,17 +33,23 @@ const TransportSelector = ({ onTransportSelect }) => {
   const [customAC, setCustomAC] = useState(false);
 
   useEffect(() => {
-    getDocs(collection(db, "transport"))
+    if (!user?.orgId) return;
+    getDocs(query(collection(db, "transport"), where("orgId", "==", user.orgId)))
       .then((snap) => setTransportStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
       .catch(console.error);
-  }, []);
+  }, [user?.orgId]);
 
   useEffect(() => {
-    if (!selectedStateId) { setPackages([]); setSelectedPkg(null); setSelectedVehicle(null); return; }
-    getDocs(collection(db, "transport", selectedStateId, "packages"))
+    if (!selectedStateId || !user?.orgId) { setPackages([]); setSelectedPkg(null); setSelectedVehicle(null); return; }
+    getDocs(
+      query(
+        collection(db, "transport", selectedStateId, "packages"),
+        where("orgId", "==", user.orgId),
+      ),
+    )
       .then((snap) => setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
       .catch(console.error);
-  }, [selectedStateId]);
+  }, [selectedStateId, user?.orgId]);
 
   const toTitleCase = (s) =>
     s?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || s;

@@ -1002,7 +1002,8 @@ const Create_new_package = ({
   }, [isEditMode, editingQuotation]);
 
   useEffect(() => {
-    getDocs(collection(db, "hotels")).then((snap) => {
+    if (!user?.orgId) return;
+    getDocs(query(collection(db, "hotels"), where("orgId", "==", user.orgId))).then((snap) => {
       const list = snap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
@@ -1021,7 +1022,7 @@ const Create_new_package = ({
     getDocs(collection(db, "locations")).then((snap) =>
       setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
-  }, []);
+  }, [user?.orgId]);
 
   // Auto-calculate checkout date
   useEffect(() => {

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useCallback } from "react";
+import { useSelector } from "react-redux";
 import {
   Upload,
   FileSpreadsheet,
@@ -952,6 +953,7 @@ function HotelSection({ hotel, hotelIndex, onHotelField, onUpdate, onRemoveRoom,
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function HotelUploadPage() {
+  const { user } = useSelector((state) => state.auth);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hotels, setHotels]             = useState(null);
   const [summary, setSummary]           = useState(null);
@@ -1187,7 +1189,7 @@ export default function HotelUploadPage() {
       const results = await saveAllHotels(hotels, (done, total) => {
         setSaveProgress({ done, total });
         log.info(`Save progress: ${done}/${total}`);
-      });
+      }, user?.orgId);
 
       setSaveResults(results);
       setShowResults(true);

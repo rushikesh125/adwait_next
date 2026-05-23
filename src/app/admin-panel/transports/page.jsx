@@ -1,7 +1,9 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { orgFilter } from "@/firebase/orgScope";
+import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 
 import { Input } from "@/components/ui/input";
@@ -70,6 +72,7 @@ const pricingBadgeClass = (type) =>
     : "bg-emerald-50 text-emerald-700 border-emerald-200";
 
 const Transport = () => {
+  const { user } = useSelector((state) => state.auth);
   const [showModal, setShowModal] = useState(false);
   const [packagesByState, setPackagesByState] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -81,12 +84,24 @@ const Transport = () => {
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const fetchTransportData = async () => {
+    if (!user?.orgId) {
+      setPackagesByState([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, "transport"));
+      const snapshot = await getDocs(
+        query(collection(db, "transport"), ...orgFilter(user.orgId)),
+      );
       const stateData = await Promise.all(
         snapshot.docs.map(async (stateDoc) => {
-          const pkgSnap = await getDocs(collection(db, "transport", stateDoc.id, "packages"));
+          const pkgSnap = await getDocs(
+            query(
+              collection(db, "transport", stateDoc.id, "packages"),
+              ...orgFilter(user.orgId),
+            ),
+          );
           const packages = pkgSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
           return { id: stateDoc.id, stateName: stateDoc.data().stateName, packages };
         })
@@ -100,7 +115,7 @@ const Transport = () => {
     }
   };
 
-  useEffect(() => { fetchTransportData(); }, [showModal]);
+  useEffect(() => { fetchTransportData(); }, [showModal, user?.orgId]);
 
   // Flatten to one row per package
   const flatRows = useMemo(() =>

@@ -178,10 +178,15 @@ const CreateHotelVoucherPage = () => {
         return;
       }
       try {
-        const { getDocs, collection } = await import("firebase/firestore");
+        if (!user?.orgId) return;
+        const { getDocs, collection, query, where } = await import(
+          "firebase/firestore"
+        );
         const { db } = await import("@/firebase/config");
         const searchTerm = hotelFields.hotelName.toLowerCase();
-        const snap = await getDocs(collection(db, "hotels"));
+        const snap = await getDocs(
+          query(collection(db, "hotels"), where("orgId", "==", user.orgId)),
+        );
         const matches = [];
         snap.docs.forEach((d) => {
           const data = d.data();

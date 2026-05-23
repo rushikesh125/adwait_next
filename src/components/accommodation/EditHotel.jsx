@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { updateHotelComplete, deleteHotel as deleteHotelFromDB, validateHotelData } from '@/firebase/accommodation';
+import { useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
 
 // ─── Date Overlap Utilities ────────────────────────────────────────────────
@@ -92,6 +93,7 @@ const hasAnyOverlap = (rooms) => {
 // ──────────────────────────────────────────────────────────────────────────
 
 const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
+  const { user } = useSelector((state) => state.auth);
   const [hotelData, setHotelData] = useState({
     ...hotel,
     name: hotel.name || '',
@@ -306,7 +308,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
 
     const loadingToast = toast.loading("Updating hotel...");
     try {
-      const success = await updateHotelComplete(hotel.id, normalizedHotel);
+      const success = await updateHotelComplete(hotel.id, normalizedHotel, user?.orgId);
       toast.dismiss(loadingToast);
       if (success) {
         // Fix: Pass normalizedHotel so the parent syncs state cleanly with numeric priorities
@@ -330,7 +332,7 @@ const EditHotel = ({ hotel, onClose, onSave, onDelete }) => {
 
     const loadingToast = toast.loading("Deleting hotel...");
     try {
-      const success = await deleteHotelFromDB(hotel.id);
+      const success = await deleteHotelFromDB(hotel.id, user?.orgId);
       toast.dismiss(loadingToast);
       if (success) {
         if (onDelete) onDelete(hotel.id);

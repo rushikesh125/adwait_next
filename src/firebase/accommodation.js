@@ -1,6 +1,15 @@
 import { doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { belongsToOrg } from "./orgScope";
 import toast from "react-hot-toast";
+
+async function assertHotelOrg(hotelId, orgId) {
+  if (!orgId) return;
+  const snap = await getDoc(doc(db, "hotels", hotelId));
+  if (!snap.exists() || !belongsToOrg(snap.data(), orgId)) {
+    throw new Error("Hotel not found");
+  }
+}
 
 const MEAL_PLAN_ORDER = ["ep", "cp", "map", "ap"];
 const RATE_CATEGORIES = ["double", "extraAdult", "extraChild", "cnb"];
@@ -104,8 +113,9 @@ const getHierarchyErrorsForSeason = (season, roomIndex, seasonIndex) => {
  * @param {object} hotelData - Updated hotel data
  * @returns {Promise<boolean>} - Success status
  */
-export const updateHotelBasicInfo = async (hotelId, hotelData) => {
+export const updateHotelBasicInfo = async (hotelId, hotelData, orgId = null) => {
   try {
+    await assertHotelOrg(hotelId, orgId);
     const hotelRef = doc(db, "hotels", hotelId);
     
     await updateDoc(hotelRef, {
@@ -132,8 +142,9 @@ export const updateHotelBasicInfo = async (hotelId, hotelData) => {
  * @param {object} hotelData - Complete hotel data including rooms
  * @returns {Promise<boolean>} - Success status
  */
-export const updateHotelComplete = async (hotelId, hotelData) => {
+export const updateHotelComplete = async (hotelId, hotelData, orgId = null) => {
   try {
+    await assertHotelOrg(hotelId, orgId);
     const hotelRef = doc(db, "hotels", hotelId);
     
     // Validate rooms data structure
@@ -206,8 +217,9 @@ export const updateHotelComplete = async (hotelId, hotelData) => {
  * @param {array} rooms - Updated rooms array
  * @returns {Promise<boolean>} - Success status
  */
-export const updateHotelRooms = async (hotelId, rooms) => {
+export const updateHotelRooms = async (hotelId, rooms, orgId = null) => {
   try {
+    await assertHotelOrg(hotelId, orgId);
     const hotelRef = doc(db, "hotels", hotelId);
     
     const validatedRooms = rooms?.map(room => ({
@@ -272,14 +284,12 @@ export const updateHotelRooms = async (hotelId, rooms) => {
  * @param {string} hotelId - The hotel document ID
  * @returns {Promise<boolean>} - Success status
  */
-export const deleteHotel = async (hotelId) => {
+export const deleteHotel = async (hotelId, orgId = null) => {
   try {
     const hotelRef = doc(db, "hotels", hotelId);
-    
-    // Optional: Get hotel data before deletion for cleanup
     const hotelSnap = await getDoc(hotelRef);
-    
-    if (!hotelSnap.exists()) {
+
+    if (!hotelSnap.exists() || !belongsToOrg(hotelSnap.data(), orgId)) {
       toast.error("Hotel not found");
       return false;
     }
@@ -301,11 +311,12 @@ export const deleteHotel = async (hotelId) => {
  * @param {object} newRoom - New room category data
  * @returns {Promise<boolean>} - Success status
  */
-export const addRoomCategory = async (hotelId, newRoom) => {
+export const addRoomCategory = async (hotelId, newRoom, orgId = null) => {
   try {
+    await assertHotelOrg(hotelId, orgId);
     const hotelRef = doc(db, "hotels", hotelId);
     const hotelSnap = await getDoc(hotelRef);
-    
+
     if (!hotelSnap.exists()) {
       toast.error("Hotel not found");
       return false;
@@ -376,11 +387,12 @@ export const addRoomCategory = async (hotelId, newRoom) => {
  * @param {number} roomIndex - Index of room to remove
  * @returns {Promise<boolean>} - Success status
  */
-export const removeRoomCategory = async (hotelId, roomIndex) => {
+export const removeRoomCategory = async (hotelId, roomIndex, orgId = null) => {
   try {
+    await assertHotelOrg(hotelId, orgId);
     const hotelRef = doc(db, "hotels", hotelId);
     const hotelSnap = await getDoc(hotelRef);
-    
+
     if (!hotelSnap.exists()) {
       toast.error("Hotel not found");
       return false;

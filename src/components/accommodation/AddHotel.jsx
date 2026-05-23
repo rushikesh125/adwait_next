@@ -5,6 +5,8 @@ import { useMemo } from "react";
 import {
   collection,
   getDocs,
+  query,
+  where,
   doc,
   getDoc,
   updateDoc,
@@ -12,6 +14,7 @@ import {
   addDoc
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { useSelector } from "react-redux";
 import { validateHotelData } from "@/firebase/accommodation";
 import { 
   X, MapPin, Hotel, Calendar, BedDouble, Plus, Check, ChevronRight, Star,
@@ -60,6 +63,7 @@ const getSeasonOverlaps = (seasons) => {
 // ──────────────────────────────────────────────────────────────────────────
 
 const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
+  const { user } = useSelector((state) => state.auth);
   const [states, setStates] = useState([]);
   const [doneOnes, setDoneOnes] = useState(false);
   const [selectedState, setSelectedState] = useState("");
@@ -250,7 +254,13 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
     try {
       let hotelId = createdHotelId;
       if (!editMode) {
-        const snap = await getDocs(collection(db, "hotels"));
+        if (!user?.orgId) {
+          toast.error("Organization is not assigned");
+          return;
+        }
+        const snap = await getDocs(
+          query(collection(db, "hotels"), where("orgId", "==", user.orgId)),
+        );
         const duplicate = snap.docs.some(d => {
           const h = d.data();
           return (
@@ -270,6 +280,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
           GoogleListingURL: GoogleListingURL || null,
           state: selectedState,
           city: selectedCity.name,
+          orgId: user.orgId,
           rooms: []
         });
         hotelId = ref.id;

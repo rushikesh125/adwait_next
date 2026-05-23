@@ -81,7 +81,7 @@ export function mergeRooms(existingRooms = [], incomingRooms = []) {
  *   { name, state, city, googleRating, hotelLink, starRating, rooms[] }
  * @returns {{ id: string, action: 'created' | 'updated' }}
  */
-export async function upsertHotel(hotel) {
+export async function upsertHotel(hotel, orgId = null) {
   const hotelId = generateHotelId(hotel.state, hotel.city, hotel.name);
   const hotelRef = doc(db, "hotels", hotelId);
 
@@ -109,6 +109,7 @@ export async function upsertHotel(hotel) {
     // ── NEW hotel: create from scratch ──────────────────────────────────
     await setDoc(hotelRef, {
       ...incomingPayload,
+      ...(orgId ? { orgId } : {}),
       rooms: hotel.rooms || [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -161,13 +162,13 @@ export async function upsertHotel(hotel) {
  * @param {Function} onProgress - optional callback(index, total, result)
  * @returns {Array} results: [{ id, name, action }]
  */
-export async function saveAllHotels(hotels, onProgress) {
+export async function saveAllHotels(hotels, onProgress, orgId = null) {
   const results = [];
 
   for (let i = 0; i < hotels.length; i++) {
     const hotel = hotels[i];
     try {
-      const result = await upsertHotel(hotel);
+      const result = await upsertHotel(hotel, orgId);
       const entry = { id: result.id, name: hotel.name, action: result.action };
       results.push(entry);
       if (onProgress) onProgress(i + 1, hotels.length, entry);

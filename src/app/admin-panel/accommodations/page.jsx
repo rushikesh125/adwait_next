@@ -20,8 +20,9 @@ import {
 import { db } from "@/firebase/config";
 // import HotelDetailModal from "@/components/accommodation/HotelDetailModal";
 import HotelDetailModal from "@/components/accommodation/HotelDetailModel";
-import { searchHotelsByName } from "@/firebase/hotels";
+import { fetchAllHotels, searchHotelsByName } from "@/firebase/hotels";
 import { deleteHotel } from "@/firebase/accommodation";
+import { useSelector } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -87,6 +88,7 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
 
 const Accommodation = () => {
   const router = useRouter();
+  const { user } = useSelector((state) => state.auth);
   const [pageSize, setPageSize] = useState(50);
   // ── All hotels (fetched once, for search + pagination) ──────────────────
   const [allHotels, setAllHotels] = useState([]);
@@ -110,16 +112,20 @@ const Accommodation = () => {
 
   // ── Fetch all hotels once ────────────────────────────────────────────────
   const fetchHotels = useCallback(async () => {
+    if (!user?.orgId) {
+      setAllHotels([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const snap = await getDocs(collection(db, "hotels"));
-      setAllHotels(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setAllHotels(await fetchAllHotels(user.orgId));
     } catch {
       toast.error("Failed to load accommodations");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.orgId]);
 
   useEffect(() => {
     fetchHotels();
@@ -233,7 +239,7 @@ const Accommodation = () => {
 
     setDeletingHotelId(hotel.id);
     try {
-      const success = await deleteHotel(hotel.id);
+      const success = await deleteHotel(hotel.id, user?.orgId);
 
       if (success) {
         setAllHotels((prev) => prev.filter((h) => h.id !== hotel.id));

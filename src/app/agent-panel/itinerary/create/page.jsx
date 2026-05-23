@@ -505,11 +505,19 @@ export default function ItineraryForm() {
       return;
     }
     const fetchActivities = async () => {
+      if (!user?.orgId) {
+        setAvailableActivities([]);
+        return;
+      }
       try {
         const snaps = await Promise.all(
           form.states.map((s) =>
             getDocs(
-              query(collection(db, "activities"), where("state", "==", s)),
+              query(
+                collection(db, "activities"),
+                where("state", "==", s),
+                where("orgId", "==", user.orgId),
+              ),
             ),
           ),
         );

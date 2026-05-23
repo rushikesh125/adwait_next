@@ -215,10 +215,11 @@ const EditQuotationPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        if (!user?.orgId) return;
         const [hotelsSnap, destSnap, transSnap] = await Promise.all([
-          getDocs(collection(db, "hotels")),
+          getDocs(query(collection(db, "hotels"), where("orgId", "==", user.orgId))),
           getDocs(collection(db, "locations")),
-          getDocs(collection(db, "transport")),
+          getDocs(query(collection(db, "transport"), where("orgId", "==", user.orgId))),
         ]);
 
         setAllHotels(hotelsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -230,13 +231,18 @@ const EditQuotationPage = () => {
     };
 
     fetchData();
-  }, []);
+  }, [user?.orgId]);
 
 
  const fetchTransportPackages = async (stateId) => {
+  if (!user?.orgId) return;
   try {
-    const ref = collection(db, "transport", stateId, "packages");
-    const snap = await getDocs(ref);
+    const snap = await getDocs(
+      query(
+        collection(db, "transport", stateId, "packages"),
+        where("orgId", "==", user.orgId),
+      ),
+    );
 
     setAvailableTransportPackagesForSelectedState(
       snap.docs.map((d) => ({
@@ -264,7 +270,11 @@ useEffect(() => {
     const fetchActs = async () => {
       setIsFetchingActivities(true);
       try {
-        const q = query(collection(db, "activities"), where("state", "==", currentState));
+        const q = query(
+          collection(db, "activities"),
+          where("state", "==", currentState),
+          where("orgId", "==", user.orgId),
+        );
         const snap = await getDocs(q);
         setAvailableActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
@@ -284,7 +294,7 @@ useEffect(() => {
     fetchTransportPackages(selectedTransportStateId);
   }
 
-}, [editingQuotation, SelectedDestination, selectedTransportStateId, isFirstEdit]);
+}, [editingQuotation, SelectedDestination, selectedTransportStateId, isFirstEdit, user?.orgId]);
 
   const nextHotelStay = useMemo(() => {
     const hotels = editingQuotation?.hotelSummary || [];

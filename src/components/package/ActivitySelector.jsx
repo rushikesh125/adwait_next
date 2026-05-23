@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { useSelector } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, PenLine, Plus, X } from "lucide-react";
 
 const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => {
+  const { user } = useSelector((state) => state.auth);
   const [activities, setActivities] = useState([]);
   const [isFetching, setIsFetching] = useState(false);
   const [selected, setSelected] = useState(initialActivities);
@@ -23,15 +25,21 @@ const ActivitySelector = ({ selectedState, initialActivities = [], onDone }) => 
   });
 
   useEffect(() => {
-    if (!selectedState) return;
+    if (!selectedState || !user?.orgId) return;
     setIsFetching(true);
-    getDocs(query(collection(db, "activities"), where("state", "==", selectedState)))
+    getDocs(
+      query(
+        collection(db, "activities"),
+        where("state", "==", selectedState),
+        where("orgId", "==", user.orgId),
+      ),
+    )
       .then((snap) =>
         setActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       )
       .catch(console.error)
       .finally(() => setIsFetching(false));
-  }, [selectedState]);
+  }, [selectedState, user?.orgId]);
 
   const totalPrice = selected.reduce((s, a) => s + (a.totalPrice || 0), 0);
 

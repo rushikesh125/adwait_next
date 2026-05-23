@@ -4,6 +4,8 @@ import { db } from "@/firebase/config";
 import {
   collection,
   getDocs,
+  query,
+  where,
   doc,
   updateDoc,
   setDoc,
@@ -11,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
 
 // shadcn/ui components
 import { Button } from "@/components/ui/button";
@@ -57,6 +60,7 @@ const defaultVehicles = [
   { type: "Tempo Traveller - AC", price: 0, seating: 12, ac: true, perKmprice: 0, driverAllowance: 0 },
 ];
 const Createpackage = ({ onClose }) => {
+  const { user } = useSelector((state) => state.auth);
   const [states, setStates] = useState([]);
   const [selectedState, setSelectedState] = useState("");
   const [selectedPricingType, setSelectedPricingType] = useState("");
@@ -70,8 +74,11 @@ const Createpackage = ({ onClose }) => {
 
   useEffect(() => {
     const fetchStates = async () => {
+      if (!user?.orgId) return;
       try {
-        const snapshot = await getDocs(collection(db, "transport"));
+        const snapshot = await getDocs(
+          query(collection(db, "transport"), where("orgId", "==", user.orgId)),
+        );
         const fetchedStates = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         setStates(fetchedStates);
       } catch {
@@ -79,7 +86,7 @@ const Createpackage = ({ onClose }) => {
       }
     };
     fetchStates();
-  }, []);
+  }, [user?.orgId]);
 
   useEffect(() => {
     if (selectedState) {
@@ -160,6 +167,10 @@ const Createpackage = ({ onClose }) => {
       return;
     }
 
+    if (!user?.orgId) {
+      toast.error("Organization is not assigned");
+      return;
+    }
     setLoading(true);
     try {
       const stateDocRef = doc(db, "transport", stateDoc.id);
@@ -174,6 +185,7 @@ const Createpackage = ({ onClose }) => {
 
       const newPackage = {
         id: uuidv4(),
+        orgId: user.orgId,
         pricingType: selectedPricingType,
         name: packageName.trim(),
         description: packageDescription.trim(),

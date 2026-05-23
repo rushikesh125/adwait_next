@@ -10,6 +10,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   collection,
   getDocs,
+  query,
+  where,
   doc,
   getDoc,
   updateDoc,
@@ -48,7 +50,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import toast, { Toaster } from "react-hot-toast";
+import { useSelector } from "react-redux";
 import { updateHotelComplete, validateHotelData } from "@/firebase/accommodation";
+import { belongsToOrg } from "@/firebase/orgScope";
 
 // ─── Date Overlap Utilities ────────────────────────────────────────────────
 const parseDate = (str) => {
@@ -597,6 +601,7 @@ const RoomCard = ({
 // ─── Main Page ─────────────────────────────────────────────────────────────
 function HotelFormPageInner() {
   const router = useRouter();
+  const { user } = useSelector((state) => state.auth);
   const searchParams = useSearchParams();
   const editHotelId = searchParams.get("id");
   const editMode = !!editHotelId;
@@ -841,11 +846,22 @@ function HotelFormPageInner() {
       };
 
       if (editMode) {
+        const existing = await getDoc(doc(db, "hotels", editHotelId));
+        if (!existing.exists() || !belongsToOrg(existing.data(), user?.orgId)) {
+          toast.error("Hotel not found");
+          return;
+        }
         await updateDoc(doc(db, "hotels", editHotelId), payload);
         setSavedHotelId(editHotelId);
         toast.success("Basic info updated!");
       } else {
-        const snap = await getDocs(collection(db, "hotels"));
+        if (!user?.orgId) {
+          toast.error("Organization is not assigned");
+          return;
+        }
+        const snap = await getDocs(
+          query(collection(db, "hotels"), where("orgId", "==", user.orgId)),
+        );
         const duplicate = snap.docs.some((d) => {
           const h = d.data();
           return (
@@ -861,6 +877,7 @@ function HotelFormPageInner() {
 
         const ref = await addDoc(collection(db, "hotels"), {
           ...payload,
+          orgId: user.orgId,
           rooms: [],
         });
         setSavedHotelId(ref.id);
@@ -1074,7 +1091,7 @@ function HotelFormPageInner() {
     setIsSaving(true);
     try {
       if (editMode) {
-        const success = await updateHotelComplete(savedHotelId, normalized);
+        const success = await updateHotelComplete(savedHotelId, normalized, user?.orgId);
         if (success) toast.success("Hotel saved successfully!");
       } else {
         await updateDoc(doc(db, "hotels", savedHotelId), {

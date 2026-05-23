@@ -1,7 +1,10 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+import { deleteDoc, doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { fetchAllActivities } from "@/firebase/activities_service";
+import { belongsToOrg } from "@/firebase/orgScope";
+import { useSelector } from "react-redux";
 import EditActivity from "@/components/activity/EditActivity";
 import AddActivity from "@/components/activity/AddActivity";
 import { Button } from "@/components/ui/button";
@@ -62,6 +65,7 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
 const ITEMS_PER_PAGE_OPTIONS = [25, 50, 100];
 
 const Activities = () => {
+  const { user } = useSelector((state) => state.auth);
   const [activities, setActivities] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("All");
@@ -72,9 +76,12 @@ const Activities = () => {
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const fetchActivities = async () => {
+    if (!user?.orgId) {
+      setActivities([]);
+      return;
+    }
     try {
-      const querySnapshot = await getDocs(collection(db, "activities"));
-      const activityList = querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const activityList = await fetchAllActivities(user.orgId);
 
       // Deduplicate
       const uniqueMap = new Map();
@@ -91,11 +98,16 @@ const Activities = () => {
 
   useEffect(() => {
     fetchActivities(); // eslint-disable-line react-hooks/set-state-in-effect
-  }, []);
+  }, [user?.orgId]);
 
   const handleDeleteActivity = async (activityId) => {
     if (!window.confirm("Are you sure you want to delete this activity?")) return;
     try {
+      const snap = await getDoc(doc(db, "activities", activityId));
+      if (!snap.exists() || !belongsToOrg(snap.data(), user?.orgId)) {
+        console.error("Activity not found");
+        return;
+      }
       await deleteDoc(doc(db, "activities", activityId));
       fetchActivities();
     } catch (error) {
