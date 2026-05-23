@@ -1,7 +1,11 @@
 export const STATUS_STYLES = {
+  // Lead statuses
   new: "border-blue-200 bg-blue-50 text-blue-700",
   contacted: "border-amber-200 bg-amber-50 text-amber-700",
   "quotation sent": "border-violet-200 bg-violet-50 text-violet-700",
+  "cold lead": "border-sky-200 bg-sky-50 text-sky-700",
+
+  // Quotation statuses
   draft: "border-slate-200 bg-slate-100 text-slate-700",
   pending: "border-amber-200 bg-amber-50 text-amber-700",
   generated: "border-sky-200 bg-sky-50 text-sky-700",
@@ -18,6 +22,18 @@ export const STATUS_STYLES = {
   "closed lost": "border-rose-200 bg-rose-50 text-rose-700",
   suspended: "border-slate-200 bg-slate-100 text-slate-600",
   closed: "border-slate-200 bg-slate-100 text-slate-700",
+
+  // Booking record statuses
+  tentative: "border-amber-200 bg-amber-50 text-amber-700",
+  confirmed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  completed: "border-blue-200 bg-blue-50 text-blue-700",
+
+  // Payment statuses
+  paid: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  partial: "border-amber-200 bg-amber-50 text-amber-700",
+  unpaid: "border-rose-200 bg-rose-50 text-rose-700",
+  overdue: "border-rose-200 bg-rose-50 text-rose-700",
+  refunded: "border-slate-200 bg-slate-100 text-slate-700",
 };
 
 export const STATUS_LABELS = {
