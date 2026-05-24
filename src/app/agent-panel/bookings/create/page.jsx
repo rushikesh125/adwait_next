@@ -83,7 +83,7 @@ const SERVICE_ICONS = {
   Insurance: ShieldCheck,
   Other: MoreHorizontal,
 };
-const MEAL_PLANS = ["CP", "MAP", "AP", "EP", "BB", "AI"];
+const MEAL_PLANS = ["CP", "MAP", "AP", "EP",];
 // ─── Factory helpers ──────────────────────────────────────────────────────────
 
 const newVendorPayment = (type = "Installment") => ({
