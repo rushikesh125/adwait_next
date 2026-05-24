@@ -71,6 +71,20 @@ export async function POST(req) {
     );
   }
 
+  if (targetUid !== requester.uid && requester.role === "admin") {
+    const profileCollection = targetRole === "admin" ? "admins" : "agents";
+    const targetProfile = await adminDb.collection(profileCollection).doc(targetUid).get();
+    if (
+      !targetProfile.exists ||
+      targetProfile.data()?.orgId !== requester.profile?.orgId
+    ) {
+      return Response.json(
+        { allowed: false, reason: "You can only check users in your organization." },
+        { status: 403 }
+      );
+    }
+  }
+
   if (!permission || !VALID_PERMISSIONS.includes(permission)) {
     return Response.json(
       { allowed: false, reason: `Unknown permission key: "${permission}".` },

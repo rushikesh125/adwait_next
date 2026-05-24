@@ -560,7 +560,7 @@ export default function HotelVoucherDrawer({
                 <SelectValue placeholder="Select meal plan" />
               </SelectTrigger>
               <SelectContent>
-                {["CP", "MAP", "AP", "EP", "AI"].map((mealPlan) => (
+                {["CP", "MAP", "AP", "EP", ].map((mealPlan) => (
                   <SelectItem key={mealPlan} value={mealPlan}>
                     {mealPlan}
                   </SelectItem>

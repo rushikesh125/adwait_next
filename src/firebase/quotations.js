@@ -136,7 +136,7 @@ if (
 
   await createNotification({
     userId: agentId,
-    orgId: data.orgId || null,
+    orgId: data.orgId || options.orgId || quotation.orgId || null,
     type:
       data.status === "Accepted"
         ? "quotation_accepted"
@@ -314,8 +314,10 @@ export async function fetchAllHotels(orgId = null) {
 /**
  * Fetch all destinations
  */
-export async function fetchAllDestinations() {
-  const snapshot = await getDocs(collection(db, "locations"));
+export async function fetchAllDestinations(orgId = null) {
+  const snapshot = await getDocs(
+    query(collection(db, "locations"), ...orgFilter(orgId)),
+  );
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 

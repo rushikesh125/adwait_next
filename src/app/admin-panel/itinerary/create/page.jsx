@@ -44,6 +44,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useSelector } from "react-redux";
+import { belongsToOrg } from "@/firebase/orgScope";
 
 import {
   ImageUploader,
@@ -438,7 +439,10 @@ export default function ItineraryForm() {
   useEffect(() => {
     const fetchStates = async () => {
       try {
-        const snap = await getDocs(collection(db, "locations"));
+        if (!user?.orgId) return;
+        const snap = await getDocs(
+          query(collection(db, "locations"), where("orgId", "==", user.orgId))
+        );
         const uniqueStates = [
           ...new Set(snap.docs.map((d) => d.data().name)),
         ].sort();
@@ -448,7 +452,7 @@ export default function ItineraryForm() {
       }
     };
     fetchStates();
-  }, []);
+  }, [user?.orgId]);
 
   // ── Load existing itinerary for edit ────────────────────────────────────
   useEffect(() => {
@@ -458,6 +462,11 @@ export default function ItineraryForm() {
         const snap = await getDoc(doc(db, "itinerary_templates", itineraryId));
         if (snap.exists()) {
           const data = snap.data();
+          if (!belongsToOrg(data, user?.orgId)) {
+            toast.error("Template not found");
+            router.back();
+            return;
+          }
           setForm({
             title: data.title || "",
             // Support both legacy single `state` and new multi `states`
@@ -492,7 +501,7 @@ export default function ItineraryForm() {
       }
     };
     loadData();
-  }, [itineraryId]);
+  }, [itineraryId, router, user?.orgId]);
 
   // ── Load activities when states change ──────────────────────────────────
   useEffect(() => {
@@ -501,6 +510,10 @@ export default function ItineraryForm() {
       return;
     }
     const fetchActivities = async () => {
+      if (!user?.orgId) {
+        setAvailableActivities([]);
+        return;
+      }
       try {
         // Fetch activities for all selected states
         const snaps = await Promise.all(
@@ -530,7 +543,7 @@ export default function ItineraryForm() {
       }
     };
     fetchActivities();
-  }, [form.states]);
+  }, [form.states, user?.orgId]);
 
   // ── Checklist helpers ──────────────────────────────────────────────────
   const makeHandlers = (setter) => ({
@@ -795,6 +808,7 @@ export default function ItineraryForm() {
     if (!form.endCity.trim()) return toast.error("Ending City is required.");
     if (!form.numDays || Number(form.numDays) < 1)
       return toast.error("Number of Days must be at least 1.");
+    if (!user?.orgId) return toast.error("Organization is not assigned.");
     if (!user?.uid || !user?.role)
       return toast.error("User should be logged in");
 
@@ -822,11 +836,18 @@ export default function ItineraryForm() {
       status: isDraft ? "Draft" : "Published",
       clientRole: user.role,
       clientId: user.uid,
+      orgId: user.orgId,
     };
 
     try {
       const loader = toast.loading("Saving...");
       if (itineraryId) {
+        const existing = await getDoc(doc(db, "itinerary_templates", itineraryId));
+        if (!existing.exists() || !belongsToOrg(existing.data(), user?.orgId)) {
+          toast.dismiss(loader);
+          toast.error("Template not found");
+          return;
+        }
         await updateDoc(doc(db, "itinerary_templates", itineraryId), payload);
       } else {
         payload.createdAt = serverTimestamp();

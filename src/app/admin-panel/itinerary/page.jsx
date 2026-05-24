@@ -29,11 +29,15 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  getDoc,
   updateDoc,
   orderBy,
   query,
+  where,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { belongsToOrg } from "@/firebase/orgScope";
+import { useSelector } from "react-redux";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -281,6 +285,7 @@ function ChecklistView({ icon: Icon, label, items, color }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ItineraryListPage() {
   const router = useRouter();
+  const { user } = useSelector((state) => state.auth);
   const [itineraries, setItineraries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -296,10 +301,16 @@ export default function ItineraryListPage() {
   const statusOptions = ["Draft", "Published"];
 
   const fetchItineraries = async () => {
+    if (!user?.orgId) {
+      setItineraries([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const q = query(
         collection(db, "itinerary_templates"),
+        where("orgId", "==", user.orgId),
         orderBy("createdAt", "desc"),
       );
       const snapshot = await getDocs(q);
@@ -313,7 +324,7 @@ export default function ItineraryListPage() {
 
   useEffect(() => {
     fetchItineraries();
-  }, []);
+  }, [user?.orgId]);
 
   const handleSort = (key) => {
     setSortConfig((prev) => ({
@@ -330,7 +341,16 @@ export default function ItineraryListPage() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this template?"))
       return;
+    if (!user?.orgId) {
+      toast.error("Organization is not assigned");
+      return;
+    }
     try {
+      const snap = await getDoc(doc(db, "itinerary_templates", id));
+      if (!snap.exists() || !belongsToOrg(snap.data(), user?.orgId)) {
+        toast.error("Template not found");
+        return;
+      }
       await deleteDoc(doc(db, "itinerary_templates", id));
       toast.success("Template deleted");
       setItineraries((prev) => prev.filter((item) => item.id !== id));
@@ -343,7 +363,15 @@ export default function ItineraryListPage() {
     router.push(`/admin-panel/itinerary/create?itineraryid=${id}`);
 
   const handleStatusUpdate = async (item, status) => {
+    if (!user?.orgId) {
+      toast.error("Organization is not assigned");
+      return;
+    }
     try {
+      if (!belongsToOrg(item, user?.orgId)) {
+        toast.error("Template not found");
+        return;
+      }
       await updateDoc(doc(db, "itinerary_templates", item.id), { status });
       setItineraries((prev) =>
         prev.map((entry) =>

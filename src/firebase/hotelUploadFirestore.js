@@ -11,6 +11,8 @@ import {
   updateDoc,
   collection,
   getDocs,
+  query,
+  where,
   arrayUnion,
   writeBatch,
 } from "firebase/firestore";
@@ -116,12 +118,15 @@ export async function upsertHotel(hotel, orgId = null) {
     });
 
     // Also register the hotel ID in the locations collection (like HotelFormPage does)
-    await _registerHotelInLocation(hotel.state, hotel.city, hotelId);
+    await _registerHotelInLocation(hotel.state, hotel.city, hotelId, orgId);
 
     return { id: hotelId, action: "created" };
   } else {
     // ── EXISTING hotel: smart merge ──────────────────────────────────────
     const existing = snap.data();
+    if (orgId && existing.orgId !== orgId) {
+      throw new Error("Hotel already exists outside this organization");
+    }
 
     // For scalar fields: only overwrite if the incoming value is non-empty
     // (so a re-upload that omits googleRating won't blank it out)
@@ -187,11 +192,13 @@ export async function saveAllHotels(hotels, onProgress, orgId = null) {
 }
 
 // ─── Internal: register hotel ID in locations collection ─────────────────────
-async function _registerHotelInLocation(stateName, cityName, hotelId) {
+async function _registerHotelInLocation(stateName, cityName, hotelId, orgId = null) {
   if (!stateName || !cityName) return;
 
   try {
-    const locSnap = await getDocs(collection(db, "locations"));
+    const locSnap = await getDocs(
+      query(collection(db, "locations"), ...(orgId ? [where("orgId", "==", orgId)] : []))
+    );
     const stateDoc = locSnap.docs.find(
       (d) => d.data().name?.toLowerCase() === stateName.toLowerCase()
     );

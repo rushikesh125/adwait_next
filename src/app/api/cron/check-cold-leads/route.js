@@ -148,7 +148,7 @@ export async function GET(request) {
       console.log(`${LOG_PREFIX} Lead ${leadId} (${lead.name}) → Closed Lost.`);
 
       // Reject all associated quotations
-      await rejectAllQuotationsForLead(leadId);
+      await rejectAllQuotationsForLead(leadId, lead.orgId || null);
       console.log(`${LOG_PREFIX} Lead ${leadId} quotations rejected.`);
 
       // Write dedup record
@@ -156,6 +156,7 @@ export async function GET(request) {
         leadId,
         leadName: lead.name || "Unknown",
         agentId: lead.agentId || null,
+        orgId: lead.orgId || null,
         coldMarkedAt: coldMarkedAt.toISOString(),
         closedByJob: true,
       });

@@ -7,7 +7,7 @@ function generateBookingRef() {
   return `BK-${year}-${rand}`;
 }
 
-async function createQuotationResponseNotification({ agentId, quotation, status,quotationId  }) {
+async function createQuotationResponseNotification({ agentId, quotation, status, quotationId }) {
   if (!agentId || !["Accepted", "Rejected"].includes(status)) return;
 
   const label = quotation.packageName || quotation.customerName || "Quotation";
@@ -20,6 +20,7 @@ async function createQuotationResponseNotification({ agentId, quotation, status,
     title: isAccepted ? "Quotation Accepted 🎉" : "Quotation Rejected",
     message: `"${label}" has been ${isAccepted ? "accepted" : "rejected"} by the customer.`,
     link: `/agent-panel/my-quotation?quoteId=${quotationId || ""}`,
+    orgId: quotation.orgId || null,
     read: false,
     priority: isAccepted ? "high" : "normal",
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -29,6 +30,7 @@ async function createQuotationResponseNotification({ agentId, quotation, status,
   try {
     const pushPayload = {
       userId: agentId,
+      orgId: quotation.orgId || null,
       title: isAccepted ? "Quotation Accepted 🎉" : "Quotation Rejected",
       message: `"${label}" has been ${isAccepted ? "accepted" : "rejected"} by the customer.`,
       type: isAccepted ? "quotation_accepted" : "quotation_rejected",
@@ -97,6 +99,7 @@ export async function respondToQuotationByTokenServer(token, action) {
     const bookingRef = await adminDb.collection("bookings").add({
       ...bookingPayload,
       agentId,
+      orgId: data.orgId || null,
       bookingRef: generateBookingRef(),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),

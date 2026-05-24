@@ -16,6 +16,14 @@ Use this after implementing `orgId` writes, filters, public-flow derivation, mig
 
 Firestore security rules are intentionally out of scope until later.
 
+Update from org-layer pass:
+
+- 7. Hotels, Activities, Transport: DONE for app-layer resource reads/writes across admin/agent flows.
+- 8. Itinerary: DONE for template lists/create/edit and quotation-builder lookups.
+- 9. Public Enquiry, Form, Preview: DONE for deriving/preserving source `orgId`.
+- 10. Cron, API, Notifications: DONE for emitted records and permission checks carrying/verifying `orgId` where available.
+- 11. Cross-Org Isolation Check: Pending until verified with real two-org data and Firestore rules.
+
 ---
 
 ## 1. Login And Auth State (DONE)

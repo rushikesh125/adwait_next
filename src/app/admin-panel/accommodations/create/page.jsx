@@ -660,12 +660,13 @@ function HotelFormPageInner() {
 
   // Fetch states
   useEffect(() => {
-    getDocs(collection(db, "locations"))
+    if (!user?.orgId) return;
+    getDocs(query(collection(db, "locations"), where("orgId", "==", user.orgId)))
       .then((snap) =>
         setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
       )
       .catch(() => toast.error("Failed to load states"));
-  }, []);
+  }, [user?.orgId]);
 
   // Load hotel in edit mode
   useEffect(() => {
@@ -675,6 +676,7 @@ function HotelFormPageInner() {
         const snap = await getDoc(doc(db, "hotels", editHotelId));
         if (!snap.exists()) return;
         const data = snap.data();
+        if (!belongsToOrg(data, user?.orgId)) return;
         setHotelName(data.name || "");
         setHotelRating(data.rating || "");
         setGoogleReviewRating(data.GoogleReviewRating || "");
@@ -703,7 +705,7 @@ function HotelFormPageInner() {
       }
     };
     load();
-  }, [editMode, editHotelId]);
+  }, [editMode, editHotelId, user?.orgId]);
 
   // Fetch cities
   useEffect(() => {
@@ -712,10 +714,12 @@ function HotelFormPageInner() {
     if (!stateDoc) return;
     getDoc(doc(db, "locations", stateDoc.id))
       .then((snap) => {
-        if (snap.exists()) setCities(snap.data().cities || []);
+        if (snap.exists() && belongsToOrg(snap.data(), user?.orgId)) {
+          setCities(snap.data().cities || []);
+        }
       })
       .catch(() => toast.error("Failed to load cities"));
-  }, [selectedState, states]);
+  }, [selectedState, states, user?.orgId]);
 
   // Filter cities
   useEffect(() => {
@@ -800,6 +804,10 @@ function HotelFormPageInner() {
     setIsAddingCity(true);
     try {
       const stateDoc = states.find((s) => s.name === selectedState);
+      if (!stateDoc || !belongsToOrg(stateDoc, user?.orgId)) {
+        toast.error("State not found");
+        return;
+      }
       const newCity = { name: pendingNewCity, hotelIds: [] };
       await updateDoc(doc(db, "locations", stateDoc.id), {
         cities: arrayUnion(newCity),
@@ -830,6 +838,10 @@ function HotelFormPageInner() {
       setDoneOnes(true);
       return;
     }
+    if (!user?.orgId) {
+      toast.error("Organization is not assigned");
+      return;
+    }
     setIsCreatingHotel(true);
     try {
       const payload = {
@@ -855,10 +867,6 @@ function HotelFormPageInner() {
         setSavedHotelId(editHotelId);
         toast.success("Basic info updated!");
       } else {
-        if (!user?.orgId) {
-          toast.error("Organization is not assigned");
-          return;
-        }
         const snap = await getDocs(
           query(collection(db, "hotels"), where("orgId", "==", user.orgId)),
         );
@@ -885,6 +893,10 @@ function HotelFormPageInner() {
         // Update city hotelIds
         const stateDoc = states.find((s) => s.name === selectedState);
         const citySnap = await getDoc(doc(db, "locations", stateDoc.id));
+        if (!citySnap.exists() || !belongsToOrg(citySnap.data(), user.orgId)) {
+          toast.error("State not found");
+          return;
+        }
         const cityList = citySnap
           .data()
           .cities.map((c) =>
@@ -1090,10 +1102,19 @@ function HotelFormPageInner() {
 
     setIsSaving(true);
     try {
+      if (!user?.orgId) {
+        toast.error("Organization is not assigned");
+        return;
+      }
       if (editMode) {
         const success = await updateHotelComplete(savedHotelId, normalized, user?.orgId);
         if (success) toast.success("Hotel saved successfully!");
       } else {
+        const existing = await getDoc(doc(db, "hotels", savedHotelId));
+        if (!existing.exists() || !belongsToOrg(existing.data(), user?.orgId)) {
+          toast.error("Hotel not found");
+          return;
+        }
         await updateDoc(doc(db, "hotels", savedHotelId), {
           rooms: normalized.rooms,
         });

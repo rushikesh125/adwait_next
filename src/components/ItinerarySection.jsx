@@ -191,6 +191,7 @@ function TemplateSummaryCard({ template, onSelect, isSelected }) {
 export default function ItinerarySection({
   hotelEntries = [],
   selectedState = "",
+  orgId = null,
   onChange,
   itineraryData,
   setItineraryData,
@@ -230,6 +231,7 @@ export default function ItinerarySection({
   // ── Fetch templates whenever cities change ─────────────────────────────
   useEffect(() => {
     const key = cities.slice().sort().join("|");
+    if (!orgId) return;
     if (itineraryData) return; // 🚀 ADD THIS LINE
 
     if (key === lastCitiesRef.current || cities.length === 0) return;
@@ -246,6 +248,7 @@ export default function ItinerarySection({
             getDocs(
               query(
                 collection(db, "itinerary_templates"),
+                where("orgId", "==", orgId),
                 where("cities", "array-contains", city),
                 where("status", "==", "Published"),
               ),
@@ -284,13 +287,17 @@ export default function ItinerarySection({
     };
 
     fetchTemplates();
-  }, [cities]);
+  }, [cities, orgId, itineraryData]);
 
   // ── Fetch activities for editor (state-scoped, read-only) ─────────────
   useEffect(() => {
-    if (!selectedState) return;
+    if (!selectedState || !orgId) return;
     getDocs(
-      query(collection(db, "activities"), where("state", "==", selectedState)),
+      query(
+        collection(db, "activities"),
+        where("orgId", "==", orgId),
+        where("state", "==", selectedState),
+      ),
     )
       .then((snap) =>
         setAvailableActivities(
@@ -298,7 +305,7 @@ export default function ItinerarySection({
         ),
       )
       .catch(console.error);
-  }, [selectedState]);
+  }, [selectedState, orgId]);
 
   // ── Bubble itinerary data up to parent ──────────────────────────────────
   useEffect(() => {

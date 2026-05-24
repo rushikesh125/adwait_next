@@ -266,7 +266,9 @@ export function useQuotationState() {
     };
     const fetchAllDestinations = async () => {
       try {
-        const snap = await getDocs(collection(db, "locations"));
+        const snap = await getDocs(
+          query(collection(db, "locations"), where("orgId", "==", user.orgId)),
+        );
         setAllDestinations(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);

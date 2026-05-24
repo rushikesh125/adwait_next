@@ -8,6 +8,8 @@ import {
     updateDoc,
     arrayUnion,
     addDoc,
+    query,
+    where,
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { 
@@ -44,7 +46,10 @@ const AddActivity = ({ onClose }) => {
 
     useEffect(() => {
         const fetchStates = async () => {
-            const querySnapshot = await getDocs(collection(db, "locations"));
+            if (!user?.orgId) return;
+            const querySnapshot = await getDocs(
+                query(collection(db, "locations"), where("orgId", "==", user.orgId))
+            );
             const stateList = querySnapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
@@ -52,7 +57,7 @@ const AddActivity = ({ onClose }) => {
             setStates(stateList);
         };
         fetchStates();
-    }, []);
+    }, [user?.orgId]);
 
     useEffect(() => {
         const fetchCitiesForState = async () => {

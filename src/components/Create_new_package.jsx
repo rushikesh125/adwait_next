@@ -1019,7 +1019,7 @@ const Create_new_package = ({
       ];
       setHotels(unique);
     });
-    getDocs(collection(db, "locations")).then((snap) =>
+    getDocs(query(collection(db, "locations"), where("orgId", "==", user.orgId))).then((snap) =>
       setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
   }, [user?.orgId]);
@@ -2558,6 +2558,7 @@ const Create_new_package = ({
               <ItinerarySection
                 hotelEntries={sortedHotelEntries}
                 selectedState={selectedState}
+                orgId={user?.orgId}
                 itineraryData={itineraryData}
                 setItineraryData={setItineraryData}
                 onChange={(data) => setItineraryData(data)}

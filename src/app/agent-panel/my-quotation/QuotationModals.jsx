@@ -116,7 +116,7 @@ const calcCustomHotelNightPrice = (
 };
 
 // ─── Custom Hotel Form ────────────────────────────────────────────────────────
-const CustomHotelForm = ({ state: defaultState, onAdd, onCancel }) => {
+const CustomHotelForm = ({ state: defaultState, orgId = null, onAdd, onCancel }) => {
   const [hotelName, setHotelName] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState(defaultState || "");
@@ -139,13 +139,14 @@ const CustomHotelForm = ({ state: defaultState, onAdd, onCancel }) => {
     const name = hotelName.trim();
     const c = city.trim();
     const s = state.trim();
-    if (!name || !c || !s) return;
+    if (!name || !c || !s || !orgId) return;
 
     let cancelled = false;
     const lookup = async () => {
       try {
         const q = query(
           collection(db, "custom_hotels"),
+          where("orgId", "==", orgId),
           where("name", "==", name),
           where("city", "==", c),
           where("state", "==", s),
@@ -167,7 +168,7 @@ const CustomHotelForm = ({ state: defaultState, onAdd, onCancel }) => {
     return () => {
       cancelled = true;
     };
-  }, [hotelName, city, state]);
+  }, [hotelName, city, state, orgId]);
 
   const handlePricingChange = (plan, type, raw) => {
     const val = raw === "" ? 0 : Math.max(0, Number(raw));
@@ -196,11 +197,13 @@ const CustomHotelForm = ({ state: defaultState, onAdd, onCancel }) => {
     if (!state.trim()) { alert("State is required."); return; }
     if (!roomType.trim()) { alert("Room type is required."); return; }
     if (plansWithPrice.length === 0) { alert("Enter at least one price in the pricing table."); return; }
+    if (!orgId) { alert("Organization is not assigned."); return; }
 
     setIsSaving(true);
     try {
       const payload = {
         name: hotelName.trim(), city: city.trim(), state: state.trim(),
+        orgId,
         rating, roomType: roomType.trim(), pricing,
         lastUsedMealPlan: selectedMealPlan, updatedAt: new Date(),
       };
@@ -464,6 +467,7 @@ const QuotationModals = ({
   setSaveAsLeadId,
   agentLeads,
   onOpenBookingConfirmation,
+  orgId = null,
 }) => {
   const truncateText = (text, maxLength) => {
     if (!text) return "";
@@ -935,7 +939,7 @@ const QuotationModals = ({
                           )}
                         </div>
                       </div>
-                      {showCustomHotelForm && <CustomHotelForm state={SelectedDestination} onAdd={onCustomHotelAdd} onCancel={() => setShowCustomHotelForm(false)} />}
+                      {showCustomHotelForm && <CustomHotelForm state={SelectedDestination} orgId={orgId || editingQuotation?.orgId || null} onAdd={onCustomHotelAdd} onCancel={() => setShowCustomHotelForm(false)} />}
                     </CardContent>
                   </Card>
 

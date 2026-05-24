@@ -74,8 +74,11 @@ const Createpackage = ({ onClose }) => {
 
 useEffect(() => {
   const fetchStates = async () => {
+    if (!user?.orgId) return;
     try {
-      const snapshot = await getDocs(collection(db, "transport"));
+      const snapshot = await getDocs(
+        query(collection(db, "transport"), where("orgId", "==", user.orgId))
+      );
 
       const fetchedStates = snapshot.docs.map((d) => ({
         id: d.id,
@@ -89,7 +92,7 @@ useEffect(() => {
   };
 
   fetchStates();
-}, []);
+}, [user?.orgId]);
 
   useEffect(() => {
     if (selectedState) {
@@ -178,6 +181,11 @@ useEffect(() => {
     try {
       const stateDocRef = doc(db, "transport", stateDoc.id);
       const stateSnapshot = await getDoc(stateDocRef);
+      if (!stateSnapshot.exists() || stateSnapshot.data()?.orgId !== user.orgId) {
+        toast.error("Transport state not found");
+        setLoading(false);
+        return;
+      }
       const existingPackagesArray = stateSnapshot.data()?.packages || [];
 
       if (existingPackagesArray.some((pkg) => pkg.name === packageName.trim())) {

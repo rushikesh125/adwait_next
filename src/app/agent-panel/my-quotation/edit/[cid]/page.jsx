@@ -218,7 +218,7 @@ const EditQuotationPage = () => {
         if (!user?.orgId) return;
         const [hotelsSnap, destSnap, transSnap] = await Promise.all([
           getDocs(query(collection(db, "hotels"), where("orgId", "==", user.orgId))),
-          getDocs(collection(db, "locations")),
+          getDocs(query(collection(db, "locations"), where("orgId", "==", user.orgId))),
           getDocs(query(collection(db, "transport"), where("orgId", "==", user.orgId))),
         ]);
 

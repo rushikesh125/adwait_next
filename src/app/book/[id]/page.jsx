@@ -68,7 +68,8 @@ export default function PublicBookingPage({ params: paramsPromise }) {
       try {
         const docSnap = await getDoc(doc(db, "trips", tripId));
         if (docSnap.exists()) {
-          setTrip(docSnap.data());
+          const data = docSnap.data();
+          setTrip(data?.orgId ? data : "not-found");
         } else {
           setTrip("not-found");
         }
@@ -113,6 +114,10 @@ export default function PublicBookingPage({ params: paramsPromise }) {
   setIsSubmitting(true);
 
   try {
+    if (!trip?.orgId) {
+      setIsSubmitting(false);
+      return toast.error("This booking form is not available.");
+    }
     // 1. Normalize the email (lowercase and trim spaces)
     const userEmail = passenger.email.toLowerCase().trim();
 

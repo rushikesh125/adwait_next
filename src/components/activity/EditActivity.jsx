@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { doc, getDoc, updateDoc, deleteDoc, getDocs, collection } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc, getDocs, collection, query, where } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { 
   X, 
@@ -32,12 +32,15 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
     // Fetch States
     useEffect(() => {
         const fetchStates = async () => {
-            const snapshot = await getDocs(collection(db, "locations"));
+            if (!user?.orgId) return;
+            const snapshot = await getDocs(
+                query(collection(db, "locations"), where("orgId", "==", user.orgId))
+            );
             const stateList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
             setStates(stateList);
         };
         fetchStates();
-    }, []);
+    }, [user?.orgId]);
 
     // Fetch Activity Data
     useEffect(() => {
@@ -80,13 +83,13 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
             const selected = states.find((s) => s.name === selectedState);
             if (selected) {
                 const docSnap = await getDoc(doc(db, "locations", selected.id));
-                if (docSnap.exists()) {
+                if (docSnap.exists() && belongsToOrg(docSnap.data(), user?.orgId)) {
                     setCities(docSnap.data().cities || []);
                 }
             }
         };
         if (selectedState) fetchCities();
-    }, [selectedState, states]);
+    }, [selectedState, states, user?.orgId]);
 
     const updateTier = (index, field, value) => {
         const updated = [...pricingTiers];
@@ -172,6 +175,10 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
 
     const handleDelete = async () => {
         if (!window.confirm("Are you sure you want to remove this experience permanently?")) return;
+        if (!user?.orgId) {
+            toast.error("Organization is not assigned");
+            return;
+        }
         try {
             const existing = await getDoc(doc(db, "activities", activityId));
             if (!existing.exists() || !belongsToOrg(existing.data(), user?.orgId)) {

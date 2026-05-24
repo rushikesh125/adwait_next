@@ -1,6 +1,7 @@
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { generateHotelBookingConfirmationMessage } from "@/lib/generateHotelBookingConfirmation";
+import { orgFilter } from "@/firebase/orgScope";
 
 const getCandidatePhones = (hotel = {}) => [
   hotel.phone,
@@ -17,7 +18,7 @@ export function formatWhatsappPhone(phone = "") {
   return digits.length === 10 ? `91${digits}` : digits;
 }
 
-export async function resolveHotelWhatsappPhone(rawHotel = {}) {
+export async function resolveHotelWhatsappPhone(rawHotel = {}, orgId = null) {
   const directPhone = getCandidatePhones(rawHotel)
     .map(formatWhatsappPhone)
     .find(Boolean);
@@ -29,7 +30,12 @@ export async function resolveHotelWhatsappPhone(rawHotel = {}) {
 
   try {
     const snap = await getDocs(
-      query(collection(db, "hotels"), where("name", "==", hotelName), limit(10)),
+      query(
+        collection(db, "hotels"),
+        ...orgFilter(orgId),
+        where("name", "==", hotelName),
+        limit(10),
+      ),
     );
 
     if (snap.empty) return "";
@@ -56,7 +62,7 @@ export async function resolveHotelWhatsappPhone(rawHotel = {}) {
 
 export async function sendHotelBookingRequestOnWhatsApp(booking = {}, rawHotel = {}) {
   const message = generateHotelBookingConfirmationMessage(booking, rawHotel);
-  const phone = await resolveHotelWhatsappPhone(rawHotel);
+  const phone = await resolveHotelWhatsappPhone(rawHotel, booking.orgId || null);
   const url = phone
     ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
     : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;

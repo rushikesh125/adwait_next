@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import toast from "react-hot-toast";
+import { belongsToOrg } from "@/firebase/orgScope";
 
 // ─── Date Overlap Utilities ────────────────────────────────────────────────
 
@@ -110,7 +111,10 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
   useEffect(() => {
     const fetchStates = async () => {
       try {
-        const snap = await getDocs(collection(db, "locations"));
+        if (!user?.orgId) return;
+        const snap = await getDocs(
+          query(collection(db, "locations"), where("orgId", "==", user.orgId))
+        );
         setStates(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
@@ -118,7 +122,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       }
     };
     fetchStates();
-  }, []);
+  }, [user?.orgId]);
 
   useEffect(() => {
     if (!editMode) return;
@@ -129,6 +133,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         if (!snap.exists()) return;
 
         const data = snap.data();
+        if (!belongsToOrg(data, user?.orgId)) return;
         setHotelName(data.name || "");
         setHotelRating(data.rating || "");
         setGoogleReviewRating(data.GoogleReviewRating || "");
@@ -167,7 +172,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       }
     };
     loadHotel();
-  }, [editMode, editHotelId]);
+  }, [editMode, editHotelId, user?.orgId]);
 
   useEffect(() => {
     if (!selectedState) return;
@@ -177,14 +182,16 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
     const fetchCities = async () => {
       try {
         const snap = await getDoc(doc(db, "locations", stateDoc.id));
-        if (snap.exists()) setCities(snap.data().cities || []);
+        if (snap.exists() && belongsToOrg(snap.data(), user?.orgId)) {
+          setCities(snap.data().cities || []);
+        }
       } catch (err) {
         console.error(err);
         toast.error("Failed to load cities");
       }
     };
     fetchCities();
-  }, [selectedState, states]);
+  }, [selectedState, states, user?.orgId]);
 
   useEffect(() => {
     if (!cityInput.trim()) {
@@ -222,6 +229,10 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
     setIsAddingCity(true);
     try {
       const stateDoc = states.find(s => s.name === selectedState);
+      if (!stateDoc || !belongsToOrg(stateDoc, user?.orgId)) {
+        toast.error("State not found");
+        return;
+      }
       const newCity = { name: pendingNewCity, hotelIds: [] };
       await updateDoc(doc(db, "locations", stateDoc.id), { cities: arrayUnion(newCity) });
       setSelectedCity(newCity);
@@ -250,14 +261,14 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       setDoneOnes(true);
       return;
     }
+    if (!user?.orgId) {
+      toast.error("Organization is not assigned");
+      return;
+    }
     setIsCreatingHotel(true);
     try {
       let hotelId = createdHotelId;
       if (!editMode) {
-        if (!user?.orgId) {
-          toast.error("Organization is not assigned");
-          return;
-        }
         const snap = await getDocs(
           query(collection(db, "hotels"), where("orgId", "==", user.orgId)),
         );
@@ -288,6 +299,10 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         setHotelCreated(true);
         const stateDoc = states.find(s => s.name === selectedState);
         const citySnap = await getDoc(doc(db, "locations", stateDoc.id));
+        if (!citySnap.exists() || !belongsToOrg(citySnap.data(), user.orgId)) {
+          toast.error("State not found");
+          return;
+        }
         const cityList = citySnap.data().cities.map(c =>
           c.name.toLowerCase() === selectedCity.name.toLowerCase()
             ? { ...c, hotelIds: [...(c.hotelIds || []), hotelId] }
@@ -296,6 +311,11 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         await updateDoc(doc(db, "locations", stateDoc.id), { cities: cityList });
         toast.success("Hotel created! Now define pricing seasons.");
       } else {
+        const existing = await getDoc(doc(db, "hotels", editHotelId));
+        if (!existing.exists() || !belongsToOrg(existing.data(), user?.orgId)) {
+          toast.error("Hotel not found");
+          return;
+        }
         await updateDoc(doc(db, "hotels", editHotelId), {
           name: hotelName.trim(),
           rating: hotelRating,
@@ -372,6 +392,15 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
 
     setIsSavingRoom(true);
     try {
+      if (!user?.orgId) {
+        toast.error("Organization is not assigned");
+        return;
+      }
+      const existing = await getDoc(doc(db, "hotels", createdHotelId));
+      if (!existing.exists() || !belongsToOrg(existing.data(), user?.orgId)) {
+        toast.error("Hotel not found");
+        return;
+      }
       await updateDoc(doc(db, "hotels", createdHotelId), { rooms: arrayUnion(newRoom) });
       setRoomCategories(prev => [...prev, newRoom]);
       setCurrentCategoryName("");
