@@ -171,7 +171,7 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
           {/* ── Cold Lead Checkbox ─────────────────────────────────────────
                Shown only for pending/incomplete follow-ups.
                Checking this flags the lead as cold — the cron job will
-               auto-close it to "Closed Lost" after 7 days.
+               auto-close it to "Closed Lost" after 5 days.
           ──────────────────────────────────────────────────────────────── */}
           <div
             className={`rounded-xl border p-3.5 transition-colors ${
@@ -198,7 +198,7 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
                 <p className="text-xs text-slate-500 leading-relaxed">
                   Customer is unresponsive. This lead will automatically move to{" "}
                   <span className="font-semibold text-slate-700">Closed Lost</span> after{" "}
-                  <span className="font-semibold text-slate-700">7 days</span> and all
+                  <span className="font-semibold text-slate-700">5 days</span> and all
                   quotations will be rejected.
                 </p>
               </div>
@@ -209,7 +209,7 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
               <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
                 <AlertCircle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
                 <p className="text-xs text-amber-700 leading-relaxed">
-                  You can undo this by editing the lead before the 7-day window expires.
+                  You can undo this by editing the lead before the 5-day window expires.
                 </p>
               </div>
             )}
@@ -353,7 +353,7 @@ function FollowUpCard({ followUp, onEdit, onDelete, onMarkComplete }) {
                 <Snowflake className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
                 <p className="text-xs text-blue-700 leading-relaxed">
                   Lead flagged as cold. Will auto-close to{" "}
-                  <span className="font-semibold">Closed Lost</span> in 7 days unless updated.
+                  <span className="font-semibold">Closed Lost</span> in 5 days unless updated.
                 </p>
               </div>
             )}
