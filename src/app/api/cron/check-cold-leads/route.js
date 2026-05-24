@@ -1,13 +1,13 @@
 // app/api/cron/check-cold-leads/route.js
 //
-// Cron job: Automatically closes leads marked as "cold" after 5 days.
+// Cron job: Automatically closes leads marked as "cold" after 7 days.
 //
 // Trigger cadence: Daily (configured in vercel.json).
 //
 // Flow:
 //   1. Load all leads where isCold == true.
 //   2. Skip leads already in "Closed Lost".
-//   3. If coldMarkedAt is at least 5 days old, move the lead to "Closed Lost".
+//   3. If coldMarkedAt is at least 7 days old, move the lead to "Closed Lost".
 //   4. Reject all associated quotations.
 //   5. Write a dedup key so the same lead is not processed twice.
 //
@@ -16,7 +16,7 @@
 import { admin, adminDb } from "@/firebase/admin";
 
 const LOG_PREFIX = "[cron/check-cold-leads]";
-const COLD_LEAD_CLOSE_AFTER_MS = 5 * 24 * 60 * 60 * 1000;
+const COLD_LEAD_CLOSE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isAuthorized(request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -79,7 +79,7 @@ async function rejectAllQuotationsForLead(leadId) {
     batch.update(docSnap.ref, {
       status: "Rejected",
       rejectionReason: "Lead Closed Lost",
-      rejectionDetails: "Lead was auto-closed after remaining cold for 5 days.",
+      rejectionDetails: "Lead was auto-closed after remaining cold for 7 days.",
       updatedAt: new Date().toISOString(),
     });
     pendingWrites++;
@@ -106,7 +106,7 @@ async function notifyAgent(lead, dedupKey) {
     userId: lead.agentId,
     type: "cold_lead_auto_closed",
     title: `Cold lead auto-closed: ${lead.name || "Unknown lead"}`,
-    message: `"${lead.name || "Unknown lead"}" was marked cold 5 days ago and has been automatically moved to Closed Lost.`,
+    message: `"${lead.name || "Unknown lead"}" was marked cold 7 days ago and has been automatically moved to Closed Lost.`,
     link: `/agent-panel/leads/${lead.id}`,
     priority: "normal",
     read: false,
