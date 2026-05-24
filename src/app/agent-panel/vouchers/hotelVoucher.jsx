@@ -55,6 +55,7 @@ export default function HotelVoucherDrawer({
   onClose,
   hotelData,
   quotation,
+  leadId,
   agentId,
   initialVoucher = null,
   onSaved,
@@ -101,7 +102,41 @@ export default function HotelVoucherDrawer({
   const effectiveQuotation = linkedQuotation || quotation;
   const effectiveHotel = hotelData || hotelFields;
   const isDashboardFlow = !hotelData && !quotation && !initialVoucher;
+  const [fetchedLeadMobile, setFetchedLeadMobile] = useState("");
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // If we already have a mobile from quotation, use it
+    const existingMobile = quotation?.customerMobile || quotation?.leadMobile;
+    if (existingMobile) {
+      setFetchedLeadMobile("");
+      return;
+    }
+
+    // Otherwise fetch from leadId (if provided)
+    if (leadId && agentId) {
+      const fetchLead = async () => {
+        try {
+          const leadData = await getLeadById(leadId);
+          if (leadData?.mobile) {
+            setFetchedLeadMobile(leadData.mobile);
+            // Optionally auto-fill the form contact field
+            setForm((prev) => ({ ...prev, contact: leadData.mobile }));
+          }
+        } catch (err) {
+          console.error("Failed to fetch lead mobile:", err);
+        }
+      };
+      fetchLead();
+    }
+  }, [
+    isOpen,
+    leadId,
+    agentId,
+    quotation?.customerMobile,
+    quotation?.leadMobile,
+  ]);
   useEffect(() => {
     if (!isOpen) return;
 
@@ -518,6 +553,18 @@ export default function HotelVoucherDrawer({
                   <span>{hotelData.mealPlan || "-"}</span>
                 </div>
               </div>
+              {quotation?.customerMobile ||
+                (fetchedLeadMobile && (
+                  <div className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-2 text-xs">
+                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="font-semibold text-slate-600">
+                      Lead Mobile:
+                    </span>
+                    <span className="text-slate-800">
+                      {quotation?.customerMobile || fetchedLeadMobile}
+                    </span>
+                  </div>
+                ))}
             </div>
           )}
 

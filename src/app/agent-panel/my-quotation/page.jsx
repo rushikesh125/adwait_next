@@ -225,8 +225,7 @@ const MyQuotations = () => {
 
     const { adults, children } = computeOccupancy(hotels);
 
-
-// ── Build services with structured hotel data (one service per hotel) ──
+    // ── Build services with structured hotel data (one service per hotel) ──
     const services = [
       ...hotels.map((h) => {
         const roomCategories = h.roomCategories || [];
@@ -249,8 +248,7 @@ const MyQuotations = () => {
                 // Legacy flat structure fallback
                 {
                   _key: Math.random().toString(36).slice(2),
-                  roomCategory:
-                    h.selectedRoomCategory || h.roomCategory || "",
+                  roomCategory: h.selectedRoomCategory || h.roomCategory || "",
                   mealPlan: h.selectedMealPlan || h.mealPlan || "",
                   numDouble: h.numDouble ?? 1,
                   numExtraAdult: h.numExtraAdult ?? 0,
@@ -296,22 +294,32 @@ const MyQuotations = () => {
           advance: "",
           status: "Pending",
         };
-      }),]
+      }),
+    ];
 
     const grandTotal = finalOption?.grandTotal ?? quotation.grandTotal ?? "";
 
     const prefill = {
       customerName: quotation.customerName || quotation.leadName || "",
       destination: state.getDestinationOfpkg(quotation) || "",
+
+      leadId: quotation.leadId || "",
+      customerId: quotation.customerId || "",
+      customerMobile: quotation.customerMobile || "",
+      mobile: quotation.mobile || "",
+
       startDate: toDateStr(hotels[0]?.checkInDate),
       endDate: toDateStr(hotels[hotels.length - 1]?.checkOutDate),
+
       adults,
       children,
       status: "Pending",
       totalAmount: grandTotal,
       notes:
-        `Converted from quotation ${quotation.quoteNumber || quotation.refNumber || ""}`.trim() +
-        (finalOption?.name ? ` · ${finalOption.name}` : ""),
+        `Converted from quotation ${
+          quotation.quoteNumber || quotation.refNumber || ""
+        }`.trim() + (finalOption?.name ? ` · ${finalOption.name}` : ""),
+
       services,
       payments: [],
       quotationId: quotation.id,
@@ -493,72 +501,72 @@ const MyQuotations = () => {
     openQuotation();
   }, [quoteId, state.quotations, state.user]);
 
-const handleDownloadPDF = (quotation) => {
-  const packageOptions =
-    quotation.packageOptions?.length > 0
-      ? quotation.packageOptions  // already has hotelEntries, grandTotal, markup etc.
-      : [
-          {
-            name: "Option 1",
-            hotelEntries: quotation.hotelSummary || [],
-            grandTotal: quotation.grandTotal,
-            hotelTotal: (quotation.hotelSummary || []).reduce(
-              (s, h) => s + Number(h.hotelTotal || 0),
-              0,
-            ),
-            markup: quotation.markup || 0,
-            discountAmount: quotation.discount?.amount || 0,
+  const handleDownloadPDF = (quotation) => {
+    const packageOptions =
+      quotation.packageOptions?.length > 0
+        ? quotation.packageOptions // already has hotelEntries, grandTotal, markup etc.
+        : [
+            {
+              name: "Option 1",
+              hotelEntries: quotation.hotelSummary || [],
+              grandTotal: quotation.grandTotal,
+              hotelTotal: (quotation.hotelSummary || []).reduce(
+                (s, h) => s + Number(h.hotelTotal || 0),
+                0,
+              ),
+              markup: quotation.markup || 0,
+              discountAmount: quotation.discount?.amount || 0,
+            },
+          ];
+
+    const selectedTransport = quotation.transportSummary
+      ? {
+          selectedVehicle: {
+            type: quotation.transportSummary.vehicleName || "",
+            price: quotation.transportSummary.vehicleCost || 0,
+            perKmprice: quotation.transportSummary.perKmprice || 0,
+            ac: quotation.transportSummary.ac || false,
+            driverAllowance: quotation.transportSummary.driverAllowance || 0,
           },
-        ];
+          pricingType: quotation.transportSummary.pricingType || "fixed",
+          isCustom: quotation.transportSummary.isCustom || false,
+        }
+      : null;
 
-  const selectedTransport = quotation.transportSummary
-    ? {
-        selectedVehicle: {
-          type: quotation.transportSummary.vehicleName || "",
-          price: quotation.transportSummary.vehicleCost || 0,
-          perKmprice: quotation.transportSummary.perKmprice || 0,
-          ac: quotation.transportSummary.ac || false,
-          driverAllowance: quotation.transportSummary.driverAllowance || 0,
-        },
-        pricingType: quotation.transportSummary.pricingType || "fixed",
-        isCustom: quotation.transportSummary.isCustom || false,
-      }
-    : null;
+    const selectedActivities = quotation.activitySummary || [];
+    const transportTotalPrice =
+      quotation.transportSummary?.totalTransportCost || 0;
+    const activityTotalPrice = selectedActivities.reduce(
+      (sum, a) => sum + Number(a.totalPrice || 0),
+      0,
+    );
 
-  const selectedActivities = quotation.activitySummary || [];
-  const transportTotalPrice =
-    quotation.transportSummary?.totalTransportCost || 0;
-  const activityTotalPrice = selectedActivities.reduce(
-    (sum, a) => sum + Number(a.totalPrice || 0),
-    0,
-  );
+    const markupType = quotation.markupType || "lumpsum";
+    const markupAmount = quotation.markupAmount ?? quotation.markup ?? 0;
+    const confirmedMarkup = quotation.markup || 0;
+    const appliedDiscount = quotation.discount ?? {
+      type: "fixed",
+      value: 0,
+      notes: "",
+      amount: 0,
+    };
 
-  const markupType = quotation.markupType || "lumpsum";
-  const markupAmount = quotation.markupAmount ?? quotation.markup ?? 0;
-  const confirmedMarkup = quotation.markup || 0;
-  const appliedDiscount = quotation.discount ?? {
-    type: "fixed",
-    value: 0,
-    notes: "",
-    amount: 0,
+    exportPackagePDF({
+      packageOptions,
+      selectedTransport,
+      selectedActivities,
+      transportTotalPrice,
+      activityTotalPrice,
+      confirmedMarkup,
+      markupType,
+      markupAmount,
+      customerName: quotation.customerName || quotation.leadName || "",
+      packageName: quotation.packageName || "",
+      itineraryData: quotation.itinerarySummary || null,
+      refNumber: quotation.refNumber || null,
+      appliedDiscount,
+    });
   };
-
-  exportPackagePDF({
-    packageOptions,
-    selectedTransport,
-    selectedActivities,
-    transportTotalPrice,
-    activityTotalPrice,
-    confirmedMarkup,
-    markupType,
-    markupAmount,
-    customerName: quotation.customerName || quotation.leadName || "",
-    packageName: quotation.packageName || "",
-    itineraryData: quotation.itinerarySummary || null,
-    refNumber: quotation.refNumber || null,
-    appliedDiscount,
-  });
-};
 
   const handleCopyToClipboard = (quotation) => {
     copyPackageSummary(

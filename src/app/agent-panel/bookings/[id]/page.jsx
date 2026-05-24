@@ -1524,8 +1524,6 @@ export default function BookingDetailPage() {
         </div>
       </div>
 
-
-
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
         onClose={() => {
@@ -1534,6 +1532,7 @@ export default function BookingDetailPage() {
         }}
         hotelData={selectedHotelForVoucher}
         quotation={bookingAsQuotation}
+        leadId={booking?.leadId}
         agentId={booking.agentId || ""}
         onSaved={handleVoucherSaved}
       />
