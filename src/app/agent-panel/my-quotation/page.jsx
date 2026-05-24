@@ -225,112 +225,78 @@ const MyQuotations = () => {
 
     const { adults, children } = computeOccupancy(hotels);
 
-    // ── Build services with structured hotel data ──────────────────────────
+
+// ── Build services with structured hotel data (one service per hotel) ──
     const services = [
-      ...hotels
-        .map((h) => {
-          // Support multi-room-category hotels — one service per room category row
-          const roomCategories = h.roomCategories || [];
-          if (roomCategories.length > 1) {
-            // Return one service per room category
-            return roomCategories.map((rc) => ({
-              type: "Hotel",
-              hotelData: {
-                hotelName: h.hotel || "",
-                city: h.city || "",
-                state: h.state || "",
-                checkIn: h.checkInDate || "",
-                checkOut: h.checkOutDate || "",
-                nights: h.nights || "",
+      ...hotels.map((h) => {
+        const roomCategories = h.roomCategories || [];
+
+        // Build rooms array — one entry per room category row
+        const rooms =
+          roomCategories.length > 0
+            ? roomCategories.map((rc) => ({
+                _key: Math.random().toString(36).slice(2),
                 roomCategory: rc.roomCategory || "",
                 mealPlan: rc.mealPlan || "",
                 numDouble: rc.numDouble ?? 0,
                 numExtraAdult: rc.numExtraAdult ?? 0,
                 numExtraChild: rc.numExtraChild ?? 0,
                 numCNB: rc.numCNB ?? 0,
-                GoogleListingURL: h.GoogleListingURL || "",
-              },
-              description: [
-                h.hotel,
-                h.city,
-                rc.roomCategory,
-                rc.mealPlan,
-                h.nights ? `${h.nights} nights` : "",
-              ]
-                .filter(Boolean)
-                .join(" · "),
-              supplier: h.hotel || "",
-              confirmationRef: "",
-              amount: rc.price || "",
-              advance: "",
-              status: "Pending",
-            }));
-          }
+                quantity: rc.numDouble ?? 0,
+                price: rc.price ?? 0,
+              }))
+            : [
+                // Legacy flat structure fallback
+                {
+                  _key: Math.random().toString(36).slice(2),
+                  roomCategory:
+                    h.selectedRoomCategory || h.roomCategory || "",
+                  mealPlan: h.selectedMealPlan || h.mealPlan || "",
+                  numDouble: h.numDouble ?? 1,
+                  numExtraAdult: h.numExtraAdult ?? 0,
+                  numExtraChild: h.numExtraChild ?? 0,
+                  numCNB: h.numCNB ?? 0,
+                  quantity: h.numDouble ?? 1,
+                  price: 0,
+                },
+              ];
 
-          // Single room category (or legacy)
-          const primaryRc = roomCategories[0] || {};
-          return {
-            type: "Hotel",
-            hotelData: {
-              hotelName: h.hotel || "",
-              city: h.city || "",
-              state: h.state || "",
-              checkIn: h.checkInDate || "",
-              checkOut: h.checkOutDate || "",
-              nights: h.nights || "",
-              roomCategory:
-                primaryRc.roomCategory ||
-                h.selectedRoomCategory ||
-                h.roomCategory ||
-                "",
-              mealPlan:
-                primaryRc.mealPlan || h.selectedMealPlan || h.mealPlan || "",
-              numDouble: primaryRc.numDouble ?? h.numDouble ?? 1,
-              numExtraAdult: primaryRc.numExtraAdult ?? h.numExtraAdult ?? 0,
-              numExtraChild: primaryRc.numExtraChild ?? h.numExtraChild ?? 0,
-              numCNB: primaryRc.numCNB ?? h.numCNB ?? 0,
-              GoogleListingURL: h.GoogleListingURL || "",
-            },
-            description: [
-              h.hotel,
-              h.city,
-              primaryRc.roomCategory || h.selectedRoomCategory,
-              primaryRc.mealPlan || h.selectedMealPlan,
-              h.nights ? `${h.nights} nights` : "",
-            ]
-              .filter(Boolean)
-              .join(" · "),
-            supplier: h.hotel || "",
-            confirmationRef: "",
-            amount: h.hotelTotal || "",
-            advance: "",
-            status: "Pending",
-          };
-        })
-        .flat(), // flat() because multi-room returns an array
-      ...(transport?.vehicleName
-        ? [
-            {
-              type: "Transfer",
-              description: `${transport.vehicleName}${transport.ac ? " (AC)" : ""}`,
-              supplier: "",
-              confirmationRef: "",
-              amount: transport.totalTransportCost || "",
-              advance: "",
-              status: "Pending",
-            },
+        // Build a human-readable description summarising all room categories
+        const roomsSummary = rooms
+          .map((r) =>
+            r.quantity > 1
+              ? `${r.quantity}× ${r.roomCategory} (${r.mealPlan})`
+              : `${r.roomCategory} (${r.mealPlan})`,
+          )
+          .filter(Boolean)
+          .join(", ");
+
+        return {
+          type: "Hotel",
+          hotelData: {
+            hotelName: h.hotel || "",
+            city: h.city || "",
+            state: h.state || "",
+            checkInDate: h.checkInDate || "",
+            checkOutDate: h.checkOutDate || "",
+            nights: h.nights || "",
+            rooms,
+          },
+          description: [
+            h.hotel,
+            h.city,
+            roomsSummary,
+            h.nights ? `${h.nights} nights` : "",
           ]
-        : []),
-      ...activities.map((a) => ({
-        type: "Sightseeing",
-        description: [a.name, a.city].filter(Boolean).join(" · "),
-        supplier: "",
-        confirmationRef: "",
-        amount: a.totalPrice || "",
-        advance: "",
-        status: "Pending",
-      })),
-    ];
+            .filter(Boolean)
+            .join(" · "),
+          supplier: h.hotel || "",
+          confirmationRef: "",
+          amount: h.hotelTotal || "",
+          advance: "",
+          status: "Pending",
+        };
+      }),]
 
     const grandTotal = finalOption?.grandTotal ?? quotation.grandTotal ?? "";
 
