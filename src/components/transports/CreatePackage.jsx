@@ -72,21 +72,24 @@ const Createpackage = ({ onClose }) => {
   const [nights, setNights] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchStates = async () => {
-      if (!user?.orgId) return;
-      try {
-        const snapshot = await getDocs(
-          query(collection(db, "transport"), where("orgId", "==", user.orgId)),
-        );
-        const fetchedStates = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setStates(fetchedStates);
-      } catch {
-        toast.error("Error fetching states");
-      }
-    };
-    fetchStates();
-  }, [user?.orgId]);
+useEffect(() => {
+  const fetchStates = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, "transport"));
+
+      const fetchedStates = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+
+      setStates(fetchedStates);
+    } catch {
+      toast.error("Error fetching states");
+    }
+  };
+
+  fetchStates();
+}, []);
 
   useEffect(() => {
     if (selectedState) {
