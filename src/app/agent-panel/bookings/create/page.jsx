@@ -712,6 +712,7 @@ function HotelServiceFields({ hotelData = {}, onChange }) {
       </div>
 
       {/* Room Categories */}
+      {/* Room Categories */}
       <div className="border-t pt-3 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
@@ -735,6 +736,11 @@ function HotelServiceFields({ hotelData = {}, onChange }) {
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-700 uppercase">
                 Room {idx + 1}
+                {room.quantity > 0 && (
+                  <span className="ml-1.5 text-[10px] font-semibold text-theme-primary bg-theme-primary/10 px-1.5 py-0.5 rounded-full normal-case">
+                    {room.quantity} room{room.quantity > 1 ? "s" : ""}
+                  </span>
+                )}
               </span>
               {rooms.length > 1 && (
                 <button
@@ -780,13 +786,80 @@ function HotelServiceFields({ hotelData = {}, onChange }) {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  No. of Rooms
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={room.quantity ?? room.numDouble ?? ""}
+                  onChange={(e) =>
+                    updateRoom(idx, {
+                      quantity: Number(e.target.value),
+                      numDouble: Number(e.target.value),
+                    })
+                  }
+                  placeholder="0"
+                  className="h-8 rounded-lg text-xs"
+                />
+              </div>
+              {room.price > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Subtotal (₹)
+                  </Label>
+                  <div className="h-8 flex items-center px-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700">
+                    ₹{Number(room.price).toLocaleString("en-IN")}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Extra occupancy summary */}
+            {(room.numExtraAdult > 0 ||
+              room.numExtraChild > 0 ||
+              room.numCNB > 0) && (
+              <div className="flex flex-wrap gap-2 text-[10px] text-slate-500 pt-1">
+                {room.numExtraAdult > 0 && (
+                  <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                    +{room.numExtraAdult} Extra Adult
+                  </span>
+                )}
+                {room.numExtraChild > 0 && (
+                  <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                    +{room.numExtraChild} Child
+                  </span>
+                )}
+                {room.numCNB > 0 && (
+                  <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                    +{room.numCNB} CNB
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ))}
 
         {/* Show total rooms count */}
-        <div className="flex justify-end text-[10px] text-slate-500">
-          {rooms.length} room{rooms.length > 1 ? "s" : ""} configured
+        <div className="flex justify-between items-center text-[10px] text-slate-500">
+          <span>
+            {rooms.reduce(
+              (s, r) => s + (Number(r.quantity ?? r.numDouble) || 0),
+              0,
+            )}{" "}
+            total room(s) across {rooms.length} categor
+            {rooms.length > 1 ? "ies" : "y"}
+          </span>
+          {rooms.some((r) => r.price > 0) && (
+            <span className="font-bold text-slate-700">
+              ₹
+              {rooms
+                .reduce((s, r) => s + Number(r.price || 0), 0)
+                .toLocaleString("en-IN")}{" "}
+              total
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -1322,7 +1395,8 @@ function CreateBookingInner() {
     if (!form.customerName.trim())
       return toast.error("Customer name is required");
     if (!form.destination.trim()) return toast.error("Destination is required");
-    if (!auth.currentUser || !user?.orgId) return toast.error("Not authenticated");
+    if (!auth.currentUser || !user?.orgId)
+      return toast.error("Not authenticated");
 
     // Validate all vendor payments (total allocated cannot exceed cost)
     for (const svc of form.services) {
@@ -1393,10 +1467,15 @@ function CreateBookingInner() {
         const newBookingId = await createBooking(payload);
         if (form.quotationId) {
           try {
-            await updateQuotation(auth.currentUser.uid, form.quotationId, {
-              convertedToBooking: true,
-              bookingId: newBookingId,
-            }, { orgId: user.orgId });
+            await updateQuotation(
+              auth.currentUser.uid,
+              form.quotationId,
+              {
+                convertedToBooking: true,
+                bookingId: newBookingId,
+              },
+              { orgId: user.orgId },
+            );
           } catch {
             /* non-critical */
           }
@@ -1407,7 +1486,7 @@ function CreateBookingInner() {
         toast.success("Booking created");
         if (auth.currentUser?.uid) {
           resetInstallmentAlertThrottle();
-          checkInstallmentAlerts(auth.currentUser.uid).catch(console.error);
+          checkInstallmentAlerts(auth.currentUser.uid, user?.orgId).catch(console.error);
         }
 
         // WITH THIS:
@@ -1416,7 +1495,7 @@ function CreateBookingInner() {
           resetInstallmentAlertThrottle();
           // Small delay to let Firestore propagate the new booking before querying
           setTimeout(() => {
-            checkInstallmentAlerts(auth.currentUser.uid).catch(console.error);
+            checkInstallmentAlerts(auth.currentUser.uid, user?.orgId).catch(console.error);
           }, 2000);
         }
       }

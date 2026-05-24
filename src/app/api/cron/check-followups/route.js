@@ -145,6 +145,7 @@ export async function GET(request) {
       try {
         await createNotification({
           userId: agentId,
+          orgId: lead.orgId || null,
           type: "follow_up_reminder",
           title,
           message,
@@ -162,6 +163,7 @@ export async function GET(request) {
         await markSent(dedupKey, {
           agentId,
           leadId: lead.id,
+          orgId: lead.orgId || null,
           followupId: fu.id,
           triggerType,
         });

@@ -40,15 +40,15 @@ const AgentPanelLayout = ({ children }) => {
         if (!reg) return;
         const permission = await requestNotificationPermission();
         if (permission !== "granted") return;
-        const sub = await subscribeToPush(user?.uid);
+        const sub = await subscribeToPush(user?.uid, user?.orgId);
         if (sub) console.log("[Push] Setup complete");
         else console.warn("[Push] Subscription skipped (localhost limitation)");
       } catch (err) {
         console.warn("[Push] Setup failed silently:", err.message);
       }
     }
-    if (user?.uid) setup();
-  }, [user?.uid]);
+    if (user?.uid && user?.orgId) setup();
+  }, [user?.uid, user?.orgId]);
 
   const handleLogout = async () => {
     try {

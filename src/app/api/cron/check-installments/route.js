@@ -104,10 +104,11 @@ async function loadActiveBookings() {
 
 // ─── Notification sender ──────────────────────────────────────────────────────
 
-async function sendNotif({ userId, payload, key }) {
+async function sendNotif({ userId, orgId = null, payload, key }) {
   try {
     await createNotification({
       userId,
+      orgId,
       type:     payload.type,
       title:    payload.title,
       message:  payload.message,
@@ -220,12 +221,13 @@ export async function GET(request) {
 
       console.log(`${LOG_PREFIX} Installment [${trigger}] → agent ${agentId} | ${payload.title}`);
 
-      const sent = await sendNotif({ userId: agentId, payload, key });
+      const sent = await sendNotif({ userId: agentId, orgId: booking.orgId || null, payload, key });
       if (sent) {
         summary.notificationsSent++;
         await markSent(key, {
           bookingId,
           agentId,
+          orgId: booking.orgId || null,
           trigger,
           serviceType: service.type,
           serviceDescription: service.description || "",
@@ -279,12 +281,13 @@ export async function GET(request) {
 
       console.log(`${LOG_PREFIX} Service reminder [${trigger}] → agent ${agentId} | ${payload.title}`);
 
-      const sent = await sendNotif({ userId: agentId, payload, key });
+      const sent = await sendNotif({ userId: agentId, orgId: booking.orgId || null, payload, key });
       if (sent) {
         summary.notificationsSent++;
         await markSent(key, {
           bookingId,
           agentId,
+          orgId: booking.orgId || null,
           trigger,
           serviceType: service.type,
           serviceDescription: service.description || "",

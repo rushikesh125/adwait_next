@@ -112,6 +112,7 @@ export default function PublicEnquiryPage() {
       let customer = await findExistingCustomerByEmailOrMobile({
         email: cleanEmail,
         mobile: cleanMobile,
+        orgId: agent.orgId,
       });
 
       if (!customer) {
@@ -125,6 +126,7 @@ export default function PublicEnquiryPage() {
           source: "Public Enquiry Form",
           assignedAgentId: agent.id,
           assignedAgentName: agent.name || "",
+          orgId: agent.orgId,
         });
 
         customer = {
@@ -140,7 +142,9 @@ export default function PublicEnquiryPage() {
           updates.assignedAgentName = agent.name;
         }
         if (Object.keys(updates).length > 0) {
-          await updateDoc(doc(db, "customers", customer.id), updates);
+          if (customer.orgId === agent.orgId) {
+            await updateDoc(doc(db, "customers", customer.id), updates);
+          }
         }
       }
 
@@ -156,6 +160,7 @@ export default function PublicEnquiryPage() {
         agentName: isAdmin ? "" : agent.name || "",
         adminId: isAdmin ? agent.id : agent.adminId || null,
         source: "Public Enquiry Form",
+        orgId: agent.orgId,
       });
 
       console.log("leadId:", leadId);
@@ -167,6 +172,8 @@ export default function PublicEnquiryPage() {
           mode: "Call",
           notes: "Initial follow-up for public enquiry",
           quotationIds: [],
+          agentId: isAdmin ? null : agent.id,
+          orgId: agent.orgId,
         });
       } catch (followErr) {
         console.error("Follow-up failed:", followErr);
@@ -183,6 +190,7 @@ export default function PublicEnquiryPage() {
         console.log("Notification link:", `/agent-panel/leads/${leadId}`);
         createNotification({
           userId: agent.id,
+          orgId: agent.orgId,
           type: "lead_assigned",
           title: "New Lead Received! 🔔",
           message: `${form.name.trim()} enquired about ${form.destination} for ${form.adults} adult(s).`,

@@ -18,20 +18,21 @@ function isInWindow(fu) {
   return due <= new Date(now.getTime() + TWO_HOURS_MS);
 }
 
-export function useTodayFollowUps(userId) {
+export function useTodayFollowUps(userId, orgId = null) {
   const [allPending, setAllPending] = useState([]);
   const [followUps, setFollowUps]   = useState([]);
   const [isLoading, setIsLoading]   = useState(true);
 
   // ── Firestore live listener ───────────────────────────────────────────────
   useEffect(() => {
-    if (!userId) { setIsLoading(false); return; }
+    if (!userId || !orgId) { setIsLoading(false); return; }
 
     // Requires a composite index:
     //   Collection group: followups | agentId ASC | dateTime ASC
     // Firestore will log an error with a direct "Create index" link on first run.
     const q = query(
       collectionGroup(db, "followups"),
+      where("orgId", "==", orgId),
       where("agentId", "==", userId),
       where("status",  "==", "Pending"),
       orderBy("dateTime", "asc")
@@ -57,7 +58,7 @@ export function useTodayFollowUps(userId) {
     );
 
     return unsub;
-  }, [userId]);
+  }, [userId, orgId]);
 
   // ── Re-apply window filter whenever allPending changes ───────────────────
   useEffect(() => {

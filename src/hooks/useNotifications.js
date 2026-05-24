@@ -10,12 +10,12 @@ import {
 import { useInstallmentAlerts } from "./useInstallmentAlerts";
 import { useTodayFollowUps } from "./useTodayFollowUps"; // ← NEW
 
-export function useNotifications(userId) {
-  useInstallmentAlerts(userId);
+export function useNotifications(userId, orgId = null) {
+  useInstallmentAlerts(userId, orgId);
 
   // ── NEW: live 2hr-window follow-ups from subcollection ───────────────────
   const { followUps: dueSoonFollowUps, isLoading: fuLoading } =
-    useTodayFollowUps(userId);
+    useTodayFollowUps(userId, orgId);
 
   const [notifications, setNotifications] = useState([]);
   const [permissionState, setPermissionState] = useState("default");
@@ -31,7 +31,7 @@ export function useNotifications(userId) {
 
   // ── 2. Subscribe to Firestore notifications — UNCHANGED ──────────────────
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !orgId) return;
 
     const unsub = subscribeToNotifications(
       userId,
@@ -63,11 +63,12 @@ export function useNotifications(userId) {
       });
     }
   }
-}
+},
+      orgId,
     );
 
     return unsub;
-  }, [userId]);
+  }, [userId, orgId]);
 
   useEffect(() => {
   if (

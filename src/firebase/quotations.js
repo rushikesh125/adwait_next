@@ -136,6 +136,7 @@ if (
 
   await createNotification({
     userId: agentId,
+    orgId: data.orgId || null,
     type:
       data.status === "Accepted"
         ? "quotation_accepted"

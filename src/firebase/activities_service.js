@@ -6,8 +6,10 @@ import { orgFilter } from "./orgScope";
 /**
  * Fetches all unique state names from the 'locations' collection
  */
-export const fetchAllStates = async () => {
-  const snapshot = await getDocs(collection(db, "locations"));
+export const fetchAllStates = async (orgId = null) => {
+  const snapshot = await getDocs(
+    query(collection(db, "locations"), ...orgFilter(orgId)),
+  );
   return snapshot.docs.map((doc) => doc.data().name);
 };
 

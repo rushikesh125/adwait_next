@@ -121,6 +121,7 @@ export default function PublicBookingPage({ params: paramsPromise }) {
     const q = query(
       submissionsRef,
       where("tripId", "==", tripId), // Scope to this form only
+      where("orgId", "==", trip.orgId),
       where("email", "==", userEmail) // Check for this email
     );
 
@@ -139,6 +140,7 @@ export default function PublicBookingPage({ params: paramsPromise }) {
       tripId,
       tripName: trip.tripName,
       agentId: trip.agentId,
+      orgId: trip.orgId,
       updatedAt: serverTimestamp(),
     };
 

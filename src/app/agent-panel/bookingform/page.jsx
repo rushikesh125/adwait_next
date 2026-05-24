@@ -1,6 +1,8 @@
 "use client";
 import React, { useEffect, useState, useMemo } from "react"; // Added useMemo
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import { auth, db } from "@/firebase/config";
 import {
   collection,
@@ -74,6 +76,8 @@ const SortHeader = ({ label, column, sortConfig, onSort, align = "start" }) => {
 };
 
 export default function AgentDashboard() {
+  const router = useRouter();
+  const { user } = useSelector((state) => state.auth);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -88,13 +92,14 @@ export default function AgentDashboard() {
   const [editingStatusId, setEditingStatusId] = useState(null);
 
   const fetchTrips = async () => {
-    if (!auth.currentUser) {
+    if (!auth.currentUser || !user?.orgId) {
       setLoading(false);
       return;
     }
     try {
       const q = query(
         collection(db, "trips"),
+        where("orgId", "==", user.orgId),
         where("agentId", "==", auth.currentUser.uid),
         orderBy("createdAt", "desc"),
       );
@@ -111,7 +116,7 @@ export default function AgentDashboard() {
 
   useEffect(() => {
     fetchTrips();
-  }, []);
+  }, [user?.orgId]);
 
   const handleSort = (key) => {
     setSortConfig((prev) => ({
@@ -134,7 +139,9 @@ export default function AgentDashboard() {
 
   const updateStatus = async (tripId, newStatus) => {
     try {
-      await updateDoc(doc(db, "trips", tripId), { status: newStatus });
+      const trip = trips.find((t) => t.id === tripId);
+      if (!trip || trip.orgId !== user?.orgId) throw new Error("Trip not found");
+      await updateDoc(doc(db, "trips", tripId), { status: newStatus, orgId: user.orgId });
       setTrips(
         trips.map((t) => (t.id === tripId ? { ...t, status: newStatus } : t)),
       );
@@ -147,6 +154,8 @@ export default function AgentDashboard() {
   const handleDelete = async (tripId) => {
     if (!confirm("Permanently delete this trip?")) return;
     try {
+      const trip = trips.find((t) => t.id === tripId);
+      if (!trip || trip.orgId !== user?.orgId) throw new Error("Trip not found");
       await deleteDoc(doc(db, "trips", tripId));
       setTrips(trips.filter((t) => t.id !== tripId));
       toast.success("Deleted");

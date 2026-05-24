@@ -227,7 +227,7 @@ export default function NotificationCenter({ userId }) {
     permissionState,
     isLoading,
     askPermission,
-  } = useNotifications(userId);
+  } = useNotifications(userId, user?.orgId);
 
   const [open, setOpen] = useState(false);
   const [showPermBanner, setShowPermBanner] = useState(false);
@@ -360,7 +360,7 @@ export default function NotificationCenter({ userId }) {
 
   const handleMarkAll = async () => {
     if (!userId) return;
-    await markAllNotificationsRead(userId);
+    await markAllNotificationsRead(userId, user?.orgId);
   };
 
   const handleAllowNotifications = async () => {

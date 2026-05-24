@@ -70,8 +70,8 @@ async function markSent(key, metadata = {}) {
 
 // ─── Main checker ─────────────────────────────────────────────────────────────
 
-export async function checkInstallmentAlerts(userId) {
-  if (!userId) return;
+export async function checkInstallmentAlerts(userId, orgId = null) {
+  if (!userId || !orgId) return;
 
   const nowUtc = new Date();
   console.log(`${LOG} Checking at ${nowUtc.toISOString()} for agent ${userId}`);
@@ -82,6 +82,7 @@ export async function checkInstallmentAlerts(userId) {
     const snap = await getDocs(
       query(
         collection(db, "bookings"),
+        where("orgId", "==", orgId),
         where("agentId", "==", userId),
         where("status", "not-in", ["Cancelled", "Completed"])
       )
@@ -137,6 +138,7 @@ export async function checkInstallmentAlerts(userId) {
       try {
         await createNotification({
           userId,
+          orgId,
           type:     payload.type,
           title:    payload.title,
           message:  payload.message,
@@ -152,7 +154,7 @@ export async function checkInstallmentAlerts(userId) {
             dueDate:            payment.date,
           },
         });
-        await markSent(key, { bookingId, agentId: userId, trigger });
+        await markSent(key, { bookingId, agentId: userId, orgId, trigger });
         fired++;
       } catch (err) {
         console.error(`${LOG} createNotification failed for key "${key}":`, err.message);
@@ -200,6 +202,7 @@ export async function checkInstallmentAlerts(userId) {
       try {
         await createNotification({
           userId,
+          orgId,
           type:     payload.type,
           title:    payload.title,
           message:  payload.message,
@@ -213,7 +216,7 @@ export async function checkInstallmentAlerts(userId) {
             serviceDescription: service.description || "",
           },
         });
-        await markSent(key, { bookingId: booking.id, agentId: userId, trigger });
+        await markSent(key, { bookingId: booking.id, agentId: userId, orgId, trigger });
         fired++;
       } catch (err) {
         console.error(`${LOG} Service reminder createNotification failed for key "${key}":`, err.message);
@@ -227,11 +230,11 @@ export async function checkInstallmentAlerts(userId) {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useInstallmentAlerts(userId) {
+export function useInstallmentAlerts(userId, orgId = null) {
   const runningRef = useRef(false); // prevent concurrent runs
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !orgId) return;
     if (typeof window === "undefined") return; // SSR guard
 
     const now = Date.now();
@@ -243,10 +246,10 @@ export function useInstallmentAlerts(userId) {
     if (runningRef.current) return;
     runningRef.current = true;
 
-    checkInstallmentAlerts(userId).finally(() => {
+    checkInstallmentAlerts(userId, orgId).finally(() => {
       runningRef.current = false;
     });
-  }, [userId]);
+  }, [userId, orgId]);
 }
 // Add this export
 export function resetInstallmentAlertThrottle() {

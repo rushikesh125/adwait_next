@@ -230,9 +230,10 @@ const MyQuotations = () => {
 
     // ── Build services with structured hotel data ──────────────────────────
     // ── Build services with structured hotel data (single service per hotel) ──
+// ── Build services with structured hotel data (single service per hotel) ──
 const services = [
   ...hotels.map((h) => {
-    // Collect all room categories into a rooms array
+    // Collect all room categories into a rooms array, preserving quantity
     const roomCategories = h.roomCategories || [];
     const rooms = roomCategories.map((rc) => ({
       _key: Math.random().toString(36).slice(2),
@@ -242,6 +243,8 @@ const services = [
       numExtraAdult: rc.numExtraAdult ?? 0,
       numExtraChild: rc.numExtraChild ?? 0,
       numCNB: rc.numCNB ?? 0,
+      quantity: rc.numDouble ?? 0, // number of rooms of this category
+      price: rc.price ?? 0,
     }));
 
     // If no roomCategories found, fall back to legacy flat fields
@@ -257,8 +260,12 @@ const services = [
             numExtraAdult: h.numExtraAdult ?? 0,
             numExtraChild: h.numExtraChild ?? 0,
             numCNB: h.numCNB ?? 0,
+            quantity: h.numDouble ?? 1,
+            price: 0,
           }
         : null;
+
+    const effectiveRooms = rooms.length > 0 ? rooms : [primaryRoom];
 
     return {
       type: "Hotel",
@@ -269,12 +276,17 @@ const services = [
         checkInDate: h.checkInDate || "",
         checkOutDate: h.checkOutDate || "",
         nights: h.nights || "",
-        rooms: rooms.length > 0 ? rooms : [primaryRoom],
+        rooms: effectiveRooms,
       },
       description: [
         h.hotel,
         h.city,
-        rooms.map((r) => r.roomCategory + " · " + r.mealPlan).join(" / "),
+        effectiveRooms
+          .map(
+            (r) =>
+              `${r.quantity > 1 ? r.quantity + "× " : ""}${r.roomCategory} · ${r.mealPlan}`,
+          )
+          .join(" / "),
         h.nights ? `${h.nights} nights` : "",
       ]
         .filter(Boolean)
@@ -285,30 +297,7 @@ const services = [
       advance: "",
       status: "Pending",
     };
-  }),
-  ...(transport?.vehicleName
-    ? [
-        {
-          type: "Transfer",
-          description: `${transport.vehicleName}${transport.ac ? " (AC)" : ""}`,
-          supplier: "",
-          confirmationRef: "",
-          amount: transport.totalTransportCost || "",
-          advance: "",
-          status: "Pending",
-        },
-      ]
-    : []),
-  ...activities.map((a) => ({
-    type: "Sightseeing",
-    description: [a.name, a.city].filter(Boolean).join(" · "),
-    supplier: "",
-    confirmationRef: "",
-    amount: a.totalPrice || "",
-    advance: "",
-    status: "Pending",
-  })),
-];
+  }),]
 
     const grandTotal = finalOption?.grandTotal ?? quotation.grandTotal ?? "";
 
@@ -452,6 +441,7 @@ const services = [
 
     createNotification({
       userId: state.user?.uid,
+      orgId: state.user?.orgId,
       type: "follow_up_reminder",
       title: `Follow-up reminder set`,
       message: `${formData.mode} follow-up for ${sentFollowUpQuotation?.packageName || "quotation"} scheduled at ${formattedTime}.`,

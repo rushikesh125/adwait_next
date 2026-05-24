@@ -63,10 +63,12 @@ import {
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
 
 export default function TripViewPage({ params: paramsPromise }) {
   const params = use(paramsPromise);
   const tripId = params.id;
+  const { user } = useSelector((state) => state.auth);
 
   const [trip, setTrip] = useState(null);
   const [responses, setResponses] = useState([]);
@@ -85,12 +87,18 @@ export default function TripViewPage({ params: paramsPromise }) {
     const fetchData = async () => {
       try {
         const tripSnap = await getDoc(doc(db, "trips", tripId));
-        if (tripSnap.exists()) setTrip(tripSnap.data());
+        if (!tripSnap.exists() || tripSnap.data().orgId !== user?.orgId) {
+          setTrip("not-found");
+          return;
+        }
+        const tripData = tripSnap.data();
+        setTrip(tripData);
 
         const submissionsRef = collection(db, "submissions");
         const q = query(
           submissionsRef,
           where("tripId", "==", tripId),
+          where("orgId", "==", tripData.orgId),
           orderBy("submittedAt", "asc"),
         );
 
@@ -105,12 +113,14 @@ export default function TripViewPage({ params: paramsPromise }) {
       }
     };
     fetchData();
-  }, [tripId]);
+  }, [tripId, user?.orgId]);
 
   const handleDeletePassenger = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
+      const target = responses.find((r) => r.id === deleteTarget.id);
+      if (!target || target.orgId !== user?.orgId) throw new Error("Submission not found");
       await deleteDoc(doc(db, "submissions", deleteTarget.id));
       setResponses((prev) => prev.filter((r) => r.id !== deleteTarget.id));
       toast.success(`${deleteTarget.name} removed from manifest`);
@@ -152,6 +162,7 @@ export default function TripViewPage({ params: paramsPromise }) {
     setSaving(true);
     try {
       const ref = doc(db, "submissions", editTarget.id);
+      if (editTarget.orgId !== user?.orgId) throw new Error("Submission not found");
       await updateDoc(ref, {
         name: editForm.name.trim(),
         email: editForm.email.trim(),

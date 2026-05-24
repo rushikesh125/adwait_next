@@ -6,6 +6,7 @@ import {
   updateDoc, where, writeBatch,
 } from "firebase/firestore";
 import { db } from "./config";
+import { orgFilter } from "./orgScope";
 
 let _swRegistration = null;
 
@@ -70,22 +71,23 @@ export function playNotificationSound() {
 }
 
 // Creates Firestore notification AND triggers push to phone
-export async function createNotification({ userId, type, title, message, link = "/", metadata = {}, priority = "normal" }) {
+export async function createNotification({ userId, orgId = null, type, title, message, link = "/", metadata = {}, priority = "normal" }) {
   const docRef = await addDoc(collection(db, "notifications"), {
     userId, type, title, message, link, metadata, priority,
+    orgId,
     read: false, createdAt: serverTimestamp(),
   });
 
   // Fire and forget — sends push via your Next.js API route
-  triggerPush({ userId, title, message, type, link, priority });
+  triggerPush({ userId, orgId, title, message, type, link, priority });
 
   return docRef;
 }
 
 // This stays exactly as you have it — no changes needed
 // REPLACE the existing triggerPush function with this:
-function triggerPush({ userId, title, message, type, link, priority }) {
-  const payload = JSON.stringify({ userId, title, message, type, link, priority });
+function triggerPush({ userId, orgId, title, message, type, link, priority }) {
+  const payload = JSON.stringify({ userId, orgId, title, message, type, link, priority });
   const headers = {
     "Content-Type": "application/json",
     "x-push-secret": process.env.NEXT_PUBLIC_PUSH_SECRET ?? "",
@@ -104,10 +106,11 @@ function triggerPush({ userId, title, message, type, link, priority }) {
     .catch((err) => console.warn("[Push] Client-side trigger failed:", err));
 }
 
-export function subscribeToNotifications(userId, onList, onNew) {
+export function subscribeToNotifications(userId, onList, onNew, orgId = null) {
   const q = query(
     collection(db, "notifications"),
     where("userId", "==", userId),
+    ...orgFilter(orgId),
     orderBy("createdAt", "desc"),
     limit(50)
   );
@@ -156,10 +159,11 @@ export async function acknowledgeLeadNotificationViaWhatsApp({
   return Promise.allSettled(tasks);
 }
 
-export async function markAllNotificationsRead(userId) {
+export async function markAllNotificationsRead(userId, orgId = null) {
   const snap = await getDocs(query(
     collection(db, "notifications"),
     where("userId", "==", userId),
+    ...orgFilter(orgId),
     where("read", "==", false)
   ));
   if (snap.empty) return;
@@ -176,7 +180,7 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // Replace your existing subscribeToPush function:
-export async function subscribeToPush(userId) {
+export async function subscribeToPush(userId, orgId = null) {
   if (!_swRegistration) throw new Error("Service worker not registered");
 
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -194,6 +198,7 @@ export async function subscribeToPush(userId) {
     doc(db, "pushSubscriptions", subscription.endpoint.slice(-32)), // stable unique key
     {
       userId,
+      orgId,
       subscription: subscription.toJSON(), // endpoint + keys — this is what web-push needs
       createdAt: serverTimestamp(),
     },

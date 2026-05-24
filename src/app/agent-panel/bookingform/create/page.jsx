@@ -23,6 +23,7 @@ export default function CreateTripPage() {
   const tripId = searchParams.get("id"); // Check if we are in 'Update' mode
 
   const { tripName, journeys } = useSelector((state) => state.trip);
+  const { user } = useSelector((state) => state.auth);
   const [status, setStatus] = useState("public");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedTripId, setSavedTripId] = useState(null);
@@ -33,7 +34,7 @@ export default function CreateTripPage() {
     if (tripId) {
       const loadTripData = async () => {
         try {
-          const data = await getTripById(tripId);
+          const data = await getTripById(tripId, user?.orgId);
           if (data) {
             dispatch(setTripName(data.tripName));
             dispatch(setJourneys(data.journeys || []));
@@ -49,7 +50,7 @@ export default function CreateTripPage() {
     } else {
       dispatch(resetForm()); // Clear form for new trip
     }
-  }, [tripId, dispatch]);
+  }, [tripId, dispatch, user?.orgId]);
 
   const handleSubmit = async () => {
     if (!tripName.trim()) return toast.error("Please enter a Trip Name");
@@ -57,13 +58,17 @@ export default function CreateTripPage() {
     
     setIsSubmitting(true);
     const agentId = auth.currentUser?.uid;
-    const payload = { tripName, journeys, status, updatedAt: new Date() };
+    if (!agentId || !user?.orgId) {
+      setIsSubmitting(false);
+      return toast.error("Organization is not assigned");
+    }
+    const payload = { tripName, journeys, status, orgId: user.orgId, updatedAt: new Date() };
 
     try {
       let result;
       if (tripId) {
         // UPDATE MODE
-        result = await updateTripForm(tripId, payload);
+        result = await updateTripForm(tripId, payload, user.orgId);
         toast.success("Itinerary Updated!");
         router.back()// Redirect back after update
       } else {

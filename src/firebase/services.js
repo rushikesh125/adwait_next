@@ -2,6 +2,7 @@
 
 import { collection, doc, getDoc, getDocs, query, where, setDoc, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase/config'; // Adjust path to your firebase config
+import { belongsToOrg, orgFilter } from './orgScope';
 
 // --- Data Fetching Functions ---
 
@@ -10,8 +11,8 @@ import { db } from '@/firebase/config'; // Adjust path to your firebase config
  * @param {Firestore} db - The Firestore instance.
  * @returns {Promise<Array>} An array of location objects.
  */
-export async function fetchLocations(db) {
-  const q = query(collection(db, "locations"), orderBy("name")); // Order by name for consistency
+export async function fetchLocations(db, orgId = null) {
+  const q = query(collection(db, "locations"), ...orgFilter(orgId), orderBy("name")); // Order by name for consistency
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
@@ -21,8 +22,8 @@ export async function fetchLocations(db) {
  * @param {Firestore} db - The Firestore instance.
  * @returns {Promise<Array>} An array of hotel objects.
  */
-export async function fetchHotels(db) {
-  const q = query(collection(db, "hotels"), orderBy("name")); // Order by name for consistency
+export async function fetchHotels(db, orgId = null) {
+  const q = query(collection(db, "hotels"), ...orgFilter(orgId), orderBy("name")); // Order by name for consistency
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
@@ -32,8 +33,8 @@ export async function fetchHotels(db) {
  * @param {Firestore} db - The Firestore instance.
  * @returns {Promise<Array>} An array of activity objects.
  */
-export async function fetchActivities(db) {
-  const q = query(collection(db, "activities"), orderBy("name")); // Order by name for consistency
+export async function fetchActivities(db, orgId = null) {
+  const q = query(collection(db, "activities"), ...orgFilter(orgId), orderBy("name")); // Order by name for consistency
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
@@ -43,8 +44,8 @@ export async function fetchActivities(db) {
  * @param {Firestore} db - The Firestore instance.
  * @returns {Promise<Array>} An array of transport package objects.
  */
-export async function fetchTransportPackages(db) {
-  const q = query(collection(db, "transport"), orderBy("name")); // Order by name for consistency
+export async function fetchTransportPackages(db, orgId = null) {
+  const q = query(collection(db, "transport"), ...orgFilter(orgId), orderBy("name")); // Order by name for consistency
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
@@ -55,12 +56,13 @@ export async function fetchTransportPackages(db) {
  * @param {string} customerId - The ID of the customer/package document.
  * @returns {Promise<Object|null>} The quotation document data or null if not found.
  */
-export async function fetchQuotationData(agentId, customerId) {
+export async function fetchQuotationData(agentId, customerId, orgId = null) {
   const docRef = doc(db, `saved_packages_by_agents/${agentId}/packages`, customerId);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
-    return docSnap.data();
+    const data = docSnap.data();
+    return belongsToOrg(data, orgId) ? data : null;
   } else {
     console.log("No such document!");
     return null;
@@ -73,9 +75,15 @@ export async function fetchQuotationData(agentId, customerId) {
  * @param {string} customerId - The ID of the customer/package document.
  * @param {Object} dataToUpdate - The data object to merge/update in the document.
  */
-export async function updateQuotationData(agentId, customerId, dataToUpdate) {
+export async function updateQuotationData(agentId, customerId, dataToUpdate, orgId = null) {
   const docRef = doc(db, `saved_packages_by_agents/${agentId}/packages`, customerId);
-  await setDoc(docRef, dataToUpdate, { merge: true }); // Use merge to update specific fields
+  if (orgId) {
+    const existing = await getDoc(docRef);
+    if (existing.exists() && !belongsToOrg(existing.data(), orgId)) {
+      throw new Error("Quotation does not belong to this organization");
+    }
+  }
+  await setDoc(docRef, { ...dataToUpdate, ...(orgId ? { orgId } : {}) }, { merge: true }); // Use merge to update specific fields
 }
 
 

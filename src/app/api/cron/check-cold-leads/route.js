@@ -165,6 +165,7 @@ export async function GET(request) {
         try {
           await createNotification({
             userId: lead.agentId,
+            orgId: lead.orgId || null,
             type: "cold_lead_auto_closed",
             title: `Cold lead auto-closed: ${lead.name || "Unknown lead"}`,
             message: `"${lead.name || "Unknown lead"}" was marked cold 7 days ago and has been automatically moved to Closed Lost.`,

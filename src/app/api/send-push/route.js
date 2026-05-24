@@ -2,6 +2,7 @@
 import webpush from "web-push";
 import { db } from "@/firebase/config";
 import { collection, getDocs, query, where,writeBatch  } from "firebase/firestore";
+import { orgFilter } from "@/firebase/orgScope";
 
 webpush.setVapidDetails(
   process.env.VAPID_EMAIL,
@@ -11,11 +12,11 @@ webpush.setVapidDetails(
 
 export async function POST(req) {
   try {
-    const { userId, title, message, type, link, priority } = await req.json();
+    const { userId, orgId, title, message, type, link, priority } = await req.json();
 
     // Fetch all push subscriptions for this user from Firestore
     const snap = await getDocs(
-      query(collection(db, "pushSubscriptions"), where("userId", "==", userId)),
+      query(collection(db, "pushSubscriptions"), where("userId", "==", userId), ...orgFilter(orgId)),
     );
 
     if (snap.empty) {
@@ -46,6 +47,7 @@ export async function POST(req) {
     const sent = results.filter((r) => r.status === "fulfilled").length;
     console.log("PUSH API CALLED", {
   userId,
+  orgId,
   title,
   type,
 });

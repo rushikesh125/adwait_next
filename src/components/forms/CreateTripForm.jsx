@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setTripName, addJourney, resetForm } from "@/store/tripSlice";
 import JourneyCard from "./JourneyCard";
-import { createTripForm } from "@/firebase/services";
+import { createTripForm } from "@/firebase/form-services";
 import { auth } from "@/firebase/config";
 import toast from "react-hot-toast";
 
 export default function CreateTripForm() {
   const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
   const { tripName, journeys } = useSelector((state) => state.trip);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedTripId, setSavedTripId] = useState(null);
@@ -27,8 +28,12 @@ export default function CreateTripForm() {
 
     setIsSubmitting(true);
     const agentId = auth.currentUser?.uid;
+    if (!agentId || !user?.orgId) {
+      setIsSubmitting(false);
+      return toast.error("Organization is not assigned");
+    }
     
-    const result = await createTripForm(agentId, { tripName, journeys });
+    const result = await createTripForm(agentId, { tripName, journeys, orgId: user.orgId });
     
     if (result) {
       setSavedTripId(result);
