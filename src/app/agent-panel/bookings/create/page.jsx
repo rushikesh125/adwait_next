@@ -13,6 +13,7 @@ import {
   computePaymentStatus,
 } from "@/firebase/bookingsService";
 import { updateQuotation } from "@/firebase/quotations";
+import { syncVouchersWithBooking } from "@/firebase/voucher";
 import {
   ArrowLeft,
   Plus,
@@ -1460,6 +1461,7 @@ function CreateBookingInner() {
 
       if (isEdit) {
         await updateBooking(editId, payload);
+        await syncVouchersWithBooking(auth.currentUser.uid, editId, payload);
         toast.success("Booking updated");
       } else {
         const newBookingId = await createBooking(payload);

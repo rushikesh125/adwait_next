@@ -163,3 +163,82 @@ export async function updateVoucherDocument(agentId, voucherRecord, voucherData)
     updatedAt: serverTimestamp(),
   });
 }
+
+export async function syncVouchersWithBooking(agentId, bookingId, bookingPayload) {
+  if (!agentId || !bookingId || !bookingPayload) return;
+
+  try {
+    const vSnap = await getDocs(
+      collection(db, `saved_packages_by_agents/${agentId}/packages/${bookingId}/vouchers`)
+    );
+    if (vSnap.empty) return;
+
+    const hotelServices = (bookingPayload.services || []).filter(
+      (s) => s.type === "Hotel" && s.hotelData?.hotelName
+    );
+
+    const updatePromises = vSnap.docs.map(async (vDoc) => {
+      const voucher = vDoc.data();
+      if (voucher.voucherType === "Hotel") {
+        let matchingService = null;
+        if (hotelServices.length === 1) {
+          matchingService = hotelServices[0];
+        } else {
+          matchingService = hotelServices.find(
+            (s) => 
+               s.hotelData.hotelName === voucher.hotelName || 
+               s.hotelData.checkIn === voucher.checkIn ||
+               s.hotelData.checkInDate === voucher.checkIn
+          );
+        }
+
+        if (matchingService) {
+          const hd = matchingService.hotelData;
+          const rooms = hd.rooms || [];
+          const roomCategorySummary = rooms.length > 1
+              ? rooms.map((r) => r.quantity > 1 ? `${r.quantity}× ${r.roomCategory}` : r.roomCategory).filter(Boolean).join(", ")
+              : rooms[0]?.roomCategory || hd.roomCategory || "-";
+
+          const mealPlanSummary = rooms.length > 1
+              ? [...new Set(rooms.map((r) => r.mealPlan).filter(Boolean))].join(" / ")
+              : rooms[0]?.mealPlan || hd.mealPlan || "-";
+
+          const totalRooms = rooms.length > 0
+              ? rooms.reduce((s, r) => s + (Number(r.quantity ?? r.numDouble) || 0), 0)
+              : hd.numDouble || 0;
+          
+          await updateDoc(vDoc.ref, {
+            hotelName: hd.hotelName || matchingService.supplier || "Hotel",
+            checkIn: hd.checkInDate || hd.checkIn || bookingPayload.startDate || "",
+            checkOut: hd.checkOutDate || hd.checkOut || bookingPayload.endDate || "",
+            nights: hd.nights || 0,
+            rooms: totalRooms,
+            roomCategory: roomCategorySummary,
+            meal: mealPlanSummary,
+            customerName: bookingPayload.customerName || voucher.customerName,
+            destination: bookingPayload.destination || voucher.destination,
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          // If no matching hotel service, just update customer name and destination
+          await updateDoc(vDoc.ref, {
+            customerName: bookingPayload.customerName || voucher.customerName,
+            destination: bookingPayload.destination || voucher.destination,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      } else if (voucher.voucherType === "Flight") {
+          await updateDoc(vDoc.ref, {
+            customerName: bookingPayload.customerName || voucher.customerName,
+            updatedAt: serverTimestamp(),
+          });
+      }
+    });
+
+    await Promise.all(updatePromises);
+    console.log(`[voucher] Synced ${updatePromises.length} vouchers for booking ${bookingId}`);
+  } catch (error) {
+    console.error("[voucher] syncVouchersWithBooking error:", error);
+  }
+}
+

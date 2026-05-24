@@ -32,6 +32,7 @@ import {
   IndianRupee,
   Search,
   Hotel,
+  Phone,
 } from "lucide-react";
 import {
   getNextVoucherNumber,
@@ -40,6 +41,7 @@ import {
 } from "@/firebase/voucher";
 import { getQuotationById, updateQuotation } from "@/firebase/quotations";
 import { generateHotelVoucherPDF } from "@/lib/generateHotelVoucher";
+import { getLeadById } from "@/firebase/leadsService";
 
 function formatDate(dateStr) {
   if (!dateStr) return "-";
