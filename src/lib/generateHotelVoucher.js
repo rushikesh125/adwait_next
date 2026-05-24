@@ -31,6 +31,11 @@
       .trim()
       .replace(/\s+/g, "_");
 
+  const cleanValue = (value) => {
+    const text = String(value ?? "").trim();
+    return text && text !== "\u2014" && text !== "-" ? text : "";
+  };
+
   const hex2rgb = (hex) => {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -136,14 +141,21 @@
     const issuedOn = voucher.issueDate
       ? fmt(voucher.issueDate)
       : new Date().toLocaleDateString("en-GB");
+    const voucherNumber = cleanValue(voucher.voucherNumber || voucher.voucherNo);
+    const bookingNumber =
+      voucher.isBookingVoucher || voucher.bookingId
+        ? cleanValue(
+            voucher.bookingReference || voucher.bookingRef || voucher.bookingNumber
+          )
+        : "";
+    const headerMeta = [
+      voucherNumber ? `Voucher No: ${voucherNumber}` : "",
+     
+      `Generated on: ${issuedOn}`,
+    ].filter(Boolean);
 
     setFont("normal", 8.5, BRAND.muted);
-    doc.text(
-      `Voucher No: ${voucher.voucherNumber || "\u2014"}   |   Generated on: ${issuedOn}`,
-      ML + CW,
-      y,
-      { align: "right" }
-    );
+    doc.text(headerMeta.join("   |   "), ML + CW, y, { align: "right" });
     y += 6;
 
     rule(0.5, BRAND.primary);
@@ -224,6 +236,17 @@
       doc.text(addrLines, colL, y);
       y += addrLines.length * 4.5 + 2;
     }
+    if (bookingNumber) {
+  setFont("bold", 8, BRAND.muted);
+
+  doc.text(
+    `Booking Reference: ${bookingNumber}`,
+    colL,
+    y
+  );
+
+  y += 6;
+}
 
     if (voucher.phone) {
       setFont("normal", 8, BRAND.muted);
@@ -346,18 +369,20 @@
     }
 
     /* ─────────────────────────────────────────────────────────────────────
-      BOOKING REFERENCE BOX
+      VOUCHER REFERENCE BOX
     ───────────────────────────────────────────────────────────────────── */
-    rule(0.3);
-    y += 6;
+    if (voucherNumber) {
+      rule(0.3);
+      y += 6;
 
-    const refBoxH = 14;
-    borderedRect(ML, y, CW, refBoxH, BRAND.primary, "#EBF5FB");
-    setFont("bold", 8, BRAND.muted);
-    doc.text("BOOKING REFERENCE", ML + CW / 2, y + 4.5, { align: "center" });
-    setFont("bold", 13, BRAND.primary);
-    doc.text(voucher.voucherNumber || "\u2014", ML + CW / 2, y + 11, { align: "center" });
-    y += refBoxH + 8;
+      const refBoxH = 14;
+      borderedRect(ML, y, CW, refBoxH, BRAND.primary, "#EBF5FB");
+      setFont("bold", 8, BRAND.muted);
+      doc.text("VOUCHER REFERENCE", ML + CW / 2, y + 4.5, { align: "center" });
+      setFont("bold", 13, BRAND.primary);
+      doc.text(voucherNumber, ML + CW / 2, y + 11, { align: "center" });
+      y += refBoxH + 8;
+    }
 
     /* ─────────────────────────────────────────────────────────────────────
       FOOTER
@@ -390,7 +415,7 @@
       SAVE
     ───────────────────────────────────────────────────────────────────── */
     const hotelSlug = sanitise(voucher.hotelName);
-    const fileName  = `Voucher_${voucher.voucherNumber || "ADW-HTL"}_${hotelSlug}.pdf`;
+    const fileName  = `Voucher_${voucherNumber || "ADW-HTL"}_${hotelSlug}.pdf`;
     doc.save(fileName);
   }
 
@@ -413,7 +438,9 @@
       `Hotel: ${hotelLine}`,
       `Check-in: ${fmt(voucher.checkIn)} at 12:00 Noon`,
       `Check-out: ${fmt(voucher.checkOut)} at 11:00 AM`,
-      `Voucher Ref: ${voucher.voucherNumber || "\u2014"}`,
+      cleanValue(voucher.voucherNumber || voucher.voucherNo)
+        ? `Voucher Ref: ${cleanValue(voucher.voucherNumber || voucher.voucherNo)}`
+        : "",
       ``,
       `Please carry this reference and a valid photo ID at check-in.`,
       ``,
