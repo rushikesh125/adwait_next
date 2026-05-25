@@ -1385,6 +1385,8 @@ const Create_new_package = ({
       hotel: selectedHotelData.name,
       city: selectedHotelData.city,
       GoogleListingURL: selectedHotelData.GoogleListingURL || null,
+      // Star rating from the accommodation record (used by PDF + summary)
+      rating: selectedHotelData.rating ?? selectedHotelData.starRating ?? null,
       // Legacy flat fields (row 0 values)
       numDouble: primaryRow.numDouble,
       numExtraAdult: primaryRow.numExtraAdult,
@@ -1650,6 +1652,7 @@ const Create_new_package = ({
           hotel: selectedHotelData.name,
           city: selectedHotelData.city,
           GoogleListingURL: selectedHotelData.GoogleListingURL || null,
+          rating: selectedHotelData.rating ?? selectedHotelData.starRating ?? null,
           numDouble: primaryRow.numDouble ?? 1,
           numExtraAdult: primaryRow.numExtraAdult ?? 0,
           numExtraChild: primaryRow.numExtraChild ?? 0,
