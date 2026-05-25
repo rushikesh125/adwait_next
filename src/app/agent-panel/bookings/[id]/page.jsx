@@ -1,8 +1,16 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams, usePathname } from "next/navigation";
-import { getBookingById, deleteBooking, updateBooking, computePaymentStatus } from "@/firebase/bookingsService";
-import { getInvoicesByBooking, updatePaymentInInvoice } from "@/firebase/invoicesService";
+import {
+  getBookingById,
+  deleteBooking,
+  updateBooking,
+  computePaymentStatus,
+} from "@/firebase/bookingsService";
+import {
+  getInvoicesByBooking,
+  updatePaymentInInvoice,
+} from "@/firebase/invoicesService";
 import { updateQuotation } from "@/firebase/quotations";
 import {
   ArrowLeft,
@@ -34,6 +42,7 @@ import {
   Wallet,
   BadgeCheck,
   Building2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +59,12 @@ import { Separator } from "@/components/ui/separator";
 import StatusBadge from "@/components/StatusBadge";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 import { sendHotelBookingRequestOnWhatsApp } from "@/lib/hotelBookingRequestWhatsapp";
+import { generateHotelVoucherPDF } from "@/lib/generateHotelVoucher";
+import {
+  deleteVoucherDocument,
+  fetchAllVouchersForAgent,
+} from "@/firebase/voucher";
+import VoucherViewModal from "@/components/VoucherViewModal";
 import {
   Dialog,
   DialogContent,
@@ -75,7 +90,11 @@ const SERVICE_ICONS = {
 
 const formatDate = (d) =>
   d
-    ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    ? new Date(d).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
     : "—";
 
 const formatCurrency = (n) =>
@@ -87,14 +106,14 @@ const formatCurrency = (n) =>
 const servicePaid = (svc) =>
   (svc.vendorPayments || []).reduce(
     (s, p) => s + (p.status === "Paid" ? Number(p.amount) || 0 : 0),
-    0
+    0,
   );
 
 /** Sum of vendor payments with status "Pending" */
 const servicePending = (svc) =>
   (svc.vendorPayments || []).reduce(
     (s, p) => s + (p.status === "Pending" ? Number(p.amount) || 0 : 0),
-    0
+    0,
   );
 
 /** Sum of all vendor payments (paid + pending) */
@@ -106,7 +125,7 @@ const serviceTotalAll = (svc) =>
  * If vendorPayments array is present, we use the status‑aware `servicePaid`.
  */
 const serviceAdvanceOld = (svc) =>
-  svc.vendorPayments ? servicePaid(svc) : (Number(svc.advance) || 0);
+  svc.vendorPayments ? servicePaid(svc) : Number(svc.advance) || 0;
 
 const serviceBalance = (svc) =>
   Math.max(0, (Number(svc.amount) || 0) - serviceAdvanceOld(svc));
@@ -114,6 +133,58 @@ const serviceBalance = (svc) =>
 // ─── Exported helpers (unchanged API, but now status‑aware) ──────────────────
 
 export function extractHotelsFromBooking(booking) {
+  // Prefer services[].hotelData — this reflects any edits made in the booking form
+  // (updated meal plan, room category, etc.) and supports multi-room hotels.
+  const hotelServices = (booking.services || []).filter(
+    (s) => s.type === "Hotel" && s.hotelData?.hotelName,
+  );
+
+  if (hotelServices.length > 0) {
+    return hotelServices.map((s) => {
+      const hd = s.hotelData;
+      // Multi-room: summarise all room categories into a single readable string
+      const rooms = hd.rooms || [];
+      const roomCategorySummary =
+        rooms.length > 1
+          ? rooms
+              .map((r) =>
+                r.quantity > 1
+                  ? `${r.quantity}× ${r.roomCategory}`
+                  : r.roomCategory,
+              )
+              .filter(Boolean)
+              .join(", ")
+          : rooms[0]?.roomCategory || hd.roomCategory || "-";
+
+      const mealPlanSummary =
+        rooms.length > 1
+          ? [...new Set(rooms.map((r) => r.mealPlan).filter(Boolean))].join(
+              " / ",
+            )
+          : rooms[0]?.mealPlan || hd.mealPlan || "-";
+
+      const totalRooms =
+        rooms.length > 0
+          ? rooms.reduce(
+              (s, r) => s + (Number(r.quantity ?? r.numDouble) || 0),
+              0,
+            )
+          : hd.numDouble || 0;
+
+      return {
+        hotelName: hd.hotelName || s.supplier || "Hotel",
+        city: hd.city || booking.destination || "",
+        checkIn: hd.checkInDate || hd.checkIn || booking.startDate || "",
+        checkOut: hd.checkOutDate || hd.checkOut || booking.endDate || "",
+        nights: hd.nights || 0,
+        rooms: totalRooms,
+        roomCategory: roomCategorySummary,
+        mealPlan: mealPlanSummary,
+      };
+    });
+  }
+
+  // Fallback: use hotelSummary if no hotel services with hotelData exist
   if (booking.hotelSummary?.length) {
     return booking.hotelSummary.map((h) => ({
       hotelName: h.hotel || h.hotelName || "Hotel",
@@ -126,6 +197,8 @@ export function extractHotelsFromBooking(booking) {
       mealPlan: h.selectedMealPlan || "-",
     }));
   }
+
+  // Last resort: infer from booking-level fields
   return (booking.services || [])
     .filter((s) => s.type === "Hotel")
     .map((s) => ({
@@ -147,7 +220,9 @@ export function hotelVoucherKey(hotelName, checkIn) {
 export function buildBookingRequestMessage(booking) {
   const name = booking.customerName || "there";
   const dest = booking.destination || "your destination";
-  const ref = booking.bookingRef ? `\nBooking Ref: *${booking.bookingRef}*` : "";
+  const ref = booking.bookingRef
+    ? `\nBooking Ref: *${booking.bookingRef}*`
+    : "";
   const dates =
     booking.startDate && booking.endDate
       ? `\nTravel Dates: *${formatDate(booking.startDate)} → ${formatDate(booking.endDate)}*`
@@ -182,15 +257,25 @@ function VendorPaymentHistory({ svc, onEditPayment, onDeletePayment }) {
     return (
       <div className="mt-2 flex flex-wrap gap-4 text-[11px]">
         <span className="text-slate-500">
-          Total: <span className="font-bold text-slate-700">{formatCurrency(svc.amount)}</span>
+          Total:{" "}
+          <span className="font-bold text-slate-700">
+            {formatCurrency(svc.amount)}
+          </span>
         </span>
         <span className="text-slate-500">
-          Advance: <span className="font-bold text-emerald-600">{formatCurrency(svc.advance)}</span>
+          Advance:{" "}
+          <span className="font-bold text-emerald-600">
+            {formatCurrency(svc.advance)}
+          </span>
         </span>
         <span className="text-slate-500">
           Balance:{" "}
-          <span className={`font-bold ${(Number(svc.amount) || 0) - (Number(svc.advance) || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-            {formatCurrency((Number(svc.amount) || 0) - (Number(svc.advance) || 0))}
+          <span
+            className={`font-bold ${(Number(svc.amount) || 0) - (Number(svc.advance) || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}
+          >
+            {formatCurrency(
+              (Number(svc.amount) || 0) - (Number(svc.advance) || 0),
+            )}
           </span>
         </span>
       </div>
@@ -204,32 +289,48 @@ function VendorPaymentHistory({ svc, onEditPayment, onDeletePayment }) {
   const balance = Math.max(0, totalCost - paid);
 
   const paidPct = totalCost > 0 ? Math.min(100, (paid / totalCost) * 100) : 0;
-  const pendingPct = totalCost > 0 ? Math.min(100 - paidPct, (pending / totalCost) * 100) : 0;
+  const pendingPct =
+    totalCost > 0 ? Math.min(100 - paidPct, (pending / totalCost) * 100) : 0;
   const leftPct = Math.max(0, 100 - paidPct - pendingPct);
 
   const statusLabel =
-    totalCost <= 0 ? "No Cost Set" :
-    balance === 0 ? "Fully Paid" :
-    paid > 0 ? "Partial" : "Unpaid";
+    totalCost <= 0
+      ? "No Cost Set"
+      : balance === 0
+        ? "Fully Paid"
+        : paid > 0
+          ? "Partial"
+          : "Unpaid";
 
   return (
     <div className="mt-2 space-y-2">
       {/* Summary row */}
       <div className="flex flex-wrap gap-4 text-[11px]">
         <span className="text-slate-500">
-          Total: <span className="font-bold text-slate-700">{formatCurrency(totalCost)}</span>
+          Total:{" "}
+          <span className="font-bold text-slate-700">
+            {formatCurrency(totalCost)}
+          </span>
         </span>
         <span className="text-slate-500">
-          Paid: <span className="font-bold text-emerald-600">{formatCurrency(paid)}</span>
+          Paid:{" "}
+          <span className="font-bold text-emerald-600">
+            {formatCurrency(paid)}
+          </span>
         </span>
         {pending > 0 && (
           <span className="text-slate-500">
-            Pending: <span className="font-bold text-amber-600">{formatCurrency(pending)}</span>
+            Pending:{" "}
+            <span className="font-bold text-amber-600">
+              {formatCurrency(pending)}
+            </span>
           </span>
         )}
         <span className="text-slate-500">
           Balance:{" "}
-          <span className={`font-bold ${balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+          <span
+            className={`font-bold ${balance > 0 ? "text-rose-600" : "text-emerald-600"}`}
+          >
             {formatCurrency(balance)}
           </span>
         </span>
@@ -240,7 +341,11 @@ function VendorPaymentHistory({ svc, onEditPayment, onDeletePayment }) {
           >
             <Receipt className="w-3 h-3" />
             {payments.length} payment{payments.length > 1 ? "s" : ""}
-            {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {open ? (
+              <ChevronUp className="w-3 h-3" />
+            ) : (
+              <ChevronDown className="w-3 h-3" />
+            )}
           </button>
         )}
       </div>
@@ -292,15 +397,25 @@ function VendorPaymentHistory({ svc, onEditPayment, onDeletePayment }) {
                 className="px-3 py-2 text-xs border-t border-slate-100 first:border-0 hover:bg-slate-50/60"
               >
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${typeBadge}`}>
+                  <span
+                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${typeBadge}`}
+                  >
                     {p.type || "Payment"}
                   </span>
-                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBadge}`}>
+                  <span
+                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${statusBadge}`}
+                  >
                     {status}
                   </span>
-                  <span className={`ml-auto font-bold shrink-0 ${status === "Pending" ? "text-amber-700" : "text-slate-800"}`}>
+                  <span
+                    className={`ml-auto font-bold shrink-0 ${status === "Pending" ? "text-amber-700" : "text-slate-800"}`}
+                  >
                     {formatCurrency(p.amount)}
-                    {status === "Pending" && <span className="ml-0.5 text-[10px] font-medium">(planned)</span>}
+                    {status === "Pending" && (
+                      <span className="ml-0.5 text-[10px] font-medium">
+                        (planned)
+                      </span>
+                    )}
                   </span>
                   {(onEditPayment || onDeletePayment) && (
                     <div className="flex items-center gap-0.5 shrink-0">
@@ -330,10 +445,19 @@ function VendorPaymentHistory({ svc, onEditPayment, onDeletePayment }) {
                 {(p.date || p.mode || p.notes) && (
                   <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-slate-500">
                     {p.date && (
-                      <span>{new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</span>
+                      <span>
+                        {new Date(p.date).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                        })}
+                      </span>
                     )}
                     {p.mode && <span>· {p.mode}</span>}
-                    {p.notes && <span className="text-slate-400 break-words">· {p.notes}</span>}
+                    {p.notes && (
+                      <span className="text-slate-400 break-words">
+                        · {p.notes}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -351,7 +475,9 @@ export default function BookingDetailPage() {
   const router = useRouter();
   const { id } = useParams();
   const pathname = usePathname();
-  const panelBase = pathname.startsWith("/admin") ? "/admin-panel" : "/agent-panel";
+  const panelBase = pathname.startsWith("/admin")
+    ? "/admin-panel"
+    : "/agent-panel";
 
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -362,13 +488,29 @@ export default function BookingDetailPage() {
   const [hotelListForSelection, setHotelListForSelection] = useState([]);
   const [hotelSelectionMode, setHotelSelectionMode] = useState("voucher");
   const [deletingVoucherId, setDeletingVoucherId] = useState(null);
+  const [downloadingVoucherId, setDownloadingVoucherId] = useState(null);
+  const [viewingVoucher, setViewingVoucher] = useState(null);
+  const [editingVoucher, setEditingVoucher] = useState(null);
 
   const [editingPaymentIdx, setEditingPaymentIdx] = useState(null);
-  const [editPaymentForm, setEditPaymentForm] = useState({ amount: "", date: "", mode: "Cash", reference: "", notes: "" });
+  const [editPaymentForm, setEditPaymentForm] = useState({
+    amount: "",
+    date: "",
+    mode: "Cash",
+    reference: "",
+    notes: "",
+  });
   const [savingBookingPayment, setSavingBookingPayment] = useState(false);
 
   const [editingVendorPayment, setEditingVendorPayment] = useState(null);
-  const [vendorPaymentForm, setVendorPaymentForm] = useState({ type: "Installment", status: "Paid", amount: "", date: "", mode: "Cash", notes: "" });
+  const [vendorPaymentForm, setVendorPaymentForm] = useState({
+    type: "Installment",
+    status: "Paid",
+    amount: "",
+    date: "",
+    mode: "Cash",
+    notes: "",
+  });
   const [savingVendorPayment, setSavingVendorPayment] = useState(false);
 
   useEffect(() => {
@@ -384,6 +526,13 @@ export default function BookingDetailPage() {
       }
     })();
   }, [id]);
+  useEffect(() => {
+    console.log("voucherDrawerOpen =", voucherDrawerOpen);
+  }, [voucherDrawerOpen]);
+
+  useEffect(() => {
+    console.log("selectedHotelForVoucher =", selectedHotelForVoucher);
+  }, [selectedHotelForVoucher]);
 
   const handleOpenEditPayment = (idx) => {
     const pay = booking.payments[idx];
@@ -399,42 +548,79 @@ export default function BookingDetailPage() {
 
   const handleSaveBookingPayment = async () => {
     const amount = Number(editPaymentForm.amount);
-    if (!amount || amount <= 0) { toast.error("Enter a valid amount"); return; }
-    if (!editPaymentForm.date) { toast.error("Date is required"); return; }
+    if (!amount || amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    if (!editPaymentForm.date) {
+      toast.error("Date is required");
+      return;
+    }
 
     setSavingBookingPayment(true);
     try {
       const updatedPayments = (booking.payments || []).map((p, i) =>
         i === editingPaymentIdx
-          ? { ...p, amount, date: editPaymentForm.date, mode: editPaymentForm.mode, reference: editPaymentForm.reference, notes: editPaymentForm.notes }
-          : p
+          ? {
+              ...p,
+              amount,
+              date: editPaymentForm.date,
+              mode: editPaymentForm.mode,
+              reference: editPaymentForm.reference,
+              notes: editPaymentForm.notes,
+            }
+          : p,
       );
-      const paidAmount = updatedPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-      const paymentStatus = computePaymentStatus(booking.totalAmount, paidAmount);
+      const paidAmount = updatedPayments.reduce(
+        (s, p) => s + (Number(p.amount) || 0),
+        0,
+      );
+      const paymentStatus = computePaymentStatus(
+        booking.totalAmount,
+        paidAmount,
+      );
 
-      await updateBooking(id, { payments: updatedPayments, paidAmount, paymentStatus });
-      setBooking((prev) => ({ ...prev, payments: updatedPayments, paidAmount, paymentStatus }));
+      await updateBooking(id, {
+        payments: updatedPayments,
+        paidAmount,
+        paymentStatus,
+      });
+      setBooking((prev) => ({
+        ...prev,
+        payments: updatedPayments,
+        paidAmount,
+        paymentStatus,
+      }));
 
       const editedPayment = booking.payments[editingPaymentIdx];
       if (editedPayment?.invoicePaymentId) {
         try {
           const invoices = await getInvoicesByBooking(id);
           for (const inv of invoices) {
-            const match = (inv.payments || []).find((p) => p.id === editedPayment.invoicePaymentId);
+            const match = (inv.payments || []).find(
+              (p) => p.id === editedPayment.invoicePaymentId,
+            );
             if (match) {
-              await updatePaymentInInvoice(inv.id, editedPayment.invoicePaymentId, {
-                amount,
-                date: editPaymentForm.date,
-                mode: editPaymentForm.mode,
-                paymentAccountName: editPaymentForm.mode,
-                reference: editPaymentForm.reference,
-                notes: editPaymentForm.notes,
-              });
+              await updatePaymentInInvoice(
+                inv.id,
+                editedPayment.invoicePaymentId,
+                {
+                  amount,
+                  date: editPaymentForm.date,
+                  mode: editPaymentForm.mode,
+                  paymentAccountName: editPaymentForm.mode,
+                  reference: editPaymentForm.reference,
+                  notes: editPaymentForm.notes,
+                },
+              );
               break;
             }
           }
         } catch (e) {
-          console.warn("[BookingDetail] Could not sync invoice payment (non-critical):", e);
+          console.warn(
+            "[BookingDetail] Could not sync invoice payment (non-critical):",
+            e,
+          );
         }
       }
 
@@ -465,17 +651,28 @@ export default function BookingDetailPage() {
     if (!editingVendorPayment) return;
     const { serviceIdx, paymentIdx } = editingVendorPayment;
     const amount = Number(vendorPaymentForm.amount);
-    if (!amount || amount <= 0) { toast.error("Enter a valid amount"); return; }
-    if (!vendorPaymentForm.date) { toast.error("Date is required"); return; }
+    if (!amount || amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    if (!vendorPaymentForm.date) {
+      toast.error("Date is required");
+      return;
+    }
 
     const svc = booking.services?.[serviceIdx];
-    if (!svc) { toast.error("Service not found"); return; }
+    if (!svc) {
+      toast.error("Service not found");
+      return;
+    }
     const totalCost = Number(svc.amount) || 0;
     const otherAllocated = (svc.vendorPayments || [])
       .filter((_, i) => i !== paymentIdx)
       .reduce((s, p) => s + (Number(p.amount) || 0), 0);
     if (totalCost > 0 && otherAllocated + amount > totalCost) {
-      toast.error(`Payments would exceed service cost (₹${totalCost.toLocaleString("en-IN")})`);
+      toast.error(
+        `Payments would exceed service cost (₹${totalCost.toLocaleString("en-IN")})`,
+      );
       return;
     }
 
@@ -485,8 +682,16 @@ export default function BookingDetailPage() {
         if (si !== serviceIdx) return s;
         const updatedPayments = (s.vendorPayments || []).map((p, pi) =>
           pi === paymentIdx
-            ? { ...p, type: vendorPaymentForm.type, status: vendorPaymentForm.status, amount, date: vendorPaymentForm.date, mode: vendorPaymentForm.mode, notes: vendorPaymentForm.notes }
-            : p
+            ? {
+                ...p,
+                type: vendorPaymentForm.type,
+                status: vendorPaymentForm.status,
+                amount,
+                date: vendorPaymentForm.date,
+                mode: vendorPaymentForm.mode,
+                notes: vendorPaymentForm.notes,
+              }
+            : p,
         );
         return { ...s, vendorPayments: updatedPayments };
       });
@@ -506,7 +711,9 @@ export default function BookingDetailPage() {
     try {
       const updatedServices = booking.services.map((s, si) => {
         if (si !== serviceIdx) return s;
-        const updatedPayments = (s.vendorPayments || []).filter((_, pi) => pi !== paymentIdx);
+        const updatedPayments = (s.vendorPayments || []).filter(
+          (_, pi) => pi !== paymentIdx,
+        );
         return { ...s, vendorPayments: updatedPayments };
       });
       await updateBooking(id, { services: updatedServices });
@@ -523,9 +730,15 @@ export default function BookingDetailPage() {
       await deleteBooking(id);
       if (booking?.quotationId && booking?.agentId) {
         try {
-          await updateQuotation(booking.agentId, booking.quotationId, { convertedToBooking: false, bookingId: null });
+          await updateQuotation(booking.agentId, booking.quotationId, {
+            convertedToBooking: false,
+            bookingId: null,
+          });
         } catch (e) {
-          console.warn("[BookingDetail] Could not un-mark quotation (non-critical):", e);
+          console.warn(
+            "[BookingDetail] Could not un-mark quotation (non-critical):",
+            e,
+          );
         }
       }
       toast.success("Booking deleted");
@@ -537,14 +750,31 @@ export default function BookingDetailPage() {
   };
 
   const handleGenerateVoucher = (type) => {
-    if (type !== "hotel") { toast("Flight voucher coming soon", { icon: "✈️" }); return; }
+    if (type !== "hotel") {
+      toast("Flight voucher coming soon", { icon: "✈️" });
+      return;
+    }
     const hotels = extractHotelsFromBooking(booking);
-    if (hotels.length === 0) { toast.error("No hotel data found in this booking."); return; }
+    console.log(booking);
+    console.log(extractHotelsFromBooking(booking));
+    if (hotels.length === 0) {
+      toast.error("No hotel data found in this booking.");
+      return;
+    }
     if (hotels.length === 1) {
       const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
       const key = hotelVoucherKey(hotels[0].hotelName, hotels[0].checkIn);
-      const alreadyExists = activeVouchers.some((v) => hotelVoucherKey(v.hotelName, v.checkIn) === key);
-      if (alreadyExists) { toast.error(`A voucher for "${hotels[0].hotelName}" already exists. Delete it first to create a new one.`); return; }
+      const alreadyExists = activeVouchers.some(
+        (v) => hotelVoucherKey(v.hotelName, v.checkIn) === key,
+      );
+      if (alreadyExists) {
+        toast.error(
+          `A voucher for "${hotels[0].hotelName}" already exists. Delete it first to create a new one.`,
+        );
+        return;
+      }
+      console.log("Opening voucher drawer");
+      console.log(hotels[0]);
       setSelectedHotelForVoucher(hotels[0]);
       setVoucherDrawerOpen(true);
     } else {
@@ -557,20 +787,30 @@ export default function BookingDetailPage() {
   const handleSelectHotelForVoucher = (hotel) => {
     const activeVouchers = (booking.vouchers || []).filter((v) => !v.deleted);
     const key = hotelVoucherKey(hotel.hotelName, hotel.checkIn);
-    const alreadyExists = activeVouchers.some((v) => hotelVoucherKey(v.hotelName, v.checkIn) === key);
-    if (alreadyExists) { toast.error(`A voucher for "${hotel.hotelName}" already exists. Delete it first.`); setHotelSelectionOpen(false); return; }
+    const alreadyExists = activeVouchers.some(
+      (v) => hotelVoucherKey(v.hotelName, v.checkIn) === key,
+    );
+    if (alreadyExists) {
+      toast.error(
+        `A voucher for "${hotel.hotelName}" already exists. Delete it first.`,
+      );
+      setHotelSelectionOpen(false);
+      return;
+    }
     setSelectedHotelForVoucher(hotel);
     setHotelSelectionOpen(false);
     setVoucherDrawerOpen(true);
   };
 
-  const handleVoucherSaved = async () => {
+  const handleVoucherSaved = async (savedVoucher = null) => {
     try {
       const fresh = await getBookingById(id);
       const hotel = selectedHotelForVoucher;
       const existing = fresh?.vouchers || [];
       const key = hotelVoucherKey(hotel?.hotelName, hotel?.checkIn);
-      const alreadyTracked = existing.some((v) => !v.deleted && hotelVoucherKey(v.hotelName, v.checkIn) === key);
+      const alreadyTracked = existing.some(
+        (v) => !v.deleted && hotelVoucherKey(v.hotelName, v.checkIn) === key,
+      );
       if (!alreadyTracked && hotel) {
         const entry = {
           id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -579,6 +819,15 @@ export default function BookingDetailPage() {
           checkIn: hotel.checkIn,
           checkOut: hotel.checkOut,
           city: hotel.city || "",
+          voucherNumber: savedVoucher?.voucherNumber || "",
+          bookingReference:
+            savedVoucher?.bookingReference ||
+            savedVoucher?.bookingRef ||
+            booking.bookingRef ||
+            "",
+          isBookingVoucher: true,
+          voucherDocId: savedVoucher?.id || null,
+          voucherData: savedVoucher || null,
           deleted: false,
           createdAt: new Date().toISOString(),
         };
@@ -594,18 +843,223 @@ export default function BookingDetailPage() {
     }
   };
 
-  const handleDeleteVoucherEntry = async (voucherId) => {
-    if (!confirm("Remove this voucher record? This allows creating a new one for the same hotel.")) return;
+  const buildVoucherDownloadData = (voucherEntry) => {
+    const storedVoucher = voucherEntry.voucherData || {};
+    const matchedHotel = extractHotelsFromBooking(booking).find(
+      (hotel) =>
+        hotelVoucherKey(hotel.hotelName, hotel.checkIn) ===
+        hotelVoucherKey(voucherEntry.hotelName, voucherEntry.checkIn),
+    );
+    return {
+      voucherType: "Hotel",
+      voucherNumber:
+        storedVoucher.voucherNumber || voucherEntry.voucherNumber || "",
+      bookingReference:
+        storedVoucher.bookingReference ||
+        storedVoucher.bookingRef ||
+        voucherEntry.bookingReference ||
+        booking.bookingRef ||
+        "",
+      isBookingVoucher: true,
+      bookingRef:
+        storedVoucher.bookingRef ||
+        storedVoucher.bookingReference ||
+        voucherEntry.bookingReference ||
+        booking.bookingRef ||
+        "",
+      hotelName: storedVoucher.hotelName || voucherEntry.hotelName || "",
+      checkIn: storedVoucher.checkIn || voucherEntry.checkIn || "",
+      checkOut: storedVoucher.checkOut || voucherEntry.checkOut || "",
+      nights: storedVoucher.nights || voucherEntry.nights || matchedHotel?.nights || "",
+      rooms: storedVoucher.rooms || voucherEntry.rooms || matchedHotel?.rooms || "",
+      roomCategory:
+        storedVoucher.roomCategory ||
+        voucherEntry.roomCategory ||
+        matchedHotel?.roomCategory ||
+        "",
+      meal:
+        storedVoucher.meal ||
+        voucherEntry.meal ||
+        voucherEntry.mealPlan ||
+        matchedHotel?.mealPlan ||
+        "",
+      guests:
+        storedVoucher.guests?.length > 0
+          ? storedVoucher.guests
+          : [{ title: "Mr", name: booking.customerName || "" }],
+      contact:
+        storedVoucher.contact ||
+        booking.customerMobile ||
+        booking.mobile ||
+        booking.leadMobile ||
+        "",
+      address: storedVoucher.address || voucherEntry.address || "",
+      phone: storedVoucher.phone || voucherEntry.phone || "",
+      googleMapsLink:
+        storedVoucher.googleMapsLink || voucherEntry.googleMapsLink || "",
+      requests: storedVoucher.requests || voucherEntry.requests || "",
+      paymentStatus: storedVoucher.paymentStatus || "Payment at hotel",
+      amount: storedVoucher.amount || "",
+      cancellation: storedVoucher.cancellation || "",
+      customerName:
+        storedVoucher.customerName ||
+        booking.customerName ||
+        booking.leadName ||
+        "",
+      destination:
+        storedVoucher.destination ||
+        booking.destination ||
+        voucherEntry.city ||
+        "",
+      quotationId: storedVoucher.quotationId || booking.quotationId || null,
+      issueDate:
+        storedVoucher.issueDate ||
+        voucherEntry.createdAt ||
+        booking.createdAt ||
+        new Date().toISOString(),
+      status: storedVoucher.status || "Generated",
+    };
+  };
+
+  const findSavedVoucherForEntry = async (voucherEntry) => {
+    const agentId = booking.agentId;
+    if (!agentId) return null;
+
+    if (voucherEntry.voucherData?.id && voucherEntry.voucherData?._collection) {
+      return voucherEntry.voucherData;
+    }
+
+    const allVouchers = await fetchAllVouchersForAgent(agentId);
+    const voucherDocId = voucherEntry.voucherDocId || voucherEntry.voucherData?.id;
+    if (voucherDocId) {
+      const byId = allVouchers.find((voucher) => voucher.id === voucherDocId);
+      if (byId) return byId;
+    }
+
+    const entryKey = hotelVoucherKey(voucherEntry.hotelName, voucherEntry.checkIn);
+    return allVouchers.find(
+      (voucher) =>
+        voucher.voucherType === "Hotel" &&
+        hotelVoucherKey(voucher.hotelName, voucher.checkIn) === entryKey &&
+        (!booking.quotationId || voucher.quotationId === booking.quotationId),
+    );
+  };
+
+  const buildVoucherEntryFromSaved = (voucherEntry, savedVoucher) => ({
+    ...voucherEntry,
+    voucherNumber: savedVoucher?.voucherNumber || voucherEntry.voucherNumber,
+    voucherDocId: savedVoucher?.id || voucherEntry.voucherDocId || null,
+    voucherData: savedVoucher
+      ? {
+          ...savedVoucher,
+          isBookingVoucher: true,
+          bookingReference: booking.bookingRef || "",
+          bookingRef: booking.bookingRef || "",
+        }
+      : voucherEntry.voucherData,
+  });
+
+  const resolveVoucherForEntry = async (voucherEntry) => {
+    const savedVoucher = await findSavedVoucherForEntry(voucherEntry);
+    const resolvedEntry = buildVoucherEntryFromSaved(voucherEntry, savedVoucher);
+    const voucherData = buildVoucherDownloadData(resolvedEntry);
+    if (savedVoucher) {
+      voucherData.id = savedVoucher.id;
+      voucherData._collection = savedVoucher._collection;
+      voucherData._quotationDocId = savedVoucher._quotationDocId;
+    }
+    return voucherData;
+  };
+
+  const handleDownloadVoucher = async (voucherEntry) => {
+    setDownloadingVoucherId(voucherEntry.id);
+    try {
+      const voucherData = await resolveVoucherForEntry(voucherEntry);
+      if (!voucherData.voucherNumber) {
+        toast.error("Voucher number not found. Please recreate this voucher record.");
+        return;
+      }
+
+      await generateHotelVoucherPDF(voucherData);
+    } catch (err) {
+      console.error("[BookingDetail] Failed to download voucher:", err);
+      toast.error("Could not download voucher: " + err.message);
+    } finally {
+      setDownloadingVoucherId(null);
+    }
+  };
+
+  const handleViewVoucher = async (voucherEntry) => {
+    try {
+      const voucherData = await resolveVoucherForEntry(voucherEntry);
+      if (!voucherData.voucherNumber) {
+        toast.error("Voucher number not found. Please recreate this voucher record.");
+        return;
+      }
+      setViewingVoucher(voucherData);
+    } catch (err) {
+      console.error("[BookingDetail] Failed to open voucher:", err);
+      toast.error("Could not open voucher: " + err.message);
+    }
+  };
+
+  const handleEditVoucher = (voucher) => {
+    setViewingVoucher(null);
+    setEditingVoucher(voucher);
+  };
+
+  const handleVoucherEdited = async (savedVoucher = null) => {
+    if (!savedVoucher) return;
+    const updated = (booking.vouchers || []).map((entry) => {
+      const entryDocId = entry.voucherDocId || entry.voucherData?.id;
+      if (
+        entryDocId === savedVoucher.id ||
+        hotelVoucherKey(entry.hotelName, entry.checkIn) ===
+          hotelVoucherKey(savedVoucher.hotelName, savedVoucher.checkIn)
+      ) {
+        return {
+          ...entry,
+          hotelName: savedVoucher.hotelName || entry.hotelName,
+          checkIn: savedVoucher.checkIn || entry.checkIn,
+          checkOut: savedVoucher.checkOut || entry.checkOut,
+          voucherNumber: savedVoucher.voucherNumber || entry.voucherNumber,
+          voucherDocId: savedVoucher.id || entry.voucherDocId,
+          voucherData: savedVoucher,
+        };
+      }
+      return entry;
+    });
+
+    await updateBooking(id, { vouchers: updated });
+    setBooking((prev) => ({ ...prev, vouchers: updated }));
+    setEditingVoucher(null);
+  };
+
+  const handleDeleteVoucherEntry = async (voucherEntry) => {
+    if (
+      !confirm(
+        "Delete this voucher? It will also be removed from the voucher dashboard.",
+      )
+    )
+      return;
+    const voucherId = voucherEntry.id;
     setDeletingVoucherId(voucherId);
     try {
+      const savedVoucher = await findSavedVoucherForEntry(voucherEntry);
+      if (savedVoucher?.id) {
+        await deleteVoucherDocument(booking.agentId || savedVoucher.agentId, savedVoucher);
+      }
+
       const updated = (booking.vouchers || []).map((v) =>
-        v.id === voucherId ? { ...v, deleted: true, deletedAt: new Date().toISOString() } : v
+        v.id === voucherId
+          ? { ...v, deleted: true, deletedAt: new Date().toISOString() }
+          : v,
       );
       await updateBooking(id, { vouchers: updated });
       setBooking((prev) => ({ ...prev, vouchers: updated }));
-      toast.success("Voucher record removed. You can now create a new one.");
+      toast.success("Voucher deleted.");
     } catch (err) {
-      toast.error("Could not remove voucher record: " + err.message);
+      toast.error("Could not delete voucher: " + err.message);
     } finally {
       setDeletingVoucherId(null);
     }
@@ -614,13 +1068,23 @@ export default function BookingDetailPage() {
   const handleHotelBookingRequestForHotel = async (hotel) => {
     setHotelSelectionOpen(false);
     const { phone } = await sendHotelBookingRequestOnWhatsApp(booking, hotel);
-    if (!phone) toast("Opening WhatsApp. Hotel number not found; please select the hotel manually.", { icon: "📱" });
+    if (!phone)
+      toast(
+        "Opening WhatsApp. Hotel number not found; please select the hotel manually.",
+        { icon: "📱" },
+      );
   };
 
   const handleHotelBookingRequest = () => {
     const hotels = extractHotelsFromBooking(booking);
-    if (hotels.length === 0) { toast.error("No hotel data found in this booking."); return; }
-    if (hotels.length === 1) { handleHotelBookingRequestForHotel(hotels[0]); return; }
+    if (hotels.length === 0) {
+      toast.error("No hotel data found in this booking.");
+      return;
+    }
+    if (hotels.length === 1) {
+      handleHotelBookingRequestForHotel(hotels[0]);
+      return;
+    }
     setHotelSelectionMode("bookingRequest");
     setHotelListForSelection(hotels);
     setHotelSelectionOpen(true);
@@ -635,7 +1099,10 @@ export default function BookingDetailPage() {
       ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank", "noopener,noreferrer");
-    if (!formattedPhone) toast("Opening WhatsApp. Please select the guest manually.", { icon: "📱" });
+    if (!formattedPhone)
+      toast("Opening WhatsApp. Please select the guest manually.", {
+        icon: "📱",
+      });
   };
 
   if (loading) {
@@ -651,7 +1118,11 @@ export default function BookingDetailPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-400">
         <CalendarCheck className="w-12 h-12 mb-3 text-slate-200" />
         <p className="font-medium">Booking not found.</p>
-        <Button variant="ghost" className="mt-4" onClick={() => router.push(`${panelBase}/bookings`)}>
+        <Button
+          variant="ghost"
+          className="mt-4"
+          onClick={() => router.push(`${panelBase}/bookings`)}
+        >
           Back to Bookings
         </Button>
       </div>
@@ -665,9 +1136,18 @@ export default function BookingDetailPage() {
   const customerBalance = totalAmount - paidAmount;
 
   // Vendor aggregates (new schema with status; fall back to old flat advance)
-  const totalVendorCost = (booking.services || []).reduce((s, svc) => s + (Number(svc.amount) || 0), 0);
-  const totalVendorPaid = (booking.services || []).reduce((s, svc) => s + serviceAdvanceOld(svc), 0);
-  const totalVendorPending = (booking.services || []).reduce((s, svc) => s + servicePending(svc), 0);
+  const totalVendorCost = (booking.services || []).reduce(
+    (s, svc) => s + (Number(svc.amount) || 0),
+    0,
+  );
+  const totalVendorPaid = (booking.services || []).reduce(
+    (s, svc) => s + serviceAdvanceOld(svc),
+    0,
+  );
+  const totalVendorPending = (booking.services || []).reduce(
+    (s, svc) => s + servicePending(svc),
+    0,
+  );
   const totalVendorBalance = totalVendorCost - totalVendorPaid;
   const estMargin = totalAmount - totalVendorCost;
 
@@ -677,11 +1157,21 @@ export default function BookingDetailPage() {
   const bookingAsQuotation = {
     id: booking.quotationId || null,
     customerName: booking.customerName || "",
-    customerMobile: booking.customerMobile || booking.mobile || "",
+    // Provide mobile from every possible field so voucher pre-fills correctly
+    customerMobile:
+      booking.customerMobile ||
+      booking.mobile ||
+      booking.leadMobile ||
+      booking.customerPhone ||
+      "",
     destination: booking.destination || "",
     bookingReference: booking.bookingRef || "",
     bookingRef: booking.bookingRef || "",
+    isBookingVoucher: true,
     leadName: booking.customerName || "",
+    // Pass lead mobile explicitly so HotelVoucherDrawer can pick it up
+    leadMobile:
+      booking.leadMobile || booking.customerMobile || booking.mobile || "",
   };
 
   return (
@@ -690,32 +1180,65 @@ export default function BookingDetailPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 sm:px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.push(`${panelBase}/bookings`)} className="rounded-xl">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push(`${panelBase}/bookings`)}
+              className="rounded-xl"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-black text-lg text-slate-900 tracking-tight">{booking.bookingRef}</span>
-                <StatusBadge status={booking.status || "Pending"} fallback="Pending" className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider" />
+                <span className="font-black text-lg text-slate-900 tracking-tight">
+                  {booking.bookingRef}
+                </span>
+                <StatusBadge
+                  status={booking.status || "Pending"}
+                  fallback="Pending"
+                  className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                />
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                Created {booking.createdAt?.toDate?.()?.toLocaleDateString("en-GB") || "—"}
+                Created{" "}
+                {booking.createdAt?.toDate?.()?.toLocaleDateString("en-GB") ||
+                  "—"}
               </p>
             </div>
           </div>
           <div className="flex gap-2 flex-wrap justify-end">
-            <Button variant="outline" onClick={handleHotelBookingRequest}
-              className="rounded-xl font-bold h-9 text-green-600 border-green-300 hover:bg-green-50" title="Send hotel booking request via WhatsApp">
+            <Button
+              variant="outline"
+              onClick={handleHotelBookingRequest}
+              className="rounded-xl font-bold h-9 text-green-600 border-green-300 hover:bg-green-50"
+              title="Send hotel booking request via WhatsApp"
+            >
               <MessageCircle className="w-4 h-4 mr-2" /> Send Request
             </Button>
-            <Button variant="outline" onClick={() => router.push(`${panelBase}/invoices/create?bookingId=${id}`)}
-              className="rounded-xl font-bold h-9 text-theme-primary border-blue-200 hover:bg-blue-50" title="Create invoice from this booking">
+            <Button
+              variant="outline"
+              onClick={() =>
+                router.push(`${panelBase}/invoices/create?bookingId=${id}`)
+              }
+              className="rounded-xl font-bold h-9 text-theme-primary border-blue-200 hover:bg-blue-50"
+              title="Create invoice from this booking"
+            >
               <FileText className="w-4 h-4 mr-2" /> Create Invoice
             </Button>
-            <Button variant="outline" onClick={() => router.push(`${panelBase}/bookings/create?id=${id}`)} className="rounded-xl font-bold h-9">
+            <Button
+              variant="outline"
+              onClick={() =>
+                router.push(`${panelBase}/bookings/create?id=${id}`)
+              }
+              className="rounded-xl font-bold h-9"
+            >
               <Edit3 className="w-4 h-4 mr-2" /> Edit
             </Button>
-            <Button variant="ghost" onClick={handleDelete} className="rounded-xl h-9 text-red-500 hover:bg-red-50 hover:text-red-600">
+            <Button
+              variant="ghost"
+              onClick={handleDelete}
+              className="rounded-xl h-9 text-red-500 hover:bg-red-50 hover:text-red-600"
+            >
               <Trash2 className="w-4 h-4" />
             </Button>
           </div>
@@ -725,27 +1248,51 @@ export default function BookingDetailPage() {
       <div className="max-w-5xl mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* ── LEFT COLUMN ──────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
-
           {/* Trip Info (unchanged) */}
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-4 sm:px-6">
-              <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">Trip Information</CardTitle>
+              <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
+                Trip Information
+              </CardTitle>
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-6">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-5 gap-x-6">
-                <InfoItem icon={Users} label="Customer" value={booking.customerName || "—"} />
-                <InfoItem icon={MapPin} label="Destination" value={booking.destination || "—"} />
-                <InfoItem icon={Hash} label="Pax"
-                  value={`${booking.adults || 1} Adults${booking.children ? `, ${booking.children} Children` : ""}`} />
-                <InfoItem icon={Calendar} label="Start Date" value={formatDate(booking.startDate)} />
-                <InfoItem icon={Calendar} label="End Date" value={formatDate(booking.endDate)} />
+                <InfoItem
+                  icon={Users}
+                  label="Customer"
+                  value={booking.customerName || "—"}
+                />
+                <InfoItem
+                  icon={MapPin}
+                  label="Destination"
+                  value={booking.destination || "—"}
+                />
+                <InfoItem
+                  icon={Hash}
+                  label="Pax"
+                  value={`${booking.adults || 1} Adults${booking.children ? `, ${booking.children} Children` : ""}`}
+                />
+                <InfoItem
+                  icon={Calendar}
+                  label="Start Date"
+                  value={formatDate(booking.startDate)}
+                />
+                <InfoItem
+                  icon={Calendar}
+                  label="End Date"
+                  value={formatDate(booking.endDate)}
+                />
               </div>
               {booking.notes && (
                 <>
                   <Separator className="my-4" />
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Notes</p>
-                    <p className="text-sm text-slate-600 leading-relaxed">{booking.notes}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Notes
+                    </p>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      {booking.notes}
+                    </p>
                   </div>
                 </>
               )}
@@ -759,65 +1306,141 @@ export default function BookingDetailPage() {
                 <FileCheck2 className="w-4 h-4 text-theme-primary" /> Vouchers
               </CardTitle>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8 gap-1.5" onClick={() => handleGenerateVoucher("hotel")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl text-xs font-bold h-8 gap-1.5"
+                  onClick={() => handleGenerateVoucher("hotel")}
+                >
                   <Hotel className="w-3.5 h-3.5" /> Hotel Voucher
                 </Button>
-                <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8 gap-1.5" onClick={() => handleGenerateVoucher("flight")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl text-xs font-bold h-8 gap-1.5"
+                  onClick={() => handleGenerateVoucher("flight")}
+                >
                   <PlaneTakeoff className="w-3.5 h-3.5" /> Flight Voucher
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-6">
               {activeVouchers.length === 0 && deletedVouchers.length === 0 ? (
-                <p className="text-slate-400 text-sm text-center py-4">No vouchers created yet. Use the buttons above to generate one.</p>
+                <p className="text-slate-400 text-sm text-center py-4">
+                  No vouchers created yet. Use the buttons above to generate
+                  one.
+                </p>
               ) : (
                 <div className="space-y-3">
-                  {activeVouchers.map((v) => (<div
-  key={v.id}
-  
-  
-  className="
+                  {activeVouchers.map((v) => (
+                    <div
+                      key={v.id}
+                      onClick={() => handleViewVoucher(v)}
+                      className="
     flex items-center justify-between
     p-3 rounded-xl
     bg-slate-50 border border-slate-100
     hover:bg-blue-50 hover:border-blue-200
     transition cursor-pointer
   "
->
-                 
+                    >
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-white border border-slate-200">
                           <Hotel className="w-4 h-4 text-theme-primary" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-slate-800">{v.hotelName || "Hotel Voucher"}</p>
+                          <p className="text-sm font-semibold text-slate-800">
+                            {v.hotelName || "Hotel Voucher"}
+                          </p>
                           <p className="text-xs text-slate-400 mt-0.5">
-                            {v.checkIn && v.checkOut ? `${formatDate(v.checkIn)} → ${formatDate(v.checkOut)}` : v.city || ""}
-                            {v.createdAt ? ` · Created ${formatDate(v.createdAt)}` : ""}
+                            {v.checkIn && v.checkOut
+                              ? `${formatDate(v.checkIn)} → ${formatDate(v.checkOut)}`
+                              : v.city || ""}
+                            {v.createdAt
+                              ? ` · Created ${formatDate(v.createdAt)}`
+                              : ""}
                           </p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon"
-                        className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50"
-                        title="Remove voucher record"
-                        disabled={deletingVoucherId === v.id}
-                        onClick={() => handleDeleteVoucherEntry(v.id)}>
-                        {deletingVoucherId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-theme-primary hover:bg-blue-50"
+                          title="Download voucher"
+                          disabled={downloadingVoucherId === v.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDownloadVoucher(v);
+                          }}
+                        >
+                          {downloadingVoucherId === v.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                            
+                          )}
+                        </Button>
+                        <Button
+  variant="ghost"
+  size="icon"
+  className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+  title="Edit voucher"
+  onClick={async (event) => {
+    event.stopPropagation();
+
+    try {
+      const voucherData = await resolveVoucherForEntry(v);
+      setEditingVoucher(voucherData);
+    } catch (err) {
+      console.error("[BookingDetail] Failed to edit voucher:", err);
+      toast.error("Could not open voucher editor");
+    }
+  }}
+>
+  <Pencil className="w-4 h-4" />
+</Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50"
+                          title="Remove voucher record"
+                          disabled={deletingVoucherId === v.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteVoucherEntry(v);
+                          }}
+                        >
+                          {deletingVoucherId === v.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   {deletedVouchers.length > 0 && (
                     <details className="mt-2">
                       <summary className="text-xs text-slate-400 cursor-pointer select-none hover:text-slate-600">
-                        {deletedVouchers.length} deleted voucher{deletedVouchers.length > 1 ? "s" : ""} (history)
+                        {deletedVouchers.length} deleted voucher
+                        {deletedVouchers.length > 1 ? "s" : ""} (history)
                       </summary>
                       <div className="space-y-2 mt-2">
                         {deletedVouchers.map((v) => (
-                          <div key={v.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 opacity-50">
+                          <div
+                            key={v.id}
+                            className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 opacity-50"
+                          >
                             <Hotel className="w-4 h-4 text-slate-400" />
                             <div>
-                              <p className="text-xs text-slate-500 line-through">{v.hotelName || "Hotel Voucher"}</p>
-                              <p className="text-[10px] text-slate-400">Deleted {v.deletedAt ? formatDate(v.deletedAt) : ""}</p>
+                              <p className="text-xs text-slate-500 line-through">
+                                {v.hotelName || "Hotel Voucher"}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                Deleted{" "}
+                                {v.deletedAt ? formatDate(v.deletedAt) : ""}
+                              </p>
                             </div>
                           </div>
                         ))}
@@ -835,20 +1458,31 @@ export default function BookingDetailPage() {
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
                 Services ({booking.services?.length || 0})
               </CardTitle>
-              <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8"
-                onClick={() => router.push(`${panelBase}/bookings/create?id=${id}`)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl text-xs font-bold h-8"
+                onClick={() =>
+                  router.push(`${panelBase}/bookings/create?id=${id}`)
+                }
+              >
                 <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Services
               </Button>
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-6">
               {!booking.services?.length ? (
-                <p className="text-slate-400 text-sm text-center py-4">No services added.</p>
+                <p className="text-slate-400 text-sm text-center py-4">
+                  No services added.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {booking.services.map((svc, i) => {
                     const Icon = SERVICE_ICONS[svc.type] || MoreHorizontal;
                     return (
-                      <div key={i} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                      <div
+                        key={i}
+                        className="p-4 rounded-xl bg-slate-50 border border-slate-100"
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
                             <div className="p-2 rounded-lg bg-white border border-slate-200 mt-0.5 shrink-0">
@@ -856,23 +1490,47 @@ export default function BookingDetailPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-sm text-slate-800">{svc.type}</span>
-                                <StatusBadge status={svc.status || "Pending"} fallback="Pending" className="px-2 py-0.5 text-[9px] font-bold uppercase" />
+                                <span className="font-bold text-sm text-slate-800">
+                                  {svc.type}
+                                </span>
+                                <StatusBadge
+                                  status={svc.status || "Pending"}
+                                  fallback="Pending"
+                                  className="px-2 py-0.5 text-[9px] font-bold uppercase"
+                                />
                               </div>
-                              {svc.description && <p className="text-xs text-slate-600 mt-0.5">{svc.description}</p>}
+                              {svc.description && (
+                                <p className="text-xs text-slate-600 mt-0.5">
+                                  {svc.description}
+                                </p>
+                              )}
                               <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-slate-400">
                                 {svc.supplier && (
-                                  <span>Supplier: <span className="text-slate-600 font-medium">{svc.supplier}</span></span>
+                                  <span>
+                                    Supplier:{" "}
+                                    <span className="text-slate-600 font-medium">
+                                      {svc.supplier}
+                                    </span>
+                                  </span>
                                 )}
                                 {svc.confirmationRef && (
-                                  <span>Ref: <span className="text-slate-600 font-mono font-bold">{svc.confirmationRef}</span></span>
+                                  <span>
+                                    Ref:{" "}
+                                    <span className="text-slate-600 font-mono font-bold">
+                                      {svc.confirmationRef}
+                                    </span>
+                                  </span>
                                 )}
                               </div>
                               {/* Updated vendor payment history */}
                               <VendorPaymentHistory
                                 svc={svc}
-                                onEditPayment={(paymentIdx) => handleOpenEditVendorPayment(i, paymentIdx)}
-                                onDeletePayment={(paymentIdx) => handleDeleteVendorPayment(i, paymentIdx)}
+                                onEditPayment={(paymentIdx) =>
+                                  handleOpenEditVendorPayment(i, paymentIdx)
+                                }
+                                onDeletePayment={(paymentIdx) =>
+                                  handleDeleteVendorPayment(i, paymentIdx)
+                                }
                               />
                             </div>
                           </div>
@@ -894,25 +1552,42 @@ export default function BookingDetailPage() {
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pb-6">
               {!booking.payments?.length ? (
-                <p className="text-slate-400 text-sm text-center py-4">No payments recorded.</p>
+                <p className="text-slate-400 text-sm text-center py-4">
+                  No payments recorded.
+                </p>
               ) : (
                 <div className="space-y-2">
                   {booking.payments.map((pay, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 group">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 group"
+                    >
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-slate-700">{pay.mode}</span>
-                          {pay.reference && <span className="text-[11px] font-mono text-slate-400">{pay.reference}</span>}
+                          <span className="text-xs font-bold text-slate-700">
+                            {pay.mode}
+                          </span>
+                          {pay.reference && (
+                            <span className="text-[11px] font-mono text-slate-400">
+                              {pay.reference}
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          {formatDate(pay.date)}{pay.notes && ` · ${pay.notes}`}
+                          {formatDate(pay.date)}
+                          {pay.notes && ` · ${pay.notes}`}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-black text-emerald-600">{formatCurrency(pay.amount)}</span>
-                        <Button variant="ghost" size="icon"
+                        <span className="font-black text-emerald-600">
+                          {formatCurrency(pay.amount)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-7 w-7 text-slate-300 hover:text-blue-500 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleOpenEditPayment(i)}>
+                          onClick={() => handleOpenEditPayment(i)}
+                        >
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -930,17 +1605,34 @@ export default function BookingDetailPage() {
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader className="pb-3 pt-5 px-5">
               <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-theme-primary" /> Customer Summary
+                <Wallet className="w-4 h-4 text-theme-primary" /> Customer
+                Summary
               </CardTitle>
             </CardHeader>
             <CardContent className="px-5 pb-5 space-y-3">
-              <SummaryRow label="Total Amount" value={formatCurrency(totalAmount)} bold />
-              <SummaryRow label="Amount Paid" value={formatCurrency(paidAmount)} color="text-emerald-600" />
-              <SummaryRow label="Balance Due" value={formatCurrency(customerBalance)} color={customerBalance > 0 ? "text-rose-600" : "text-slate-700"} />
+              <SummaryRow
+                label="Total Amount"
+                value={formatCurrency(totalAmount)}
+                bold
+              />
+              <SummaryRow
+                label="Amount Paid"
+                value={formatCurrency(paidAmount)}
+                color="text-emerald-600"
+              />
+              <SummaryRow
+                label="Balance Due"
+                value={formatCurrency(customerBalance)}
+                color={customerBalance > 0 ? "text-rose-600" : "text-slate-700"}
+              />
               <Separator />
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-500">Payment Status</span>
-                <StatusBadge status={booking.paymentStatus || "Unpaid"} fallback="Unpaid" className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider" />
+                <StatusBadge
+                  status={booking.paymentStatus || "Unpaid"}
+                  fallback="Unpaid"
+                  className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                />
               </div>
             </CardContent>
           </Card>
@@ -950,16 +1642,35 @@ export default function BookingDetailPage() {
             <Card className="rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="pb-3 pt-5 px-5">
                 <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-theme-primary" /> Vendor Summary
+                  <Building2 className="w-4 h-4 text-theme-primary" /> Vendor
+                  Summary
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-5 pb-5 space-y-3">
-                <SummaryRow label="Total Vendor Cost" value={formatCurrency(totalVendorCost)} bold />
-                <SummaryRow label="Total Paid" value={formatCurrency(totalVendorPaid)} color="text-emerald-600" />
+                <SummaryRow
+                  label="Total Vendor Cost"
+                  value={formatCurrency(totalVendorCost)}
+                  bold
+                />
+                <SummaryRow
+                  label="Total Paid"
+                  value={formatCurrency(totalVendorPaid)}
+                  color="text-emerald-600"
+                />
                 {totalVendorPending > 0 && (
-                  <SummaryRow label="Pending Installments" value={formatCurrency(totalVendorPending)} color="text-amber-600" />
+                  <SummaryRow
+                    label="Pending Installments"
+                    value={formatCurrency(totalVendorPending)}
+                    color="text-amber-600"
+                  />
                 )}
-                <SummaryRow label="Outstanding" value={formatCurrency(totalVendorBalance)} color={totalVendorBalance > 0 ? "text-rose-600" : "text-slate-500"} />
+                <SummaryRow
+                  label="Outstanding"
+                  value={formatCurrency(totalVendorBalance)}
+                  color={
+                    totalVendorBalance > 0 ? "text-rose-600" : "text-slate-500"
+                  }
+                />
                 {totalAmount > 0 && (
                   <>
                     <Separator />
@@ -967,7 +1678,9 @@ export default function BookingDetailPage() {
                       <span className="text-slate-500 flex items-center gap-1">
                         <TrendingUp className="w-3.5 h-3.5" /> Est. Margin
                       </span>
-                      <span className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      <span
+                        className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                      >
                         {formatCurrency(estMargin)}
                         <span className="ml-1.5 text-[11px] font-semibold opacity-80">
                           ({((estMargin / totalAmount) * 100).toFixed(1)}%)
@@ -979,7 +1692,9 @@ export default function BookingDetailPage() {
                         <span className="text-slate-500 flex items-center gap-1">
                           <TrendingUp className="w-3.5 h-3.5" /> Markup
                         </span>
-                        <span className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                        <span
+                          className={`font-bold ${estMargin >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                        >
                           {((estMargin / totalVendorCost) * 100).toFixed(1)}%
                         </span>
                       </div>
@@ -994,7 +1709,9 @@ export default function BookingDetailPage() {
           {booking.services?.length > 0 && (
             <Card className="rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">Services Breakdown</CardTitle>
+                <CardTitle className="text-sm font-black uppercase tracking-wider text-slate-700">
+                  Services Breakdown
+                </CardTitle>
               </CardHeader>
               <CardContent className="px-5 pb-4 space-y-3">
                 {booking.services.map((svc, i) => {
@@ -1009,15 +1726,25 @@ export default function BookingDetailPage() {
                           <Icon className="w-3.5 h-3.5 text-theme-primary" />
                           <span>
                             {svc.type}
-                            {svc.description ? ` · ${svc.description.slice(0, 20)}${svc.description.length > 20 ? "…" : ""}` : ""}
+                            {svc.description
+                              ? ` · ${svc.description.slice(0, 20)}${svc.description.length > 20 ? "…" : ""}`
+                              : ""}
                           </span>
                         </div>
-                        <span className="font-bold">{svcTotal ? formatCurrency(svcTotal) : "—"}</span>
+                        <span className="font-bold">
+                          {svcTotal ? formatCurrency(svcTotal) : "—"}
+                        </span>
                       </div>
                       {(svcPaid > 0 || svcTotal > 0) && (
                         <div className="flex justify-between text-[10px] pl-5">
-                          <span className="text-emerald-600">Paid {formatCurrency(svcPaid)}</span>
-                          <span className={svcBal > 0 ? "text-rose-500" : "text-slate-400"}>
+                          <span className="text-emerald-600">
+                            Paid {formatCurrency(svcPaid)}
+                          </span>
+                          <span
+                            className={
+                              svcBal > 0 ? "text-rose-500" : "text-slate-400"
+                            }
+                          >
                             Bal {formatCurrency(svcBal)}
                           </span>
                         </div>
@@ -1033,17 +1760,23 @@ export default function BookingDetailPage() {
                   </div>
                   <div className="flex justify-between text-[10px]">
                     <span className="text-emerald-600">Total Paid</span>
-                    <span className="font-bold text-emerald-600">{formatCurrency(totalVendorPaid)}</span>
+                    <span className="font-bold text-emerald-600">
+                      {formatCurrency(totalVendorPaid)}
+                    </span>
                   </div>
                   {totalVendorPending > 0 && (
                     <div className="flex justify-between text-[10px]">
                       <span className="text-amber-600">Total Pending</span>
-                      <span className="font-bold text-amber-600">{formatCurrency(totalVendorPending)}</span>
+                      <span className="font-bold text-amber-600">
+                        {formatCurrency(totalVendorPending)}
+                      </span>
                     </div>
                   )}
                   <div className="flex justify-between text-[10px]">
                     <span className="text-rose-500">Total Balance</span>
-                    <span className="font-bold text-rose-500">{formatCurrency(totalVendorBalance)}</span>
+                    <span className="font-bold text-rose-500">
+                      {formatCurrency(totalVendorBalance)}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -1052,63 +1785,152 @@ export default function BookingDetailPage() {
         </div>
       </div>
 
-      {/* ── Hotel Voucher Drawer (unchanged) ────────────────────────────── */}
+      <VoucherViewModal
+        voucher={viewingVoucher}
+        onClose={() => setViewingVoucher(null)}
+        onEdit={viewingVoucher?._collection ? handleEditVoucher : undefined}
+      />
+
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
-        onClose={() => { setVoucherDrawerOpen(false); setSelectedHotelForVoucher(null); }}
+        onClose={() => {
+          setVoucherDrawerOpen(false);
+          setSelectedHotelForVoucher(null);
+        }}
         hotelData={selectedHotelForVoucher}
         quotation={bookingAsQuotation}
+        leadId={booking?.leadId}
         agentId={booking.agentId || ""}
         onSaved={handleVoucherSaved}
       />
 
+      <HotelVoucherDrawer
+        isOpen={!!editingVoucher}
+        onClose={() => setEditingVoucher(null)}
+        quotation={bookingAsQuotation}
+        leadId={booking?.leadId}
+        agentId={booking.agentId || ""}
+        initialVoucher={editingVoucher}
+        onSaved={handleVoucherEdited}
+      />
       {/* ── Edit Customer Payment Dialog (unchanged) ────────────────────── */}
-      <Dialog open={editingPaymentIdx !== null} onOpenChange={(open) => { if (!open) setEditingPaymentIdx(null); }}>
+      <Dialog
+        open={editingPaymentIdx !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingPaymentIdx(null);
+        }}
+      >
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-black text-slate-900">Edit Payment</DialogTitle>
+            <DialogTitle className="font-black text-slate-900">
+              Edit Payment
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Amount (₹) *</Label>
-              <Input type="number" value={editPaymentForm.amount}
-                onChange={(e) => setEditPaymentForm((p) => ({ ...p, amount: e.target.value }))}
-                className="rounded-xl" placeholder="0.00" autoFocus />
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Amount (₹) *
+              </Label>
+              <Input
+                type="number"
+                value={editPaymentForm.amount}
+                onChange={(e) =>
+                  setEditPaymentForm((p) => ({ ...p, amount: e.target.value }))
+                }
+                className="rounded-xl"
+                placeholder="0.00"
+                autoFocus
+              />
             </div>
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Date *</Label>
-              <Input type="date" value={editPaymentForm.date}
-                onChange={(e) => setEditPaymentForm((p) => ({ ...p, date: e.target.value }))}
-                className="rounded-xl" />
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Payment Date *
+              </Label>
+              <Input
+                type="date"
+                value={editPaymentForm.date}
+                onChange={(e) =>
+                  setEditPaymentForm((p) => ({ ...p, date: e.target.value }))
+                }
+                className="rounded-xl"
+              />
             </div>
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Mode</Label>
-              <Select value={editPaymentForm.mode} onValueChange={(v) => setEditPaymentForm((p) => ({ ...p, mode: v }))}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Payment Mode
+              </Label>
+              <Select
+                value={editPaymentForm.mode}
+                onValueChange={(v) =>
+                  setEditPaymentForm((p) => ({ ...p, mode: v }))
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {["Cash", "Bank Transfer", "UPI", "Card", "Cheque", "Online"].map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  {[
+                    "Cash",
+                    "Bank Transfer",
+                    "UPI",
+                    "Card",
+                    "Cheque",
+                    "Online",
+                  ].map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Reference</Label>
-              <Input value={editPaymentForm.reference}
-                onChange={(e) => setEditPaymentForm((p) => ({ ...p, reference: e.target.value }))}
-                className="rounded-xl" placeholder="UTR, Cheque number, etc." />
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Reference
+              </Label>
+              <Input
+                value={editPaymentForm.reference}
+                onChange={(e) =>
+                  setEditPaymentForm((p) => ({
+                    ...p,
+                    reference: e.target.value,
+                  }))
+                }
+                className="rounded-xl"
+                placeholder="UTR, Cheque number, etc."
+              />
             </div>
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Notes</Label>
-              <Input value={editPaymentForm.notes}
-                onChange={(e) => setEditPaymentForm((p) => ({ ...p, notes: e.target.value }))}
-                className="rounded-xl" placeholder="Optional" />
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Notes
+              </Label>
+              <Input
+                value={editPaymentForm.notes}
+                onChange={(e) =>
+                  setEditPaymentForm((p) => ({ ...p, notes: e.target.value }))
+                }
+                className="rounded-xl"
+                placeholder="Optional"
+              />
             </div>
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditingPaymentIdx(null)}>Cancel</Button>
-              <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                onClick={handleSaveBookingPayment} disabled={savingBookingPayment}>
-                {savingBookingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Payment"}
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setEditingPaymentIdx(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={handleSaveBookingPayment}
+                disabled={savingBookingPayment}
+              >
+                {savingBookingPayment ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Update Payment"
+                )}
               </Button>
             </div>
           </div>
@@ -1116,70 +1938,156 @@ export default function BookingDetailPage() {
       </Dialog>
 
       {/* ── Edit Vendor Payment Dialog ─────────────────────────────────── */}
-      <Dialog open={editingVendorPayment !== null} onOpenChange={(open) => { if (!open) setEditingVendorPayment(null); }}>
+      <Dialog
+        open={editingVendorPayment !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingVendorPayment(null);
+        }}
+      >
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-black text-slate-900">Edit Service Payment</DialogTitle>
+            <DialogTitle className="font-black text-slate-900">
+              Edit Service Payment
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Type</Label>
-                <Select value={vendorPaymentForm.type} onValueChange={(v) => setVendorPaymentForm((p) => ({ ...p, type: v }))}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                  Type
+                </Label>
+                <Select
+                  value={vendorPaymentForm.type}
+                  onValueChange={(v) =>
+                    setVendorPaymentForm((p) => ({ ...p, type: v }))
+                  }
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {["Advance", "Installment"].map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Status</Label>
-                <Select value={vendorPaymentForm.status} onValueChange={(v) => setVendorPaymentForm((p) => ({ ...p, status: v }))}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                  Status
+                </Label>
+                <Select
+                  value={vendorPaymentForm.status}
+                  onValueChange={(v) =>
+                    setVendorPaymentForm((p) => ({ ...p, status: v }))
+                  }
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {["Paid", "Pending"].map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Amount (₹) *</Label>
-              <Input type="number" value={vendorPaymentForm.amount}
-                onChange={(e) => setVendorPaymentForm((p) => ({ ...p, amount: e.target.value }))}
-                className="rounded-xl" placeholder="0.00" autoFocus />
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Amount (₹) *
+              </Label>
+              <Input
+                type="number"
+                value={vendorPaymentForm.amount}
+                onChange={(e) =>
+                  setVendorPaymentForm((p) => ({
+                    ...p,
+                    amount: e.target.value,
+                  }))
+                }
+                className="rounded-xl"
+                placeholder="0.00"
+                autoFocus
+              />
             </div>
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Date *</Label>
-              <Input type="date" value={vendorPaymentForm.date}
-                onChange={(e) => setVendorPaymentForm((p) => ({ ...p, date: e.target.value }))}
-                className="rounded-xl" />
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Payment Date *
+              </Label>
+              <Input
+                type="date"
+                value={vendorPaymentForm.date}
+                onChange={(e) =>
+                  setVendorPaymentForm((p) => ({ ...p, date: e.target.value }))
+                }
+                className="rounded-xl"
+              />
             </div>
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Payment Mode</Label>
-              <Select value={vendorPaymentForm.mode} onValueChange={(v) => setVendorPaymentForm((p) => ({ ...p, mode: v }))}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Payment Mode
+              </Label>
+              <Select
+                value={vendorPaymentForm.mode}
+                onValueChange={(v) =>
+                  setVendorPaymentForm((p) => ({ ...p, mode: v }))
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {["Cash", "Bank Transfer", "UPI", "Card", "Cheque", "Online"].map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  {[
+                    "Cash",
+                    "Bank Transfer",
+                    "UPI",
+                    "Card",
+                    "Cheque",
+                    "Online",
+                  ].map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">Notes</Label>
-              <Input value={vendorPaymentForm.notes}
-                onChange={(e) => setVendorPaymentForm((p) => ({ ...p, notes: e.target.value }))}
-                className="rounded-xl" placeholder="Optional" />
+              <Label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                Notes
+              </Label>
+              <Input
+                value={vendorPaymentForm.notes}
+                onChange={(e) =>
+                  setVendorPaymentForm((p) => ({ ...p, notes: e.target.value }))
+                }
+                className="rounded-xl"
+                placeholder="Optional"
+              />
             </div>
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditingVendorPayment(null)}>Cancel</Button>
-              <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                onClick={handleSaveVendorPayment} disabled={savingVendorPayment}>
-                {savingVendorPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Payment"}
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setEditingVendorPayment(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={handleSaveVendorPayment}
+                disabled={savingVendorPayment}
+              >
+                {savingVendorPayment ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Update Payment"
+                )}
               </Button>
             </div>
           </div>
@@ -1191,7 +2099,9 @@ export default function BookingDetailPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {hotelSelectionMode === "bookingRequest" ? "Select Hotel for Booking Request" : "Select Hotel for Voucher"}
+              {hotelSelectionMode === "bookingRequest"
+                ? "Select Hotel for Booking Request"
+                : "Select Hotel for Voucher"}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-500 -mt-1">
@@ -1202,23 +2112,40 @@ export default function BookingDetailPage() {
           <div className="grid grid-cols-2 gap-4 mt-2">
             {hotelListForSelection.map((h, i) => {
               const key = hotelVoucherKey(h.hotelName, h.checkIn);
-              const hasVoucher = activeVouchers.some((v) => hotelVoucherKey(v.hotelName, v.checkIn) === key);
+              const hasVoucher = activeVouchers.some(
+                (v) => hotelVoucherKey(v.hotelName, v.checkIn) === key,
+              );
               const isVoucherMode = hotelSelectionMode === "voucher";
               return (
-                <div key={i}
-                  onClick={() => isVoucherMode ? !hasVoucher && handleSelectHotelForVoucher(h) : handleHotelBookingRequestForHotel(h)}
+                <div
+                  key={i}
+                  onClick={() =>
+                    isVoucherMode
+                      ? !hasVoucher && handleSelectHotelForVoucher(h)
+                      : handleHotelBookingRequestForHotel(h)
+                  }
                   className={`border rounded-xl p-4 transition ${
                     isVoucherMode && hasVoucher
                       ? "opacity-50 cursor-not-allowed bg-slate-50"
                       : "cursor-pointer hover:bg-blue-50 hover:border-blue-300"
-                  }`}>
-                  <p className="font-semibold text-base text-slate-800">{h.hotelName || "Hotel"}</p>
-                  {h.city && <p className="text-sm text-slate-500 mt-0.5">{h.city}</p>}
-                  <p className="text-sm mt-2 text-slate-600">{h.checkIn} → {h.checkOut}</p>
-                  <p className="text-sm text-slate-500">{h.roomCategory || "-"} · {h.mealPlan || "-"}</p>
+                  }`}
+                >
+                  <p className="font-semibold text-base text-slate-800">
+                    {h.hotelName || "Hotel"}
+                  </p>
+                  {h.city && (
+                    <p className="text-sm text-slate-500 mt-0.5">{h.city}</p>
+                  )}
+                  <p className="text-sm mt-2 text-slate-600">
+                    {h.checkIn} → {h.checkOut}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {h.roomCategory || "-"} · {h.mealPlan || "-"}
+                  </p>
                   {isVoucherMode && hasVoucher && (
                     <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> Voucher already created
+                      <AlertTriangle className="w-3 h-3" /> Voucher already
+                      created
                     </p>
                   )}
                 </div>
@@ -1238,7 +2165,9 @@ function InfoItem({ icon: Icon, label, value }) {
     <div>
       <div className="flex items-center gap-1.5 mb-1">
         <Icon className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          {label}
+        </span>
       </div>
       <p className="text-sm font-semibold text-slate-800">{value}</p>
     </div>

@@ -83,7 +83,7 @@ const SERVICE_ICONS = {
   Insurance: ShieldCheck,
   Other: MoreHorizontal,
 };
-const MEAL_PLANS = ["CP", "MAP", "AP", "EP", "BB", "AI"];
+const MEAL_PLANS = ["CP", "MAP", "AP", "EP",];
 // ─── Factory helpers ──────────────────────────────────────────────────────────
 
 const newVendorPayment = (type = "Installment") => ({
@@ -556,75 +556,319 @@ function VendorPaymentRow({ svc, payment, onUpdate, onDelete }) {
 function HotelServiceFields({ hotelData = {}, onChange }) {
   const handle = (field, value) => onChange({ ...hotelData, [field]: value });
 
+  // Support both legacy flat shape and new rooms[] shape
+  const rooms = hotelData.rooms || [];
+
+  const addRoom = () => {
+    const newRoom = {
+      _key: Math.random().toString(36).slice(2),
+      roomCategory: "",
+      mealPlan: "",
+      numDouble: 1,
+      numExtraAdult: 0,
+      numExtraChild: 0,
+      numCNB: 0,
+      quantity: 1,
+      price: 0,
+    };
+    handle("rooms", [...rooms, newRoom]);
+  };
+
+  const updateRoom = (idx, patch) => {
+    handle(
+      "rooms",
+      rooms.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    );
+  };
+
+  const removeRoom = (idx) => {
+    if (rooms.length <= 1) return;
+    handle(
+      "rooms",
+      rooms.filter((_, i) => i !== idx),
+    );
+  };
+
+  // If coming from quotation prefill with no rooms array yet, show legacy fields
+  const hasRoomsArray = rooms.length > 0;
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
-      <div className="space-y-1 sm:col-span-2">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Hotel Name
-        </Label>
-        <Input
-          placeholder="e.g. The Taj Mahal Palace"
-          value={hotelData.hotelName || ""}
-          onChange={(e) => handle("hotelName", e.target.value)}
-          className="h-9 rounded-xl text-xs"
-        />
+    <div className="space-y-3 mt-1">
+      {/* Basic hotel info */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="space-y-1 sm:col-span-2">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Hotel Name
+          </Label>
+          <Input
+            placeholder="e.g. The Taj Mahal Palace"
+            value={hotelData.hotelName || ""}
+            onChange={(e) => handle("hotelName", e.target.value)}
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            City
+          </Label>
+          <Input
+            placeholder="e.g. Mumbai"
+            value={hotelData.city || ""}
+            onChange={(e) => handle("city", e.target.value)}
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Nights
+          </Label>
+          <Input
+            type="number"
+            min={1}
+            placeholder="1"
+            value={hotelData.nights || ""}
+            onChange={(e) =>
+              handle("nights", Math.max(1, Number(e.target.value) || 1))
+            }
+            className="h-9 rounded-xl text-xs"
+          />
+        </div>
       </div>
-      <div className="space-y-1">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          City
-        </Label>
-        <Input
-          placeholder="e.g. Mumbai"
-          value={hotelData.city || ""}
-          onChange={(e) => handle("city", e.target.value)}
-          className="h-9 rounded-xl text-xs"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Nights
-        </Label>
-        <Input
-          type="number"
-          min={1}
-          placeholder="1"
-          value={hotelData.nights || ""}
-          onChange={(e) =>
-            handle("nights", Math.max(1, Number(e.target.value) || 1))
-          }
-          className="h-9 rounded-xl text-xs"
-        />
-      </div>
-      <div className="space-y-1 sm:col-span-2">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Room Category
-        </Label>
-        <Input
-          placeholder="e.g. Deluxe Room, Suite"
-          value={hotelData.roomCategory || ""}
-          onChange={(e) => handle("roomCategory", e.target.value)}
-          className="h-9 rounded-xl text-xs"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Meal Plan
-        </Label>
-        <Select
-          value={hotelData.mealPlan || ""}
-          onValueChange={(v) => handle("mealPlan", v)}
-        >
-          <SelectTrigger className="h-9 rounded-xl text-xs">
-            <SelectValue placeholder="Select" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl">
-            {MEAL_PLANS.map((m) => (
-              <SelectItem key={m} value={m} className="text-xs">
-                {m}
-              </SelectItem>
+
+      {/* Room Categories */}
+      <div className="border-t pt-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+            <Hotel className="h-3.5 w-3.5 text-theme-primary" /> Room Categories
+          </p>
+          {hasRoomsArray && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={addRoom}
+              className="text-xs h-7 text-theme-primary hover:text-theme-dark"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" /> Add Room
+            </Button>
+          )}
+        </div>
+
+        {hasRoomsArray ? (
+          <>
+            {rooms.map((room, idx) => (
+              <div
+                key={room._key || idx}
+                className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 uppercase">
+                    Room {idx + 1}
+                    {(room.quantity ?? room.numDouble ?? 0) > 0 && (
+                      <span className="ml-1.5 text-[10px] font-semibold text-theme-primary bg-theme-primary/10 px-1.5 py-0.5 rounded-full normal-case">
+                        {room.quantity ?? room.numDouble} room
+                        {(room.quantity ?? room.numDouble) > 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </span>
+                  {rooms.length > 1 && (
+                    <button
+                      onClick={() => removeRoom(idx)}
+                      className="text-slate-400 hover:text-red-500 p-0.5"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Room Category
+                    </Label>
+                    <Input
+                      value={room.roomCategory || ""}
+                      onChange={(e) =>
+                        updateRoom(idx, { roomCategory: e.target.value })
+                      }
+                      placeholder="e.g. Deluxe"
+                      className="h-8 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Meal Plan
+                    </Label>
+                    <Select
+                      value={room.mealPlan || ""}
+                      onValueChange={(v) => updateRoom(idx, { mealPlan: v })}
+                    >
+                      <SelectTrigger className="h-8 rounded-lg text-xs">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {MEAL_PLANS.map((plan) => (
+                          <SelectItem
+                            key={plan}
+                            value={plan}
+                            className="text-xs"
+                          >
+                            {plan}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      No. of Rooms
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={room.quantity ?? room.numDouble ?? ""}
+                      onChange={(e) =>
+                        updateRoom(idx, {
+                          quantity: Number(e.target.value),
+                          numDouble: Number(e.target.value),
+                        })
+                      }
+                      placeholder="1"
+                      className="h-8 rounded-lg text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Extra occupancy summary */}
+                {(room.numExtraAdult > 0 ||
+                  room.numExtraChild > 0 ||
+                  room.numCNB > 0) && (
+                  <div className="flex flex-wrap gap-2 text-[10px] text-slate-500 pt-1">
+                    {room.numExtraAdult > 0 && (
+                      <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                        +{room.numExtraAdult} Extra Adult
+                      </span>
+                    )}
+                    {room.numExtraChild > 0 && (
+                      <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                        +{room.numExtraChild} Child
+                      </span>
+                    )}
+                    {room.numCNB > 0 && (
+                      <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                        +{room.numCNB} CNB
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {room.price > 0 && (
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-1.5">
+                    <span>Subtotal from quotation</span>
+                    <span className="font-bold text-slate-700">
+                      ₹{Number(room.price).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
+              </div>
             ))}
-          </SelectContent>
-        </Select>
+
+            {/* Footer summary */}
+            <div className="flex justify-between items-center text-[10px] text-slate-500">
+              <span>
+                {rooms.reduce(
+                  (s, r) => s + (Number(r.quantity ?? r.numDouble) || 0),
+                  0,
+                )}{" "}
+                total room(s) across {rooms.length} categor
+                {rooms.length > 1 ? "ies" : "y"}
+              </span>
+              {rooms.some((r) => r.price > 0) && (
+                <span className="font-bold text-slate-700">
+                  ₹
+                  {rooms
+                    .reduce((s, r) => s + Number(r.price || 0), 0)
+                    .toLocaleString("en-IN")}{" "}
+                  total
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          /* Legacy fallback for manually added services (no rooms array) */
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Room Category
+              </Label>
+              <Input
+                placeholder="e.g. Deluxe Room, Suite"
+                value={hotelData.roomCategory || ""}
+                onChange={(e) => handle("roomCategory", e.target.value)}
+                className="h-9 rounded-xl text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Meal Plan
+              </Label>
+              <Select
+                value={hotelData.mealPlan || ""}
+                onValueChange={(v) => handle("mealPlan", v)}
+              >
+                <SelectTrigger className="h-9 rounded-xl text-xs">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {MEAL_PLANS.map((m) => (
+                    <SelectItem key={m} value={m} className="text-xs">
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                No. of Rooms
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="1"
+                value={hotelData.numDouble || ""}
+                onChange={(e) =>
+                  handle("numDouble", Number(e.target.value) || 1)
+                }
+                className="h-9 rounded-xl text-xs"
+              />
+            </div>
+            <div className="flex items-end pb-0.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Promote legacy flat fields to rooms array
+                  handle("rooms", [
+                    {
+                      _key: Math.random().toString(36).slice(2),
+                      roomCategory: hotelData.roomCategory || "",
+                      mealPlan: hotelData.mealPlan || "",
+                      numDouble: hotelData.numDouble ?? 1,
+                      numExtraAdult: hotelData.numExtraAdult ?? 0,
+                      numExtraChild: hotelData.numExtraChild ?? 0,
+                      numCNB: hotelData.numCNB ?? 0,
+                      quantity: hotelData.numDouble ?? 1,
+                      price: 0,
+                    },
+                  ]);
+                }}
+                className="text-xs h-9 w-full border-dashed border-theme-primary/40 text-theme-primary"
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add Another Room Type
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

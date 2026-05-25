@@ -55,6 +55,7 @@ export default function HotelVoucherDrawer({
   onClose,
   hotelData,
   quotation,
+  leadId,
   agentId,
   initialVoucher = null,
   onSaved,
@@ -63,7 +64,7 @@ export default function HotelVoucherDrawer({
   const isEditMode = Boolean(initialVoucher);
 
   const { user } = useSelector((state) => state.auth);
-  const { hasPermission } = useAgentPermissions(user?.uid,user?.role);
+  const { hasPermission } = useAgentPermissions(user?.uid, user?.role);
   const canUseHotelAi = hasPermission("hotel_fetch_ai");
 
   const [aiLoading, setAiLoading] = useState(false);
@@ -101,7 +102,41 @@ export default function HotelVoucherDrawer({
   const effectiveQuotation = linkedQuotation || quotation;
   const effectiveHotel = hotelData || hotelFields;
   const isDashboardFlow = !hotelData && !quotation && !initialVoucher;
+  const [fetchedLeadMobile, setFetchedLeadMobile] = useState("");
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // If we already have a mobile from quotation, use it
+    const existingMobile = quotation?.customerMobile || quotation?.leadMobile;
+    if (existingMobile) {
+      setFetchedLeadMobile("");
+      return;
+    }
+
+    // Otherwise fetch from leadId (if provided)
+    if (leadId && agentId) {
+      const fetchLead = async () => {
+        try {
+          const leadData = await getLeadById(leadId);
+          if (leadData?.mobile) {
+            setFetchedLeadMobile(leadData.mobile);
+            // Optionally auto-fill the form contact field
+            setForm((prev) => ({ ...prev, contact: leadData.mobile }));
+          }
+        } catch (err) {
+          console.error("Failed to fetch lead mobile:", err);
+        }
+      };
+      fetchLead();
+    }
+  }, [
+    isOpen,
+    leadId,
+    agentId,
+    quotation?.customerMobile,
+    quotation?.leadMobile,
+  ]);
   useEffect(() => {
     if (!isOpen) return;
 
@@ -140,6 +175,7 @@ export default function HotelVoucherDrawer({
       contact:
         initialVoucher?.contact ||
         quotation?.customerMobile ||
+        quotation?.leadMobile ||
         quotation?.mobile ||
         "",
       address: initialVoucher?.address || hotelData?.address || "",
@@ -148,7 +184,8 @@ export default function HotelVoucherDrawer({
       paymentStatus: initialVoucher?.paymentStatus || "Payment at hotel",
       amount: initialVoucher?.amount || "",
       cancellation: initialVoucher?.cancellation || "",
-      googleMapsLink: initialVoucher?.googleMapsLink || hotelData?.googleMapsLink || "",
+      googleMapsLink:
+        initialVoucher?.googleMapsLink || hotelData?.googleMapsLink || "",
     });
   }, [hotelData, initialVoucher, isOpen, quotation]);
 
@@ -168,13 +205,13 @@ export default function HotelVoucherDrawer({
         return;
       }
 
-      const token = await currentUser.getIdToken(); // ✅ correct place
+      const token = await currentUser.getIdToken();
 
       const res = await fetch("/api/ai/hotel-details", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ hotelName: name }),
       });
@@ -187,7 +224,7 @@ export default function HotelVoucherDrawer({
 
       const data = await res.json();
 
-      console.log("AI RESPONSE:", data); // 🔥 debug
+      console.log("AI RESPONSE:", data);
 
       if (data.address || data.phone || data.mapsLink) {
         setForm((prev) => ({
@@ -290,6 +327,10 @@ export default function HotelVoucherDrawer({
   };
 
   const validate = () => {
+    if (!voucherNo) {
+      alert("Voucher number is still generating. Please try again in a moment.");
+      return false;
+    }
     if (!effectiveHotel.hotelName && !hotelFields.hotelName) {
       alert("Hotel name is required");
       return false;
@@ -333,6 +374,22 @@ export default function HotelVoucherDrawer({
     destination:
       initialVoucher?.destination || effectiveQuotation?.destination || "",
     quotationId: initialVoucher?.quotationId || effectiveQuotation?.id || null,
+    bookingReference:
+      initialVoucher?.isBookingVoucher || effectiveQuotation?.isBookingVoucher
+        ? initialVoucher?.bookingReference ||
+          effectiveQuotation?.bookingReference ||
+          effectiveQuotation?.bookingRef ||
+          ""
+        : "",
+    isBookingVoucher:
+      Boolean(initialVoucher?.isBookingVoucher || effectiveQuotation?.isBookingVoucher),
+    bookingRef:
+      initialVoucher?.isBookingVoucher || effectiveQuotation?.isBookingVoucher
+        ? initialVoucher?.bookingRef ||
+          effectiveQuotation?.bookingRef ||
+          effectiveQuotation?.bookingReference ||
+          ""
+        : "",
     issueDate: initialVoucher?.issueDate || new Date().toISOString(),
     status: initialVoucher?.status || "Generated",
   });
@@ -368,7 +425,8 @@ export default function HotelVoucherDrawer({
 
     setLoading(true);
     try {
-      let linkedQuotationId = initialVoucher?.quotationId || finalQuotation?.id || null;
+      let linkedQuotationId =
+        initialVoucher?.quotationId || finalQuotation?.id || null;
       if (!isEditMode && linkedQuotationId) {
         const existingQuotation = await getQuotationById(
           finalAgentId,
@@ -403,10 +461,12 @@ export default function HotelVoucherDrawer({
         meal: finalHotel.mealPlan,
       };
 
+      let savedVoucherRef = null;
+
       if (isEditMode) {
         await updateVoucherDocument(finalAgentId, initialVoucher, voucherData);
       } else {
-        await saveVoucherToFirestore(
+        savedVoucherRef = await saveVoucherToFirestore(
           finalAgentId,
           linkedQuotationId,
           voucherData,
@@ -422,7 +482,12 @@ export default function HotelVoucherDrawer({
         }
       }
 
-      onSaved?.();
+      onSaved?.({
+        ...voucherData,
+        id: savedVoucherRef?.id || initialVoucher?.id || null,
+        _collection: linkedQuotationId ? "quotation" : "standalone",
+        _quotationDocId: linkedQuotationId,
+      });
       alert(
         isEditMode
           ? "Voucher updated successfully"
@@ -444,116 +509,7 @@ export default function HotelVoucherDrawer({
     setPreviewOpen(true);
   };
 
-  const renderHotelInfoRow = () => {
-    if (hotelData) {
-      return (
-        <div className="flex flex-wrap gap-x-7 gap-y-4 text-sm">
-          <div>Check-in: {formatDate(hotelData.checkIn)}</div>
-          <div>Check-out: {formatDate(hotelData.checkOut)}</div>
-          <div>Nights: {hotelData.nights || "-"}</div>
-          <div>Rooms: {hotelData.rooms || "-"}</div>
-          <div>Room: {hotelData.roomCategory || "-"}</div>
-          <div>Meal: {hotelData.mealPlan || "-"}</div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-3 rounded-lg border bg-slate-50 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Hotel Details
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 space-y-1">
-            <Label>Hotel Name *</Label>
-            <Input
-              value={hotelFields.hotelName}
-              onChange={(e) =>
-                setHotelFields({ ...hotelFields, hotelName: e.target.value })
-              }
-              placeholder="e.g. Grand Hyatt Mumbai"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Check-in Date</Label>
-            <Input
-              type="date"
-              value={hotelFields.checkIn}
-              onChange={(e) =>
-                setHotelFields({ ...hotelFields, checkIn: e.target.value })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Check-out Date</Label>
-            <Input
-              type="date"
-              value={hotelFields.checkOut}
-              onChange={(e) =>
-                setHotelFields({ ...hotelFields, checkOut: e.target.value })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Nights</Label>
-            <Input
-              type="number"
-              value={hotelFields.nights}
-              onChange={(e) =>
-                setHotelFields({ ...hotelFields, nights: e.target.value })
-              }
-              placeholder="e.g. 3"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Rooms</Label>
-            <Input
-              type="number"
-              value={hotelFields.rooms}
-              onChange={(e) =>
-                setHotelFields({ ...hotelFields, rooms: e.target.value })
-              }
-              placeholder="e.g. 2"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Room Category</Label>
-            <Input
-              value={hotelFields.roomCategory}
-              onChange={(e) =>
-                setHotelFields({
-                  ...hotelFields,
-                  roomCategory: e.target.value,
-                })
-              }
-              placeholder="e.g. Deluxe, Suite"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Meal Plan</Label>
-            <Select
-              value={hotelFields.mealPlan}
-              onValueChange={(value) =>
-                setHotelFields({ ...hotelFields, mealPlan: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select meal plan" />
-              </SelectTrigger>
-              <SelectContent>
-                {["CP", "MAP", "AP", "EP", "AI"].map((mealPlan) => (
-                  <SelectItem key={mealPlan} value={mealPlan}>
-                    {mealPlan}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
+  // --- Main Dialog (always rendered when isOpen = true) ---
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -572,6 +528,74 @@ export default function HotelVoucherDrawer({
             )}
           </DialogHeader>
 
+          {/* Read‑only hotel summary when hotelData is provided (booking flow) */}
+          {hotelData && (
+            <div className="rounded-lg border bg-slate-50 p-3 space-y-2 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Hotel Details
+              </p>
+              <div className="flex flex-wrap gap-x-7 gap-y-2">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Hotel
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {hotelData.hotelName || "-"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Check-in
+                  </span>
+                  <span>{formatDate(hotelData.checkIn)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Check-out
+                  </span>
+                  <span>{formatDate(hotelData.checkOut)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Nights
+                  </span>
+                  <span>{hotelData.nights || "-"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Rooms
+                  </span>
+                  <span>{hotelData.rooms || "-"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Room Category
+                  </span>
+                  <span>{hotelData.roomCategory || "-"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">
+                    Meal Plan
+                  </span>
+                  <span>{hotelData.mealPlan || "-"}</span>
+                </div>
+              </div>
+              {quotation?.customerMobile ||
+                (fetchedLeadMobile && (
+                  <div className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-2 text-xs">
+                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="font-semibold text-slate-600">
+                      Lead Mobile:
+                    </span>
+                    <span className="text-slate-800">
+                      {quotation?.customerMobile || fetchedLeadMobile}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {/* Quotation linking (only for dashboard flow) */}
           {isDashboardFlow && (
             <div className="relative space-y-1.5">
               <Label>
@@ -630,8 +654,7 @@ export default function HotelVoucherDrawer({
             </div>
           )}
 
-          {renderHotelInfoRow()}
-
+          {/* Editable form fields */}
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Guest Names</Label>
@@ -736,7 +759,6 @@ export default function HotelVoucherDrawer({
               />
             </div>
 
-            {/* Google Maps Link Field */}
             <div className="space-y-1.5">
               <Label className="flex items-center justify-between">
                 Google Maps Link
@@ -754,7 +776,9 @@ export default function HotelVoucherDrawer({
               <div className="relative">
                 <Input
                   value={form.googleMapsLink || ""}
-                  onChange={(e) => setForm({ ...form, googleMapsLink: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, googleMapsLink: e.target.value })
+                  }
                   placeholder="https://maps.app.goo.gl/..."
                   className="pr-10"
                 />
@@ -856,7 +880,7 @@ export default function HotelVoucherDrawer({
             <Button variant="secondary" onClick={handlePreview}>
               Preview
             </Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button onClick={handleSave} disabled={loading || !voucherNo}>
               {loading
                 ? isEditMode
                   ? "Updating..."
@@ -869,6 +893,7 @@ export default function HotelVoucherDrawer({
         </DialogContent>
       </Dialog>
 
+      {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
@@ -940,9 +965,9 @@ export default function HotelVoucherDrawer({
               {form.googleMapsLink && (
                 <p>
                   <span className="font-semibold">Map Link:</span>{" "}
-                  <a 
-                    href={form.googleMapsLink} 
-                    target="_blank" 
+                  <a
+                    href={form.googleMapsLink}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline break-all"
                   >
@@ -1000,7 +1025,7 @@ export default function HotelVoucherDrawer({
               <Download className="h-4 w-4" />
               Download PDF
             </Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button onClick={handleSave} disabled={loading || !voucherNo}>
               {loading
                 ? isEditMode
                   ? "Updating..."

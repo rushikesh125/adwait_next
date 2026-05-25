@@ -101,6 +101,21 @@ const fmt = (dateStr) => {
 };
 
 /* ─── View Modal ─────────────────────────────────────────────────────────── */
+const getVoucherContact = (voucher = {}) =>
+  String(
+    voucher.contact ||
+    voucher.customerMobile ||
+    voucher.mobile ||
+    voucher.phone ||
+    voucher.customerPhone ||
+    ""
+  ).trim();
+
+const withVoucherContact = (voucher = {}) => ({
+  ...voucher,
+  contact: getVoucherContact(voucher),
+});
+
 const VoucherViewModal = ({ voucher, onClose }) => {
   if (!voucher) return null;
 
@@ -111,8 +126,8 @@ const VoucherViewModal = ({ voucher, onClose }) => {
 
   const handleWhatsApp = () =>
     voucher.voucherType === "Hotel"
-      ? shareHotelVoucherWhatsApp(voucher)
-      : shareFlightVoucherWhatsApp(voucher);
+      ? shareHotelVoucherWhatsApp(withVoucherContact(voucher))
+      : shareFlightVoucherWhatsApp(withVoucherContact(voucher));
       
 
   return (
@@ -250,10 +265,10 @@ const VoucherViewModal = ({ voucher, onClose }) => {
                   .join(", ")}
               </p>
             )}
-            {voucher.contact && (
+            {getVoucherContact(voucher) && (
               <p>
                 <span className="font-semibold">Contact:</span>{" "}
-                {voucher.contact}
+                {getVoucherContact(voucher)}
               </p>
             )}
             {voucher.address && (
@@ -771,7 +786,7 @@ const VoucherDashboard = () => {
                               )}
 
                               {/* WhatsApp */}
-                              {item.contact && (
+                      
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -779,13 +794,13 @@ const VoucherDashboard = () => {
                                   title="Share on WhatsApp"
                                   onClick={() =>
                                     item.voucherType === "Hotel"
-                                      ? shareHotelVoucherWhatsApp(item)
-                                      : shareFlightVoucherWhatsApp(item)
+                                      ? shareHotelVoucherWhatsApp(withVoucherContact(item))
+                                      : shareFlightVoucherWhatsApp(withVoucherContact(item))
                                   }
                                 >
                                   <MessageCircle className="h-4 w-4 text-green-500" />
                                 </Button>
-                              )}
+                              
 
                               {/* Delete */}
                               <Button

@@ -295,7 +295,7 @@ export default function FollowUpCompleteModal({ open, followUp, onClose, onConfi
                 Mark as Cold Lead
               </p>
               <p className={`text-[10px] transition-colors ${isColdLead ? "text-slate-300" : "text-slate-400"}`}>
-                Lead has gone cold — archive and stop active follow-ups
+                Auto-close to Closed Lost after 7 days
               </p>
             </div>
 
@@ -318,7 +318,8 @@ export default function FollowUpCompleteModal({ open, followUp, onClose, onConfi
               <p className="text-[11px] text-amber-800 leading-relaxed">
                 This lead's status will be updated to{" "}
                 <span className="font-bold">Cold Lead</span> and will no longer appear in
-                active follow-up queues. This can be reversed from the lead profile.
+                active follow-up queues. It will auto-close to{" "}
+                <span className="font-bold">Closed Lost</span> after 7 days unless reversed.
               </p>
             </div>
           )}

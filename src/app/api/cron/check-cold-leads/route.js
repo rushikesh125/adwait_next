@@ -2,57 +2,48 @@
 //
 // Cron job: Automatically closes leads marked as "cold" after 7 days.
 //
-// Trigger cadence: Daily (e.g. "0 2 * * *" in vercel.json / cron config)
+// Trigger cadence: Daily (configured in vercel.json).
 //
 // Flow:
-//   1. Load all leads where isCold == true AND status != "Closed Lost"
-//   2. For each, check if coldMarkedAt is >= 7 days ago
-//   3. If yes — update lead status to "Closed Lost" + reject all quotations
-//   4. Write a dedup key so the same lead is never processed twice
+//   1. Load all leads where isCold == true.
+//   2. Skip leads already in "Closed Lost".
+//   3. If coldMarkedAt is at least 7 days old, move the lead to "Closed Lost".
+//   4. Reject all associated quotations.
+//   5. Write a dedup key so the same lead is not processed twice.
 //
-// Authorization: Bearer ${CRON_SECRET} header (same pattern as check-followups)
+// Authorization: Bearer ${CRON_SECRET} header.
 
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/firebase/config";
-import { updateLeadStatus, rejectAllQuotationsForLead } from "@/firebase/leadsService";
-import { createNotification } from "@/firebase/notificationsService";
+import { admin, adminDb } from "@/firebase/admin";
 
 const LOG_PREFIX = "[cron/check-cold-leads]";
-
-// 7-day window before auto-close
 const COLD_LEAD_CLOSE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
 function isAuthorized(request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return process.env.NODE_ENV === "development";
   return request.headers.get("authorization") === `Bearer ${cronSecret}`;
 }
 
-// ── Dedup helpers (same pattern as check-followups) ───────────────────────────
+function toDate(value) {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 async function isAlreadyClosed(key) {
   try {
-    const snap = await getDoc(doc(db, "coldLeadClosedLog", key));
-    return snap.exists();
+    const snap = await adminDb.collection("coldLeadClosedLog").doc(key).get();
+    return snap.exists;
   } catch {
-    // Safe default — if we can't check, skip to avoid double-processing
     return true;
   }
 }
 
 async function markClosed(key, metadata = {}) {
   try {
-    await setDoc(doc(db, "coldLeadClosedLog", key), {
-      closedAt: serverTimestamp(),
+    await adminDb.collection("coldLeadClosedLog").doc(key).set({
+      closedAt: admin.firestore.FieldValue.serverTimestamp(),
       ...metadata,
     });
   } catch (err) {
@@ -60,7 +51,74 @@ async function markClosed(key, metadata = {}) {
   }
 }
 
-// ── GET handler ───────────────────────────────────────────────────────────────
+async function closeLeadAsLost(leadId) {
+  await adminDb.collection("leads").doc(leadId).update({
+    status: "Closed Lost",
+    updatedAt: new Date().toISOString(),
+    closedLostAt: admin.firestore.FieldValue.serverTimestamp(),
+    closedLostReason: "Cold lead auto-close",
+  });
+}
+
+async function rejectAllQuotationsForLead(leadId) {
+  const snapshot = await adminDb
+    .collectionGroup("packages")
+    .where("leadId", "==", leadId)
+    .get();
+
+  if (snapshot.empty) return 0;
+
+  let batch = adminDb.batch();
+  let pendingWrites = 0;
+  let rejectedCount = 0;
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    if (["Booked", "Confirmed"].includes(data.status)) continue;
+
+    batch.update(docSnap.ref, {
+      status: "Rejected",
+      rejectionReason: "Lead Closed Lost",
+      rejectionDetails: "Lead was auto-closed after remaining cold for 7 days.",
+      updatedAt: new Date().toISOString(),
+    });
+    pendingWrites++;
+    rejectedCount++;
+
+    if (pendingWrites === 450) {
+      await batch.commit();
+      batch = adminDb.batch();
+      pendingWrites = 0;
+    }
+  }
+
+  if (pendingWrites > 0) {
+    await batch.commit();
+  }
+
+  return rejectedCount;
+}
+
+async function notifyAgent(lead, dedupKey) {
+  if (!lead.agentId) return;
+
+  await adminDb.collection("notifications").add({
+    userId: lead.agentId,
+    type: "cold_lead_auto_closed",
+    title: `Cold lead auto-closed: ${lead.name || "Unknown lead"}`,
+    message: `"${lead.name || "Unknown lead"}" was marked cold 7 days ago and has been automatically moved to Closed Lost.`,
+    link: `/agent-panel/leads/${lead.id}`,
+    priority: "normal",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    metadata: {
+      leadId: lead.id,
+      source: "cron/check-cold-leads",
+      dedupKey,
+    },
+  });
+}
+
 export async function GET(request) {
   const runStart = Date.now();
 
@@ -69,7 +127,6 @@ export async function GET(request) {
   }
 
   const now = new Date();
-
   const summary = {
     leadsScanned: 0,
     leadsEligible: 0,
@@ -79,17 +136,12 @@ export async function GET(request) {
     errors: [],
   };
 
-  // ── 1. Load all cold leads that are not yet Closed Lost ───────────────────
   let coldLeads = [];
   try {
-    const snap = await getDocs(
-      query(
-        collection(db, "leads"),
-        where("isCold", "==", true),
-        where("status", "!=", "Closed Lost")
-      )
-    );
-    coldLeads = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const snap = await adminDb.collection("leads").where("isCold", "==", true).get();
+    coldLeads = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((lead) => lead.status !== "Closed Lost");
     summary.leadsScanned = coldLeads.length;
     console.log(`${LOG_PREFIX} Found ${coldLeads.length} cold lead(s) not yet closed.`);
   } catch (err) {
@@ -97,23 +149,16 @@ export async function GET(request) {
     console.error(`${LOG_PREFIX} ${msg}`);
     return Response.json(
       { ok: false, summary: { ...summary, errors: [msg] } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
-  // ── 2. Process each cold lead ─────────────────────────────────────────────
   for (const lead of coldLeads) {
     const leadId = lead.id;
+    const coldMarkedAt = toDate(lead.coldMarkedAt);
 
-    // Validate coldMarkedAt exists and is parseable
-    const coldMarkedAt = lead.coldMarkedAt
-      ? lead.coldMarkedAt?.toDate
-        ? lead.coldMarkedAt.toDate()           // Firestore Timestamp
-        : new Date(lead.coldMarkedAt)           // ISO string fallback
-      : null;
-
-    if (!coldMarkedAt || isNaN(coldMarkedAt.getTime())) {
-      summary.errors.push(`Lead ${leadId}: invalid or missing coldMarkedAt — skipped.`);
+    if (!coldMarkedAt) {
+      summary.errors.push(`Lead ${leadId}: invalid or missing coldMarkedAt - skipped.`);
       console.warn(`${LOG_PREFIX} Lead ${leadId} has no valid coldMarkedAt, skipping.`);
       summary.leadsSkipped++;
       continue;
@@ -122,67 +167,52 @@ export async function GET(request) {
     const ageMs = now - coldMarkedAt;
 
     if (ageMs < COLD_LEAD_CLOSE_AFTER_MS) {
-      // Not 7 days yet — skip silently
       summary.leadsSkipped++;
-      const daysLeft = Math.ceil((COLD_LEAD_CLOSE_AFTER_MS - ageMs) / (24 * 60 * 60 * 1000));
-      console.log(`${LOG_PREFIX} Lead ${leadId} (${lead.name}) — ${daysLeft} day(s) remaining before auto-close.`);
+      const daysLeft = Math.ceil(
+        (COLD_LEAD_CLOSE_AFTER_MS - ageMs) / (24 * 60 * 60 * 1000),
+      );
+      console.log(
+        `${LOG_PREFIX} Lead ${leadId} (${lead.name || "Unknown"}) - ${daysLeft} day(s) remaining before auto-close.`,
+      );
       continue;
     }
 
     summary.leadsEligible++;
 
-    // Dedup key — one close per lead (no date suffix: this is a one-time action)
     const dedupKey = `cold_close_${leadId}`;
-
     const alreadyClosed = await isAlreadyClosed(dedupKey);
     if (alreadyClosed) {
       summary.leadsSkipped++;
-      console.log(`${LOG_PREFIX} Lead ${leadId} already has dedup key — skipping.`);
+      console.log(`${LOG_PREFIX} Lead ${leadId} already has dedup key - skipping.`);
       continue;
     }
 
-    // ── 3. Close the lead ───────────────────────────────────────────────────
     try {
-      // Update lead status to Closed Lost
-      await updateLeadStatus(leadId, "Closed Lost");
-      console.log(`${LOG_PREFIX} Lead ${leadId} (${lead.name}) → Closed Lost.`);
+      await closeLeadAsLost(leadId);
+      const rejectedCount = await rejectAllQuotationsForLead(leadId);
 
-      // Reject all associated quotations
-      await rejectAllQuotationsForLead(leadId);
-      console.log(`${LOG_PREFIX} Lead ${leadId} quotations rejected.`);
-
-      // Write dedup record
       await markClosed(dedupKey, {
         leadId,
         leadName: lead.name || "Unknown",
         agentId: lead.agentId || null,
         coldMarkedAt: coldMarkedAt.toISOString(),
+        rejectedQuotationCount: rejectedCount,
         closedByJob: true,
       });
 
-      // Notify the agent if one is assigned
-      if (lead.agentId) {
-        try {
-          await createNotification({
-            userId: lead.agentId,
-            type: "cold_lead_auto_closed",
-            title: `Cold lead auto-closed: ${lead.name || "Unknown lead"}`,
-            message: `"${lead.name || "Unknown lead"}" was marked cold 7 days ago and has been automatically moved to Closed Lost.`,
-            link: `/agent-panel/leads/${leadId}`,
-            priority: "normal",
-            metadata: {
-              leadId,
-              source: "cron/check-cold-leads",
-              dedupKey,
-            },
-          });
-        } catch (notifErr) {
-          // Non-fatal — log but don't fail the close operation
-          console.warn(`${LOG_PREFIX} Notification failed for agent ${lead.agentId}:`, notifErr.message);
-        }
+      try {
+        await notifyAgent(lead, dedupKey);
+      } catch (notifErr) {
+        console.warn(
+          `${LOG_PREFIX} Notification failed for agent ${lead.agentId}:`,
+          notifErr.message,
+        );
       }
 
       summary.leadsClosed++;
+      console.log(
+        `${LOG_PREFIX} Lead ${leadId} (${lead.name || "Unknown"}) closed; quotations rejected: ${rejectedCount}.`,
+      );
     } catch (err) {
       summary.leadsFailed++;
       const msg = `Failed to close lead ${leadId} (${lead.name || "?"}): ${err.message}`;
