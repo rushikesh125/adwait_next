@@ -6,6 +6,7 @@ import autoTable from "jspdf-autotable";
 import "jspdf-autotable";
 import { resolveOptionMarkup } from "@/lib/copyPackageSummary";
 import { getQuotationDuration } from "@/lib/quotationDuration";
+import { computePerPersonBreakdown } from "@/lib/perPersonBreakdown";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BRAND = "#0D47A1";
 const BRAND_DARK = "#0A3880";
@@ -225,8 +226,17 @@ const drawDecorativeDivider = (pdfdoc, y) => {
 // Tinted bordered box with a brand-colored left stripe and the grand total
 // in large brand-dark type on the right. Designed to be drawn right after
 // the breakdown autoTable so the final price reads as a self-contained card.
-const drawPricingSummaryCard = (pdfdoc, label, amount, y) => {
-  const cardH = 16;
+// When `breakdown` is supplied, the per-person split is rendered inline on the
+// right-hand side of the same card (no separate section).
+const drawPricingSummaryCard = (pdfdoc, label, amount, y, breakdown = null) => {
+  const showBreakdown =
+    breakdown && Array.isArray(breakdown.buckets) && breakdown.buckets.length > 0;
+  const breakdownLineH = 4.5;
+  const breakdownHeight = showBreakdown
+    ? breakdown.buckets.length * breakdownLineH + 2
+    : 0;
+  const cardH = Math.max(16, breakdownHeight + 6);
+
   pdfdoc.setFillColor("#F8FAFC"); // slate-50
   pdfdoc.setDrawColor("#E2E8F0"); // slate-200
   pdfdoc.setLineWidth(0.3);
@@ -242,7 +252,32 @@ const drawPricingSummaryCard = (pdfdoc, label, amount, y) => {
   pdfdoc.setFont(FONT_FAMILY, "bold");
   pdfdoc.setFontSize(FONT_HEADING + 2);
   pdfdoc.setTextColor(BRAND_DARK);
-  pdfdoc.text(`Rs. ${Number(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`, 22, y + 12.5);
+  pdfdoc.text(
+    `Rs. ${Number(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}/-`,
+    22,
+    y + 12.5,
+  );
+
+  // Inline per-person breakdown — right side of the same card.
+  if (showBreakdown) {
+    pdfdoc.setFontSize(FONT_TINY);
+    let lineY = y + 5;
+    for (const b of breakdown.buckets) {
+      pdfdoc.setFont(FONT_FAMILY, "normal");
+      pdfdoc.setTextColor(SLATE);
+      pdfdoc.text(`${b.label} (x${b.count})`, 130, lineY);
+      pdfdoc.setFont(FONT_FAMILY, "bold");
+      pdfdoc.setTextColor(BRAND_DARK);
+      pdfdoc.text(
+        `Rs. ${b.perPerson.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/pp`,
+        191,
+        lineY,
+        { align: "right" },
+      );
+      lineY += breakdownLineH;
+    }
+  }
+
   pdfdoc.setTextColor("#000000");
   return y + cardH + 4;
 };
@@ -1022,6 +1057,7 @@ export const exportPackagePDF = async ({
   itineraryData = null,
   refNumber = null,
   appliedDiscount = null,
+  includePriceBreakdown = false,
 }) => {
   const allHotelEntries = packageOptions?.length
     ? packageOptions.flatMap((o) => o.hotelEntries || [])
@@ -1397,12 +1433,27 @@ export const exportPackagePDF = async ({
     y = pdfdoc.lastAutoTable.finalY + 4;
 
     // Pricing summary card — replaces the old in-table grand-total row.
-    y = ensureSpace(pdfdoc, logoImg, y, 22);
+    // When the agent has opted in, the per-person split is shown inline on the
+    // right side of the same card (no separate section).
+    const inlineBreakdown = includePriceBreakdown
+      ? computePerPersonBreakdown({
+          packageOption: opt,
+          transportTotalPrice: transportTotalPrice || 0,
+          selectedActivities: selectedActivities || [],
+          optionMarkupAmount: optionMarkup,
+          optionDiscountAmount: discountAmount,
+        })
+      : null;
+
+    const summaryCardEstHeight =
+      Math.max(22, (inlineBreakdown?.buckets?.length || 0) * 5 + 10);
+    y = ensureSpace(pdfdoc, logoImg, y, summaryCardEstHeight);
     y = drawPricingSummaryCard(
       pdfdoc,
       `${opt.name} — Total Tour Cost`,
       optionGrandTotal,
       y,
+      inlineBreakdown,
     );
 
     y += 10;

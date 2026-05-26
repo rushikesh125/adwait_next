@@ -100,7 +100,11 @@ import ActivitySelector from "@/components/package/ActivitySelector";
 import TransportSummaryCard from "@/components/package/TransportSummaryCard";
 import ActivitySummaryCard from "@/components/package/ActivitySummaryCard";
 import HotelItineraryCard from "@/components/package/HotelItineraryCard";
-import { hotelHasRatesForStay } from "@/lib/hotelRateAvailability";
+import {
+  hotelHasRatesForStay,
+  calculateHotelStayBucketSubtotals,
+} from "@/lib/hotelRateAvailability";
+import { computePerPersonBreakdown } from "@/lib/perPersonBreakdown";
 import {
   MEAL_PLANS,
   calcCustomHotelNightPrice,
@@ -665,6 +669,10 @@ const Create_new_package = ({
     notes: "",
     amount: 0,
   });
+  // When on, the per-person breakdown is appended to the WhatsApp summary
+  // and rendered in the PDF. The on-screen breakdown panel is always visible
+  // to agents regardless of this flag.
+  const [includePriceBreakdown, setIncludePriceBreakdown] = useState(false);
   const [showSaveModal, _setShowSaveModal] = useState(false);
   const setShowSaveModal = (v) => {
     if (!v) {
@@ -992,6 +1000,9 @@ const Create_new_package = ({
       setDiscountValue(q.discount.value || 0);
       setDiscountNotes(q.discount.notes || "");
     }
+    if (typeof q.includePriceBreakdown === "boolean") {
+      setIncludePriceBreakdown(q.includePriceBreakdown);
+    }
   }, [isEditMode, editingQuotation]);
 
   useEffect(() => {
@@ -1210,6 +1221,17 @@ const Create_new_package = ({
   const getOptionGrandTotal = (opt) =>
     getOptionPreDiscountTotal(opt) - resolveDiscountAmountForOption(opt);
 
+  /** Per-person breakdown for a given option — pulls in shared transport,
+   *  activities, and the option's resolved markup / discount. */
+  const getOptionBreakdown = (opt) =>
+    computePerPersonBreakdown({
+      packageOption: opt,
+      transportTotalPrice,
+      selectedActivities,
+      optionMarkupAmount: getOptionMarkup(opt),
+      optionDiscountAmount: resolveDiscountAmountForOption(opt),
+    });
+
   // Convenience values for the active option
   const hotelTotalPrice = getOptionHotelTotal(activeOption);
   const activeOptionMarkup = getOptionMarkup(activeOption);
@@ -1217,6 +1239,7 @@ const Create_new_package = ({
   const activeOptionDiscountAmount =
     resolveDiscountAmountForOption(activeOption);
   const grandTotal = getOptionGrandTotal(activeOption);
+  const activeOptionBreakdown = getOptionBreakdown(activeOption);
 
   // Gap warnings
   const optionsWithHotelGaps = useMemo(
@@ -1409,6 +1432,23 @@ const Create_new_package = ({
         numCNB: r.numCNB,
         // Ref is always most up-to-date (synchronous); fall back to state only if ref is missing
         price: roomPriceRefs.current?.[r.id] ?? r.price ?? 0,
+        // Per-bucket subtotals for the full stay — used by the per-person
+        // breakdown so PDFs/WhatsApp don't need access to the rate sheet.
+        bucketSubtotals:
+          calculateHotelStayBucketSubtotals(
+            {
+              checkInDate,
+              checkOutDate,
+              nights,
+              selectedRoomCategory: r.roomCategory,
+              selectedMealPlan: r.mealPlan,
+              numDouble: r.numDouble,
+              numExtraAdult: r.numExtraAdult,
+              numExtraChild: r.numExtraChild,
+              numCNB: r.numCNB,
+            },
+            selectedHotelData,
+          ) || null,
       })),
     };
 
@@ -1625,6 +1665,22 @@ const Create_new_package = ({
       const liveRows = (opt.roomCategoryRows || []).map((r) => ({
         ...r,
         price: roomPriceRefs.current?.[r.id] ?? r.price ?? 0,
+        bucketSubtotals: selectedHotelData
+          ? calculateHotelStayBucketSubtotals(
+              {
+                checkInDate,
+                checkOutDate,
+                nights,
+                selectedRoomCategory: r.roomCategory,
+                selectedMealPlan: r.mealPlan,
+                numDouble: r.numDouble,
+                numExtraAdult: r.numExtraAdult,
+                numExtraChild: r.numExtraChild,
+                numCNB: r.numCNB,
+              },
+              selectedHotelData,
+            ) || r.bucketSubtotals || null
+          : r.bucketSubtotals || null,
       }));
       const liveTotal = liveRows.reduce((s, r) => s + r.price, 0);
 
@@ -1679,7 +1735,7 @@ const Create_new_package = ({
 
   const handleCopyToClipboard = () =>
     copyPackageSummary({
-      packageOptions:getPackageOptionsForExport(),
+      packageOptions: getPackageOptionsForExport(),
       selectedTransport,
       selectedActivities,
       transportTotalPrice,
@@ -1689,11 +1745,12 @@ const Create_new_package = ({
       markupAmount,
       hotels,
       appliedDiscount,
+      includePriceBreakdown,
     });
 
   const handleExportToPDF = () =>
     exportPackagePDF({
-      packageOptions:getPackageOptionsForExport(),
+      packageOptions: getPackageOptionsForExport(),
       selectedTransport,
       selectedActivities,
       transportTotalPrice,
@@ -1705,6 +1762,7 @@ const Create_new_package = ({
       packageName,
       itineraryData,
       appliedDiscount,
+      includePriceBreakdown,
     });
 
   // ── Save Package ──────────────────────────────────────────────────────────
@@ -1806,6 +1864,7 @@ const Create_new_package = ({
           appliedAt: new Date().toISOString(),
         },
         grandTotal: getOptionGrandTotal(packageOptions[0]) || 0,
+        includePriceBreakdown,
         packageOptions: packageOptionsSummary,
         hotelSummary: firstOptionHotels,
         activitySummary: selectedActivities,
@@ -3006,12 +3065,57 @@ const Create_new_package = ({
                       </span>
                     </div>
                   )}
-                  <p className="text-4xl font-black tracking-tight mb-4">
+                  <p className="text-4xl font-black tracking-tight mb-3">
                     ₹
                     {grandTotal.toLocaleString("en-IN", {
                       maximumFractionDigits: 0,
                     })}
                   </p>
+
+                  {/* Per-person breakdown — always visible to agents */}
+                  {activeOptionBreakdown.buckets.length > 0 && (
+                    <div className="mb-3 rounded-lg bg-white/10 p-2.5 space-y-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-white/60 font-semibold">
+                        Per-person breakdown
+                      </p>
+                      {activeOptionBreakdown.buckets.map((b) => (
+                        <div
+                          key={b.key}
+                          className="flex items-center justify-between text-[11px]"
+                        >
+                          <span className="text-white/80">
+                            {b.label}
+                            <span className="text-white/40 ml-1">
+                              × {b.count}
+                            </span>
+                          </span>
+                          <span className="text-white font-semibold">
+                            ₹
+                            {b.perPerson.toLocaleString("en-IN", {
+                              maximumFractionDigits: 0,
+                            })}
+                            <span className="text-white/40 font-normal">
+                              {" "}/ person
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                      <label className="mt-1.5 flex items-start gap-2 cursor-pointer pt-1.5 border-t border-white/10">
+                        <input
+                          type="checkbox"
+                          checked={includePriceBreakdown}
+                          onChange={(e) =>
+                            setIncludePriceBreakdown(e.target.checked)
+                          }
+                          className="mt-0.5 h-3 w-3 accent-theme-primary"
+                        />
+                        <span className="text-[10px] text-white/70 leading-tight">
+                          Include this breakdown in PDF and WhatsApp summary
+                        </span>
+                      </label>
+                    </div>
+                  )}
+
                   <Button
                     onClick={() => setShowSaveModal(true)}
                     className="w-full py-5 bg-theme-primary hover:bg-theme-secondary font-bold text-sm shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"

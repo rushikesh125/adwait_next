@@ -2,6 +2,7 @@
 // Updated: per-option markup support + transport/activity shown without price
 
 import toast from "react-hot-toast";
+import { computePerPersonBreakdown } from "@/lib/perPersonBreakdown";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MEAL_PLAN_LABELS = {
@@ -141,6 +142,8 @@ const buildOptionBlock = (
   optionMarkup = 0,
   isMultiOption = true,
   appliedDiscount = null,
+  includePriceBreakdown = false,
+  selectedActivities = [],
 ) => {
   const hotelEntries = option.hotelEntries || [];
   if (hotelEntries.length === 0) {
@@ -240,12 +243,34 @@ const finalTotal =
     ? option.grandTotal
     : preDiscountTotal - discountAmount;
 
+  // Build the inline per-person suffix once — appended after the total on the
+  // same line when the agent has opted in.
+  let perPersonSuffix = "";
+  if (includePriceBreakdown) {
+    const breakdown = computePerPersonBreakdown({
+      packageOption: option,
+      transportTotalPrice: transportTotal,
+      selectedActivities: selectedActivities || [],
+      optionMarkupAmount: optionMarkup,
+      optionDiscountAmount: discountAmount,
+    });
+    if (breakdown.buckets.length > 0) {
+      const parts = breakdown.buckets.map(
+        (b) =>
+          `${b.label} ₹${b.perPerson.toLocaleString("en-IN")}/pp${
+            b.count > 1 ? ` ×${b.count}` : ""
+          }`,
+      );
+      perPersonSuffix = ` — ${parts.join(" | ")}`;
+    }
+  }
+
   if (discountAmount > 0) {
     s += `Package Cost: ₹${preDiscountTotal.toLocaleString("en-IN")}/-\n`;
     s += `Special Discount${appliedDiscount.notes ? ` (${appliedDiscount.notes})` : ""}: −₹${discountAmount.toLocaleString("en-IN")}/-\n`;
-    s += `*Final Package Cost: ₹${finalTotal.toLocaleString("en-IN")}/-*\n`;
+    s += `*Final Package Cost: ₹${finalTotal.toLocaleString("en-IN")}/-*${perPersonSuffix}\n`;
   } else {
-    s += `*TOTAL TOUR COST: ₹${preDiscountTotal.toLocaleString("en-IN")}/-*\n`;
+    s += `*TOTAL TOUR COST: ₹${preDiscountTotal.toLocaleString("en-IN")}/-*${perPersonSuffix}\n`;
   }
   return s;
 };
@@ -262,6 +287,7 @@ export const buildPackageSummary = ({
   markupAmount = 0,
   hotels = [],
   appliedDiscount = null,
+  includePriceBreakdown = false,
   hotelEntries: legacyHotelEntries,
 }) => {
   const options = packageOptions?.length
@@ -306,6 +332,8 @@ export const buildPackageSummary = ({
       optionMarkup,
       isMultiOption,
       appliedDiscount,
+      includePriceBreakdown,
+      selectedActivities,
     );
     s += `\n`;
   }
@@ -403,6 +431,7 @@ export const buildQuotationSummaryPayload = (quotation = {}, hotels = []) => {
     notes: "",
     amount: 0,
   },
+    includePriceBreakdown: Boolean(quotation.includePriceBreakdown),
   };
 };
 
