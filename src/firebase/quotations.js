@@ -316,7 +316,7 @@ export async function fetchAllHotels(orgId = null) {
  */
 export async function fetchAllDestinations(orgId = null) {
   const snapshot = await getDocs(
-    query(collection(db, "locations"), ...orgFilter(orgId)),
+    collection(db, "locations"),
   );
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
@@ -326,7 +326,7 @@ export async function fetchAllDestinations(orgId = null) {
  */
 export async function fetchTransportStates(orgId = null) {
   const snapshot = await getDocs(
-    query(collection(db, "transport"), ...orgFilter(orgId)),
+    collection(db, "transport"),
   );
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }

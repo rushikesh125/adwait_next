@@ -113,7 +113,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
       try {
         if (!user?.orgId) return;
         const snap = await getDocs(
-          query(collection(db, "locations"), where("orgId", "==", user.orgId))
+          collection(db, "locations")
         );
         setStates(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (err) {
@@ -229,7 +229,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
     setIsAddingCity(true);
     try {
       const stateDoc = states.find(s => s.name === selectedState);
-      if (!stateDoc || !belongsToOrg(stateDoc, user?.orgId)) {
+      if (!stateDoc) {
         toast.error("State not found");
         return;
       }
@@ -299,7 +299,7 @@ const AddHotel = ({ onClose, editHotelId = null, hotelToEdit = null }) => {
         setHotelCreated(true);
         const stateDoc = states.find(s => s.name === selectedState);
         const citySnap = await getDoc(doc(db, "locations", stateDoc.id));
-        if (!citySnap.exists() || !belongsToOrg(citySnap.data(), user.orgId)) {
+        if (!citySnap.exists()) {
           toast.error("State not found");
           return;
         }

@@ -92,7 +92,7 @@ const Transport = () => {
     setLoading(true);
     try {
       const snapshot = await getDocs(
-        query(collection(db, "transport"), ...orgFilter(user.orgId)),
+        collection(db, "transport"),
       );
       const stateData = await Promise.all(
         snapshot.docs.map(async (stateDoc) => {

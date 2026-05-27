@@ -441,7 +441,7 @@ export default function ItineraryForm() {
       try {
         if (!user?.orgId) return;
         const snap = await getDocs(
-          query(collection(db, "locations"), where("orgId", "==", user.orgId))
+          collection(db, "locations")
         );
         const uniqueStates = [
           ...new Set(snap.docs.map((d) => d.data().name)),

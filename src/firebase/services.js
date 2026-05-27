@@ -12,7 +12,7 @@ import { belongsToOrg, orgFilter } from './orgScope';
  * @returns {Promise<Array>} An array of location objects.
  */
 export async function fetchLocations(db, orgId = null) {
-  const q = query(collection(db, "locations"), ...orgFilter(orgId), orderBy("name")); // Order by name for consistency
+  const q = query(collection(db, "locations"), orderBy("name")); // Order by name for consistency
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
@@ -45,7 +45,7 @@ export async function fetchActivities(db, orgId = null) {
  * @returns {Promise<Array>} An array of transport package objects.
  */
 export async function fetchTransportPackages(db, orgId = null) {
-  const q = query(collection(db, "transport"), ...orgFilter(orgId), orderBy("name")); // Order by name for consistency
+  const q = query(collection(db, "transport"), orderBy("name")); // Order by name for consistency
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }

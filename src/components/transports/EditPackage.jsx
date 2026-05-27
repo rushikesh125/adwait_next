@@ -56,13 +56,12 @@ const EditPackage = ({
     } else {
       const fetchPackage = async () => {
         try {
-          const stateRef = doc(db, "transport", stateId);
-          const snapshot = await getDoc(stateRef);
+          const pkgRef = doc(db, "transport", stateId, "packages", packageId);
+          const snapshot = await getDoc(pkgRef);
           if (snapshot.exists()) {
-            const data = snapshot.data();
-            const pkg = data.packages.find((p) => p.id === packageId);
-            if (pkg) setFormData(pkg);
-            else throw new Error("Package not found");
+            setFormData(snapshot.data());
+          } else {
+            throw new Error("Package not found");
           }
         } catch {
           toast.error("Package not found");
@@ -142,23 +141,8 @@ const EditPackage = ({
 
     setIsSubmitting(true);
     try {
-      const stateRef = doc(db, "transport", stateId);
-      const stateSnapshot = await getDoc(stateRef);
-      const stateData = stateSnapshot.data();
-
-      if (!stateData?.packages) {
-        toast.error("Data out of sync. Please refresh.");
-        return;
-      }
-
       const nextFormData = { ...formData, vehicles: sanitizedVehicles };
 
-      const updatedPackages = stateData.packages.map((pkg) =>
-        pkg.id === packageId ? { ...pkg, ...nextFormData } : pkg
-      );
-
-      // Update both the state doc array AND the subcollection document
-      await updateDoc(stateRef, { packages: updatedPackages });
       await updateDoc(
         doc(db, "transport", stateId, "packages", packageId),
         nextFormData
@@ -180,15 +164,6 @@ const EditPackage = ({
 
     setIsSubmitting(true);
     try {
-      const stateRef = doc(db, "transport", stateId);
-      const stateSnapshot = await getDoc(stateRef);
-      const stateData = stateSnapshot.data();
-
-      // 1. Remove from the packages array on the state document
-      const updatedPackages = stateData.packages.filter((pkg) => pkg.id !== packageId);
-      await updateDoc(stateRef, { packages: updatedPackages });
-
-      // 2. Delete the actual subcollection document — this was the missing step
       await deleteDoc(doc(db, "transport", stateId, "packages", packageId));
 
       toast.success("Package permanently deleted");

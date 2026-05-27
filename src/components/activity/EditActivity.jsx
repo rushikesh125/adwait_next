@@ -34,7 +34,7 @@ const EditActivity = ({ onClose, activityId, onSave }) => {
         const fetchStates = async () => {
             if (!user?.orgId) return;
             const snapshot = await getDocs(
-                query(collection(db, "locations"), where("orgId", "==", user.orgId))
+                collection(db, "locations")
             );
             const stateList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
             setStates(stateList);

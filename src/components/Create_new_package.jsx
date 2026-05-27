@@ -1019,7 +1019,7 @@ const Create_new_package = ({
       ];
       setHotels(unique);
     });
-    getDocs(query(collection(db, "locations"), where("orgId", "==", user.orgId))).then((snap) =>
+    getDocs(collection(db, "locations")).then((snap) =>
       setStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
   }, [user?.orgId]);

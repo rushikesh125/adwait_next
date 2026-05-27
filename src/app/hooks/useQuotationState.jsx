@@ -257,7 +257,7 @@ export function useQuotationState() {
     const fetchAllTransportStates = async () => {
       try {
         const snap = await getDocs(
-          query(collection(db, "transport"), where("orgId", "==", user.orgId)),
+          collection(db, "transport")
         );
         setTransportStates(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
@@ -267,7 +267,7 @@ export function useQuotationState() {
     const fetchAllDestinations = async () => {
       try {
         const snap = await getDocs(
-          query(collection(db, "locations"), where("orgId", "==", user.orgId)),
+          collection(db, "locations")
         );
         setAllDestinations(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {

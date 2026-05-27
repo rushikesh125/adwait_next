@@ -197,7 +197,7 @@ async function _registerHotelInLocation(stateName, cityName, hotelId, orgId = nu
 
   try {
     const locSnap = await getDocs(
-      query(collection(db, "locations"), ...(orgId ? [where("orgId", "==", orgId)] : []))
+      collection(db, "locations")
     );
     const stateDoc = locSnap.docs.find(
       (d) => d.data().name?.toLowerCase() === stateName.toLowerCase()

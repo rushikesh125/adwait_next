@@ -5,7 +5,7 @@ import { belongsToOrg, orgFilter } from "./orgScope";
 
 export async function fetchAllStates(orgId = null) {
   try {
-    const q = query(collection(db, "transport"), ...orgFilter(orgId));
+    const q = collection(db, "transport");
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({
       id: doc.id,

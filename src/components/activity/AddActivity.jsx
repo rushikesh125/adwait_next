@@ -48,7 +48,7 @@ const AddActivity = ({ onClose }) => {
         const fetchStates = async () => {
             if (!user?.orgId) return;
             const querySnapshot = await getDocs(
-                query(collection(db, "locations"), where("orgId", "==", user.orgId))
+                collection(db, "locations")
             );
             const stateList = querySnapshot.docs.map((doc) => ({
                 id: doc.id,

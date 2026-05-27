@@ -8,7 +8,7 @@ import { belongsToOrg, orgFilter } from "./orgScope";
  */
 export const fetchTransportStates = async (orgId = null) => {
   const snapshot = await getDocs(
-    query(collection(db, "transport"), ...orgFilter(orgId))
+    collection(db, "transport")
   );
   return snapshot.docs.map((doc) => ({
     id: doc.id,

@@ -8,7 +8,7 @@ import { orgFilter } from "./orgScope";
  */
 export const fetchAllStates = async (orgId = null) => {
   const snapshot = await getDocs(
-    query(collection(db, "locations"), ...orgFilter(orgId)),
+    collection(db, "locations"),
   );
   return snapshot.docs.map((doc) => doc.data().name);
 };

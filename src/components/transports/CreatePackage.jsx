@@ -77,7 +77,7 @@ useEffect(() => {
     if (!user?.orgId) return;
     try {
       const snapshot = await getDocs(
-        query(collection(db, "transport"), where("orgId", "==", user.orgId))
+        collection(db, "transport")
       );
 
       const fetchedStates = snapshot.docs.map((d) => ({
@@ -180,15 +180,15 @@ useEffect(() => {
     setLoading(true);
     try {
       const stateDocRef = doc(db, "transport", stateDoc.id);
-      const stateSnapshot = await getDoc(stateDocRef);
-      if (!stateSnapshot.exists() || stateSnapshot.data()?.orgId !== user.orgId) {
-        toast.error("Transport state not found");
-        setLoading(false);
-        return;
-      }
-      const existingPackagesArray = stateSnapshot.data()?.packages || [];
+      
+      const q = query(
+        collection(db, "transport", stateDoc.id, "packages"),
+        where("orgId", "==", user.orgId),
+        where("name", "==", packageName.trim())
+      );
+      const duplicateSnap = await getDocs(q);
 
-      if (existingPackagesArray.some((pkg) => pkg.name === packageName.trim())) {
+      if (!duplicateSnap.empty) {
         toast.error("Package name already exists");
         setLoading(false);
         return;
@@ -213,9 +213,7 @@ useEffect(() => {
         doc(collection(db, "transport", stateDoc.id, "packages"), newPackage.id),
         newPackage
       );
-      await updateDoc(stateDocRef, {
-        packages: [...existingPackagesArray, newPackage],
-      });
+
 
       toast.success("Package created successfully!");
       onClose();

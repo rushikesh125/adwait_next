@@ -34,7 +34,7 @@ const TransportSelector = ({ onTransportSelect }) => {
 
   useEffect(() => {
     if (!user?.orgId) return;
-    getDocs(query(collection(db, "transport"), where("orgId", "==", user.orgId)))
+    getDocs(collection(db, "transport"))
       .then((snap) => setTransportStates(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
       .catch(console.error);
   }, [user?.orgId]);

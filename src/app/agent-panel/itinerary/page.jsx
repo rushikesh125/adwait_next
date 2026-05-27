@@ -315,7 +315,8 @@ export default function ItineraryListPage() {
       );
       const snapshot = await getDocs(q);
       setItineraries(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-    } catch {
+    } catch (error) {
+      console.error("Error fetching itineraries:", error);
       toast.error("Failed to load itineraries");
     } finally {
       setLoading(false);
