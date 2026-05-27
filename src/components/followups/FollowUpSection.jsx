@@ -209,7 +209,7 @@ function CompletionModal({ followUp, onClose, onConfirm }) {
               <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
                 <AlertCircle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
                 <p className="text-xs text-amber-700 leading-relaxed">
-                  You can undo this by editing the lead before the 7-day window expires.
+                  You can undo this by editing the lead before the 5-day window expires.
                 </p>
               </div>
             )}

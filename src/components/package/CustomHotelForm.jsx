@@ -419,6 +419,9 @@ const CustomHotelForm = ({
 
     const outRoomCategories = categories.map((c) => {
       const perNight = calcCategoryNightPrice(c);
+      const planKey = String(c.mealPlan || "").toLowerCase();
+      const p = c.pricing?.[planKey] || {};
+      const stayNights = Number(nights) || 0;
       return {
         id: c.id,
         roomCategory: c.roomType.trim(),
@@ -428,7 +431,20 @@ const CustomHotelForm = ({
         numExtraAdult: Number(c.numExtraAdult) || 0,
         numExtraChild: Number(c.numExtraChild) || 0,
         numCNB: Number(c.numCNB) || 0,
-        price: perNight * (Number(nights) || 0),
+        price: perNight * stayNights,
+        bucketSubtotals: {
+          defaultAdult:
+            (Number(p.double) || 0) * (Number(c.numDouble) || 0) * stayNights,
+          extraAdult:
+            (Number(p.extraAdult) || 0) *
+            (Number(c.numExtraAdult) || 0) *
+            stayNights,
+          extraChild:
+            (Number(p.extraChild) || 0) *
+            (Number(c.numExtraChild) || 0) *
+            stayNights,
+          cnb: (Number(p.cnb) || 0) * (Number(c.numCNB) || 0) * stayNights,
+        },
       };
     });
 

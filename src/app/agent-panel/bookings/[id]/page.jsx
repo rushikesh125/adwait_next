@@ -42,6 +42,7 @@ import {
   Wallet,
   BadgeCheck,
   Building2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,12 @@ import { Separator } from "@/components/ui/separator";
 import StatusBadge from "@/components/StatusBadge";
 import HotelVoucherDrawer from "@/app/agent-panel/vouchers/hotelVoucher";
 import { sendHotelBookingRequestOnWhatsApp } from "@/lib/hotelBookingRequestWhatsapp";
+import { generateHotelVoucherPDF } from "@/lib/generateHotelVoucher";
+import {
+  deleteVoucherDocument,
+  fetchAllVouchersForAgent,
+} from "@/firebase/voucher";
+import VoucherViewModal from "@/components/VoucherViewModal";
 import {
   Dialog,
   DialogContent,
@@ -481,6 +488,9 @@ export default function BookingDetailPage() {
   const [hotelListForSelection, setHotelListForSelection] = useState([]);
   const [hotelSelectionMode, setHotelSelectionMode] = useState("voucher");
   const [deletingVoucherId, setDeletingVoucherId] = useState(null);
+  const [downloadingVoucherId, setDownloadingVoucherId] = useState(null);
+  const [viewingVoucher, setViewingVoucher] = useState(null);
+  const [editingVoucher, setEditingVoucher] = useState(null);
 
   const [editingPaymentIdx, setEditingPaymentIdx] = useState(null);
   const [editPaymentForm, setEditPaymentForm] = useState({
@@ -792,7 +802,7 @@ export default function BookingDetailPage() {
     setVoucherDrawerOpen(true);
   };
 
-  const handleVoucherSaved = async () => {
+  const handleVoucherSaved = async (savedVoucher = null) => {
     try {
       const fresh = await getBookingById(id);
       const hotel = selectedHotelForVoucher;
@@ -809,6 +819,15 @@ export default function BookingDetailPage() {
           checkIn: hotel.checkIn,
           checkOut: hotel.checkOut,
           city: hotel.city || "",
+          voucherNumber: savedVoucher?.voucherNumber || "",
+          bookingReference:
+            savedVoucher?.bookingReference ||
+            savedVoucher?.bookingRef ||
+            booking.bookingRef ||
+            "",
+          isBookingVoucher: true,
+          voucherDocId: savedVoucher?.id || null,
+          voucherData: savedVoucher || null,
           deleted: false,
           createdAt: new Date().toISOString(),
         };
@@ -824,15 +843,213 @@ export default function BookingDetailPage() {
     }
   };
 
-  const handleDeleteVoucherEntry = async (voucherId) => {
+  const buildVoucherDownloadData = (voucherEntry) => {
+    const storedVoucher = voucherEntry.voucherData || {};
+    const matchedHotel = extractHotelsFromBooking(booking).find(
+      (hotel) =>
+        hotelVoucherKey(hotel.hotelName, hotel.checkIn) ===
+        hotelVoucherKey(voucherEntry.hotelName, voucherEntry.checkIn),
+    );
+    return {
+      voucherType: "Hotel",
+      voucherNumber:
+        storedVoucher.voucherNumber || voucherEntry.voucherNumber || "",
+      bookingReference:
+        storedVoucher.bookingReference ||
+        storedVoucher.bookingRef ||
+        voucherEntry.bookingReference ||
+        booking.bookingRef ||
+        "",
+      isBookingVoucher: true,
+      bookingRef:
+        storedVoucher.bookingRef ||
+        storedVoucher.bookingReference ||
+        voucherEntry.bookingReference ||
+        booking.bookingRef ||
+        "",
+      hotelName: storedVoucher.hotelName || voucherEntry.hotelName || "",
+      checkIn: storedVoucher.checkIn || voucherEntry.checkIn || "",
+      checkOut: storedVoucher.checkOut || voucherEntry.checkOut || "",
+      nights: storedVoucher.nights || voucherEntry.nights || matchedHotel?.nights || "",
+      rooms: storedVoucher.rooms || voucherEntry.rooms || matchedHotel?.rooms || "",
+      roomCategory:
+        storedVoucher.roomCategory ||
+        voucherEntry.roomCategory ||
+        matchedHotel?.roomCategory ||
+        "",
+      meal:
+        storedVoucher.meal ||
+        voucherEntry.meal ||
+        voucherEntry.mealPlan ||
+        matchedHotel?.mealPlan ||
+        "",
+      guests:
+        storedVoucher.guests?.length > 0
+          ? storedVoucher.guests
+          : [{ title: "Mr", name: booking.customerName || "" }],
+      contact:
+        storedVoucher.contact ||
+        booking.customerMobile ||
+        booking.mobile ||
+        booking.leadMobile ||
+        "",
+      address: storedVoucher.address || voucherEntry.address || "",
+      phone: storedVoucher.phone || voucherEntry.phone || "",
+      googleMapsLink:
+        storedVoucher.googleMapsLink || voucherEntry.googleMapsLink || "",
+      requests: storedVoucher.requests || voucherEntry.requests || "",
+      paymentStatus: storedVoucher.paymentStatus || "Payment at hotel",
+      amount: storedVoucher.amount || "",
+      cancellation: storedVoucher.cancellation || "",
+      customerName:
+        storedVoucher.customerName ||
+        booking.customerName ||
+        booking.leadName ||
+        "",
+      destination:
+        storedVoucher.destination ||
+        booking.destination ||
+        voucherEntry.city ||
+        "",
+      quotationId: storedVoucher.quotationId || booking.quotationId || null,
+      issueDate:
+        storedVoucher.issueDate ||
+        voucherEntry.createdAt ||
+        booking.createdAt ||
+        new Date().toISOString(),
+      status: storedVoucher.status || "Generated",
+    };
+  };
+
+  const findSavedVoucherForEntry = async (voucherEntry) => {
+    const agentId = booking.agentId;
+    if (!agentId) return null;
+
+    if (voucherEntry.voucherData?.id && voucherEntry.voucherData?._collection) {
+      return voucherEntry.voucherData;
+    }
+
+    const allVouchers = await fetchAllVouchersForAgent(agentId);
+    const voucherDocId = voucherEntry.voucherDocId || voucherEntry.voucherData?.id;
+    if (voucherDocId) {
+      const byId = allVouchers.find((voucher) => voucher.id === voucherDocId);
+      if (byId) return byId;
+    }
+
+    const entryKey = hotelVoucherKey(voucherEntry.hotelName, voucherEntry.checkIn);
+    return allVouchers.find(
+      (voucher) =>
+        voucher.voucherType === "Hotel" &&
+        hotelVoucherKey(voucher.hotelName, voucher.checkIn) === entryKey &&
+        (!booking.quotationId || voucher.quotationId === booking.quotationId),
+    );
+  };
+
+  const buildVoucherEntryFromSaved = (voucherEntry, savedVoucher) => ({
+    ...voucherEntry,
+    voucherNumber: savedVoucher?.voucherNumber || voucherEntry.voucherNumber,
+    voucherDocId: savedVoucher?.id || voucherEntry.voucherDocId || null,
+    voucherData: savedVoucher
+      ? {
+          ...savedVoucher,
+          isBookingVoucher: true,
+          bookingReference: booking.bookingRef || "",
+          bookingRef: booking.bookingRef || "",
+        }
+      : voucherEntry.voucherData,
+  });
+
+  const resolveVoucherForEntry = async (voucherEntry) => {
+    const savedVoucher = await findSavedVoucherForEntry(voucherEntry);
+    const resolvedEntry = buildVoucherEntryFromSaved(voucherEntry, savedVoucher);
+    const voucherData = buildVoucherDownloadData(resolvedEntry);
+    if (savedVoucher) {
+      voucherData.id = savedVoucher.id;
+      voucherData._collection = savedVoucher._collection;
+      voucherData._quotationDocId = savedVoucher._quotationDocId;
+    }
+    return voucherData;
+  };
+
+  const handleDownloadVoucher = async (voucherEntry) => {
+    setDownloadingVoucherId(voucherEntry.id);
+    try {
+      const voucherData = await resolveVoucherForEntry(voucherEntry);
+      if (!voucherData.voucherNumber) {
+        toast.error("Voucher number not found. Please recreate this voucher record.");
+        return;
+      }
+
+      await generateHotelVoucherPDF(voucherData);
+    } catch (err) {
+      console.error("[BookingDetail] Failed to download voucher:", err);
+      toast.error("Could not download voucher: " + err.message);
+    } finally {
+      setDownloadingVoucherId(null);
+    }
+  };
+
+  const handleViewVoucher = async (voucherEntry) => {
+    try {
+      const voucherData = await resolveVoucherForEntry(voucherEntry);
+      if (!voucherData.voucherNumber) {
+        toast.error("Voucher number not found. Please recreate this voucher record.");
+        return;
+      }
+      setViewingVoucher(voucherData);
+    } catch (err) {
+      console.error("[BookingDetail] Failed to open voucher:", err);
+      toast.error("Could not open voucher: " + err.message);
+    }
+  };
+
+  const handleEditVoucher = (voucher) => {
+    setViewingVoucher(null);
+    setEditingVoucher(voucher);
+  };
+
+  const handleVoucherEdited = async (savedVoucher = null) => {
+    if (!savedVoucher) return;
+    const updated = (booking.vouchers || []).map((entry) => {
+      const entryDocId = entry.voucherDocId || entry.voucherData?.id;
+      if (
+        entryDocId === savedVoucher.id ||
+        hotelVoucherKey(entry.hotelName, entry.checkIn) ===
+          hotelVoucherKey(savedVoucher.hotelName, savedVoucher.checkIn)
+      ) {
+        return {
+          ...entry,
+          hotelName: savedVoucher.hotelName || entry.hotelName,
+          checkIn: savedVoucher.checkIn || entry.checkIn,
+          checkOut: savedVoucher.checkOut || entry.checkOut,
+          voucherNumber: savedVoucher.voucherNumber || entry.voucherNumber,
+          voucherDocId: savedVoucher.id || entry.voucherDocId,
+          voucherData: savedVoucher,
+        };
+      }
+      return entry;
+    });
+
+    await updateBooking(id, { vouchers: updated });
+    setBooking((prev) => ({ ...prev, vouchers: updated }));
+    setEditingVoucher(null);
+  };
+
+  const handleDeleteVoucherEntry = async (voucherEntry) => {
     if (
       !confirm(
-        "Remove this voucher record? This allows creating a new one for the same hotel.",
+        "Delete this voucher? It will also be removed from the voucher dashboard.",
       )
     )
       return;
+    const voucherId = voucherEntry.id;
     setDeletingVoucherId(voucherId);
     try {
+      const savedVoucher = await findSavedVoucherForEntry(voucherEntry);
+      if (savedVoucher?.id) {
+        await deleteVoucherDocument(booking.agentId || savedVoucher.agentId, savedVoucher);
+      }
+
       const updated = (booking.vouchers || []).map((v) =>
         v.id === voucherId
           ? { ...v, deleted: true, deletedAt: new Date().toISOString() }
@@ -840,9 +1057,9 @@ export default function BookingDetailPage() {
       );
       await updateBooking(id, { vouchers: updated });
       setBooking((prev) => ({ ...prev, vouchers: updated }));
-      toast.success("Voucher record removed. You can now create a new one.");
+      toast.success("Voucher deleted.");
     } catch (err) {
-      toast.error("Could not remove voucher record: " + err.message);
+      toast.error("Could not delete voucher: " + err.message);
     } finally {
       setDeletingVoucherId(null);
     }
@@ -950,6 +1167,7 @@ export default function BookingDetailPage() {
     destination: booking.destination || "",
     bookingReference: booking.bookingRef || "",
     bookingRef: booking.bookingRef || "",
+    isBookingVoucher: true,
     leadName: booking.customerName || "",
     // Pass lead mobile explicitly so HotelVoucherDrawer can pick it up
     leadMobile:
@@ -1117,6 +1335,7 @@ export default function BookingDetailPage() {
                   {activeVouchers.map((v) => (
                     <div
                       key={v.id}
+                      onClick={() => handleViewVoucher(v)}
                       className="
     flex items-center justify-between
     p-3 rounded-xl
@@ -1143,20 +1362,62 @@ export default function BookingDetailPage() {
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50"
-                        title="Remove voucher record"
-                        disabled={deletingVoucherId === v.id}
-                        onClick={() => handleDeleteVoucherEntry(v.id)}
-                      >
-                        {deletingVoucherId === v.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <XCircle className="w-4 h-4" />
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-theme-primary hover:bg-blue-50"
+                          title="Download voucher"
+                          disabled={downloadingVoucherId === v.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDownloadVoucher(v);
+                          }}
+                        >
+                          {downloadingVoucherId === v.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                            
+                          )}
+                        </Button>
+                        <Button
+  variant="ghost"
+  size="icon"
+  className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+  title="Edit voucher"
+  onClick={async (event) => {
+    event.stopPropagation();
+
+    try {
+      const voucherData = await resolveVoucherForEntry(v);
+      setEditingVoucher(voucherData);
+    } catch (err) {
+      console.error("[BookingDetail] Failed to edit voucher:", err);
+      toast.error("Could not open voucher editor");
+    }
+  }}
+>
+  <Pencil className="w-4 h-4" />
+</Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50"
+                          title="Remove voucher record"
+                          disabled={deletingVoucherId === v.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteVoucherEntry(v);
+                          }}
+                        >
+                          {deletingVoucherId === v.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   {deletedVouchers.length > 0 && (
@@ -1524,6 +1785,12 @@ export default function BookingDetailPage() {
         </div>
       </div>
 
+      <VoucherViewModal
+        voucher={viewingVoucher}
+        onClose={() => setViewingVoucher(null)}
+        onEdit={viewingVoucher?._collection ? handleEditVoucher : undefined}
+      />
+
       <HotelVoucherDrawer
         isOpen={voucherDrawerOpen}
         onClose={() => {
@@ -1535,6 +1802,16 @@ export default function BookingDetailPage() {
         leadId={booking?.leadId}
         agentId={booking.agentId || ""}
         onSaved={handleVoucherSaved}
+      />
+
+      <HotelVoucherDrawer
+        isOpen={!!editingVoucher}
+        onClose={() => setEditingVoucher(null)}
+        quotation={bookingAsQuotation}
+        leadId={booking?.leadId}
+        agentId={booking.agentId || ""}
+        initialVoucher={editingVoucher}
+        onSaved={handleVoucherEdited}
       />
       {/* ── Edit Customer Payment Dialog (unchanged) ────────────────────── */}
       <Dialog

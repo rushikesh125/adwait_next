@@ -412,6 +412,10 @@ const handleAiFetch = async () => {
   /* ── Save ────────────────────────────────────────────────────────────── */
   const handleSave = async () => {
     if (!validate()) return;
+    if (!voucherNo) {
+      alert("Voucher number is still generating. Please try again in a moment.");
+      return;
+    }
 
     const auth = getAuth();
     const authUser = auth.currentUser;
@@ -980,7 +984,7 @@ const handleAiFetch = async () => {
           </Button>
           <Button
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || !voucherNo}
             className="bg-theme-primary hover:bg-theme-dark text-white px-10 font-medium"
           >
             {loading ? "Creating Voucher..." : "Create Hotel Voucher"}

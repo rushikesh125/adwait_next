@@ -276,15 +276,31 @@ export default function LeadForm({
               <FieldLabel icon={Users} required>
                 Adults
               </FieldLabel>
-              <Input
-                type="number"
-                name="adults"
-                value={form.adults}
-                placeholder="Number of travelers"
-                onChange={onChange}
-                className="h-11 border-slate-200 focus-visible:ring-theme-primary"
-                required
-              />
+             <Input
+  type="number"
+  name="adults"
+  value={form.adults}
+  placeholder="Number of travelers"
+  onChange={(e) => {
+    const value = e.target.value;
+
+    // Allow empty while typing
+    if (value === "") {
+      onChange(e);
+      return;
+    }
+
+    // Prevent values below 1
+    if (Number(value) < 1) {
+      return;
+    }
+
+    onChange(e);
+  }}
+  min="1"
+  className="h-11 border-slate-200 focus-visible:ring-theme-primary"
+  required
+/>
             </div>
 
             <div className="space-y-2">

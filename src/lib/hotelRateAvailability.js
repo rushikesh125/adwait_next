@@ -197,3 +197,42 @@ export const calculateHotelStayPrice = (entry, fullHotelData) => {
 
   return total;
 };
+
+// Like calculateHotelStayPrice but returns the per-bucket subtotals for the
+// full stay. Used by the per-person breakdown to split a predefined hotel's
+// total cost across guest buckets. Returns null if rates aren't available.
+export const calculateHotelStayBucketSubtotals = (entry, fullHotelData) => {
+  if (!entry || !fullHotelData) return null;
+
+  const room = fullHotelData.rooms?.find(
+    (r) => r.categoryName === entry.selectedRoomCategory,
+  );
+  if (!room) return null;
+
+  const planKey = entry.selectedMealPlan?.toLowerCase();
+  if (!planKey) return null;
+
+  const stayDates = getStayDates({
+    checkInDate: entry.checkInDate,
+    checkOutDate: entry.checkOutDate,
+    nights: entry.nights,
+  });
+  if (!stayDates.length) return null;
+
+  const subtotals = { defaultAdult: 0, extraAdult: 0, extraChild: 0, cnb: 0 };
+  for (const date of stayDates) {
+    const season = getApplicableSeason(room, date);
+    const pricing = season?.pricing?.[planKey];
+    if (!hasPositiveRate(pricing)) return null;
+
+    subtotals.defaultAdult +=
+      Number(pricing.double || 0) * Number(entry.numDouble || 0);
+    subtotals.extraAdult +=
+      Number(pricing.extraAdult || 0) * Number(entry.numExtraAdult || 0);
+    subtotals.extraChild +=
+      Number(pricing.extraChild || 0) * Number(entry.numExtraChild || 0);
+    subtotals.cnb += Number(pricing.cnb || 0) * Number(entry.numCNB || 0);
+  }
+
+  return subtotals;
+};

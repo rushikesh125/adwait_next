@@ -329,6 +329,10 @@ export default function HotelVoucherDrawer({
   };
 
   const validate = () => {
+    if (!voucherNo) {
+      alert("Voucher number is still generating. Please try again in a moment.");
+      return false;
+    }
     if (!effectiveHotel.hotelName && !hotelFields.hotelName) {
       alert("Hotel name is required");
       return false;
@@ -372,6 +376,22 @@ export default function HotelVoucherDrawer({
     destination:
       initialVoucher?.destination || effectiveQuotation?.destination || "",
     quotationId: initialVoucher?.quotationId || effectiveQuotation?.id || null,
+    bookingReference:
+      initialVoucher?.isBookingVoucher || effectiveQuotation?.isBookingVoucher
+        ? initialVoucher?.bookingReference ||
+          effectiveQuotation?.bookingReference ||
+          effectiveQuotation?.bookingRef ||
+          ""
+        : "",
+    isBookingVoucher:
+      Boolean(initialVoucher?.isBookingVoucher || effectiveQuotation?.isBookingVoucher),
+    bookingRef:
+      initialVoucher?.isBookingVoucher || effectiveQuotation?.isBookingVoucher
+        ? initialVoucher?.bookingRef ||
+          effectiveQuotation?.bookingRef ||
+          effectiveQuotation?.bookingReference ||
+          ""
+        : "",
     issueDate: initialVoucher?.issueDate || new Date().toISOString(),
     status: initialVoucher?.status || "Generated",
   });
@@ -443,10 +463,12 @@ export default function HotelVoucherDrawer({
         meal: finalHotel.mealPlan,
       };
 
+      let savedVoucherRef = null;
+
       if (isEditMode) {
         await updateVoucherDocument(finalAgentId, initialVoucher, voucherData);
       } else {
-        await saveVoucherToFirestore(
+        savedVoucherRef = await saveVoucherToFirestore(
           finalAgentId,
           linkedQuotationId,
           voucherData,
@@ -462,7 +484,12 @@ export default function HotelVoucherDrawer({
         }
       }
 
-      onSaved?.();
+      onSaved?.({
+        ...voucherData,
+        id: savedVoucherRef?.id || initialVoucher?.id || null,
+        _collection: linkedQuotationId ? "quotation" : "standalone",
+        _quotationDocId: linkedQuotationId,
+      });
       alert(
         isEditMode
           ? "Voucher updated successfully"
@@ -855,7 +882,7 @@ export default function HotelVoucherDrawer({
             <Button variant="secondary" onClick={handlePreview}>
               Preview
             </Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button onClick={handleSave} disabled={loading || !voucherNo}>
               {loading
                 ? isEditMode
                   ? "Updating..."
@@ -1000,7 +1027,7 @@ export default function HotelVoucherDrawer({
               <Download className="h-4 w-4" />
               Download PDF
             </Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button onClick={handleSave} disabled={loading || !voucherNo}>
               {loading
                 ? isEditMode
                   ? "Updating..."
