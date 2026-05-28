@@ -72,7 +72,7 @@ const safe = (val) => {
   if (val == null) return "";
   return String(val)
     .replace(/[^\x00-\xFF]/g, (ch) => TRANSLIT[ch] ?? "")
-    .replace(/[^\x20-\x7E\xA0-\xFF]/g, "");
+    .replace(/[^\x0A\x0D\x20-\x7E\xA0-\xFF]/g, "");
 };
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -447,8 +447,8 @@ export async function generateInvoicePDF(invoice = {}) {
       if (d.section === "body" && d.column.index === 1) {
         const item = lineItems[d.row.index];
         if (item?.itemName && item?.description) {
-          const cpl = Math.max(20, Math.floor((70 - 6) * 2));
-          const ln  = Math.max(1, Math.ceil(safe(item.description).length / cpl));
+          const descLines = doc.splitTextToSize(safe(item.description), 70 - 6);
+          const ln  = Math.max(1, descLines.length);
           d.cell.styles.minCellHeight = 7 + ln * 3.8 + 4;
         }
       }
