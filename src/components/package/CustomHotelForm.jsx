@@ -52,7 +52,10 @@ const blankCategory = (overrides = {}) => ({
 // and the legacy single-room shape (initial.selectedMealPlan etc.).
 const hydrateCategories = (initial) => {
   if (!initial) return [blankCategory()];
-  if (Array.isArray(initial.roomCategories) && initial.roomCategories.length > 0) {
+  if (
+    Array.isArray(initial.roomCategories) &&
+    initial.roomCategories.length > 0
+  ) {
     return initial.roomCategories.map((rc) =>
       blankCategory({
         roomType: rc.roomCategory || rc.roomType || "",
@@ -101,15 +104,8 @@ const calcCategoryNightPrice = (cat) =>
 // RoomCategoryCard — one editable row per room category
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RoomCategoryCard({
-  index,
-  total,
-  category,
-  onChange,
-  onRemove,
-}) {
-  const setField = (field, value) =>
-    onChange({ ...category, [field]: value });
+function RoomCategoryCard({ index, total, category, onChange, onRemove }) {
+  const setField = (field, value) => onChange({ ...category, [field]: value });
 
   const setPricing = (planKey, type, raw) => {
     const v = raw === "" ? 0 : Math.max(0, Number(raw));
@@ -131,7 +127,7 @@ function RoomCategoryCard({
   const nightPrice = calcCategoryNightPrice(category);
 
   return (
-    <div className="rounded-lg border border-theme-primary/30 bg-white p-3 space-y-3">
+    <div className="rounded-lg border bg-white p-3 space-y-3 ">
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-semibold text-theme-primary">
           Room Category {index + 1}
@@ -176,7 +172,9 @@ function RoomCategoryCard({
                 <th className="px-2 py-1.5 text-left font-medium">Double</th>
                 <th className="px-2 py-1.5 text-left font-medium">Ex. Adult</th>
                 <th className="px-2 py-1.5 text-left font-medium">Ex. Child</th>
-                <th className="px-2 py-1.5 text-left font-medium text-theme-primary">CNB</th>
+                <th className="px-2 py-1.5 text-left font-medium text-theme-primary">
+                  CNB
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -186,25 +184,27 @@ function RoomCategoryCard({
                     <td className="px-2 py-1">
                       <span className="font-bold text-[10px]">{planLabel}</span>
                     </td>
-                    {["double", "extraAdult", "extraChild", "cnb"].map((type) => (
-                      <td key={type} className="px-2 py-1">
-                        <div className="relative">
-                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[9px]">
-                            ₹
-                          </span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={category.pricing[planKey]?.[type] || ""}
-                            onChange={(e) =>
-                              setPricing(planKey, type, e.target.value)
-                            }
-                            className="w-full h-7 pl-4 pr-1 border rounded text-right text-[11px] outline-none focus:ring-1 focus:ring-theme-primary border-input"
-                            placeholder="0"
-                          />
-                        </div>
-                      </td>
-                    ))}
+                    {["double", "extraAdult", "extraChild", "cnb"].map(
+                      (type) => (
+                        <td key={type} className="px-2 py-1">
+                          <div className="relative">
+                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[9px]">
+                              ₹
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={category.pricing[planKey]?.[type] || ""}
+                              onChange={(e) =>
+                                setPricing(planKey, type, e.target.value)
+                              }
+                              className="w-full h-7 pl-4 pr-1 border rounded text-right text-[11px] outline-none focus:ring-1 focus:ring-theme-primary border-input"
+                              placeholder="0"
+                            />
+                          </div>
+                        </td>
+                      ),
+                    )}
                   </tr>
                 ),
               )}
@@ -232,12 +232,14 @@ function RoomCategoryCard({
                   active
                     ? "bg-theme-primary text-white border-theme-primary"
                     : hasPrice
-                    ? "bg-white border-input text-slate-700 hover:border-theme-primary/60"
-                    : "bg-muted/30 border-muted text-muted-foreground cursor-not-allowed opacity-50"
+                      ? "bg-white border-input text-slate-700 hover:border-theme-primary/60"
+                      : "bg-muted/30 border-muted text-muted-foreground cursor-not-allowed opacity-50"
                 }`}
               >
                 {plan}
-                {hasPrice && <span className="ml-0.5 text-[9px] opacity-70">✓</span>}
+                {hasPrice && (
+                  <span className="ml-0.5 text-[9px] opacity-70">✓</span>
+                )}
               </button>
             );
           })}
@@ -296,7 +298,9 @@ const CustomHotelForm = ({
   const [checkInDate, setCheckInDate] = useState(
     initial?.checkInDate || new Date().toISOString().split("T")[0],
   );
-  const [categories, setCategories] = useState(() => hydrateCategories(initial));
+  const [categories, setCategories] = useState(() =>
+    hydrateCategories(initial),
+  );
   const [existingDocId, setExistingDocId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -326,8 +330,13 @@ const CustomHotelForm = ({
         }
         // Restore room categories — prefer the array shape, fall back to the
         // legacy single-room shape.
-        if (Array.isArray(data.roomCategories) && data.roomCategories.length > 0) {
-          setCategories(hydrateCategories({ roomCategories: data.roomCategories }));
+        if (
+          Array.isArray(data.roomCategories) &&
+          data.roomCategories.length > 0
+        ) {
+          setCategories(
+            hydrateCategories({ roomCategories: data.roomCategories }),
+          );
         } else if (data.roomType || data.pricing) {
           setCategories([
             blankCategory({
@@ -353,22 +362,39 @@ const CustomHotelForm = ({
   );
   const estimatedTotal = totalPricePerNight * (Number(nights) || 0);
 
-  const addCategory = () =>
-    setCategories((prev) => [...prev, blankCategory()]);
+  const addCategory = () => setCategories((prev) => [...prev, blankCategory()]);
   const updateCategory = (idx, next) =>
     setCategories((prev) => prev.map((c, i) => (i === idx ? next : c)));
   const removeCategory = (idx) =>
     setCategories((prev) => prev.filter((_, i) => i !== idx));
 
   const handleSubmit = async () => {
-    if (!hotelName.trim()) { alert("Hotel name is required."); return; }
-    if (!city.trim()) { alert("City is required."); return; }
-    if (!state.trim()) { alert("State is required."); return; }
-    if (categories.length === 0) { alert("At least one room category is required."); return; }
+    if (!hotelName.trim()) {
+      alert("Hotel name is required.");
+      return;
+    }
+    if (!city.trim()) {
+      alert("City is required.");
+      return;
+    }
+    if (!state.trim()) {
+      alert("State is required.");
+      return;
+    }
+    if (categories.length === 0) {
+      alert("At least one room category is required.");
+      return;
+    }
     for (let i = 0; i < categories.length; i++) {
       const c = categories[i];
-      if (!c.roomType.trim()) { alert(`Room Category ${i + 1}: room type is required.`); return; }
-      if (!categoryHasAnyPrice(c)) { alert(`Room Category ${i + 1}: enter at least one price.`); return; }
+      if (!c.roomType.trim()) {
+        alert(`Room Category ${i + 1}: room type is required.`);
+        return;
+      }
+      if (!categoryHasAnyPrice(c)) {
+        alert(`Room Category ${i + 1}: enter at least one price.`);
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -568,16 +594,19 @@ const CustomHotelForm = ({
               Add Room Category
             </Button>
           </div>
-          {categories.map((c, idx) => (
-            <RoomCategoryCard
-              key={c.id}
-              index={idx}
-              total={categories.length}
-              category={c}
-              onChange={(next) => updateCategory(idx, next)}
-              onRemove={() => removeCategory(idx)}
-            />
-          ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {categories.map((c, idx) => (
+              <RoomCategoryCard
+                key={c.id}
+                index={idx}
+                total={categories.length}
+                category={c}
+                onChange={(next) => updateCategory(idx, next)}
+                onRemove={() => removeCategory(idx)}
+              />
+            ))}
+            
+          </div>
         </div>
 
         {/* Stay details (shared across all room categories) */}
@@ -606,8 +635,50 @@ const CustomHotelForm = ({
           </div>
         </div>
 
+        {/* Price Summary */}
+        {categories.length > 0 && (
+          <div className="space-y-2 mt-2">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
+              Price Summary
+            </Label>
+            <div className="rounded-lg border bg-slate-50/50 p-2 space-y-1.5">
+              {categories.map((c, i) => {
+                const perNight = calcCategoryNightPrice(c);
+                const totalForCategory = perNight * (Number(nights) || 0);
+                return (
+                  <div
+                    key={c.id}
+                    className="flex items-center justify-between text-[11px] bg-white p-2 border rounded-md shadow-sm"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-700">
+                        {c.roomType || `Room Category ${i + 1}`}{" "}
+                        <span className="text-muted-foreground font-normal">
+                          ({c.mealPlan})
+                        </span>
+                      </p>
+                      <p className="text-[9px] text-slate-500 mt-0.5">
+                        {c.numDouble} Rooms • {c.numExtraAdult} Ex. Adult •{" "}
+                        {c.numExtraChild} Ex. Child • {c.numCNB} CNB
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-theme-primary">
+                        ₹{totalForCategory.toFixed(0)}
+                      </p>
+                      <p className="text-[9px] text-slate-500">
+                        ₹{perNight.toFixed(0)}/night × {nights || 0} nights
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Footer: total + actions */}
-        <div className="flex items-center justify-between pt-2 border-t gap-4">
+        <div className="flex items-center justify-between pt-2 border-t gap-4 mt-2">
           <div className="text-xs flex items-center gap-3">
             <span className="text-slate-500">
               Per night:{" "}

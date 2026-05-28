@@ -428,9 +428,9 @@ const MultiRoomCategoryEditor = ({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 ">
       {/* 2-column grid — 3rd room wraps to next row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 border-red-500 max-w-1/2">
         {rows.map((row, index) => (
           <div
             key={row.id}
@@ -2208,9 +2208,9 @@ const Create_new_package = ({
                     </div>
                   ) : (
                     <>
-                      <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-3 ">
                         <div className="space-y-1.5">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1 ">
                             {Object.keys(groupedHotels).map((city) => (
                               <div key={city} className="space-y-1">
                                 <p className="text-[9px] font-bold uppercase tracking-widest text-theme-secondary px-1">
@@ -2277,54 +2277,62 @@ const Create_new_package = ({
                         </div>
 
                         {/* ── Multi-Room-Category Editor ── */}
-                       {/* ── Multi-Room-Category Editor ── */}
-{selectedHotelData && !showCustomHotelForm && (
-  <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 w-full">
-    <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
-      <Hotel className="h-4 w-4 text-theme-primary" />
-      {selectedHotelData.name}
-      <span className="text-slate-400 font-normal">
-        — {selectedHotelData.city}
-      </span>
-    </p>
+                        {selectedHotelData && !showCustomHotelForm && (
+                          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 ">
+                            <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                              <Hotel className="h-4 w-4 text-theme-primary" />
+                              {selectedHotelData.name}
+                              <span className="text-slate-400 font-normal">
+                                — {selectedHotelData.city}
+                              </span>
+                            </p>
 
-    <MultiRoomCategoryEditor
-      rows={roomCategoryRows || [createEmptyRoomCategory(0)]}
-      onChange={(updatedRows) => setRoomCategoryRows(updatedRows)}
-      hotelData={selectedHotelData}
-      nights={nights}
-      checkInDate={checkInDate}
-      checkOutDate={checkOutDate}
-      onTotalChange={(total) =>
-        updateActiveOption({ currentHotelTotal: total })
-      }
-      editingEntry={
-        editingIndex !== null ? hotelEntries[editingIndex] : null
-      }
-      roomPriceRefs={roomPriceRefs}
-    />
+                            <MultiRoomCategoryEditor
+                              rows={
+                                roomCategoryRows || [createEmptyRoomCategory(0)]
+                              }
+                              onChange={(updatedRows) =>
+                                setRoomCategoryRows(updatedRows)
+                              }
+                              hotelData={selectedHotelData}
+                              nights={nights}
+                              checkInDate={checkInDate}
+                              checkOutDate={checkOutDate}
+                              onTotalChange={(total) =>
+                                updateActiveOption({ currentHotelTotal: total })
+                              }
+                              editingEntry={
+                                editingIndex !== null
+                                  ? hotelEntries[editingIndex]
+                                  : null
+                              }
+                              roomPriceRefs={roomPriceRefs}
+                            />
 
-    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
-      <Button
-        onClick={handleSaveHotel}
-        className="bg-theme-primary hover:bg-theme-secondary text-sm h-9"
-        size="sm"
-      >
-        {editingIndex !== null ? "✏️ Update Hotel" : "💾 Save Hotel"}
-      </Button>
-      {isReadyToAddAnother && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleAddAnotherHotel}
-          className="text-sm h-9 border-theme-primary text-theme-primary hover:bg-theme-primary/5"
-        >
-          <Plus className="h-4 w-4 mr-1" /> Add Another Hotel
-        </Button>
-      )}
-    </div>
-  </div>
-)}
+                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
+                              <Button
+                                onClick={handleSaveHotel}
+                                className="bg-theme-primary hover:bg-theme-secondary text-sm h-9"
+                                size="sm"
+                              >
+                                {editingIndex !== null
+                                  ? "✏️ Update Hotel"
+                                  : "💾 Save Hotel"}
+                              </Button>
+                              {isReadyToAddAnother && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleAddAnotherHotel}
+                                  className="text-sm h-9 border-theme-primary text-theme-primary hover:bg-theme-primary/5"
+                                >
+                                  <Plus className="h-4 w-4 mr-1" /> Add Another
+                                  Hotel
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
