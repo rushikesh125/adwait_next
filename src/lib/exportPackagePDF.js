@@ -753,9 +753,19 @@ const drawDay = async (pdfdoc, logoImg, day, y, options = {}) => {
   const innerContentLeft = 42;
   const innerContentW = 153; // 195 - 42
 
+  // Set the correct font BEFORE splitTextToSize so jsPDF calculates
+  // character widths with the same font that will actually be used
+  // for rendering.  Without this, the active font varies between
+  // day cards (it inherits whatever the previous card left behind),
+  // causing text to wrap at different column widths → uneven right margins.
+  pdfdoc.setFont(FONT_FAMILY, "normal");
+  pdfdoc.setFontSize(FONT_BODY);
   const descLines = day.description
     ? pdfdoc.splitTextToSize(day.description, innerContentW)
     : [];
+
+  pdfdoc.setFont(FONT_FAMILY, "bold");
+  pdfdoc.setFontSize(FONT_HEADING);
   const titleLines = day.title
     ? pdfdoc.splitTextToSize(day.title, innerContentW)
     : [];
