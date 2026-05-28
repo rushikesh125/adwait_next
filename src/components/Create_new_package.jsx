@@ -429,25 +429,25 @@ const MultiRoomCategoryEditor = ({
 
   return (
     <div className="space-y-3">
-      {/* Parallel column layout — one column per room category */}
-      <div
-        className="grid gap-3"
-        style={{
-          gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))`,
-        }}
-      >
+      {/* 2-column grid — 3rd room wraps to next row */}
+      <div className="grid grid-cols-2 gap-3">
         {rows.map((row, index) => (
           <div
             key={row.id}
-            className="relative rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2 min-w-0"
+            className="relative rounded-xl border-2 border-slate-200 bg-white p-3 space-y-2 min-w-0"
+            style={{
+              borderColor:
+                index === 0 ? "var(--theme-primary, #6366f1)" : undefined,
+              opacity: 1,
+            }}
           >
             {/* Column header */}
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-theme-primary uppercase tracking-wide flex items-center gap-1.5">
-                <BedDouble className="h-3.5 w-3.5" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-sm font-bold text-theme-primary flex items-center gap-1.5">
+                <BedDouble className="h-4 w-4" />
                 Room {index + 1}
                 {index === 0 && (
-                  <span className="text-[10px] bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded-full font-semibold normal-case tracking-normal">
+                  <span className="text-[11px] bg-theme-primary/10 text-theme-primary px-2 py-0.5 rounded-full font-semibold">
                     Primary
                   </span>
                 )}
@@ -456,10 +456,10 @@ const MultiRoomCategoryEditor = ({
                 <button
                   type="button"
                   onClick={() => removeRow(index)}
-                  className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 transition-colors"
+                  className="p-1 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition-colors"
                   aria-label="Remove room category"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>
@@ -471,6 +471,7 @@ const MultiRoomCategoryEditor = ({
               checkOutDate={checkOutDate}
               nights={nights}
               onTotalChange={(price) => {
+                console.log("ROOM", index, "PRICE:", price);
                 if (roomPriceRefs?.current) {
                   if (price > 0) {
                     roomPriceRefs.current[row.id] = price;
@@ -519,8 +520,8 @@ const MultiRoomCategoryEditor = ({
 
             {/* Meal-plan override indicator */}
             {index !== 0 && row.mealPlanOverridden && (
-              <div className="flex items-start gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 leading-tight">
-                <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 leading-snug">
+                <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
                 <span>
                   Meal plan overridden.{" "}
                   <button
@@ -541,9 +542,11 @@ const MultiRoomCategoryEditor = ({
 
             {/* Per-column subtotal */}
             {row.price > 0 && (
-              <div className="flex items-center justify-between text-xs border-t border-slate-200 pt-2 mt-1">
-                <span className="text-slate-500 font-medium">Subtotal</span>
-                <span className="font-black text-theme-primary text-sm">
+              <div className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 mt-1">
+                <span className="text-sm text-slate-500 font-medium">
+                  Subtotal
+                </span>
+                <span className="font-black text-theme-primary text-base">
                   ₹{Number(row.price).toLocaleString("en-IN")}
                 </span>
               </div>
@@ -552,38 +555,38 @@ const MultiRoomCategoryEditor = ({
         ))}
       </div>
 
-      {/* Add column button */}
+      {/* Add room category button */}
       {rows.length < MAX_ROOM_CATEGORIES && (
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={addRow}
-          className="w-full text-xs h-9 border-dashed border-theme-primary/50 text-theme-primary hover:bg-theme-primary/5"
+          className="w-full text-sm h-10 border-dashed border-2 border-theme-primary/50 text-theme-primary hover:bg-theme-primary/5 font-semibold"
         >
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
+          <Plus className="h-4 w-4 mr-1.5" />
           Add Room Category
-          <span className="ml-1.5 text-[10px] text-slate-400">
+          <span className="ml-1.5 text-xs text-slate-400 font-normal">
             ({rows.length}/{MAX_ROOM_CATEGORIES})
           </span>
         </Button>
       )}
 
       {rows.length >= MAX_ROOM_CATEGORIES && (
-        <p className="text-[11px] text-amber-600 flex items-center gap-1.5">
-          <AlertCircle className="h-3.5 w-3.5" />
+        <p className="text-xs text-amber-600 flex items-center gap-1.5 font-medium">
+          <AlertCircle className="h-4 w-4" />
           Maximum {MAX_ROOM_CATEGORIES} room categories per hotel
         </p>
       )}
 
-      {/* Combined total bar — shown when multiple columns */}
+      {/* Combined total — only when multiple rooms */}
       {rows.length > 1 && (
-        <div className="flex items-center justify-between rounded-xl bg-theme-primary/8 border border-theme-primary/25 px-4 py-2.5 text-sm">
-          <span className="font-bold text-slate-700 flex items-center gap-1.5">
+        <div className="flex items-center justify-between rounded-xl bg-theme-primary/5 border-2 border-theme-primary/20 px-4 py-3">
+          <span className="text-sm font-bold text-slate-700 flex items-center gap-2">
             <Hotel className="h-4 w-4 text-theme-primary" />
             Combined Hotel Total
           </span>
-          <span className="font-black text-theme-primary text-base">
+          <span className="font-black text-theme-primary text-lg">
             ₹
             {rows
               .reduce((s, r) => s + Number(r.price || 0), 0)
@@ -2205,13 +2208,7 @@ const Create_new_package = ({
                     </div>
                   ) : (
                     <>
-                      <div
-                        className={`${
-                          selectedHotelData && !showCustomHotelForm
-                            ? "grid grid-cols-1 lg:grid-cols-2 gap-3"
-                            : ""
-                        }`}
-                      >
+                      <div className="flex flex-col gap-3">
                         <div className="space-y-1.5">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto pr-1">
                             {Object.keys(groupedHotels).map((city) => (
@@ -2280,63 +2277,54 @@ const Create_new_package = ({
                         </div>
 
                         {/* ── Multi-Room-Category Editor ── */}
-                        {selectedHotelData && !showCustomHotelForm && (
-                          <div className="border-t lg:border-t-0 lg:border-l border-slate-100 pt-3 lg:pt-0 lg:pl-3 space-y-2">
-                            <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                              <Hotel className="h-3.5 w-3.5 text-theme-primary" />
-                              {selectedHotelData.name}
-                              <span className="text-slate-400 font-normal">
-                                — {selectedHotelData.city}
-                              </span>
-                            </p>
+                       {/* ── Multi-Room-Category Editor ── */}
+{selectedHotelData && !showCustomHotelForm && (
+  <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 w-full">
+    <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+      <Hotel className="h-4 w-4 text-theme-primary" />
+      {selectedHotelData.name}
+      <span className="text-slate-400 font-normal">
+        — {selectedHotelData.city}
+      </span>
+    </p>
 
-                            <MultiRoomCategoryEditor
-                              rows={
-                                roomCategoryRows || [createEmptyRoomCategory(0)]
-                              }
-                              onChange={(updatedRows) =>
-                                setRoomCategoryRows(updatedRows)
-                              }
-                              hotelData={selectedHotelData}
-                              nights={nights}
-                              checkInDate={checkInDate}
-                              checkOutDate={checkOutDate}
-                              onTotalChange={(total) =>
-                                updateActiveOption({ currentHotelTotal: total })
-                              }
-                              editingEntry={
-                                editingIndex !== null
-                                  ? hotelEntries[editingIndex]
-                                  : null
-                              }
-                              // FIX: pass the ref
-                              roomPriceRefs={roomPriceRefs}
-                            />
+    <MultiRoomCategoryEditor
+      rows={roomCategoryRows || [createEmptyRoomCategory(0)]}
+      onChange={(updatedRows) => setRoomCategoryRows(updatedRows)}
+      hotelData={selectedHotelData}
+      nights={nights}
+      checkInDate={checkInDate}
+      checkOutDate={checkOutDate}
+      onTotalChange={(total) =>
+        updateActiveOption({ currentHotelTotal: total })
+      }
+      editingEntry={
+        editingIndex !== null ? hotelEntries[editingIndex] : null
+      }
+      roomPriceRefs={roomPriceRefs}
+    />
 
-                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
-                              <Button
-                                onClick={handleSaveHotel}
-                                className="bg-theme-primary hover:bg-theme-secondary text-xs h-8"
-                                size="sm"
-                              >
-                                {editingIndex !== null
-                                  ? "✏️ Update Hotel"
-                                  : "💾 Save Hotel"}
-                              </Button>
-                              {isReadyToAddAnother && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={handleAddAnotherHotel}
-                                  className="text-xs h-8 border-theme-primary text-theme-primary hover:bg-theme-primary/5"
-                                >
-                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add
-                                  Another Hotel
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        )}
+    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
+      <Button
+        onClick={handleSaveHotel}
+        className="bg-theme-primary hover:bg-theme-secondary text-sm h-9"
+        size="sm"
+      >
+        {editingIndex !== null ? "✏️ Update Hotel" : "💾 Save Hotel"}
+      </Button>
+      {isReadyToAddAnother && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleAddAnotherHotel}
+          className="text-sm h-9 border-theme-primary text-theme-primary hover:bg-theme-primary/5"
+        >
+          <Plus className="h-4 w-4 mr-1" /> Add Another Hotel
+        </Button>
+      )}
+    </div>
+  </div>
+)}
                       </div>
                     </>
                   )}
