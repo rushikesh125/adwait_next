@@ -650,8 +650,10 @@ export default function ActivityTimeline({
     <>
       <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden flex flex-col">
         {/* ── Header ── */}
+        
         <CardHeader className="border-b border-slate-50 py-4 px-5">
           <div className="flex items-center justify-between gap-3">
+            
             <div className="flex items-center gap-2 min-w-0">
               <Activity className="h-4 w-4 text-theme-primary shrink-0" />
               <CardTitle className="text-sm font-bold text-slate-700">Activity Timeline</CardTitle>
@@ -675,7 +677,10 @@ export default function ActivityTimeline({
               <Plus className="h-3.5 w-3.5 mr-1" /> Follow-Up
             </Button>
           </div>
-
+ {/* ── Note compose bar ── */}
+        <div className="p-4 border-t border-slate-50 bg-slate-50/30">
+          <AddNoteForm onAdd={handleAddNote} />
+        </div>
           {/* Stats */}
           <div className="mt-4">
             <StatsBar followUps={followUps} notes={notes} />
@@ -779,10 +784,7 @@ export default function ActivityTimeline({
           )}
         </CardContent>
 
-        {/* ── Note compose bar ── */}
-        <div className="p-4 border-t border-slate-50 bg-slate-50/30">
-          <AddNoteForm onAdd={handleAddNote} />
-        </div>
+       
       </Card>
 
       {/* ── Follow-Up Form Modal ── */}
