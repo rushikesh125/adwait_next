@@ -429,23 +429,29 @@ const MultiRoomCategoryEditor = ({
 
   return (
     <div className="space-y-3">
-      {rows.map((row, index) => (
-        <div
-          key={row.id}
-          className="relative rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2"
-        >
-          {/* Row header */}
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold text-theme-primary uppercase tracking-wide flex items-center gap-1.5">
-              <BedDouble className="h-3 w-3" />
-              Room Category {index + 1}
-              {index === 0 && (
-                <span className="text-[9px] bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded-full font-semibold">
-                  Primary
-                </span>
-              )}
-            </span>
-            <div className="flex items-center gap-1">
+      {/* Parallel column layout — one column per room category */}
+      <div
+        className="grid gap-3"
+        style={{
+          gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))`,
+        }}
+      >
+        {rows.map((row, index) => (
+          <div
+            key={row.id}
+            className="relative rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2 min-w-0"
+          >
+            {/* Column header */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-theme-primary uppercase tracking-wide flex items-center gap-1.5">
+                <BedDouble className="h-3.5 w-3.5" />
+                Room {index + 1}
+                {index === 0 && (
+                  <span className="text-[10px] bg-theme-primary/10 text-theme-primary px-1.5 py-0.5 rounded-full font-semibold normal-case tracking-normal">
+                    Primary
+                  </span>
+                )}
+              </span>
               {rows.length > 1 && (
                 <button
                   type="button"
@@ -457,132 +463,127 @@ const MultiRoomCategoryEditor = ({
                 </button>
               )}
             </div>
-          </div>
 
-          {/* HotelRoomSelector with ref‑writing callbacks */}
-          <HotelRoomSelector
-            hotel={hotelData}
-            checkInDate={checkInDate}
-            checkOutDate={checkOutDate}
-            nights={nights}
-            onTotalChange={(price) => {
-              console.log("ROOM", index, "PRICE:", price);
-              // Always keep ref in sync; remove stale entry when price resets to 0
-              // (e.g. meal plan changed to one with no available rate)
-              if (roomPriceRefs?.current) {
-                if (price > 0) {
-                  roomPriceRefs.current[row.id] = price;
-                } else {
-                  delete roomPriceRefs.current[row.id];
+            {/* HotelRoomSelector */}
+            <HotelRoomSelector
+              hotel={hotelData}
+              checkInDate={checkInDate}
+              checkOutDate={checkOutDate}
+              nights={nights}
+              onTotalChange={(price) => {
+                if (roomPriceRefs?.current) {
+                  if (price > 0) {
+                    roomPriceRefs.current[row.id] = price;
+                  } else {
+                    delete roomPriceRefs.current[row.id];
+                  }
                 }
+                updateRow(index, { price });
+              }}
+              onRoomCategoryChange={(roomCategory) =>
+                updateRow(index, { roomCategory })
               }
-              updateRow(index, { price });
-            }}
-            onRoomCategoryChange={(roomCategory) =>
-              updateRow(index, { roomCategory })
-            }
-            onMealPlanChange={(mealPlan) => updateRow(index, { mealPlan })}
-            onGuestsChange={(guests) =>
-              updateRow(index, {
-                numDouble: guests.numDouble,
-                numExtraAdult: guests.numExtraAdult,
-                numExtraChild: guests.numExtraChild,
-                numCNB: guests.numCNB,
-              })
-            }
-            // When editing, pass initial values for this specific row
-            initial={
-              editingEntry?.roomCategories?.[index]
-                ? {
-                    selectedRoomCategory:
-                      editingEntry.roomCategories[index].roomCategory,
-                    selectedMealPlan:
-                      editingEntry.roomCategories[index].mealPlan,
-                    numDouble: editingEntry.roomCategories[index].numDouble,
-                    numExtraAdult:
-                      editingEntry.roomCategories[index].numExtraAdult,
-                    numExtraChild:
-                      editingEntry.roomCategories[index].numExtraChild,
-                    numCNB: editingEntry.roomCategories[index].numCNB,
-                  }
-                : index === 0 && editingEntry && !editingEntry.roomCategories
-                  ? editingEntry // legacy flat structure
-                  : {}
-            }
-            // Pass the current meal plan to keep HotelRoomSelector in sync with cascade
-            forcedMealPlan={
-              index !== 0 && !row.mealPlanOverridden
-                ? primaryMealPlan
-                : undefined
-            }
-          />
+              onMealPlanChange={(mealPlan) => updateRow(index, { mealPlan })}
+              onGuestsChange={(guests) =>
+                updateRow(index, {
+                  numDouble: guests.numDouble,
+                  numExtraAdult: guests.numExtraAdult,
+                  numExtraChild: guests.numExtraChild,
+                  numCNB: guests.numCNB,
+                })
+              }
+              initial={
+                editingEntry?.roomCategories?.[index]
+                  ? {
+                      selectedRoomCategory:
+                        editingEntry.roomCategories[index].roomCategory,
+                      selectedMealPlan:
+                        editingEntry.roomCategories[index].mealPlan,
+                      numDouble: editingEntry.roomCategories[index].numDouble,
+                      numExtraAdult:
+                        editingEntry.roomCategories[index].numExtraAdult,
+                      numExtraChild:
+                        editingEntry.roomCategories[index].numExtraChild,
+                      numCNB: editingEntry.roomCategories[index].numCNB,
+                    }
+                  : index === 0 && editingEntry && !editingEntry.roomCategories
+                    ? editingEntry
+                    : {}
+              }
+              forcedMealPlan={
+                index !== 0 && !row.mealPlanOverridden
+                  ? primaryMealPlan
+                  : undefined
+              }
+            />
 
-          {/* Meal-plan override indicator for non-primary rows */}
-          {index !== 0 && row.mealPlanOverridden && (
-            <div className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
-              <Info className="h-3 w-3 flex-shrink-0" />
-              <span>
-                Meal plan overridden — changes to Room 1 won't affect this room.{" "}
-                <button
-                  type="button"
-                  className="underline font-medium hover:text-amber-800"
-                  onClick={() =>
-                    updateRow(index, {
-                      mealPlan: primaryMealPlan,
-                      mealPlanOverridden: false,
-                    })
-                  }
-                >
-                  Reset to Room 1
-                </button>
-              </span>
-            </div>
-          )}
+            {/* Meal-plan override indicator */}
+            {index !== 0 && row.mealPlanOverridden && (
+              <div className="flex items-start gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 leading-tight">
+                <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                <span>
+                  Meal plan overridden.{" "}
+                  <button
+                    type="button"
+                    className="underline font-semibold hover:text-amber-800"
+                    onClick={() =>
+                      updateRow(index, {
+                        mealPlan: primaryMealPlan,
+                        mealPlanOverridden: false,
+                      })
+                    }
+                  >
+                    Reset to Room 1
+                  </button>
+                </span>
+              </div>
+            )}
 
-          {/* Price display for this row */}
-          {row.price > 0 && (
-            <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-1.5 mt-1">
-              <span>Room Category {index + 1} subtotal</span>
-              <span className="font-bold text-slate-700">
-                ₹{Number(row.price).toLocaleString("en-IN")}
-              </span>
-            </div>
-          )}
-        </div>
-      ))}
+            {/* Per-column subtotal */}
+            {row.price > 0 && (
+              <div className="flex items-center justify-between text-xs border-t border-slate-200 pt-2 mt-1">
+                <span className="text-slate-500 font-medium">Subtotal</span>
+                <span className="font-black text-theme-primary text-sm">
+                  ₹{Number(row.price).toLocaleString("en-IN")}
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
-      {/* Add room category button */}
+      {/* Add column button */}
       {rows.length < MAX_ROOM_CATEGORIES && (
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={addRow}
-          className="w-full text-xs h-8 border-dashed border-theme-primary/50 text-theme-primary hover:bg-theme-primary/5"
+          className="w-full text-xs h-9 border-dashed border-theme-primary/50 text-theme-primary hover:bg-theme-primary/5"
         >
           <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Add Room Category{" "}
-          <span className="ml-1 text-[10px] text-slate-400">
+          Add Room Category
+          <span className="ml-1.5 text-[10px] text-slate-400">
             ({rows.length}/{MAX_ROOM_CATEGORIES})
           </span>
         </Button>
       )}
 
       {rows.length >= MAX_ROOM_CATEGORIES && (
-        <p className="text-[10px] text-amber-600 flex items-center gap-1.5">
-          <AlertCircle className="h-3 w-3" />
+        <p className="text-[11px] text-amber-600 flex items-center gap-1.5">
+          <AlertCircle className="h-3.5 w-3.5" />
           Maximum {MAX_ROOM_CATEGORIES} room categories per hotel
         </p>
       )}
 
-      {/* Combined total */}
+      {/* Combined total bar — shown when multiple columns */}
       {rows.length > 1 && (
-        <div className="flex items-center justify-between rounded-lg bg-theme-primary/5 border border-theme-primary/20 px-3 py-2 text-xs">
-          <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-            <Hotel className="h-3.5 w-3.5 text-theme-primary" />
+        <div className="flex items-center justify-between rounded-xl bg-theme-primary/8 border border-theme-primary/25 px-4 py-2.5 text-sm">
+          <span className="font-bold text-slate-700 flex items-center gap-1.5">
+            <Hotel className="h-4 w-4 text-theme-primary" />
             Combined Hotel Total
           </span>
-          <span className="font-black text-theme-primary text-sm">
+          <span className="font-black text-theme-primary text-base">
             ₹
             {rows
               .reduce((s, r) => s + Number(r.price || 0), 0)
@@ -904,7 +905,9 @@ const Create_new_package = ({
         console.error("[Create_new_package] Failed to load quotation:", err);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isEditMode, editingQuotation, user?.uid, quotationId, dispatch]);
 
   const hydratedRef = useRef(false);
@@ -946,11 +949,11 @@ const Create_new_package = ({
       //     t.totalDriverAllowance holds the multiplied total).
       //   - Legacy format (pre-fix): t.driverAllowance was the multiplied
       //     total. Divide by the original day count to recover the rate.
-      const savedNights =
-        (q.packageOptions?.[0]?.hotelEntries || q.hotelSummary || []).reduce(
-          (sum, e) => sum + (Number(e.nights) || 0),
-          0,
-        );
+      const savedNights = (
+        q.packageOptions?.[0]?.hotelEntries ||
+        q.hotelSummary ||
+        []
+      ).reduce((sum, e) => sum + (Number(e.nights) || 0), 0);
       const savedDays = savedNights > 0 ? savedNights + 1 : 1;
       const rawDriverAllowance = Number(t.driverAllowance || 0);
       const isLegacyTotal =
@@ -1488,11 +1491,11 @@ const Create_new_package = ({
         roomCategoryRows: [createEmptyRoomCategory(0)],
       });
     } else {
-     // Generate stable IDs once so row IDs and ref keys always match
+      // Generate stable IDs once so row IDs and ref keys always match
       const existingRows =
         Array.isArray(entry.roomCategories) && entry.roomCategories.length > 0
           ? entry.roomCategories.map((rc, i) => {
-              const stableId = rc.id || (Date.now() + i);
+              const stableId = rc.id || Date.now() + i;
               return {
                 id: stableId,
                 roomCategory: rc.roomCategory || "",
@@ -1679,7 +1682,9 @@ const Create_new_package = ({
                 numCNB: r.numCNB,
               },
               selectedHotelData,
-            ) || r.bucketSubtotals || null
+            ) ||
+            r.bucketSubtotals ||
+            null
           : r.bucketSubtotals || null,
       }));
       const liveTotal = liveRows.reduce((s, r) => s + r.price, 0);
@@ -1708,7 +1713,8 @@ const Create_new_package = ({
           hotel: selectedHotelData.name,
           city: selectedHotelData.city,
           GoogleListingURL: selectedHotelData.GoogleListingURL || null,
-          rating: selectedHotelData.rating ?? selectedHotelData.starRating ?? null,
+          rating:
+            selectedHotelData.rating ?? selectedHotelData.starRating ?? null,
           numDouble: primaryRow.numDouble ?? 1,
           numExtraAdult: primaryRow.numExtraAdult ?? 0,
           numExtraChild: primaryRow.numExtraChild ?? 0,
@@ -1731,7 +1737,6 @@ const Create_new_package = ({
       return opt;
     });
   };
-
 
   const handleCopyToClipboard = () =>
     copyPackageSummary({
@@ -3095,7 +3100,8 @@ const Create_new_package = ({
                               maximumFractionDigits: 0,
                             })}
                             <span className="text-white/40 font-normal">
-                              {" "}/ person
+                              {" "}
+                              / person
                             </span>
                           </span>
                         </div>
