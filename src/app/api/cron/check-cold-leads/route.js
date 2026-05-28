@@ -60,6 +60,25 @@ async function closeLeadAsLost(leadId) {
   });
 }
 
+async function addActivityNote(leadId, text) {
+  try {
+    await adminDb
+      .collection("leads")
+      .doc(leadId)
+      .collection("notes")
+      .add({
+        text,
+        createdBy: "System",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+  } catch (err) {
+    console.error(
+      `${LOG_PREFIX} Failed to add activity note for lead ${leadId}:`,
+      err.message,
+    );
+  }
+}
+
 async function rejectAllQuotationsForLead(leadId) {
   const snapshot = await adminDb
     .collectionGroup("packages")
@@ -190,6 +209,13 @@ export async function GET(request) {
     try {
       await closeLeadAsLost(leadId);
       const rejectedCount = await rejectAllQuotationsForLead(leadId);
+
+      // Record activity note on the lead's timeline
+      const previousStatus = lead.status || "Cold Lead";
+      await addActivityNote(
+        leadId,
+        `STATUS: Lead moved from "${previousStatus}" to "Closed Lost" (Cold lead auto-rejected after 7 days)`,
+      );
 
       await markClosed(dedupKey, {
         leadId,
