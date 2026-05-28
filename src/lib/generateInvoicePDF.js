@@ -12,7 +12,7 @@ const B = {
   web:     "www.adwaittours.com",
   navy:    "#0D3B6E",
   blue:    "#1565C0",
-  sky:     "#E8F0FE",
+  sky:     "#EFF6FF",
   ink:     "#0F172A",
   body:    "#1E293B",
   muted:   "#64748B",
@@ -20,15 +20,20 @@ const B = {
   row:     "#F8FAFC",
   green:   "#15803D",
   red:     "#B91C1C",
+  accent:  "#2563EB",
 };
 
 // ─── Page geometry ────────────────────────────────────────────────────────────
-const PW = 210, PH = 297;
-const ML = 14,  MR = 14;
-const CW = PW - ML - MR;        // 182 mm usable width
-const FOOTER_H    = 18;
-const FOOTER_Y    = PH - FOOTER_H;   // 279 mm
-const SAFE_BOTTOM = FOOTER_Y - 6;    // stop content here
+const PW          = 210;
+const PH          = 297;
+const ML          = 15;
+const MR          = 15;
+const CW          = PW - ML - MR;   // 180 mm usable width
+const FOOTER_H    = 16;
+const FOOTER_Y    = PH - FOOTER_H;
+const SAFE_BOTTOM = FOOTER_Y - 4;
+const HEADER_H    = 32;              // gradient band height
+const HEADER_END  = HEADER_H + 5;   // body starts here
 
 // ─── Colour helper ────────────────────────────────────────────────────────────
 const h2r = (hex) => [
@@ -37,11 +42,44 @@ const h2r = (hex) => [
   parseInt(hex.slice(5, 7), 16),
 ];
 
+// ─── Safe string — strips non-latin1 glyphs that corrupt jsPDF rendering ─────
+// jsPDF's built-in Helvetica/Courier only covers latin-1 (0x00–0xFF).
+// Any codepoint above 0xFF (e.g. Ø ß è or Devanagari) causes garbled output.
+// We transliterate common accented chars, then drop anything still outside range.
+const TRANSLIT = {
+  // Latin extended
+  "\u00C0":"A","\u00C1":"A","\u00C2":"A","\u00C3":"A","\u00C4":"A","\u00C5":"A",
+  "\u00E0":"a","\u00E1":"a","\u00E2":"a","\u00E3":"a","\u00E4":"a","\u00E5":"a",
+  "\u00C8":"E","\u00C9":"E","\u00CA":"E","\u00CB":"E",
+  "\u00E8":"e","\u00E9":"e","\u00EA":"e","\u00EB":"e",
+  "\u00CC":"I","\u00CD":"I","\u00CE":"I","\u00CF":"I",
+  "\u00EC":"i","\u00ED":"i","\u00EE":"i","\u00EF":"i",
+  "\u00D2":"O","\u00D3":"O","\u00D4":"O","\u00D5":"O","\u00D6":"O","\u00D8":"O",
+  "\u00F2":"o","\u00F3":"o","\u00F4":"o","\u00F5":"o","\u00F6":"o","\u00F8":"o",
+  "\u00D9":"U","\u00DA":"U","\u00DB":"U","\u00DC":"U",
+  "\u00F9":"u","\u00FA":"u","\u00FB":"u","\u00FC":"u",
+  "\u00DD":"Y","\u00FD":"y","\u00FF":"y",
+  "\u00C7":"C","\u00E7":"c","\u00D1":"N","\u00F1":"n",
+  "\u00DF":"ss","\u00C6":"AE","\u00E6":"ae",
+  // Smart quotes / dashes
+  "\u2018":"'","\u2019":"'","\u201C":'"',"\u201D":'"',
+  "\u2013":"-","\u2014":"--","\u2026":"...",
+  // Rupee sign → Rs.
+  "\u20B9":"Rs.",
+};
+
+const safe = (val) => {
+  if (val == null) return "";
+  return String(val)
+    .replace(/[^\x00-\xFF]/g, (ch) => TRANSLIT[ch] ?? "")
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g, "");
+};
+
 // ─── Formatting ───────────────────────────────────────────────────────────────
 const fmt = (v) => {
-  if (!v) return "—";
+  if (!v) return "-";
   const d = new Date(v);
-  return isNaN(d) ? String(v) : d.toLocaleDateString("en-GB", {
+  return isNaN(d) ? safe(String(v)) : d.toLocaleDateString("en-GB", {
     day: "2-digit", month: "short", year: "numeric",
   });
 };
@@ -55,32 +93,29 @@ const rs = (n) => {
 
 const safeNum = (v) => (v != null && !isNaN(Number(v)) ? Number(v) : 0);
 
-// ─── Custom font loader (graceful fallback to Helvetica) ─────────────────────
-// Drops Inter as the active typeface when /public/fonts/Inter-Regular.ttf and
-// Inter-Bold.ttf are available. Otherwise stays on Helvetica silently.
-let FONT_FAMILY = "helvetica";
-const tryLoadFont = async (doc, url, fontName, style) => {
+// ─── Font loader ──────────────────────────────────────────────────────────────
+let FF = "helvetica"; // font family — upgraded to Inter if TTFs are present
+
+const tryLoadFont = async (doc, url, name, style) => {
   try {
     const res = await fetch(url);
     if (!res.ok) return false;
     const buf = await res.arrayBuffer();
     let bin = "";
-    const bytes = new Uint8Array(buf);
-    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
-    const base64 = typeof btoa === "function" ? btoa(bin) : null;
-    if (!base64) return false;
+    new Uint8Array(buf).forEach((b) => { bin += String.fromCharCode(b); });
+    const b64 = typeof btoa === "function" ? btoa(bin) : null;
+    if (!b64) return false;
     const file = url.split("/").pop();
-    doc.addFileToVFS(file, base64);
-    doc.addFont(file, fontName, style);
+    doc.addFileToVFS(file, b64);
+    doc.addFont(file, name, style);
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 };
-const installCustomFonts = async (doc) => {
+
+const installFonts = async (doc) => {
   const okR = await tryLoadFont(doc, "/fonts/Inter-Regular.ttf", "Inter", "normal");
   const okB = await tryLoadFont(doc, "/fonts/Inter-Bold.ttf",    "Inter", "bold");
-  if (okR && okB) FONT_FAMILY = "Inter";
+  if (okR && okB) FF = "Inter";
 };
 
 // ─── Logo loader ──────────────────────────────────────────────────────────────
@@ -91,7 +126,7 @@ const loadLogo = () =>
     img.onload = () => {
       try {
         const c = document.createElement("canvas");
-        c.width  = img.naturalWidth  || img.width;
+        c.width = img.naturalWidth || img.width;
         c.height = img.naturalHeight || img.height;
         c.getContext("2d").drawImage(img, 0, 0);
         resolve(c.toDataURL("image/png"));
@@ -101,145 +136,133 @@ const loadLogo = () =>
     img.src = "/adwait-logo.jpg";
   });
 
-// ─── Header ───────────────────────────────────────────────────────────────────
-// Compact gradient brand band: logo + brand block on the left, "TAX INVOICE"
-// title + invoice number + date stacked tightly on the right. The meta lines
-// live inside the band so the body starts immediately below.
-// Content must never start before HEADER_END_Y.
-const HEADER_BAND_H = 28;
-const HEADER_END_Y = HEADER_BAND_H + 6; // 34 mm
-
-// Simulate a vertical navy → blue gradient using stacked thin rectangles.
-const drawGradientBand = (doc, x, y, w, h) => {
-  const steps = 24;
-  const [r1, g1, b1] = h2r(B.navy);
-  const [r2, g2, b2] = h2r(B.blue);
-  const stepH = h / steps;
+// ─── Gradient band ────────────────────────────────────────────────────────────
+const gradientRect = (doc, x, y, w, h, colorA, colorB) => {
+  const steps = 30;
+  const [r1,g1,b1] = h2r(colorA);
+  const [r2,g2,b2] = h2r(colorB);
+  const sh = h / steps;
   for (let i = 0; i < steps; i++) {
     const t = i / (steps - 1);
-    const r = Math.round(r1 + (r2 - r1) * t);
-    const g = Math.round(g1 + (g2 - g1) * t);
-    const b = Math.round(b1 + (b2 - b1) * t);
-    doc.setFillColor(r, g, b);
-    doc.rect(x, y + i * stepH, w, stepH + 0.1, "F");
+    doc.setFillColor(
+      Math.round(r1 + (r2 - r1) * t),
+      Math.round(g1 + (g2 - g1) * t),
+      Math.round(b1 + (b2 - b1) * t),
+    );
+    doc.rect(x, y + i * sh, w, sh + 0.2, "F");
   }
 };
 
-const drawHeader = (doc, logo, invoice = {}) => {
-  drawGradientBand(doc, 0, 0, PW, HEADER_BAND_H);
-
-  // Logo on the left — 18×18 mm fits inside the 28 mm band with room to spare.
-  if (logo) doc.addImage(logo, "PNG", ML, 5, 18, 18);
-  const textX = ML + (logo ? 22 : 0);
-
-  // Brand name + tagline (left column)
-  doc.setFont(FONT_FAMILY, "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(255, 255, 255);
-  doc.text(B.name, textX, 12);
-
-  doc.setFont(FONT_FAMILY, "italic");
-  doc.setFontSize(7);
-  doc.setTextColor(...h2r("#DBEAFE"));
-  doc.text(B.tagline, textX, 16.5);
-
-  doc.setFont(FONT_FAMILY, "normal");
-  doc.setFontSize(6.5);
-  doc.setTextColor(...h2r("#BFDBFE"));
-  doc.text(`${B.address}  |  ${B.phone}`, textX, 21);
-  doc.text(`${B.email}  |  ${B.web}`,     textX, 24.5);
-
-  // Right column — "TAX INVOICE" eyebrow + meta key/value lines.
-  // Keys are right-aligned to a virtual gutter so values line up cleanly.
-  doc.setFont(FONT_FAMILY, "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(255, 255, 255);
-  doc.text("TAX INVOICE", PW - MR, 12, { align: "right" });
-
-  const metaRight = PW - MR;
-  const metaPairs = [
-    ["No.",    invoice.invoiceNumber || "—"],
-    ["Date",   fmt(invoice.invoiceDate)],
-  ];
-  if (invoice.dueDate)    metaPairs.push(["Due",      fmt(invoice.dueDate)]);
-  if (invoice.bookingRef) metaPairs.push(["Booking",  String(invoice.bookingRef)]);
-
-  let metaY = 17;
-  doc.setFontSize(7);
-  metaPairs.forEach(([k, v]) => {
-    doc.setFont(FONT_FAMILY, "normal");
-    doc.setTextColor(...h2r("#BFDBFE"));
-    doc.text(`${k}:`, metaRight - 30, metaY, { align: "right" });
-    doc.setFont(FONT_FAMILY, "bold");
-    doc.setTextColor(255, 255, 255);
-    doc.text(String(v), metaRight, metaY, { align: "right" });
-    metaY += 3.6;
-  });
-
-  // Thin accent divider just below the band
-  doc.setDrawColor(...h2r(B.blue));
-  doc.setLineWidth(0.6);
-  doc.line(ML, HEADER_BAND_H + 2.5, ML + CW, HEADER_BAND_H + 2.5);
-
-  return HEADER_END_Y;
-};
-
-// ─── Faded logo watermark ─────────────────────────────────────────────────────
-// Centered, low-opacity logo placed once per page, behind body content.
-// Uses jsPDF GState — falls back to a faded text mark when GState is absent.
+// ─── Watermark ────────────────────────────────────────────────────────────────
 const drawWatermark = (doc, logo) => {
   if (!logo) return;
   try {
-    const GState = doc.GState || (doc.constructor && doc.constructor.GState);
-    if (GState) {
-      const gs = new GState({ opacity: 0.05 });
-      doc.setGState(gs);
-      const size = 110;
-      const x = (PW - size) / 2;
-      const y = (PH - size) / 2;
-      doc.addImage(logo, "PNG", x, y, size, size);
-      doc.setGState(new GState({ opacity: 1 }));
-    }
-  } catch {
-    // Silent fallback — leave watermark off rather than break the document.
-  }
+    const GS = doc.GState || (doc.constructor && doc.constructor.GState);
+    if (!GS) return;
+    doc.setGState(new GS({ opacity: 0.04 }));
+    const s = 100;
+    doc.addImage(logo, "PNG", (PW - s) / 2, (PH - s) / 2, s, s);
+    doc.setGState(new GS({ opacity: 1 }));
+  } catch { /* silent */ }
 };
 
-// ─── Footer on every page ─────────────────────────────────────────────────────
+// ─── Header ───────────────────────────────────────────────────────────────────
+// Full-width gradient band. Logo left, brand text centre-left, doc meta right.
+const drawHeader = (doc, logo, invoice = {}) => {
+  gradientRect(doc, 0, 0, PW, HEADER_H, B.navy, B.accent);
+
+  // Logo
+  if (logo) doc.addImage(logo, "PNG", ML, 7, 18, 18);
+  const tx = ML + (logo ? 22 : 0);
+
+  // Brand name
+  doc.setFont(FF, "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(255, 255, 255);
+  doc.text(safe(B.name), tx, 13);
+
+  // Tagline
+  doc.setFont(FF, "italic");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...h2r("#BFDBFE"));
+  doc.text(safe(B.tagline), tx, 18);
+
+  // Contact line
+  doc.setFont(FF, "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(...h2r("#93C5FD"));
+  doc.text(`${safe(B.address)}   |   ${safe(B.phone)}   |   ${safe(B.email)}`, tx, 23);
+  doc.text(safe(B.web), tx, 27.5);
+
+  // Right column: document type + meta
+  const rx = PW - MR;
+  doc.setFont(FF, "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(255, 255, 255);
+  doc.text("TAX INVOICE", rx, 11, { align: "right" });
+
+  // Thin divider line under "TAX INVOICE"
+  doc.setDrawColor(...h2r("#60A5FA"));
+  doc.setLineWidth(0.4);
+  doc.line(rx - 52, 13, rx, 13);
+
+  const meta = [
+    ["Invoice No.", safe(invoice.invoiceNumber || "-")],
+    ["Date",        fmt(invoice.invoiceDate)],
+  ];
+  if (invoice.dueDate)    meta.push(["Due Date",    fmt(invoice.dueDate)]);
+  if (invoice.bookingRef) meta.push(["Booking Ref", safe(String(invoice.bookingRef))]);
+
+  let my = 18;
+  meta.forEach(([k, v]) => {
+    doc.setFont(FF, "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...h2r("#93C5FD"));
+    doc.text(`${k}:`, rx - 30, my, { align: "right" });
+    doc.setFont(FF, "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text(v, rx, my, { align: "right" });
+    my += 3.8;
+  });
+
+  // Accent line below header band
+  doc.setFillColor(...h2r(B.accent));
+  doc.rect(0, HEADER_H, PW, 1.2, "F");
+
+  return HEADER_END;
+};
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
 const drawAllFooters = (doc) => {
   const total = doc.getNumberOfPages();
   for (let p = 1; p <= total; p++) {
     doc.setPage(p);
-    const FY = PH - FOOTER_H;
-    // Two-tone footer: thin brighter blue accent above the navy bar
-    doc.setFillColor(...h2r(B.blue));
-    doc.rect(0, FY, PW, 1.2, "F");
+    // Two-tone footer
+    doc.setFillColor(...h2r(B.accent));
+    doc.rect(0, FOOTER_Y, PW, 1.2, "F");
     doc.setFillColor(...h2r(B.navy));
-    doc.rect(0, FY + 1.2, PW, FOOTER_H - 1.2, "F");
+    doc.rect(0, FOOTER_Y + 1.2, PW, FOOTER_H - 1.2, "F");
 
-    doc.setFont(FONT_FAMILY, "bold");
+    doc.setFont(FF, "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(255, 255, 255);
-    doc.text("Thank you for your business!", PW / 2, FY + 7, { align: "center" });
+    doc.text("Thank you for your business!", PW / 2, FOOTER_Y + 6.5, { align: "center" });
 
-    doc.setFont(FONT_FAMILY, "normal");
-    doc.setFontSize(6.5);
-    doc.setTextColor(...h2r("#BFDBFE"));
+    doc.setFont(FF, "normal");
+    doc.setFontSize(6);
+    doc.setTextColor(...h2r("#93C5FD"));
     doc.text(
-      `${B.phone}   ·   ${B.email}   ·   ${B.web}`,
-      PW / 2, FY + 12.5, { align: "center" },
+      `${safe(B.phone)}   |   ${safe(B.email)}   |   ${safe(B.web)}`,
+      PW / 2, FOOTER_Y + 11.5, { align: "center" },
     );
 
     if (total > 1) {
-      doc.setFont(FONT_FAMILY, "normal");
-      doc.setFontSize(6.5);
-      doc.setTextColor(...h2r("#BFDBFE"));
-      doc.text(`Page ${p} of ${total}`, PW - MR, FY + 12.5, { align: "right" });
+      doc.text(`Page ${p} of ${total}`, PW - MR, FOOTER_Y + 11.5, { align: "right" });
     }
   }
 };
 
-// ─── maybeNewPage ─────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const maybeNewPage = (doc, logo, invoice, y, needed = 20) => {
   if (y + needed > SAFE_BOTTOM) {
     doc.addPage();
@@ -249,18 +272,23 @@ const maybeNewPage = (doc, logo, invoice, y, needed = 20) => {
   return y;
 };
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
-const divider = (doc, y, col = B.border, thick = 0.25) => {
-  doc.setDrawColor(...h2r(col));
+const hRule = (doc, y, color = B.border, thick = 0.25) => {
+  doc.setDrawColor(...h2r(color));
   doc.setLineWidth(thick);
   doc.line(ML, y, ML + CW, y);
 };
 
-const sectionLabel = (doc, text, y) => {
-  doc.setFont(FONT_FAMILY, "bold");
-  doc.setFontSize(6.5);
-  doc.setTextColor(...h2r(B.blue));
-  doc.text(text, ML, y);
+const sectionHeading = (doc, text, y) => {
+  // Pill-style section label with left accent bar
+  doc.setFillColor(...h2r(B.sky));
+  doc.rect(ML, y, CW, 6.5, "F");
+  doc.setFillColor(...h2r(B.accent));
+  doc.rect(ML, y, 2.5, 6.5, "F");
+  doc.setFont(FF, "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...h2r(B.navy));
+  doc.text(safe(text), ML + 6, y + 4.5);
+  return y + 6.5 + 3; // returns next Y after the heading + gap
 };
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -272,85 +300,84 @@ export async function generateInvoicePDF(invoice = {}) {
 
   const logo = await loadLogo();
   const doc  = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+  await installFonts(doc);
 
-  // Best-effort: register Inter as the document font. Silently no-ops if the
-  // TTFs aren't present in /public/fonts/ — Helvetica remains the fallback.
-  await installCustomFonts(doc);
-
-  // Page-1 watermark, then header. Meta lines live inside the header band now.
   drawWatermark(doc, logo);
   let y = drawHeader(doc, logo, invoice);
 
-  // ── Bill To card ──────────────────────────────────────────────────────────
-  // Rounded card with a brand-color left stripe holds the customer block.
-  // Status pill sits on the top-right corner so the eye lands on it quickly.
+  // ── BILL TO ───────────────────────────────────────────────────────────────
+  // White card with a left navy stripe and status pill top-right.
   const billLines = [];
   const contactLine = [
-    invoice.customerMobile && `Ph: ${invoice.customerMobile}`,
-    invoice.customerEmail,
+    invoice.customerMobile && `Ph: ${safe(invoice.customerMobile)}`,
+    invoice.customerEmail  && safe(invoice.customerEmail),
   ].filter(Boolean).join("   |   ");
   if (contactLine) billLines.push(contactLine);
   if (invoice.customerAddress) {
-    const aLines = doc.splitTextToSize(invoice.customerAddress, CW * 0.62);
-    aLines.forEach((l) => billLines.push(l));
+    doc.setFontSize(8);
+    doc.splitTextToSize(safe(invoice.customerAddress), CW * 0.62)
+       .forEach((l) => billLines.push(l));
   }
-  const billCardH = 14 + billLines.length * 4.2;
 
-  doc.setFillColor(...h2r("#FFFFFF"));
+  const cardH = 8 + 7 + billLines.length * 4.5 + 4;
+
+  // Card background + shadow hint
+  doc.setFillColor(...h2r("#F1F5F9"));
+  doc.roundedRect(ML + 0.5, y + 0.5, CW, cardH, 2.5, 2.5, "F"); // shadow
+  doc.setFillColor(255, 255, 255);
   doc.setDrawColor(...h2r(B.border));
   doc.setLineWidth(0.3);
-  doc.roundedRect(ML, y, CW, billCardH, 2, 2, "FD");
-  // Left brand stripe
-  doc.setFillColor(...h2r(B.navy));
-  doc.rect(ML, y, 2, billCardH, "F");
+  doc.roundedRect(ML, y, CW, cardH, 2.5, 2.5, "FD");
 
-  // Section label
-  doc.setFont(FONT_FAMILY, "bold");
+  // Left accent stripe
+  doc.setFillColor(...h2r(B.navy));
+  doc.rect(ML, y, 3, cardH, "F");
+
+  // "BILL TO" label
+  doc.setFont(FF, "bold");
   doc.setFontSize(6.5);
-  doc.setTextColor(...h2r(B.blue));
-  doc.text("BILL TO", ML + 6, y + 5);
+  doc.setTextColor(...h2r(B.accent));
+  doc.text("BILL TO", ML + 7, y + 6);
 
   // Customer name
-  doc.setFont(FONT_FAMILY, "bold");
-  doc.setFontSize(12);
+  doc.setFont(FF, "bold");
+  doc.setFontSize(13);
   doc.setTextColor(...h2r(B.ink));
-  doc.text(invoice.customerName || "—", ML + 6, y + 10.5);
+  doc.text(safe(invoice.customerName || "-"), ML + 7, y + 12.5);
 
-  // Contact + address lines
-  doc.setFont(FONT_FAMILY, "normal");
+  // Contact / address lines
+  doc.setFont(FF, "normal");
   doc.setFontSize(8);
   doc.setTextColor(...h2r(B.muted));
-  let bLineY = y + 15;
-  billLines.forEach((line) => {
-    doc.text(line, ML + 6, bLineY);
-    bLineY += 4.2;
+  let by = y + 17;
+  billLines.forEach((ln) => {
+    doc.text(safe(ln), ML + 7, by);
+    by += 4.5;
   });
 
-  // Status pill on the right side of the card
-  const statusLabel = String(invoice.status || "Draft").toUpperCase();
-  const isPaid = /paid/i.test(invoice.status || "") && !/un|partial/i.test(invoice.status || "");
-  const pillColor = isPaid ? B.green : B.blue;
-  doc.setFont(FONT_FAMILY, "bold");
+  // Status pill — top right
+  const statusText = safe(String(invoice.status || "Draft").toUpperCase());
+  const isPaid = /^PAID$/.test(statusText);
+  const pillBg = isPaid ? B.green : B.accent;
+  doc.setFont(FF, "bold");
   doc.setFontSize(7);
-  const pillW = doc.getTextWidth(statusLabel) + 6;
-  const pillX = ML + CW - pillW - 6;
-  const pillY = y + 4;
-  doc.setFillColor(...h2r(pillColor));
-  doc.roundedRect(pillX, pillY, pillW, 5.5, 1.2, 1.2, "F");
+  const pillW = doc.getTextWidth(statusText) + 7;
+  const pillX = ML + CW - pillW - 5;
+  const pillY = y + 5;
+  doc.setFillColor(...h2r(pillBg));
+  doc.roundedRect(pillX, pillY, pillW, 5.5, 1.4, 1.4, "F");
   doc.setTextColor(255, 255, 255);
-  doc.text(statusLabel, pillX + pillW / 2, pillY + 3.8, { align: "center" });
+  doc.text(statusText, pillX + pillW / 2, pillY + 3.9, { align: "center" });
 
-  y += billCardH + 6;
+  y += cardH + 7;
 
-  // ── Line items — full-width autoTable ─────────────────────────────────────
-  // Column widths must sum to CW = 182:
-  // 9 + 68 + 10 + 26 + 20 + 13 + 36 = 182 ✓
+  // ── LINE ITEMS ────────────────────────────────────────────────────────────
+  y = maybeNewPage(doc, logo, invoice, y, 30);
+  y = sectionHeading(doc, "ITEMS & SERVICES", y);
+
   const lineItems = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
 
-  // Section heading above the line-items table
-  sectionLabel(doc, "ITEMS & SERVICES", y);
-  y += 4;
-
+  // Column widths: 8 + 70 + 10 + 24 + 18 + 14 + 36 = 180 = CW
   autoTable(doc, {
     startY: y,
     head: [["#", "Description", "Qty", "Unit Price", "Discount", "GST", "Amount"]],
@@ -360,10 +387,10 @@ export async function generateInvoicePDF(invoice = {}) {
           ? item.discountType === "percentage"
             ? `${item.discountValue}%`
             : rs(item.discountValue)
-          : "—";
+          : "";
       return [
         i + 1,
-        item.itemName || item.description || "—",
+        safe(item.itemName || item.description || ""),
         item.quantity ?? 1,
         rs(safeNum(item.unitPrice)),
         disc,
@@ -377,10 +404,10 @@ export async function generateInvoicePDF(invoice = {}) {
       textColor: [255, 255, 255],
       fontStyle: "bold",
       fontSize: 8,
-      cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
+      cellPadding: { top: 4.5, bottom: 4.5, left: 3, right: 3 },
     },
     bodyStyles: {
-      font: FONT_FAMILY,
+      font: FF,
       fontSize: 8.5,
       textColor: h2r(B.body),
       cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
@@ -388,15 +415,16 @@ export async function generateInvoicePDF(invoice = {}) {
     alternateRowStyles: { fillColor: h2r(B.row) },
     tableWidth: CW,
     columnStyles: {
-      0: { cellWidth: 9,  halign: "center" },
-      1: { cellWidth: 68 },
+      0: { cellWidth: 8,  halign: "center" },
+      1: { cellWidth: 70 },
       2: { cellWidth: 10, halign: "center" },
-      3: { cellWidth: 26, halign: "right" },
-      4: { cellWidth: 20, halign: "right" },
-      5: { cellWidth: 13, halign: "center" },
+      3: { cellWidth: 24, halign: "right" },
+      4: { cellWidth: 18, halign: "right" },
+      5: { cellWidth: 14, halign: "center" },
       6: { cellWidth: 36, halign: "right" },
     },
     margin: { left: ML, right: MR },
+    // Bold item name; sub-description rendered in muted smaller text below it
     willDrawCell: (d) => {
       if (d.section === "body" && d.column.index === 1) {
         const item = lineItems[d.row.index];
@@ -407,18 +435,11 @@ export async function generateInvoicePDF(invoice = {}) {
       if (d.section === "body" && d.column.index === 1) {
         const item = lineItems[d.row.index];
         if (item?.itemName && item?.description) {
-          // Reset font state explicitly — autoTable left the cell in bold
-          // and jsPDF can retain that weight when we draw extra text inside
-          // the same cell. Force normal weight on the same family, then draw.
-          doc.setFont(FONT_FAMILY, "normal");
+          doc.setFont(FF, "normal");
           doc.setFontSize(7);
           doc.setTextColor(...h2r(B.muted));
-          const descLines = doc.splitTextToSize(
-            item.description,
-            d.cell.width - 6,
-          );
-          const descY = d.cell.y + d.cell.padding("top") + 7;
-          doc.text(descLines, d.cell.x + 3, descY);
+          const lines = doc.splitTextToSize(safe(item.description), d.cell.width - 6);
+          doc.text(lines, d.cell.x + 3, d.cell.y + d.cell.padding("top") + 7);
         }
       }
     },
@@ -426,15 +447,9 @@ export async function generateInvoicePDF(invoice = {}) {
       if (d.section === "body" && d.column.index === 1) {
         const item = lineItems[d.row.index];
         if (item?.itemName && item?.description) {
-          // Estimate wrapped lines using the column width (68mm − 6 padding)
-          // converted at ~2 chars/mm for 7pt text. Round up generously so the
-          // cell is tall enough for the bold name + the secondary lines.
-          const charsPerLine = Math.max(20, Math.floor((68 - 6) * 2));
-          const lines = Math.max(
-            1,
-            Math.ceil(item.description.length / charsPerLine),
-          );
-          d.cell.styles.minCellHeight = 7 + lines * 3.8 + 4;
+          const cpl = Math.max(20, Math.floor((70 - 6) * 2));
+          const ln  = Math.max(1, Math.ceil(safe(item.description).length / cpl));
+          d.cell.styles.minCellHeight = 7 + ln * 3.8 + 4;
         }
       }
     },
@@ -444,13 +459,9 @@ export async function generateInvoicePDF(invoice = {}) {
     },
   });
 
-  y = doc.lastAutoTable.finalY + 6;
+  y = doc.lastAutoTable.finalY + 8;
 
-  // ── Totals — full-width autoTable ─────────────────────────────────────────
-  // Label col + Amount col = CW.
-  const LABEL_W  = CW * 0.65;
-  const AMOUNT_W = CW - LABEL_W; // ~63.7 mm
-
+  // ── TOTALS ────────────────────────────────────────────────────────────────
   const totRows = [["Subtotal", safeNum(invoice.subtotal), false]];
   if (safeNum(invoice.discountTotal) > 0)
     totRows.push(["Discount", -safeNum(invoice.discountTotal), true]);
@@ -462,19 +473,17 @@ export async function generateInvoicePDF(invoice = {}) {
     if (safeNum(invoice.sgst) > 0) totRows.push(["SGST", safeNum(invoice.sgst), false]);
   }
 
-  y = maybeNewPage(doc, logo, invoice, y, totRows.length * 9 + 28);
+  y = maybeNewPage(doc, logo, invoice, y, totRows.length * 9 + 30);
 
-  // Totals occupy the right ~half of the page so the lower-left can hold
-  // a stamp / signature block beside the grand-total ribbon.
+  // Totals table — right-aligned, 50% page width
   const TOT_W = 90;
   const TOT_X = ML + CW - TOT_W;
 
-  // Sub-total rows (right aligned to half page)
   autoTable(doc, {
     startY: y,
     body: totRows.map(([lbl, val, isNeg]) => [
       {
-        content: lbl,
+        content: safe(lbl),
         styles: { textColor: h2r(B.muted), fontStyle: "normal", halign: "left" },
       },
       {
@@ -488,9 +497,9 @@ export async function generateInvoicePDF(invoice = {}) {
     ]),
     theme: "plain",
     styles: {
-      font: FONT_FAMILY,
+      font: FF,
       fontSize: 9,
-      cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
+      cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 },
       fillColor: h2r(B.row),
     },
     tableWidth: TOT_W,
@@ -503,51 +512,48 @@ export async function generateInvoicePDF(invoice = {}) {
 
   y = doc.lastAutoTable.finalY;
 
-  // Grand Total ribbon — accent stripe + larger total, brand-color navy bar.
-  const ribbonH = 14;
-  // Left accent stripe (brighter blue) flush against the navy bar
-  doc.setFillColor(...h2r(B.blue));
-  doc.rect(TOT_X, y, 3, ribbonH, "F");
-  // Main navy bar
+  // Grand Total ribbon
+  const ribbonH = 15;
+  // Accent left stripe
+  doc.setFillColor(...h2r(B.accent));
+  doc.rect(TOT_X, y, 4, ribbonH, "F");
+  // Navy body
   doc.setFillColor(...h2r(B.navy));
-  doc.rect(TOT_X + 3, y, TOT_W - 3, ribbonH, "F");
-  // Labels
-  doc.setFont(FONT_FAMILY, "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...h2r("#BFDBFE"));
-  doc.text("GRAND TOTAL", TOT_X + 7, y + 5.5);
+  doc.rect(TOT_X + 4, y, TOT_W - 4, ribbonH, "F");
+  // Label
+  doc.setFont(FF, "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...h2r("#93C5FD"));
+  doc.text("GRAND TOTAL", TOT_X + 8, y + 5.5);
+  // Amount
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
   doc.text(
     rs(safeNum(invoice.grandTotal)),
     TOT_X + TOT_W - 4,
-    y + 10.5,
+    y + 11,
     { align: "right" },
   );
 
-  y += ribbonH + 8;
+  y += ribbonH + 10;
 
-  // ── Payment summary ────────────────────────────────────────────────────────
+  // ── PAYMENT SUMMARY ───────────────────────────────────────────────────────
   const payments    = Array.isArray(invoice.payments) ? invoice.payments : [];
   const hasPayments = payments.length > 0 || safeNum(invoice.amountReceived) > 0;
 
   if (hasPayments) {
     y = maybeNewPage(doc, logo, invoice, y, 36);
-    divider(doc, y);
-    y += 5;
-
-    sectionLabel(doc, "PAYMENT RECEIVED", y);
-    y += 4;
+    y = sectionHeading(doc, "PAYMENT RECEIVED", y);
 
     if (payments.length > 0) {
-      // 28 + 76 + 46 + 32 = 182 = CW ✓
+      // 28 + 72 + 44 + 36 = 180 = CW
       autoTable(doc, {
         startY: y,
         head: [["Date", "Account / Mode", "Reference", "Amount"]],
         body: payments.map((p) => [
           fmt(p.date),
-          p.paymentAccountName || p.mode || "—",
-          p.reference || "—",
+          safe(p.paymentAccountName || p.mode || "-"),
+          safe(p.reference || "-"),
           rs(safeNum(p.amount)),
         ]),
         theme: "plain",
@@ -556,20 +562,21 @@ export async function generateInvoicePDF(invoice = {}) {
           textColor: [255, 255, 255],
           fontSize: 7.5,
           fontStyle: "bold",
-          cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
+          cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
         },
         bodyStyles: {
-          fontSize: 7.5,
+          font: FF,
+          fontSize: 8,
           textColor: h2r(B.body),
-          cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
+          cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
         },
         alternateRowStyles: { fillColor: h2r(B.row) },
         tableWidth: CW,
         columnStyles: {
           0: { cellWidth: 28 },
-          1: { cellWidth: 76 },
-          2: { cellWidth: 46 },
-          3: { cellWidth: 32, halign: "right" },
+          1: { cellWidth: 72 },
+          2: { cellWidth: 44 },
+          3: { cellWidth: 36, halign: "right" },
         },
         margin: { left: ML, right: MR },
         didDrawPage: () => {
@@ -577,11 +584,11 @@ export async function generateInvoicePDF(invoice = {}) {
           y = drawHeader(doc, logo, invoice);
         },
       });
-      y = doc.lastAutoTable.finalY + 4;
+      y = doc.lastAutoTable.finalY + 5;
     }
 
-    // Amount received + Balance due — full-width 2-row table
-    y = maybeNewPage(doc, logo, invoice, y, 24);
+    // Amount received + Balance due
+    y = maybeNewPage(doc, logo, invoice, y, 22);
     const fullyPaid = safeNum(invoice.amountDue) <= 0;
 
     autoTable(doc, {
@@ -595,7 +602,7 @@ export async function generateInvoicePDF(invoice = {}) {
           },
         ],
         [
-          { content: "Balance Due", styles: { textColor: h2r(B.muted), fontStyle: "normal" } },
+          { content: "Balance Due",     styles: { textColor: h2r(B.muted), fontStyle: "normal" } },
           {
             content: rs(safeNum(invoice.amountDue)),
             styles: {
@@ -608,79 +615,90 @@ export async function generateInvoicePDF(invoice = {}) {
       ],
       theme: "plain",
       styles: {
-        fontSize: 9,
-        cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 },
+        font: FF,
+        fontSize: 9.5,
+        cellPadding: { top: 4, bottom: 4, left: 5, right: 5 },
         fillColor: h2r(fullyPaid ? "#F0FDF4" : "#FFF7ED"),
       },
       tableWidth: CW,
       columnStyles: {
-        0: { cellWidth: LABEL_W },
-        1: { cellWidth: AMOUNT_W },
+        0: { cellWidth: CW * 0.65 },
+        1: { cellWidth: CW * 0.35 },
       },
       margin: { left: ML, right: MR },
     });
 
-    y = doc.lastAutoTable.finalY + 8;
+    y = doc.lastAutoTable.finalY + 10;
   }
 
-  // ── Notes & T&C ───────────────────────────────────────────────────────────
+  // ── NOTES & T&C ───────────────────────────────────────────────────────────
   if (invoice.notes || invoice.termsAndConditions) {
     y = maybeNewPage(doc, logo, invoice, y, 20);
-    divider(doc, y);
+    hRule(doc, y, B.border, 0.3);
     y += 5;
 
     if (invoice.notes) {
       y = maybeNewPage(doc, logo, invoice, y, 15);
-      sectionLabel(doc, "NOTES", y);
-      y += 4;
-      doc.setFont(FONT_FAMILY, "normal");
-      doc.setFontSize(8);
+      y = sectionHeading(doc, "NOTES", y);
+      doc.setFont(FF, "normal");
+      doc.setFontSize(8.5);
       doc.setTextColor(...h2r(B.body));
-      const nL = doc.splitTextToSize(invoice.notes, CW);
-      doc.text(nL, ML, y);
-      y += nL.length * 4 + 3;
+      const nl = doc.splitTextToSize(safe(invoice.notes), CW);
+      doc.text(nl, ML, y);
+      y += nl.length * 4.5 + 5;
     }
 
     if (invoice.termsAndConditions) {
       y = maybeNewPage(doc, logo, invoice, y, 15);
-      sectionLabel(doc, "TERMS & CONDITIONS", y);
-      y += 4;
-      doc.setFont(FONT_FAMILY, "normal");
+      y = sectionHeading(doc, "TERMS & CONDITIONS", y);
+      doc.setFont(FF, "normal");
       doc.setFontSize(7.5);
       doc.setTextColor(...h2r(B.muted));
-      const tL = doc.splitTextToSize(invoice.termsAndConditions, CW);
-      doc.text(tL, ML, y);
-      y += tL.length * 3.6 + 3;
+      const tl = doc.splitTextToSize(safe(invoice.termsAndConditions), CW);
+      doc.text(tl, ML, y);
+      y += tl.length * 3.8 + 5;
     }
   }
 
-  // ── Signature block ──────────────────────────────────────────────────────
-  // Right-aligned signatory line + company name. Drops to the next page if
-  // there isn't room above the footer.
-  const signatureBlockH = 22;
-  y = maybeNewPage(doc, logo, invoice, y, signatureBlockH + 6);
-  const sigY = Math.max(y + 4, SAFE_BOTTOM - signatureBlockH - 2);
-  const sigW = 70;
-  const sigX = ML + CW - sigW;
-  doc.setDrawColor(...h2r(B.border));
-  doc.setLineWidth(0.4);
-  doc.line(sigX, sigY + 12, sigX + sigW, sigY + 12);
-  doc.setFont(FONT_FAMILY, "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(...h2r(B.muted));
-  doc.text("Authorised Signatory", sigX + sigW / 2, sigY + 16, { align: "center" });
-  doc.setFont(FONT_FAMILY, "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(...h2r(B.ink));
-  doc.text(`For ${B.name}`, sigX + sigW / 2, sigY + 20, { align: "center" });
+  // ── SIGNATURE BLOCK ───────────────────────────────────────────────────────
+  // Sits in the bottom-right corner, above the footer.
+  const sigH = 24;
+  y = maybeNewPage(doc, logo, invoice, y, sigH + 8);
 
-  // ── Footers last ──────────────────────────────────────────────────────────
+  // Place it flush to the safe bottom if there's extra space, else right after content
+  const sigY = Math.min(Math.max(y + 4, SAFE_BOTTOM - sigH - 4), SAFE_BOTTOM - sigH - 2);
+  const sigW = 72;
+  const sigX = ML + CW - sigW;
+
+  // Signature area background
+  doc.setFillColor(...h2r(B.sky));
+  doc.roundedRect(sigX, sigY, sigW, sigH, 2, 2, "F");
+
+  // "For Company" label top
+  doc.setFont(FF, "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...h2r(B.navy));
+  doc.text(`For ${safe(B.name)}`, sigX + sigW / 2, sigY + 5.5, { align: "center" });
+
+  // Signature line
+  doc.setDrawColor(...h2r(B.border));
+  doc.setLineWidth(0.5);
+  doc.line(sigX + 8, sigY + 17, sigX + sigW - 8, sigY + 17);
+
+  // "Authorised Signatory" label
+  doc.setFont(FF, "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(...h2r(B.muted));
+  doc.text("Authorised Signatory", sigX + sigW / 2, sigY + 21, { align: "center" });
+
+  // ── FOOTERS ───────────────────────────────────────────────────────────────
   drawAllFooters(doc);
 
-  // ── Save ──────────────────────────────────────────────────────────────────
-  const safeName = (s) =>
-    (s || "").replace(/[^a-zA-Z0-9_.\- ]/g, "_").trim() || "unknown";
+  // ── SAVE ─────────────────────────────────────────────────────────────────
+  const slug = (s) =>
+    safe(String(s || "")).replace(/[^a-zA-Z0-9_.\- ]/g, "_").trim() || "unknown";
+
   doc.save(
-    `Invoice_${safeName(invoice.invoiceNumber || "draft")}_${safeName(invoice.customerName || "customer")}.pdf`,
+    `Invoice_${slug(invoice.invoiceNumber || "draft")}_${slug(invoice.customerName || "customer")}.pdf`,
   );
 }
