@@ -297,6 +297,36 @@ const MyQuotations = () => {
       }),
     ];
 
+    if (transport && (transport.vehicleName || transport.totalTransportCost)) {
+      services.push({
+        type: "Transfer",
+        description: [
+          transport.vehicleName || "Transport",
+          transport.ac ? "AC" : null,
+          transport.pricingType === "perKm" ? "Per KM" : null,
+        ].filter(Boolean).join(" · "),
+        supplier: "",
+        confirmationRef: "",
+        amount: transport.totalTransportCost || transport.vehicleCost || "",
+        vendorPayments: [],
+        status: "Pending",
+      });
+    }
+
+    if (activities && activities.length > 0) {
+      activities.forEach((act) => {
+        services.push({
+          type: "Sightseeing",
+          description: act.title || act.name || act.activityName || "Activity",
+          supplier: "",
+          confirmationRef: "",
+          amount: act.totalPrice || act.price || "",
+          vendorPayments: [],
+          status: "Pending",
+        });
+      });
+    }
+
     const grandTotal = finalOption?.grandTotal ?? quotation.grandTotal ?? "";
 
     const prefill = {
