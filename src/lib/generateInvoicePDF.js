@@ -184,14 +184,14 @@ const drawHeader = (doc, logo, invoice = {}) => {
   // Tagline
   doc.setFont(FF, "italic");
   doc.setFontSize(7.5);
-  doc.setTextColor(...h2r("#BFDBFE"));
+  doc.setTextColor(255, 255, 255); // Brighter (white)
   doc.text(safe(B.tagline), tx, 18);
 
   // Contact line
   doc.setFont(FF, "normal");
   doc.setFontSize(6.5);
-  doc.setTextColor(...h2r("#93C5FD"));
-  doc.text(`${safe(B.address)}   |   ${safe(B.phone)}   |   ${safe(B.email)}`, tx, 23);
+  doc.setTextColor(255, 255, 255); // Brighter (white)
+  doc.text(`${safe(B.phone)}   |   ${safe(B.email)}`, tx, 23); // Removed address
   doc.text(safe(B.web), tx, 27.5);
 
   // Right column: document type + meta
@@ -217,7 +217,7 @@ const drawHeader = (doc, logo, invoice = {}) => {
   meta.forEach(([k, v]) => {
     doc.setFont(FF, "normal");
     doc.setFontSize(7);
-    doc.setTextColor(...h2r("#93C5FD"));
+    doc.setTextColor(255, 255, 255); // Brighter (white)
     doc.text(`${k}:`, rx - 30, my, { align: "right" });
     doc.setFont(FF, "bold");
     doc.setTextColor(255, 255, 255);
