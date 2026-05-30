@@ -554,7 +554,7 @@ function VendorPaymentRow({ svc, payment, onUpdate, onDelete }) {
 
 // ─── Sub-component: Structured Hotel Fields ───────────────────────────────────
 
-function HotelServiceFields({ hotelData = {}, onChange }) {
+function HotelServiceFields({ hotelData = {}, onChange, serviceAmount }) {
   const handle = (field, value) => onChange({ ...hotelData, [field]: value });
 
   // Support both legacy flat shape and new rooms[] shape
@@ -762,14 +762,6 @@ function HotelServiceFields({ hotelData = {}, onChange }) {
                   </div>
                 )}
 
-                {room.price > 0 && (
-                  <div className="flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-1.5">
-                    <span>Subtotal from quotation</span>
-                    <span className="font-bold text-slate-700">
-                      ₹{Number(room.price).toLocaleString("en-IN")}
-                    </span>
-                  </div>
-                )}
               </div>
             ))}
 
@@ -783,13 +775,9 @@ function HotelServiceFields({ hotelData = {}, onChange }) {
                 total room(s) across {rooms.length} categor
                 {rooms.length > 1 ? "ies" : "y"}
               </span>
-              {rooms.some((r) => r.price > 0) && (
+              {(Number(serviceAmount) || 0) > 0 && (
                 <span className="font-bold text-slate-700">
-                  ₹
-                  {rooms
-                    .reduce((s, r) => s + Number(r.price || 0), 0)
-                    .toLocaleString("en-IN")}{" "}
-                  total
+                  ₹{Number(serviceAmount).toLocaleString("en-IN")} total
                 </span>
               )}
             </div>
@@ -1019,6 +1007,7 @@ function ServiceCard({
               <HotelServiceFields
                 hotelData={svc.hotelData || {}}
                 onChange={(updated) => onUpdateField("hotelData", updated)}
+                serviceAmount={svc.amount}
               />
             </div>
           )}

@@ -13,6 +13,7 @@ import { getBookingById, updateBooking } from "@/firebase/bookingsService";
 import { getQuotationById } from "@/firebase/quotations";
 import { getAllCustomers, getCustomerById } from "@/firebase/customersService";
 import { getLeadById } from "@/firebase/leadsService";
+import { calculateTotalMeals } from "@/lib/calculations";
 import { ArrowLeft, Plus, Trash2, Loader2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -849,14 +850,47 @@ function buildPackageDescription(quotation) {
   }
 
   const itinerary = quotation.itinerarySummary;
-  const included = (itinerary?.inclusions || []).filter((i) => i.selected).map((i) => i.text);
-  if (included.length) {
-    lines.push(`\n✅ Included:\n${included.map((i) => `  • ${i}`).join("\n")}`);
+  const editorIncluded = (itinerary?.inclusions || []).filter((i) => i.selected).map((i) => i.text);
+
+  const { totalBreakfasts, totalLunches, totalDinners } = calculateTotalMeals(quotation.hotelSummary || []);
+  
+  const legacyIncluded = [];
+  legacyIncluded.push("Accommodation as specified.");
+  if (totalBreakfasts > 0) legacyIncluded.push(`${totalBreakfasts} Breakfast(s)`);
+  if (totalLunches > 0) legacyIncluded.push(`${totalLunches} Lunch(es)`);
+  if (totalDinners > 0) legacyIncluded.push(`${totalDinners} Dinner(s)`);
+  if (!totalBreakfasts && !totalLunches && !totalDinners) {
+    legacyIncluded.push("No meals included (EP Plan)");
   }
 
-  const excluded = (itinerary?.exclusions || []).filter((i) => i.selected).map((i) => i.text);
-  if (excluded.length) {
-    lines.push(`\n❌ Excluded:\n${excluded.map((i) => `  • ${i}`).join("\n")}`);
+  if (quotation.transportSummary?.vehicleName) {
+    const v = quotation.transportSummary;
+    legacyIncluded.push(`Private ${v.vehicleName}${v.ac ? " (AC)" : ""}.`);
+    legacyIncluded.push("Toll, parking fees, driver allowance, and permits.");
+  }
+
+  if (quotation.activitySummary?.length) {
+    quotation.activitySummary.forEach((a) =>
+      legacyIncluded.push(`${a.name} (${a.city || "Custom"}) - ${a.participants} Person(s)`)
+    );
+  }
+
+  const allIncluded = [...legacyIncluded, ...editorIncluded];
+  if (allIncluded.length) {
+    lines.push(`\n✅ Included:\n${allIncluded.map((i) => `  • ${i}`).join("\n")}`);
+  }
+
+  const legacyExcluded = [
+    "Train / Flight Fare.",
+    "Early check-in & late check-out.",
+    "Anything not in the Included list.",
+  ];
+
+  const editorExcluded = (itinerary?.exclusions || []).filter((i) => i.selected).map((i) => i.text);
+  const allExcluded = [...legacyExcluded, ...editorExcluded];
+  
+  if (allExcluded.length) {
+    lines.push(`\n❌ Excluded:\n${allExcluded.map((i) => `  • ${i}`).join("\n")}`);
   }
 
   return lines.join("\n");
